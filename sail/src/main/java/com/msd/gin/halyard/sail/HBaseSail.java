@@ -758,11 +758,11 @@ public class HBaseSail implements Sail, SailConnection, FederatedServiceResolver
         private final byte[] subjHash, predHash;
         protected final List<Resource> contextsList;
         protected Iterator<Resource> contexts;
+        private Resource context;
         protected byte[] objHash;
         private ResultScanner rs = null;
         private final long endTime;
         private Statement next = null;
-        private Iterator<Statement> iter = null;
 
         public StatementScanner(long startTime, Resource subj, IRI pred, Value obj, Resource...contexts) throws SailException {
             this.subj = subj;
@@ -781,9 +781,9 @@ public class HBaseSail implements Sail, SailConnection, FederatedServiceResolver
             while (true) {
                 if (rs == null) {
                     if (contexts.hasNext()) {
-
+                    	context = contexts.next();
                         //build a ResultScanner from an HBase Scan that finds potential matches
-                        rs = table.getScanner(HalyardTableUtils.scan(subjHash, predHash, objHash, HalyardTableUtils.hashKey(contexts.next())));
+                        rs = table.getScanner(HalyardTableUtils.scan(subjHash, predHash, objHash, HalyardTableUtils.hashKey(context)));
                     } else {
                         return null;
                     }
@@ -813,22 +813,12 @@ public class HBaseSail implements Sail, SailConnection, FederatedServiceResolver
             }
             if (next == null) try { //try and find the next result
                 while (true) {
-                    if (iter == null) {
                         Result res = nextResult();
                         if (res == null) {
                             return false; //no more Results
                         } else {
-                            iter = HalyardTableUtils.parseStatements(res, getValueFactory()).iterator();
+                            next = HalyardTableUtils.parseStatement(res, subj, pred, obj, context, getValueFactory());
                         }
-                    }
-                    while (iter.hasNext()) {
-                        Statement s = iter.next();
-                        if ((subj == null || subj.equals(s.getSubject())) && (pred == null || pred.equals(s.getPredicate())) && (obj == null || obj.equals(s.getObject()))) {
-                            next = s;  //cache the next statement which will be returned with a call to next().
-                            return true; //there is another statement
-                        }
-                    }
-                    iter = null;
                 }
             } catch (IOException e) {
                 throw new SailException(e);

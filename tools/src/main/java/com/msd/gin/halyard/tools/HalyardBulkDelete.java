@@ -16,14 +16,13 @@
  */
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.common.HalyardTableUtils;
-import com.yammer.metrics.core.Gauge;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Level;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -54,6 +53,9 @@ import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.ntriples.NTriplesUtil;
 
+import com.msd.gin.halyard.common.HalyardTableUtils;
+import com.yammer.metrics.core.Gauge;
+
 /**
  *
  * @author Adam Sotona (MSD)
@@ -73,7 +75,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         Resource subj;
         IRI pred;
         Value obj;
-        List<Resource> ctx;
+        Set<Resource> ctx;
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
@@ -93,7 +95,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
             }
             String cs[] = conf.getStrings(CONTEXTS);
             if (cs != null) {
-                ctx = new ArrayList<>();
+                ctx = new HashSet<>();
                 for (String c : cs) {
                     if ("NONE".equals(c)) {
                         ctx.add(null);
@@ -106,24 +108,24 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 
         @Override
         protected void map(ImmutableBytesWritable key, Result value, Context output) throws IOException, InterruptedException {
-            for (Cell c : value.rawCells()) {
-                Statement st = HalyardTableUtils.parseStatement(c, SVF);
-                if ((subj == null || subj.equals(st.getSubject())) && (pred == null || pred.equals(st.getPredicate())) && (obj == null || obj.equals(st.getObject())) && (ctx == null || ctx.contains(st.getContext()))) {
-                    KeyValue kv = new KeyValue(c.getRowArray(), c.getRowOffset(), (int) c.getRowLength(),
-                        c.getFamilyArray(), c.getFamilyOffset(), (int) c.getFamilyLength(),
-                        c.getQualifierArray(), c.getQualifierOffset(), c.getQualifierLength(),
-                        c.getTimestamp(), KeyValue.Type.DeleteColumn, c.getValueArray(), c.getValueOffset(),
-                        c.getValueLength(), c.getTagsArray(), c.getTagsOffset(), c.getTagsLength());
-                    output.write(new ImmutableBytesWritable(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength()), kv);
-                    deleted++;
-                } else {
-                    output.progress();
+            Statement st = HalyardTableUtils.parseStatement(value, SVF);
+            if ((subj == null || subj.equals(st.getSubject())) && (pred == null || pred.equals(st.getPredicate())) && (obj == null || obj.equals(st.getObject())) && (ctx == null || ctx.contains(st.getContext()))) {
+                for (Cell c : value.rawCells()) {
+	                KeyValue kv = new KeyValue(c.getRowArray(), c.getRowOffset(), (int) c.getRowLength(),
+	                    c.getFamilyArray(), c.getFamilyOffset(), (int) c.getFamilyLength(),
+	                    c.getQualifierArray(), c.getQualifierOffset(), c.getQualifierLength(),
+	                    c.getTimestamp(), KeyValue.Type.DeleteColumn, c.getValueArray(), c.getValueOffset(),
+	                    c.getValueLength(), c.getTagsArray(), c.getTagsOffset(), c.getTagsLength());
+	                output.write(new ImmutableBytesWritable(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength()), kv);
                 }
-                if (total++ % 10000l == 0) {
-                    String msg = MessageFormat.format("{0} / {1} cells deleted", deleted, total);
-                    output.setStatus(msg);
-                    LOG.log(Level.INFO, msg);
-                }
+                deleted++;
+            } else {
+                output.progress();
+            }
+            if (total++ % 10000l == 0) {
+                String msg = MessageFormat.format("{0} / {1} cells deleted", deleted, total);
+                output.setStatus(msg);
+                LOG.log(Level.INFO, msg);
             }
 
         }

@@ -49,6 +49,7 @@ import org.apache.htrace.Trace;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
@@ -101,13 +102,13 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
                 export(false);
                 lastHash = hash;
             }
-            for (Statement st : HalyardTableUtils.parseStatements(value, SVF)) {
-                statements++;
-                if (st.getObject() instanceof Literal) {
-                    String l = st.getObject().stringValue();
-                    if (!literals.contains(l)) {
-                        literals.add(l);
-                    }
+            // only care about object, so use dummy values elsewhere
+            Statement st = HalyardTableUtils.parseStatement(value, RDF.NIL, RDF.NIL, null, RDF.NIL, SVF);
+            statements++;
+            if (st.getObject() instanceof Literal) {
+                String l = st.getObject().stringValue();
+                if (!literals.contains(l)) {
+                    literals.add(l);
                 }
             }
         }
@@ -273,7 +274,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         TableMapReduceUtil.initCredentials(job);
 
         Scan scan = new Scan();
-        scan.addFamily("e".getBytes(StandardCharsets.UTF_8));
+        scan.addColumn("e".getBytes(StandardCharsets.UTF_8), "o".getBytes(StandardCharsets.UTF_8));
         scan.setMaxVersions(1);
         scan.setBatch(10);
         scan.setAllowPartialResults(true);

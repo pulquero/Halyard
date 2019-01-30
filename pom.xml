@@ -40,7 +40,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>findbugs-maven-plugin</artifactId>
-                <version>3.0.0</version>
+                <version>3.0.4</version>
                 <executions>
                     <execution>
                         <id>findbugs-on-package</id>
@@ -174,6 +174,17 @@
             </plugins>
         </pluginManagement>
     </build>
+    <dependencyManagement>
+    	<dependencies>
+    		<dependency>
+    			<groupId>jdk.tools</groupId>
+    			<artifactId>jdk.tools</artifactId>
+    			<version>1.8</version>
+    			<systemPath>${JAVA_HOME}/lib/tools.jar</systemPath>
+    			<scope>system</scope>
+    		</dependency>
+    	</dependencies>
+    </dependencyManagement>
     <profiles>
         <profile>
             <id>third-party-licenses</id>

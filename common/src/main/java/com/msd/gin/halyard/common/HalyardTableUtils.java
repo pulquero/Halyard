@@ -17,18 +17,16 @@
 package com.msd.gin.halyard.common;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
+import java.security.Security;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.List;
 import java.util.TreeSet;
+
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
@@ -42,10 +40,12 @@ import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
 import org.apache.hadoop.hbase.io.compress.Compression;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.regionserver.BloomType;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -64,9 +64,13 @@ public final class HalyardTableUtils {
     private static final Charset UTF8 = StandardCharsets.UTF_8;
     private static final byte[] EMPTY = new byte[0];
     private static final byte[] CF_NAME = "e".getBytes(UTF8);
-    private static final String MD_ALGORITHM = "SHA1";
+    private static final byte[] S_C_NAME = "s".getBytes(UTF8);
+    private static final byte[] P_C_NAME = "p".getBytes(UTF8);
+    private static final byte[] O_C_NAME = "o".getBytes(UTF8);
+    private static final byte[] C_C_NAME = "c".getBytes(UTF8);
+    private static final String MD_ALGORITHM = "Skein-256-256";
     private static final Base64.Encoder ENC = Base64.getUrlEncoder().withoutPadding();
-    public static final int HASH_LENGTH = 20;
+    public static final int HASH_LENGTH = 32;
 
     /*
      * Triples/ quads are stored in multiple regions as different permutations.
@@ -104,6 +108,8 @@ public final class HalyardTableUtils {
     public static final byte COSP_PREFIX = 5;
 
     private static final int PREFIXES = 3;
+    private static final int TRIPLE_COLS = 3;
+    private static final int QUAD_COLS = 4;
     private static final byte[] START_KEY = new byte[HASH_LENGTH];
     public static final byte[] STOP_KEY = new byte[HASH_LENGTH];
     static {
@@ -114,6 +120,11 @@ public final class HalyardTableUtils {
     private static final DataBlockEncoding DEFAULT_DATABLOCK_ENCODING = DataBlockEncoding.PREFIX;
     private static final String REGION_MAX_FILESIZE = "10000000000";
     private static final String REGION_SPLIT_POLICY = "org.apache.hadoop.hbase.regionserver.ConstantSizeRegionSplitPolicy";
+
+    static {
+    	System.setProperty("org.bouncycastle.ec.disable_mqv", "true");
+    	Security.addProvider(new BouncyCastleProvider());
+    }
 
     private static final ThreadLocal<MessageDigest> MD = new ThreadLocal<MessageDigest>(){
         @Override
@@ -258,10 +269,7 @@ public final class HalyardTableUtils {
         byte[] pKey = hashKey(pb);  //predicate key
         byte[] oKey = hashKey(ob);  //object key
 
-        //bytes to be used for the HBase column qualifier
-        byte[] cq = ByteBuffer.allocate(sb.length + pb.length + ob.length + cb.length + 12).putInt(sb.length).putInt(pb.length).putInt(ob.length).put(sb).put(pb).put(ob).put(cb).array();
-
-        KeyValue kv[] =  new KeyValue[context == null ? PREFIXES : 2 * PREFIXES];
+        KeyValue kv[] =  new KeyValue[context == null ? TRIPLE_COLS * PREFIXES : QUAD_COLS * 2 * PREFIXES];
 
         KeyValue.Type type = delete ? KeyValue.Type.DeleteColumn : KeyValue.Type.Put;
 
@@ -272,19 +280,29 @@ public final class HalyardTableUtils {
             timestamp |= 1;
         }
 
-        //generate HBase key value pairs from: row, family, qualifier, value. Permutations of SPO (and if needed CSPO) are all stored. Values are actually empty.
-        kv[0] = new KeyValue(concat(SPO_PREFIX, false, sKey, pKey, oKey), CF_NAME, cq, timestamp, type, EMPTY);
-        kv[1] = new KeyValue(concat(POS_PREFIX, false, pKey, oKey, sKey), CF_NAME, cq, timestamp, type, EMPTY);
-        kv[2] = new KeyValue(concat(OSP_PREFIX, false, oKey, sKey, pKey), CF_NAME, cq, timestamp, type, EMPTY);
+        //generate HBase key value pairs from: row, family, qualifier, value. Permutations of SPO (and if needed CSPO) are all stored.
+        int i = 0;
+        i = appendKeyValues(kv, i, concat(SPO_PREFIX, false, sKey, pKey, oKey), sb, pb, ob, cb, timestamp, type);
+        i = appendKeyValues(kv, i, concat(POS_PREFIX, false, pKey, oKey, sKey), sb, pb, ob, cb, timestamp, type);
+        i = appendKeyValues(kv, i, concat(OSP_PREFIX, false, oKey, sKey, pKey), sb, pb, ob, cb, timestamp, type);
         if (context != null) {
             byte[] cKey = hashKey(cb);
-            kv[3] = new KeyValue(concat(CSPO_PREFIX, false, cKey, sKey, pKey, oKey), CF_NAME, cq, timestamp, type, EMPTY);
-            kv[4] = new KeyValue(concat(CPOS_PREFIX, false, cKey, pKey, oKey, sKey), CF_NAME, cq, timestamp, type, EMPTY);
-            kv[5] = new KeyValue(concat(COSP_PREFIX, false, cKey, oKey, sKey, pKey), CF_NAME, cq, timestamp, type, EMPTY);
+            i = appendKeyValues(kv, i, concat(CSPO_PREFIX, false, cKey, sKey, pKey, oKey), sb, pb, ob, cb, timestamp, type);
+            i = appendKeyValues(kv, i, concat(CPOS_PREFIX, false, cKey, pKey, oKey, sKey), sb, pb, ob, cb, timestamp, type);
+            i = appendKeyValues(kv, i, concat(COSP_PREFIX, false, cKey, oKey, sKey, pKey), sb, pb, ob, cb, timestamp, type);
         }
         return kv;
     }
 
+    private static int appendKeyValues(KeyValue[] kv, int index, byte[] key, byte[] sb, byte[] pb, byte[] ob, byte[] cb, long timestamp, KeyValue.Type type) {
+        kv[index++] = new KeyValue(key, CF_NAME, S_C_NAME, timestamp, type, sb, EMPTY);
+        kv[index++] = new KeyValue(key, CF_NAME, P_C_NAME, timestamp, type, pb, EMPTY);
+        kv[index++] = new KeyValue(key, CF_NAME, O_C_NAME, timestamp, type, ob, EMPTY);
+        if(cb.length > 0) {
+        	kv[index++] = new KeyValue(key, CF_NAME, C_C_NAME, timestamp, type, cb, EMPTY);
+        }
+        return index;
+    }
 
     /**
      * Method constructing HBase Scan from a Statement pattern, any of the arguments can be null
@@ -312,27 +330,27 @@ public final class HalyardTableUtils {
                     if (objHash == null) {
                         return scan(concat(SPO_PREFIX, false), concat(SPO_PREFIX, true, STOP_KEY, STOP_KEY, STOP_KEY));
                     } else {
-                        return scan(OSP_PREFIX, objHash);
+                        return scan(OSP_PREFIX, objHash).addColumn(CF_NAME, S_C_NAME).addColumn(CF_NAME, P_C_NAME).addColumn(CF_NAME, C_C_NAME);
                     }
                 } else {
                     if (objHash == null) {
-                        return scan(POS_PREFIX, predHash);
+                        return scan(POS_PREFIX, predHash).addColumn(CF_NAME, O_C_NAME).addColumn(CF_NAME, S_C_NAME).addColumn(CF_NAME, C_C_NAME);
                     } else {
-                        return scan(POS_PREFIX, predHash, objHash);
+                        return scan(POS_PREFIX, predHash, objHash).addColumn(CF_NAME, S_C_NAME).addColumn(CF_NAME, C_C_NAME);
                     }
                 }
             } else {
                 if (predHash == null) {
                     if (objHash == null) {
-                        return scan(SPO_PREFIX, subjHash);
+                        return scan(SPO_PREFIX, subjHash).addColumn(CF_NAME, P_C_NAME).addColumn(CF_NAME, O_C_NAME).addColumn(CF_NAME, C_C_NAME);
                     } else {
-                        return scan(OSP_PREFIX, objHash, subjHash);
+                        return scan(OSP_PREFIX, objHash, subjHash).addColumn(CF_NAME, P_C_NAME).addColumn(CF_NAME, C_C_NAME);
                     }
                 } else {
                     if (objHash == null) {
-                        return scan(SPO_PREFIX, subjHash, predHash);
+                        return scan(SPO_PREFIX, subjHash, predHash).addColumn(CF_NAME, O_C_NAME).addColumn(CF_NAME, C_C_NAME);
                     } else {
-                        return scan(SPO_PREFIX, subjHash, predHash, objHash);
+                        return scan(SPO_PREFIX, subjHash, predHash, objHash).addColumn(CF_NAME, C_C_NAME);
                     }
                 }
             }
@@ -340,7 +358,7 @@ public final class HalyardTableUtils {
             if (subjHash == null) {
                 if (predHash == null) {
                     if (objHash == null) {
-                        return scan(CSPO_PREFIX, ctxHash);
+                        return scan(CSPO_PREFIX, ctxHash).addColumn(CF_NAME, S_C_NAME).addColumn(CF_NAME, P_C_NAME).addColumn(CF_NAME, O_C_NAME);
                     } else {
                         return scan(COSP_PREFIX, ctxHash, objHash);
                     }
@@ -354,15 +372,15 @@ public final class HalyardTableUtils {
             } else {
                 if (predHash == null) {
                     if (objHash == null) {
-                        return scan(CSPO_PREFIX, ctxHash, subjHash);
+                        return scan(CSPO_PREFIX, ctxHash, subjHash).addColumn(CF_NAME, P_C_NAME).addColumn(CF_NAME, O_C_NAME);
                     } else {
                         return scan(COSP_PREFIX, ctxHash, objHash, subjHash);
                     }
                 } else {
                     if (objHash == null) {
-                        return scan(CSPO_PREFIX, ctxHash, subjHash, predHash);
+                        return scan(CSPO_PREFIX, ctxHash, subjHash, predHash).addColumn(CF_NAME, O_C_NAME);
                     } else {
-                        return scan(CSPO_PREFIX, ctxHash, subjHash, predHash, objHash);
+                        return scan(CSPO_PREFIX, ctxHash, subjHash, predHash, objHash).setFilter(new KeyOnlyFilter());
                     }
                 }
             }
@@ -370,35 +388,28 @@ public final class HalyardTableUtils {
     }
 
     /**
-     * Parser method returning all Statements from a single HBase Scan Result
+     * Parser method returning a statement from a single HBase Scan Result
      * @param res HBase Scan Result
-     * @return List of Statements
+     * @param subj
+     * @param pred
+     * @param obj
+     * @param context
+     * @return Statement
      */
-    public static List<Statement> parseStatements(Result res, ValueFactory vf) {
-    	// multiple triples may have the same hash (i.e. row key)
-        ArrayList<Statement> st = new ArrayList<>();
-        if (res.rawCells() != null) for (Cell c : res.rawCells()) {
-            st.add(parseStatement(c, vf));
-        }
-        return st;
+    public static Statement parseStatement(Result res, Resource subj, IRI pred, Value obj, Resource context, ValueFactory vf) {
+    	byte[] sb = res.getValue(CF_NAME, S_C_NAME);
+    	byte[] pb = res.getValue(CF_NAME, P_C_NAME);
+    	byte[] ob = res.getValue(CF_NAME, P_C_NAME);
+    	byte[] cb = res.getValue(CF_NAME, C_C_NAME);
+    	Resource s = (sb != null) ? NTriplesUtil.parseResource(new String(sb, UTF8), vf) : subj;
+    	IRI p = (pb != null) ? NTriplesUtil.parseURI(new String(pb, UTF8), vf) : pred;
+    	Value o = (ob != null) ? NTriplesUtil.parseValue(new String(ob, UTF8), vf) : obj;
+    	Resource c = (cb != null) ? NTriplesUtil.parseResource(new String(cb, UTF8), vf) : context;
+    	return vf.createStatement(s, p, o, c);
     }
 
-    /**
-     * Parser method returning Statement from a single HBase Result Cell
-     * @param c HBase Result Cell
-     * @return Statements
-     */
-    public static Statement parseStatement(Cell c, ValueFactory vf) {
-        ByteBuffer bb = ByteBuffer.wrap(c.getQualifierArray(), c.getQualifierOffset(), c.getQualifierLength());
-        byte[] sb = new byte[bb.getInt()];
-        byte[] pb = new byte[bb.getInt()];
-        byte[] ob = new byte[bb.getInt()];
-        bb.get(sb);
-        bb.get(pb);
-        bb.get(ob);
-        byte[] cb = new byte[bb.remaining()];
-        bb.get(cb);
-        return vf.createStatement(NTriplesUtil.parseResource(new String(sb, UTF8), vf), NTriplesUtil.parseURI(new String(pb, UTF8), vf), NTriplesUtil.parseValue(new String(ob,UTF8), vf), cb.length == 0 ? null : NTriplesUtil.parseResource(new String(cb,UTF8), vf));
+    public static Statement parseStatement(Result res, ValueFactory vf) {
+    	return parseStatement(res, null, null, null, null, vf);
     }
 
     /**

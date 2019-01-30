@@ -25,6 +25,8 @@ import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
+import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
@@ -180,11 +182,15 @@ public class HalyardTableUtilsScanTest {
     public void testScan() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
 
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s == null ? null : vf.createIRI(s), p == null ? null : vf.createIRI(p), o == null ? null : vf.createLiteral(o), c == null ? null : vf.createIRI(c)))) {
+        IRI subj = s == null ? null : vf.createIRI(s);
+        IRI pred = p == null ? null : vf.createIRI(p);
+        Literal obj = o == null ? null : vf.createLiteral(o);
+        IRI context = c == null ? null : vf.createIRI(c);
+        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(subj, pred, obj, context))) {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(HalyardTableUtils.parseStatements(r, vf));
+                res.add(HalyardTableUtils.parseStatement(r, subj, pred, obj, context, vf));
             }
             assertTrue(allStatements.containsAll(res));
             assertEquals(expRes, res.size());
