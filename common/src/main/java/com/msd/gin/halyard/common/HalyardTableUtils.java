@@ -19,6 +19,7 @@ package com.msd.gin.halyard.common;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -50,7 +51,6 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.rio.ntriples.NTriplesUtil;
 
 /**
@@ -61,7 +61,7 @@ import org.eclipse.rdf4j.rio.ntriples.NTriplesUtil;
  */
 public final class HalyardTableUtils {
 
-    private static final Charset UTF8 = Charset.forName("UTF-8");
+    private static final Charset UTF8 = StandardCharsets.UTF_8;
     private static final byte[] EMPTY = new byte[0];
     private static final byte[] CF_NAME = "e".getBytes(UTF8);
     private static final String MD_ALGORITHM = "SHA1";
@@ -373,10 +373,11 @@ public final class HalyardTableUtils {
      * @param res HBase Scan Result
      * @return List of Statements
      */
-    public static List<Statement> parseStatements(Result res) {
+    public static List<Statement> parseStatements(Result res, ValueFactory vf) {
+    	// multiple triples may have the same hash (i.e. row key)
         ArrayList<Statement> st = new ArrayList<>();
         if (res.rawCells() != null) for (Cell c : res.rawCells()) {
-            st.add(parseStatement(c));
+            st.add(parseStatement(c, vf));
         }
         return st;
     }
@@ -386,7 +387,7 @@ public final class HalyardTableUtils {
      * @param c HBase Result Cell
      * @return Statements
      */
-    public static Statement parseStatement(Cell c) {
+    public static Statement parseStatement(Cell c, ValueFactory vf) {
         ByteBuffer bb = ByteBuffer.wrap(c.getQualifierArray(), c.getQualifierOffset(), c.getQualifierLength());
         byte[] sb = new byte[bb.getInt()];
         byte[] pb = new byte[bb.getInt()];
@@ -396,7 +397,6 @@ public final class HalyardTableUtils {
         bb.get(ob);
         byte[] cb = new byte[bb.remaining()];
         bb.get(cb);
-        ValueFactory vf = SimpleValueFactory.getInstance();
         return vf.createStatement(NTriplesUtil.parseResource(new String(sb, UTF8), vf), NTriplesUtil.parseURI(new String(pb, UTF8), vf), NTriplesUtil.parseValue(new String(ob,UTF8), vf), cb.length == 0 ? null : NTriplesUtil.parseResource(new String(cb,UTF8), vf));
     }
 

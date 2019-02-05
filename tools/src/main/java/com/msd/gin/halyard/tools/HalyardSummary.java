@@ -131,7 +131,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
                 Scan scan = HalyardTableUtils.scan((Resource)instance, RDF.TYPE, null, null);
                 try (ResultScanner scanner = table.getScanner(scan)) {
                     for (Result r : scanner) {
-                        Statement st = HalyardTableUtils.parseStatement(r.rawCells()[0]);
+                        Statement st = HalyardTableUtils.parseStatement(r.rawCells()[0], SVF);
                         if (st.getSubject().equals(instance) && st.getPredicate().equals(RDF.TYPE) && (st.getObject() instanceof IRI)) {
                             res.add((IRI)st.getObject());
                         }
@@ -248,7 +248,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
         @Override
         protected void map(ImmutableBytesWritable key, Result value, Context output) throws IOException, InterruptedException {
             if (random.nextInt(decimationFactor) == 0) {
-                statementChange(HalyardTableUtils.parseStatement(value.rawCells()[0]));
+                statementChange(HalyardTableUtils.parseStatement(value.rawCells()[0], SVF));
             }
             if (++counter % 10000 == 0) {
                 output.setStatus(MessageFormat.format("{0} cc:{1} pc:{2} pd:{3} pr:{4} pdr:{5}", counter, ccCounter, pcCounter, pdCounter, prCounter, pdrCounter));

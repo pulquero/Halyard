@@ -169,7 +169,7 @@ public final class HalyardStats extends AbstractHalyardTool {
                             sail = new HBaseSail(conf, conf.get(SOURCE), false, 0, true, 0, null, null);
                             sail.initialize();
                         }
-                        for (Statement st : HalyardTableUtils.parseStatements(value)) {
+                        for (Statement st : HalyardTableUtils.parseStatements(value, SVF)) {
                             if (statsContext.equals(st.getContext()) && matchingGraphContext(st.getSubject())) {
                                 sail.removeStatement(null, st.getSubject(), st.getPredicate(), st.getObject(), st.getContext());
                                 removed++;

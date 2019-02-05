@@ -346,7 +346,7 @@ public class HBaseSail implements Sail, SailConnection, FederatedServiceResolver
 
             @Override
             public ValueFactory getValueFactory() {
-                return SimpleValueFactory.getInstance();
+                return HBaseSail.this.getValueFactory();
             }
         };
 
@@ -647,7 +647,7 @@ public class HBaseSail implements Sail, SailConnection, FederatedServiceResolver
     @Override
     public void setNamespace(String prefix, String name) throws SailException {
         namespaces.put(prefix, new SimpleNamespace(prefix, name));
-        ValueFactory vf = SimpleValueFactory.getInstance();
+        ValueFactory vf = getValueFactory();
         try {
             removeStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix));
             addStatementInternal(vf.createIRI(name), HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), HALYARD.SYSTEM_GRAPH_CONTEXT, getDefaultTimeStamp());
@@ -658,7 +658,7 @@ public class HBaseSail implements Sail, SailConnection, FederatedServiceResolver
 
     @Override
     public void removeNamespace(String prefix) throws SailException {
-        ValueFactory vf = SimpleValueFactory.getInstance();
+        ValueFactory vf = getValueFactory();
         namespaces.remove(prefix);
         try {
             removeStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix));
@@ -818,7 +818,7 @@ public class HBaseSail implements Sail, SailConnection, FederatedServiceResolver
                         if (res == null) {
                             return false; //no more Results
                         } else {
-                            iter = HalyardTableUtils.parseStatements(res).iterator();
+                            iter = HalyardTableUtils.parseStatements(res, getValueFactory()).iterator();
                         }
                     }
                     while (iter.hasNext()) {
