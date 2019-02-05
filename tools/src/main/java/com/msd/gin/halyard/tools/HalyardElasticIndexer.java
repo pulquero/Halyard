@@ -74,7 +74,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
 
         final SimpleValueFactory ssf = SimpleValueFactory.getInstance();
         long counter = 0, exports = 0, batches = 0, statements = 0;
-        byte[] lastHash = new byte[20], hash = new byte[20];
+        byte[] lastHash = new byte[HalyardTableUtils.HASH_LENGTH], hash = new byte[HalyardTableUtils.HASH_LENGTH];
         ArrayList<String> literals = new ArrayList<>();
         StringBuilder batch = new StringBuilder();
         URL url;
@@ -95,8 +95,8 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
             if ((counter++ % 100000) == 0) {
                 output.setStatus(MessageFormat.format("{0} st:{1} exp:{2} batch:{3} ", counter, statements, exports, batches));
             }
-            hash = new byte[20];
-            System.arraycopy(key.get(), key.getOffset() + (key.get()[key.getOffset()] == HalyardTableUtils.OSP_PREFIX ? 1 : 21), hash, 0, 20);
+            hash = new byte[HalyardTableUtils.HASH_LENGTH];
+            System.arraycopy(key.get(), key.getOffset() + (key.get()[key.getOffset()] == HalyardTableUtils.OSP_PREFIX ? 1 : HalyardTableUtils.HASH_LENGTH + 1), hash, 0, HalyardTableUtils.HASH_LENGTH);
             if (!Arrays.equals(hash, lastHash)) {
                 export(false);
                 lastHash = hash;

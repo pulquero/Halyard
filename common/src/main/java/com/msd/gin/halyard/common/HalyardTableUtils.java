@@ -66,6 +66,7 @@ public final class HalyardTableUtils {
     private static final byte[] CF_NAME = "e".getBytes(UTF8);
     private static final String MD_ALGORITHM = "SHA1";
     private static final Base64.Encoder ENC = Base64.getUrlEncoder().withoutPadding();
+    public static final int HASH_LENGTH = 20;
 
     /*
      * Triples/ quads are stored in multiple regions as different permutations.
@@ -103,8 +104,8 @@ public final class HalyardTableUtils {
     public static final byte COSP_PREFIX = 5;
 
     private static final int PREFIXES = 3;
-    private static final byte[] START_KEY = new byte[20];
-    public static final byte[] STOP_KEY = new byte[20];
+    private static final byte[] START_KEY = new byte[HASH_LENGTH];
+    public static final byte[] STOP_KEY = new byte[HASH_LENGTH];
     static {
         Arrays.fill(START_KEY, (byte)0);
         Arrays.fill(STOP_KEY, (byte)0xff); /* 0xff is 255 in decimal */
