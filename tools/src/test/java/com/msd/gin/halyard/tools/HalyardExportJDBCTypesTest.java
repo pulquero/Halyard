@@ -16,8 +16,9 @@
  */
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.common.HBaseServerTestInstance;
-import com.msd.gin.halyard.sail.HBaseSail;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -26,6 +27,7 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Date;
+
 import org.apache.hadoop.util.ToolRunner;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
@@ -34,13 +36,15 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
-import static org.junit.Assert.*;
+
+import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import com.msd.gin.halyard.sail.HBaseSail;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
-public class HalyardExportJDBCTypesTest {
+public class HalyardExportJDBCTypesTest extends HBaseServerTestInstance {
 
     private static final String TABLE = "exportjdbctesttable";
 
@@ -70,7 +74,6 @@ public class HalyardExportJDBCTypesTest {
 		}
         sail.shutDown();
     }
-
 
     @Test
     public void testExportJDBCTypes() throws Exception {

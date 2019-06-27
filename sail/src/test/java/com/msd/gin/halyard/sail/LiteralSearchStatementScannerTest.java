@@ -48,7 +48,7 @@ import static org.junit.Assert.*;
  *
  * @author Adam Sotona (MSD)
  */
-public class LiteralSearchStatementScannerTest implements Runnable {
+public class LiteralSearchStatementScannerTest extends HBaseServerTestInstance implements Runnable {
 
     static HBaseSail hbaseSail;
     static ServerSocket server;

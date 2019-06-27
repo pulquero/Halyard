@@ -662,9 +662,9 @@ public class HBaseSailConnection implements SailConnection {
                         //build a ResultScanner from an HBase Scan that finds potential matches
                     	ctx = RDFContext.create(contexts.next());
                     	Scan scan = HalyardTableUtils.scan(subj, pred, obj, ctx);
-						scan.setTimeRange(sail.minTimestamp, sail.maxTimestamp);
-						scan.setMaxVersions(sail.maxVersions);
-                        rs = table.getScanner(scan);
+                   		scan.setTimeRange(sail.minTimestamp, sail.maxTimestamp);
+                   		scan.setMaxVersions(sail.maxVersions);
+						rs = HalyardTableUtils.getScanner(sail::getTable, HalyardTableUtils.addSalt(scan));
                     } else {
                         return null;
                     }

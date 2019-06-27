@@ -18,28 +18,16 @@ package com.msd.gin.halyard.common;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
-import java.util.ArrayList;
+import java.io.IOException;
 import java.util.List;
 
-import org.apache.commons.lang.RandomStringUtils;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.ResultScanner;
-import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.Scan;
 import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
@@ -48,113 +36,12 @@ import org.junit.Test;
  */
 public class HalyardTableUtilsTest {
 
-	private static Connection conn;
-	private static Table table;
-
-    @BeforeClass
-    public static void setup() throws Exception {
-		conn = HalyardTableUtils.getConnection(HBaseServerTestInstance.getInstanceConfig());
-		table = HalyardTableUtils.getTable(conn, "testUtils", true, -1);
-    }
-
-    @AfterClass
-    public static void teardown() throws Exception {
-        table.close();
-		conn.close();
-    }
-
-    @Test
-    public void testGetTheSameTableAgain() throws Exception {
-        table.close();
-        table = HalyardTableUtils.getTable(HBaseServerTestInstance.getInstanceConfig(), "testUtils", true, 1);
-    }
-
     @Test
     public void testIdIsUnique() {
         ValueFactory vf = SimpleValueFactory.getInstance();
         assertNotEquals(
         	HalyardTableUtils.id(vf.createLiteral("1", vf.createIRI("local:type1"))),
         	HalyardTableUtils.id(vf.createLiteral("1", vf.createIRI("local:type2"))));
-    }
-
-    @Test
-    public void testBigLiteral() throws Exception {
-        ValueFactory vf = SimpleValueFactory.getInstance();
-        Resource subj = vf.createIRI("http://testBigLiteral/subject/");
-        IRI pred = vf.createIRI("http://testBigLiteral/pred/");
-        Value obj = vf.createLiteral(RandomStringUtils.random(100000));
-		List<Put> puts = new ArrayList<>();
-        for (KeyValue kv : HalyardTableUtils.toKeyValues(subj, pred, obj, null, false, System.currentTimeMillis())) {
-			puts.add(new Put(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength(), kv.getTimestamp()).add(kv));
-        }
-		table.put(puts);
-
-        RDFSubject s = RDFSubject.create(subj);
-        RDFPredicate p = RDFPredicate.create(pred);
-        RDFObject o = RDFObject.create(obj);
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p, o, null))) {
-            assertEquals(obj, HalyardTableUtils.parseStatements(s, p, o, null, rs.next(), vf).iterator().next().getObject());
-        }
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p, null, null))) {
-            assertEquals(obj, HalyardTableUtils.parseStatements(s, p, null, null, rs.next(), vf).iterator().next().getObject());
-        }
-    }
-
-    @Test
-    public void testConflictingHash() throws Exception {
-        ValueFactory vf = SimpleValueFactory.getInstance();
-        Resource subj = vf.createIRI("http://testConflictingHash/subject/");
-        IRI pred1 = vf.createIRI("http://testConflictingHash/pred1/");
-        IRI pred2 = vf.createIRI("http://testConflictingHash/pred2/");
-        Value obj1 = vf.createLiteral("literal1");
-        Value obj2 = vf.createLiteral("literal2");
-        long timestamp = System.currentTimeMillis();
-        KeyValue kv1[] = HalyardTableUtils.toKeyValues(subj, pred1, obj1, null, false, timestamp);
-        KeyValue kv2[] = HalyardTableUtils.toKeyValues(subj, pred2, obj2, null, false, timestamp);
-		List<Put> puts = new ArrayList<>();
-        for (int i=0; i<3; i++) {
-			puts.add(new Put(kv1[i].getRowArray(), kv1[i].getRowOffset(), kv1[i].getRowLength(), kv1[i].getTimestamp())
-					.add(kv1[i]));
-            KeyValue conflicting = new KeyValue(kv1[i].getRowArray(), kv1[i].getRowOffset(), kv1[i].getRowLength(),
-                    kv1[i].getFamilyArray(), kv1[i].getFamilyOffset(), kv1[i].getFamilyLength(),
-                    kv2[i].getQualifierArray(), kv2[i].getQualifierOffset(), kv2[i].getQualifierLength(),
-                    kv1[i].getTimestamp(), KeyValue.Type.Put, kv2[i].getValueArray(), kv2[i].getValueOffset(), kv2[i].getValueLength());
-			puts.add(new Put(conflicting.getRowArray(), conflicting.getRowOffset(), conflicting.getRowLength(),
-					conflicting.getTimestamp()).add(conflicting));
-        }
-		table.put(puts);
-
-        RDFSubject s = RDFSubject.create(subj);
-        RDFPredicate p1 = RDFPredicate.create(pred1);
-        RDFObject o1 = RDFObject.create(obj1);
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p1, o1, null))) {
-            List<Statement> res = HalyardTableUtils.parseStatements(s, p1, o1, null, rs.next(), vf);
-            assertEquals(1, res.size());
-            assertTrue(res.contains(SimpleValueFactory.getInstance().createStatement(subj, pred1, obj1)));
-        }
-    }
-
-    @Test
-    public void testTruncateTable() throws Exception {
-        ValueFactory vf = SimpleValueFactory.getInstance();
-        Resource subj = vf.createIRI("http://whatever/subj/");
-        IRI pred = vf.createIRI("http://whatever/pred/");
-        Value expl = vf.createLiteral("explicit");
-		List<Put> puts = new ArrayList<>();
-        for (KeyValue kv : HalyardTableUtils.toKeyValues(subj, pred, expl, null, false, System.currentTimeMillis())) {
-			puts.add(new Put(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength(), kv.getTimestamp()).add(kv));
-        }
-		table.put(puts);
-        RDFSubject s = RDFSubject.create(subj);
-        RDFPredicate p = RDFPredicate.create(pred);
-        RDFObject o = RDFObject.create(expl);
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p, o, null))) {
-            assertNotNull(rs.next());
-        }
-		HalyardTableUtils.truncateTable(conn, table);
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p, o, null))) {
-            assertNull(rs.next());
-        }
     }
 
     @Test
@@ -179,7 +66,7 @@ public class HalyardTableUtilsTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void testTooBigSplitBits() {
-        HalyardTableUtils.calculateSplits(17);
+        HalyardTableUtils.calculateSplits(21);
     }
 
     @Test
@@ -196,4 +83,57 @@ public class HalyardTableUtilsTest {
     public void testEncode() {
         assertEquals("AQIDBAU", HalyardTableUtils.encode(new byte[]{1, 2, 3, 4, 5}));
     }
+
+    @Test
+    public void testSalt() {
+    	for(int salt=0; salt<HalyardTableUtils.NUM_SALTS; salt++) {
+    		for(int prefix=0; prefix<=HalyardTableUtils.COSP_PREFIX; prefix++) {
+    			assertEquals(prefix, HalyardTableUtils.unsalt(HalyardTableUtils.addSalt((byte)prefix, salt)));
+    		}
+    	}
+    }
+
+    @Test
+    public void testScanSalt() throws IOException {
+    	byte prefix = 4;
+		Scan scan = HalyardTableUtils.scan(new byte[] { prefix }, new byte[] { prefix });
+    	List<Scan> saltedScans = HalyardTableUtils.addSalt(scan);
+    	for(int i=0; i<HalyardTableUtils.NUM_SALTS; i++) {
+    		byte[] startRow = saltedScans.get(i).getStartRow();
+    		assertEquals(prefix, HalyardTableUtils.unsalt(startRow[0]));
+    		assertEquals(i, HalyardTableUtils.getSalt(startRow[0]));
+    		byte[] stopRow = saltedScans.get(i).getStopRow();
+    		assertEquals(prefix, HalyardTableUtils.unsalt(stopRow[0]));
+    		assertEquals(i, HalyardTableUtils.getSalt(stopRow[0]));
+    	}
+    }
+
+    @Test
+    public void testEmptyScanSalt() throws IOException {
+    	Scan scan = HalyardTableUtils.scan(null, null);
+    	List<Scan> saltedScans = HalyardTableUtils.addSalt(scan);
+    	for(int i=0; i<HalyardTableUtils.NUM_SALTS; i++) {
+    		byte[] startRow = saltedScans.get(i).getStartRow();
+			assertEquals(0, HalyardTableUtils.unsalt(startRow[0]));
+			assertEquals(i, HalyardTableUtils.getSalt(startRow[0]));
+    		byte[] stopRow = saltedScans.get(i).getStopRow();
+    		if(i == HalyardTableUtils.NUM_SALTS-1) {
+    			assertEquals(0, stopRow.length);
+    		} else {
+	    		assertEquals(0, HalyardTableUtils.unsalt(stopRow[0]));
+				assertEquals(i + 1, HalyardTableUtils.getSalt(stopRow[0]));
+    		}
+    	}
+    }
+
+	@Test
+	public void testGetScanSalt() throws IOException {
+		Scan scan = HalyardTableUtils.scan(new byte[] { 0x01, 0x2e }, new byte[] { 0x01, 0x2e });
+		List<Scan> saltedScans = HalyardTableUtils.addSalt(scan);
+		assertEquals(1, saltedScans.size());
+		byte[] startRow = saltedScans.get(0).getStartRow();
+		assertEquals(2, HalyardTableUtils.getSalt(startRow[0]));
+		byte[] stopRow = saltedScans.get(0).getStartRow();
+		assertEquals(2, HalyardTableUtils.getSalt(stopRow[0]));
+	}
 }

@@ -53,7 +53,7 @@ import com.sun.net.httpserver.HttpServer;
  *
  * @author Adam Sotona (MSD)
  */
-public class HalyardElasticIndexerTest {
+public class HalyardElasticIndexerTest extends HBaseServerTestInstance {
 	private static final String ES_VERSION = "7.0.1";
 	private static final String NODE_ID = UUID.randomUUID().toString();
 	private static final String INDEX_NAME = "my_index";

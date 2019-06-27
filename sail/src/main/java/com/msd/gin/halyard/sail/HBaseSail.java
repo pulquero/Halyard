@@ -91,7 +91,7 @@ public class HBaseSail implements Sail, FederatedServiceResolver {
     private static final String MAX_VERSIONS_QUERY_PARAM = "maxVersions";
 
     private final Configuration config; //the configuration of the HBase database
-    final String tableName;
+	final TableName tableName;
     final boolean create;
     final boolean pushStrategy;
     final int splitBits;
@@ -119,7 +119,7 @@ public class HBaseSail implements Sail, FederatedServiceResolver {
     	this.hConnection = conn;
     	this.hConnectionIsShared = (conn != null);
         this.config = config;
-        this.tableName = tableName;
+		this.tableName = TableName.valueOf(tableName);
         this.create = create;
         this.splitBits = splitBits;
         this.pushStrategy = pushStrategy;
@@ -175,7 +175,7 @@ public class HBaseSail implements Sail, FederatedServiceResolver {
      */
 	Table getTable() {
         try {
-			return HalyardTableUtils.getTable(hConnection, tableName, create, splitBits);
+			return hConnection.getTable(tableName);
 		} catch (IOException e) {
 			throw new SailException(e);
 		}
@@ -203,12 +203,9 @@ public class HBaseSail implements Sail, FederatedServiceResolver {
 			}
     	}
 
-    	try {
-			if (!create && !hConnection.getAdmin().tableExists(TableName.valueOf(tableName))) {
-				throw new SailException(String.format("Table does not exist: %s", tableName));
-			}
-		}
-		catch (IOException e) {
+		// initialize table
+		try (Table table = HalyardTableUtils.getTable(hConnection, tableName.getNameAsString(), create, splitBits)) {
+		} catch (IOException e) {
 			throw new SailException(e);
 		}
 

@@ -1,5 +1,6 @@
 package com.msd.gin.halyard.common;
 
+import org.apache.hadoop.hbase.util.Bytes;
 import org.eclipse.rdf4j.model.Value;
 
 public abstract class RDFValue<V extends Value> {
@@ -9,12 +10,6 @@ public abstract class RDFValue<V extends Value> {
 
 	public static <V extends Value> boolean matches(V value, RDFValue<V> pattern) {
 		return pattern == null || pattern.val.equals(value);
-	}
-
-	private static byte[] copy(byte[] src, int offset, int len) {
-		byte[] dest = new byte[len];
-		System.arraycopy(src, offset, dest, 0, len);
-		return dest;
 	}
 
 	protected RDFValue(V val) {
@@ -45,19 +40,19 @@ public abstract class RDFValue<V extends Value> {
 	}
 
 	public final byte[] getKeyHash() {
-		return copy(getUniqueHash(), 0, keyHashSize());
+		return Bytes.copy(getUniqueHash(), 0, keyHashSize());
 	}
 
 	final byte[] getEndKeyHash() {
-		return copy(getUniqueHash(), 0, endKeyHashSize());
+		return Bytes.copy(getUniqueHash(), 0, endKeyHashSize());
 	}
 
 	final byte[] getQualifierHash() {
-		return copy(getUniqueHash(), keyHashSize(), qualifierHashSize());
+		return Bytes.copy(getUniqueHash(), keyHashSize(), qualifierHashSize());
 	}
 
 	final byte[] getEndQualifierHash() {
-		return copy(getUniqueHash(), endKeyHashSize(), endQualifierHashSize());
+		return Bytes.copy(getUniqueHash(), endKeyHashSize(), endQualifierHashSize());
 	}
 
 	protected abstract int keyHashSize();

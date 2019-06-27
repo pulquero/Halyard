@@ -55,7 +55,7 @@ import static org.junit.Assert.*;
  *
  * @author Adam Sotona (MSD)
  */
-public class HalyardExportTest {
+public class HalyardExportTest extends HBaseServerTestInstance {
 
     private static final String TABLE = "exporttesttable";
     private static final String TUPLE_QUERY = "select * where {?s ?p ?o}";

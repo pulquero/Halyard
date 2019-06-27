@@ -1,0 +1,303 @@
+@prefix : <http://whatever/> .
+
+{
+	:subj7 a :type7 ;
+		:pred7 _:id5f7 .
+
+	:subj83 a :type83 ;
+		:pred5 "whatever value 83" .
+
+	:subj45 a :type45 ;
+		:pred6 "whatever value 45" .
+
+	:subj19 a :type19 ;
+		:pred6 "whatever value 19" .
+
+	:subj9 a :type9 ;
+		:pred9 "whatever value 9" .
+
+	:subj13 :pred0 "whatever value 13" ;
+		a :type13 .
+
+	:subj35 a :type35 ;
+		:pred9 _:id5f35 .
+
+	:subj1 :pred1 "whatever value 1" ;
+		a :type1 .
+
+	:subj5 a :type5 ;
+		:pred5 "whatever value 5" .
+
+	:subj21 :pred8 _:id5f21 ;
+		a :type21 .
+
+	:subj17 :pred4 "whatever value 17" ;
+		a :type17 .
+
+	:subj47 :pred8 "whatever value 47" ;
+		a :type47 .
+
+	:subj39 :pred0 "whatever value 39" ;
+		a :type39 .
+
+	:subj89 a :type89 ;
+		:pred11 "whatever value 89" .
+
+	:subj67 :pred2 "whatever value 67" ;
+		a :type67 .
+
+	:subj57 a :type57 ;
+		:pred5 "whatever value 57" .
+
+	:subj59 a :type59 ;
+		:pred7 "whatever value 59" .
+
+	:subj71 a :type71 ;
+		:pred6 "whatever value 71" .
+
+	:subj95 :pred4 "whatever value 95" ;
+		a :type95 .
+
+	:subj73 :pred8 "whatever value 73" ;
+		a :type73 .
+
+	:subj93 :pred2 "whatever value 93" ;
+		a :type93 .
+
+	:subj91 :pred0 _:id5f91 ;
+		a :type91 .
+
+	:subj37 a :type37 ;
+		:pred11 "whatever value 37" .
+
+	:subj15 :pred2 "whatever value 15" ;
+		a :type15 .
+
+	:subj41 :pred2 "whatever value 41" ;
+		a :type41 .
+
+	:subj63 a :type63 ;
+		:pred11 _:id5f63 .
+
+	:subj81 a :type81 ;
+		:pred3 "whatever value 81" .
+
+	:subj23 :pred10 "whatever value 23" ;
+		a :type23 .
+
+	:subj69 :pred4 "whatever value 69" ;
+		a :type69 .
+
+	:subj51 :pred12 "whatever value 51" ;
+		a :type51 .
+
+	:subj25 :pred12 "whatever value 25" ;
+		a :type25 .
+
+	:subj53 :pred1 "whatever value 53" ;
+		a :type53 .
+
+	:subj27 :pred1 "whatever value 27" ;
+		a :type27 .
+
+	:subj43 :pred4 "whatever value 43" ;
+		a :type43 .
+
+	:subj85 a :type85 ;
+		:pred7 "whatever value 85" .
+
+	:subj3 a :type3 ;
+		:pred3 "whatever value 3" .
+
+	:subj61 a :type61 ;
+		:pred9 "whatever value 61" .
+
+	:subj97 a :type97 ;
+		:pred6 "whatever value 97" .
+
+	:subj79 :pred1 "whatever value 79" ;
+		a :type79 .
+
+	:subj87 a :type87 ;
+		:pred9 "whatever value 87" .
+
+	:subj75 :pred10 "whatever value 75" ;
+		a :type75 .
+
+	:subj65 :pred0 "whatever value 65" ;
+		a :type65 .
+
+	:subj29 a :type29 ;
+		:pred3 "whatever value 29" .
+
+	:subj49 :pred10 _:id5f49 ;
+		a :type49 .
+
+	:subj31 a :type31 ;
+		:pred5 "whatever value 31" .
+
+	:subj80 :pred2 "whatever value 80" ;
+		a :type80 .
+
+	:subj54 :pred2 "whatever value 54" ;
+		a :type54 .
+
+	_:id5f0 :pred0 _:id5f0 ;
+		a :type0 .
+
+	_:id5f44 a :type44 ;
+		:pred5 "whatever value 44" .
+
+	:subj78 :pred0 "whatever value 78" ;
+		a :type78 .
+
+	:subj84 a :type84 ;
+		:pred6 _:id5f84 .
+
+	:subj98 a :type98 ;
+		:pred7 _:id5f98 .
+
+	_:id5f88 :pred10 "whatever value 88" ;
+		a :type88 .
+
+	:subj34 :pred8 "whatever value 34" ;
+		a :type34 .
+
+	:subj96 a :type96 ;
+		:pred5 "whatever value 96" .
+
+	:subj48 a :type48 ;
+		:pred9 "whatever value 48" .
+
+	_:id5f66 :pred1 "whatever value 66" ;
+		a :type66 .
+
+	:subj8 :pred8 "whatever value 8" ;
+		a :type8 .
+
+	:subj64 :pred12 "whatever value 64" ;
+		a :type64 .
+
+	:subj38 :pred12 "whatever value 38" ;
+		a :type38 .
+
+	:subj86 :pred8 "whatever value 86" ;
+		a :type86 .
+
+	:subj40 :pred1 "whatever value 40" ;
+		a :type40 .
+
+	:subj46 a :type46 ;
+		:pred7 "whatever value 46" .
+
+	:subj2 :pred2 "whatever value 2" ;
+		a :type2 .
+
+	:subj60 :pred8 "whatever value 60" ;
+		a :type60 .
+
+	:subj68 a :type68 ;
+		:pred3 "whatever value 68" .
+
+	:subj26 :pred0 "whatever value 26" ;
+		a :type26 .
+
+	:subj74 a :type74 ;
+		:pred9 "whatever value 74" .
+
+	:subj56 :pred4 _:id5f56 ;
+		a :type56 .
+
+	:subj36 :pred10 "whatever value 36" ;
+		a :type36 .
+
+	:subj18 a :type18 ;
+		:pred5 "whatever value 18" .
+
+	:subj62 :pred10 "whatever value 62" ;
+		a :type62 .
+
+	:subj4 :pred4 "whatever value 4" ;
+		a :type4 .
+
+	:subj76 a :type76 ;
+		:pred11 "whatever value 76" .
+
+	_:id5f77 :pred12 _:id5f77 ;
+		a :type77 .
+
+	:subj14 :pred1 _:id5f14 ;
+		a :type14 .
+
+	:subj52 :pred0 "whatever value 52" ;
+		a :type52 .
+
+	:subj82 :pred4 "whatever value 82" ;
+		a :type82 .
+
+	_:id5f55 a :type55 ;
+		:pred3 "whatever value 55" .
+
+	:subj94 a :type94 ;
+		:pred3 "whatever value 94" .
+
+	:subj30 :pred4 "whatever value 30" ;
+		a :type30 .
+
+	:subj50 a :type50 ;
+		:pred11 "whatever value 50" .
+
+	:subj90 :pred12 "whatever value 90" ;
+		a :type90 .
+
+	:subj10 :pred10 "whatever value 10" ;
+		a :type10 .
+
+	:subj32 a :type32 ;
+		:pred6 "whatever value 32" .
+
+	:subj24 a :type24 ;
+		:pred11 "whatever value 24" .
+
+	:subj58 a :type58 ;
+		:pred6 "whatever value 58" .
+
+	:subj16 a :type16 ;
+		:pred3 "whatever value 16" .
+
+	:subj92 :pred1 "whatever value 92" ;
+		a :type92 .
+
+	_:id5f11 a :type11 ;
+		:pred11 "whatever value 11" .
+
+	:subj70 a :type70 ;
+		:pred5 _:id5f70 .
+
+	_:id5f33 a :type33 ;
+		:pred7 "whatever value 33" .
+
+	_:id5f22 a :type22 ;
+		:pred9 "whatever value 22" .
+
+	_:id5f99 :pred8 "whatever value 99" ;
+		a :type99 .
+
+	:subj12 :pred12 "whatever value 12" ;
+		a :type12 .
+
+	:subj42 a :type42 ;
+		:pred3 _:id5f42 .
+
+	:subj72 a :type72 ;
+		:pred7 "whatever value 72" .
+
+	:subj28 :pred2 _:id5f28 ;
+		a :type28 .
+
+	:subj20 a :type20 ;
+		:pred7 "whatever value 20" .
+
+	:subj6 a :type6 ;
+		:pred6 "whatever value 6" .
+}

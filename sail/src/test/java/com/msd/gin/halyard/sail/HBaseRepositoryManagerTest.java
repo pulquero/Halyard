@@ -35,7 +35,7 @@ import com.msd.gin.halyard.common.HBaseServerTestInstance;
  *
  * @author Adam Sotona (MSD)
  */
-public class HBaseRepositoryManagerTest {
+public class HBaseRepositoryManagerTest extends HBaseServerTestInstance {
 
     @Test (expected = MalformedURLException.class)
     public void testGetLocation() throws Exception {

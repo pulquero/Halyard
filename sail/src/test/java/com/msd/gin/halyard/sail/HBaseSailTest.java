@@ -16,11 +16,17 @@
  */
 package com.msd.gin.halyard.sail;
 
-import com.msd.gin.halyard.vocab.HALYARD;
-import com.msd.gin.halyard.common.HBaseServerTestInstance;
-import com.msd.gin.halyard.common.HalyardTableUtils;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.util.List;
 import java.util.Random;
+
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
@@ -53,13 +59,16 @@ import org.eclipse.rdf4j.sail.UnknownSailTransactionStateException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import static org.junit.Assert.*;
+
+import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import com.msd.gin.halyard.common.HalyardTableUtils;
+import com.msd.gin.halyard.vocab.HALYARD;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
-public class HBaseSailTest {
+public class HBaseSailTest extends HBaseServerTestInstance {
 
 	private Connection hconn;
 
@@ -243,7 +252,8 @@ public class HBaseSailTest {
 
     @Test
     public void testNamespaces() throws Exception {
-        HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, 0, null, null);
+    	String table = "whatevertableNS";
+        HBaseSail sail = new HBaseSail(hconn, table, true, 0, true, 0, null, null);
         sail.initialize();
 		try (SailConnection conn = sail.getConnection()) {
         	assertEquals(0, countNamespaces(conn));
@@ -252,7 +262,7 @@ public class HBaseSailTest {
         	assertEquals(1, countNamespaces(conn));
         }
         sail.shutDown();
-        sail = new HBaseSail(hconn, "whatevertable", false, 0, true, 0, null, null);
+        sail = new HBaseSail(hconn, table, false, 0, true, 0, null, null);
         sail.initialize();
 		try (SailConnection conn = sail.getConnection()) {
         	assertEquals(1, countNamespaces(conn));
@@ -261,7 +271,7 @@ public class HBaseSailTest {
         	assertEquals(0, countNamespaces(conn));
         }
         sail.shutDown();
-        sail = new HBaseSail(hconn, "whatevertable", false, 0, true, 0, null, null);
+        sail = new HBaseSail(hconn, table, false, 0, true, 0, null, null);
         sail.initialize();
 		try (SailConnection conn = sail.getConnection()) {
         	assertEquals(0, countNamespaces(conn));
@@ -271,7 +281,7 @@ public class HBaseSailTest {
         	assertEquals(1, countNamespaces(conn));
         }
         sail.shutDown();
-        sail = new HBaseSail(hconn, "whatevertable", false, 0, true, 0, null, null);
+        sail = new HBaseSail(hconn, table, false, 0, true, 0, null, null);
         sail.initialize();
 		try (SailConnection conn = sail.getConnection()) {
         	assertEquals(1, countNamespaces(conn));
@@ -280,7 +290,7 @@ public class HBaseSailTest {
         	assertEquals(0, countNamespaces(conn));
         }
         sail.shutDown();
-        sail = new HBaseSail(hconn, "whatevertable", false, 0, true, 0, null, null);
+        sail = new HBaseSail(hconn, table, false, 0, true, 0, null, null);
         sail.initialize();
 		try (SailConnection conn = sail.getConnection()) {
         	assertEquals(0, countNamespaces(conn));
@@ -334,7 +344,7 @@ public class HBaseSailTest {
         Resource subj = vf.createIRI("http://whatever/subj/");
         IRI pred = vf.createIRI("http://whatever/pred/");
         Value obj = vf.createLiteral("whatever");
-        HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, 0, null, null);
+        HBaseSail sail = new HBaseSail(hconn, "whatevertableSelect", true, 0, true, 0, null, null);
         SailRepository rep = new SailRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -356,7 +366,7 @@ public class HBaseSailTest {
 		Resource subj = vf.createIRI("http://whatever/subj/");
 		IRI pred = vf.createIRI("http://whatever/pred/");
 		Value obj = vf.createLiteral("whatever");
-		HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, 0, null, null);
+		HBaseSail sail = new HBaseSail(hconn, "whatevertableConstruct", true, 0, true, 0, null, null);
 		SailRepository rep = new SailRepository(sail);
 		rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -378,7 +388,7 @@ public class HBaseSailTest {
         IRI pred = vf.createIRI("http://whatever/pred/");
         Value obj = vf.createLiteral("whatever");
         IRI context = vf.createIRI("http://whatever/context/");
-        HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, 0, null, null);
+        HBaseSail sail = new HBaseSail(hconn, "whatevertableNamed", true, 0, true, 0, null, null);
         SailRepository rep = new SailRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -397,7 +407,7 @@ public class HBaseSailTest {
     @Test
 	public void testEvaluateSelectService() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
-        HBaseSail sail = new HBaseSail(hconn, "whateverservice", true, 0, true, 0, null, null);
+        HBaseSail sail = new HBaseSail(hconn, "whateverserviceSelect", true, 0, true, 0, null, null);
         SailRepository rep = new SailRepository(sail);
         rep.init();
         Random r = new Random(333);
@@ -423,7 +433,7 @@ public class HBaseSailTest {
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			TupleQuery q = conn.prepareTupleQuery(QueryLanguage.SPARQL,
-					"select * where {" + "  SERVICE <" + HALYARD.NAMESPACE + "whateverservice> {"
+					"select * where {" + "  SERVICE <" + HALYARD.NAMESPACE + "whateverserviceSelect> {"
 							+ "    graph <http://whatever/meta> {" + "      ?subj <http://whatever/pred> ?graph"
 							+ "    }" + "    graph ?graph {" + "      ?s ?p ?o" + "    }" + "  }" + "}");
 			int count = 0;
@@ -444,7 +454,7 @@ public class HBaseSailTest {
 	@Test
 	public void testEvaluateAskService() throws Exception {
 		ValueFactory vf = SimpleValueFactory.getInstance();
-		HBaseSail sail = new HBaseSail(hconn, "whateverservice", true, 0, true, 0, null, null);
+		HBaseSail sail = new HBaseSail(hconn, "whateverserviceAsk", true, 0, true, 0, null, null);
 		SailRepository rep = new SailRepository(sail);
 		rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -457,7 +467,7 @@ public class HBaseSailTest {
 		rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.add(vf.createIRI("http://whatever/subj"), vf.createIRI("http://whatever/pred"), vf.createIRI("http://whatever/obj"));
-			BooleanQuery q = conn.prepareBooleanQuery(QueryLanguage.SPARQL, "ask where {" + "    ?s ?p ?o" + "  SERVICE <" + HALYARD.NAMESPACE + "whateverservice> {" + "    ?s ?p ?o" + "  }" + "}");
+			BooleanQuery q = conn.prepareBooleanQuery(QueryLanguage.SPARQL, "ask where {" + "    ?s ?p ?o" + "  SERVICE <" + HALYARD.NAMESPACE + "whateverserviceAsk> {" + "    ?s ?p ?o" + "  }" + "}");
 			assertTrue(q.evaluate());
 		}
 		rep.shutDown();
@@ -556,7 +566,7 @@ public class HBaseSailTest {
     @Test
 	public void testEvaluateSelectServiceWithBindings() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
-        HBaseSail sail = new HBaseSail(hconn, "whateverservice2", true, 0, true, 0, null, null);
+        HBaseSail sail = new HBaseSail(hconn, "whateverservice2Select", true, 0, true, 0, null, null);
         SailRepository rep = new SailRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -565,7 +575,7 @@ public class HBaseSailTest {
 		}
 		try (RepositoryConnection conn = rep.getConnection()) {
 			TupleQuery q = conn.prepareTupleQuery(QueryLanguage.SPARQL, "select * where {" + "  bind (\"a\" as ?a)\n"
-					+ "  SERVICE <" + HALYARD.NAMESPACE + "whateverservice2> {" + "    ?s ?p ?o" + "  }" + "}");
+					+ "  SERVICE <" + HALYARD.NAMESPACE + "whateverservice2Select> {" + "    ?s ?p ?o" + "  }" + "}");
 			try (TupleQueryResult res = q.evaluate()) {
 				assertTrue(res.hasNext());
 				assertNotNull(res.next().getValue("a"));
@@ -580,14 +590,14 @@ public class HBaseSailTest {
 	@Test
 	public void testEvaluateAskServiceWithBindings() throws Exception {
 		ValueFactory vf = SimpleValueFactory.getInstance();
-		HBaseSail sail = new HBaseSail(hconn, "whateverservice2", true, 0, true, 0, null, null);
+		HBaseSail sail = new HBaseSail(hconn, "whateverservice2Ask", true, 0, true, 0, null, null);
 		SailRepository rep = new SailRepository(sail);
 		rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.add(vf.createIRI("http://whatever/subj"), vf.createIRI("http://whatever/pred"), vf.createIRI("http://whatever/obj"));
 		}
 		try (RepositoryConnection conn = rep.getConnection()) {
-			BooleanQuery q = conn.prepareBooleanQuery(QueryLanguage.SPARQL, "ask where {" + "    ?s ?p ?o" + "  bind (\"a\" as ?a)\n" + "  SERVICE <" + HALYARD.NAMESPACE + "whateverservice2> {" + "    ?s ?p ?o" + "  }" + "}");
+			BooleanQuery q = conn.prepareBooleanQuery(QueryLanguage.SPARQL, "ask where {" + "    ?s ?p ?o" + "  bind (\"a\" as ?a)\n" + "  SERVICE <" + HALYARD.NAMESPACE + "whateverservice2Ask> {" + "    ?s ?p ?o" + "  }" + "}");
 			assertTrue(q.evaluate());
 		}
 		rep.shutDown();

@@ -16,12 +16,13 @@
  */
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.common.HBaseServerTestInstance;
-import com.msd.gin.halyard.sail.HBaseSail;
+import static org.junit.Assert.assertTrue;
+
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
 import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FileUtils;
@@ -34,14 +35,16 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
-import static org.junit.Assert.assertTrue;
+
+import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import com.msd.gin.halyard.sail.HBaseSail;
 
 /**
  * Class for testing the tool HalyardEndpoint.
  *
  * @author sykorjan
  */
-public class HalyardEndpointTest {
+public class HalyardEndpointTest extends HBaseServerTestInstance {
     private static final String TABLE = "exporttesttable";
     private static String ROOT;
 

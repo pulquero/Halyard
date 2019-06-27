@@ -16,8 +16,10 @@
  */
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.common.HBaseServerTestInstance;
-import com.msd.gin.halyard.sail.HBaseSail;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -28,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+
 import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.hadoop.util.ToolRunner;
@@ -42,12 +45,14 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.sail.SailConnection;
 import org.junit.Test;
-import static org.junit.Assert.*;
+
+import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import com.msd.gin.halyard.sail.HBaseSail;
 /**
  *
  * @author Adam Sotona (MSD)
  */
-public class HalyardSummaryTest {
+public class HalyardSummaryTest extends HBaseServerTestInstance {
 
     private IRI[] generateIRIs(int num, String prefix) {
         SimpleValueFactory svf = SimpleValueFactory.getInstance();

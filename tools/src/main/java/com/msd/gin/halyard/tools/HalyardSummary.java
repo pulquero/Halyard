@@ -40,6 +40,8 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
@@ -77,8 +79,8 @@ import org.eclipse.rdf4j.sail.SailException;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.RDFPredicate;
 import com.msd.gin.halyard.common.RDFSubject;
-import com.msd.gin.halyard.vocab.HALYARD;
 import com.msd.gin.halyard.sail.HBaseSail;
+import com.msd.gin.halyard.vocab.HALYARD;
 import com.yammer.metrics.core.Gauge;
 
 /**
@@ -115,16 +117,20 @@ public final class HalyardSummary extends AbstractHalyardTool {
 
         private int decimationFactor;
         private final Random random = new Random(0);
-        private Table table;
+        private Connection conn;
+        private TableName tableName;
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
             this.mapContext = context;
             Configuration conf = context.getConfiguration();
             this.decimationFactor = conf.getInt(DECIMATION_FACTOR, DEFAULT_DECIMATION_FACTOR);
-            if (table == null) {
-                table = HalyardTableUtils.getTable(conf, conf.get(SOURCE), false, 0);
-            }
+            this.conn = HalyardTableUtils.getConnection(conf);
+            this.tableName = TableName.valueOf(conf.get(SOURCE));
+        }
+
+        private Table getTable() throws IOException {
+			return conn.getTable(tableName);
         }
 
         private Set<IRI> queryForClasses(Value instance) throws IOException {
@@ -132,8 +138,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
                 Set<IRI> res = new HashSet<>();
                 RDFSubject s = RDFSubject.create((Resource)instance);
                 RDFPredicate p = RDFPredicate.create(RDF.TYPE);
-                Scan scan = HalyardTableUtils.scan(s, p, null, null);
-                try (ResultScanner scanner = table.getScanner(scan)) {
+                try (ResultScanner scanner = HalyardTableUtils.getScanner(this::getTable, s, p, null, null)) {
                     for (Result r : scanner) {
                         for (Statement st : HalyardTableUtils.parseStatements(s, p, null, null, r, SVF)) {
 	                        if (st.getSubject().equals(instance) && st.getPredicate().equals(RDF.TYPE) && (st.getObject() instanceof IRI)) {
@@ -263,10 +268,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
         @Override
         protected void cleanup(Context output) throws IOException, InterruptedException {
             statementChange(null);
-            if (table != null) {
-                table.close();;
-                table = null;
-            }
+            conn.close();
         }
 
     }
@@ -506,9 +508,10 @@ public final class HalyardSummary extends AbstractHalyardTool {
         TableMapReduceUtil.initCredentials(job);
 
         Scan scan = HalyardTableUtils.scan(new byte[]{HalyardTableUtils.POS_PREFIX}, new byte[]{HalyardTableUtils.POS_PREFIX + 1});
+        scan.setAttribute(Scan.SCAN_ATTRIBUTES_TABLE_NAME, TableName.valueOf(source).toBytes());
 
-        TableMapReduceUtil.initTableMapperJob(source,
-                scan,
+        TableMapReduceUtil.initTableMapperJob(
+                HalyardTableUtils.addSalt(scan),
                 SummaryMapper.class,
                 ImmutableBytesWritable.class,
                 LongWritable.class,

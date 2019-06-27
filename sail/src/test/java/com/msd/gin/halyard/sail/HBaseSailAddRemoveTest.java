@@ -39,7 +39,7 @@ import static org.junit.Assert.*;
  * @author Adam Sotona (MSD)
  */
 @RunWith(Parameterized.class)
-public class HBaseSailAddRemoveTest {
+public class HBaseSailAddRemoveTest extends HBaseServerTestInstance {
     private static final Resource SUBJ = SimpleValueFactory.getInstance().createIRI("http://whatever/subject/");
     private static final IRI PRED = SimpleValueFactory.getInstance().createIRI("http://whatever/pred/");
     private static final Value OBJ = SimpleValueFactory.getInstance().createLiteral("whatever literal");

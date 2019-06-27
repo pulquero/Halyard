@@ -16,23 +16,29 @@
  */
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.common.HBaseServerTestInstance;
-import com.msd.gin.halyard.common.HalyardTableUtils;
+import static org.junit.Assert.assertEquals;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 import org.apache.commons.cli.MissingOptionException;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.util.ToolRunner;
 import org.junit.Test;
-import static org.junit.Assert.assertEquals;
+
+import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import com.msd.gin.halyard.common.HalyardTableUtils;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
-public class HalyardPreSplitTest {
+public class HalyardPreSplitTest extends HBaseServerTestInstance {
 
     @Test
     public void testPreSplit() throws Exception {
@@ -42,11 +48,12 @@ public class HalyardPreSplitTest {
             ps.println("<http://whatever/NTsubj2> <http://whatever/NTpred2> \"whatever NT value 2\" <http://whatever/ctx2> .");
         }
 
-        assertEquals(0, ToolRunner.run(HBaseServerTestInstance.getInstanceConfig(), new HalyardPreSplit(), new String[]{"-d", "1", "-l",  "0", "-s", file.toURI().toURL().toString(), "-t", "preSplitTable"}));
+        assertEquals(0, ToolRunner.run(HBaseServerTestInstance.getInstanceConfig(), new HalyardPreSplit(), new String[]{"-d", "1", "-l", "0", "-s", file.toURI().toURL().toString(), "-t", "preSplitTable"}));
 
 		Connection conn = HalyardTableUtils.getConnection(HBaseServerTestInstance.getInstanceConfig());
 		try (Table t = HalyardTableUtils.getTable(conn, "preSplitTable", false, 0)) {
-			assertEquals(17, conn.getRegionLocator(t.getName()).getStartKeys().length);
+			byte[][] startKeys = conn.getRegionLocator(t.getName()).getStartKeys();
+			assertEquals(Arrays.asList(startKeys).stream().map(key -> key.length > 0 ? Bytes.toHex(key) : "").collect(Collectors.toList()).toString(), 13, startKeys.length);
         }
 		conn.close();
     }
@@ -61,7 +68,7 @@ public class HalyardPreSplitTest {
 
         HalyardTableUtils.getTable(HBaseServerTestInstance.getInstanceConfig(), "preSplitTable2", true, -1).close();
 
-        assertEquals(-1, ToolRunner.run(HBaseServerTestInstance.getInstanceConfig(), new HalyardPreSplit(), new String[]{"-d", "1", "-l",  "0", "-s", file.toURI().toURL().toString(), "-t", "preSplitTable2"}));
+        assertEquals(-1, ToolRunner.run(HBaseServerTestInstance.getInstanceConfig(), new HalyardPreSplit(), new String[]{"-d", "1", "-l", "0", "-s", file.toURI().toURL().toString(), "-t", "preSplitTable2"}));
     }
 
     @Test

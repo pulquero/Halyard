@@ -16,9 +16,9 @@
  */
 package com.msd.gin.halyard.sail;
 
-import com.msd.gin.halyard.common.HBaseServerTestInstance;
-import com.msd.gin.halyard.common.HalyardTableUtils;
-import com.msd.gin.halyard.repository.HBaseRepository;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Date;
 import java.util.HashSet;
@@ -57,9 +57,11 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import com.msd.gin.halyard.common.HalyardTableUtils;
+import com.msd.gin.halyard.repository.HBaseRepository;
 
-public class HBaseSailVersionTest {
+public class HBaseSailVersionTest extends HBaseServerTestInstance {
 
 	private Connection hconn;
 
@@ -80,7 +82,7 @@ public class HBaseSailVersionTest {
         Resource subj = vf.createIRI("http://whatever/subj/");
         IRI pred = vf.createIRI("http://whatever/pred/");
         Value obj = vf.createLiteral("whatever");
-        HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, 0, null, null);
+        HBaseSail sail = new HBaseSail(hconn, "whatevertable1", true, 0, true, 0, null, null);
         SailRepository rep = new SailRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -92,7 +94,8 @@ public class HBaseSailVersionTest {
 			try (TupleQueryResult res = q.evaluate()) {
 				assertTrue(res.hasNext());
 				BindingSet bs = res.next();
-				assertTrue(((Literal) bs.getValue("t")).calendarValue().compare(startDate.calendarValue()) > 0);
+				Literal t = (Literal) bs.getValue("t");
+				assertTrue(t+" is not later than "+startDate, t.calendarValue().compare(startDate.calendarValue()) > 0);
 			}
 		}
         rep.shutDown();
@@ -105,7 +108,7 @@ public class HBaseSailVersionTest {
         Resource subj = vf.createIRI("http://whatever/subj/");
         IRI pred = vf.createIRI("http://whatever/pred/");
         Value obj = vf.createLiteral("whatever");
-        HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, 0, null, null);
+        HBaseSail sail = new HBaseSail(hconn, "whatevertable2", true, 0, true, 0, null, null);
         SailRepository rep = new SailRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -117,7 +120,8 @@ public class HBaseSailVersionTest {
 			try (TupleQueryResult res = q.evaluate()) {
 				assertTrue(res.hasNext());
 				BindingSet bs = res.next();
-				assertTrue(((Literal) bs.getValue("t")).calendarValue().compare(startDate.calendarValue()) > 0);
+				Literal t = (Literal) bs.getValue("t");
+				assertTrue(t+" is not later than "+startDate, t.calendarValue().compare(startDate.calendarValue()) > 0);
 			}
 		}
         rep.shutDown();

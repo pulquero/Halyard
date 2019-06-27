@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.HTable;
@@ -81,19 +82,18 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
-            SimpleValueFactory vf = SimpleValueFactory.getInstance();
             Configuration conf = context.getConfiguration();
             String s = conf.get(SUBJECT);
             if (s!= null) {
-                subj = NTriplesUtil.parseResource(s, vf);
+                subj = NTriplesUtil.parseResource(s, SVF);
             }
             String p = conf.get(PREDICATE);
             if (p!= null) {
-                pred = NTriplesUtil.parseURI(p, vf);
+                pred = NTriplesUtil.parseURI(p, SVF);
             }
             String o = conf.get(OBJECT);
             if (o!= null) {
-                obj = NTriplesUtil.parseValue(o, vf);
+                obj = NTriplesUtil.parseValue(o, SVF);
             }
             String cs[] = conf.getStrings(CONTEXTS);
             if (cs != null) {
@@ -102,7 +102,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
                     if ("NONE".equals(c)) {
                         ctx.add(null);
                     } else {
-                        ctx.add(NTriplesUtil.parseResource(c, vf));
+                        ctx.add(NTriplesUtil.parseResource(c, SVF));
                     }
                 }
             }
@@ -181,9 +181,10 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         TableMapReduceUtil.initCredentials(job);
 
         Scan scan = HalyardTableUtils.scan(null, null);
+        scan.setAttribute(Scan.SCAN_ATTRIBUTES_TABLE_NAME, TableName.valueOf(source).toBytes());
 
-        TableMapReduceUtil.initTableMapperJob(source,
-            scan,
+        TableMapReduceUtil.initTableMapperJob(
+            HalyardTableUtils.addSalt(scan),
             DeleteMapper.class,
             ImmutableBytesWritable.class,
             LongWritable.class,

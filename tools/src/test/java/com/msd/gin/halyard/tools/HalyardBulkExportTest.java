@@ -16,10 +16,12 @@
  */
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.common.HBaseServerTestInstance;
-import com.msd.gin.halyard.sail.HBaseSail;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import java.io.File;
 import java.io.PrintStream;
+
 import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.hadoop.util.ToolRunner;
@@ -27,13 +29,15 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.sail.SailConnection;
 import org.junit.Test;
-import static org.junit.Assert.*;
+
+import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import com.msd.gin.halyard.sail.HBaseSail;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
-public class HalyardBulkExportTest {
+public class HalyardBulkExportTest extends HBaseServerTestInstance {
 
     @Test
     public void testBulkExport() throws Exception {

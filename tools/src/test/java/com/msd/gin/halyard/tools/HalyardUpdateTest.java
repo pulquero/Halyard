@@ -42,7 +42,7 @@ import org.junit.rules.TestName;
  *
  * @author Adam Sotona (MSD)
  */
-public class HalyardUpdateTest {
+public class HalyardUpdateTest extends HBaseServerTestInstance {
 
     private static final String TABLE = "updatetesttable";
     private static String ROOT;

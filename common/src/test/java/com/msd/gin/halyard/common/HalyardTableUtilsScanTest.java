@@ -19,6 +19,7 @@ package com.msd.gin.halyard.common;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
@@ -47,7 +49,7 @@ import org.junit.runners.Parameterized.Parameters;
  * @author Adam Sotona (MSD)
  */
 @RunWith(Parameterized.class)
-public class HalyardTableUtilsScanTest {
+public class HalyardTableUtilsScanTest extends HBaseServerTestInstance {
 
     private static final String SUBJ1 = "http://whatever/subj1";
     private static final String SUBJ2 = "http://whatever/subj2";
@@ -146,13 +148,12 @@ public class HalyardTableUtilsScanTest {
            });
     }
 
-	private static Table table;
+    private static Connection conn;
     private static Set<Statement> allStatements;
 
     @BeforeClass
     public static void setup() throws Exception {
-        table = HalyardTableUtils.getTable(HBaseServerTestInstance.getInstanceConfig(), "testScan", true, 0);
-
+    	conn = HalyardTableUtils.getConnection(HBaseServerTestInstance.getInstanceConfig());
         allStatements = new HashSet<>();
         SimpleValueFactory vf = SimpleValueFactory.getInstance();
         allStatements.add(vf.createStatement(vf.createIRI(SUBJ1), vf.createIRI(PRED1), vf.createLiteral(EXPL1), vf.createIRI(CTX1)));
@@ -164,12 +165,18 @@ public class HalyardTableUtilsScanTest {
 				puts.add(new Put(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength(), kv.getTimestamp()).add(kv));
             }
         }
-		table.put(puts);
+        try (Table table = getTable()) {
+        	table.put(puts);
+        }
     }
 
     @AfterClass
     public static void teardown() throws Exception {
-        table.close();
+        conn.close();
+    }
+
+    static Table getTable() throws IOException {
+		return HalyardTableUtils.getTable(conn, "testScan", true, 0);
     }
 
     private final String s, p, o, c;
@@ -191,7 +198,7 @@ public class HalyardTableUtilsScanTest {
         RDFPredicate pred = RDFPredicate.create(p == null ? null : vf.createIRI(p));
         RDFObject obj = RDFObject.create(o == null ? null : vf.createLiteral(o));
         RDFContext ctx = RDFContext.create(c == null ? null : vf.createIRI(c));
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(subj, pred, obj, ctx))) {
+        try (ResultScanner rs = HalyardTableUtils.getScanner(HalyardTableUtilsScanTest::getTable, subj, pred, obj, ctx)) {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {

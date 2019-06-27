@@ -16,14 +16,13 @@
  */
 package com.msd.gin.halyard.tools;
 
-import static com.msd.gin.halyard.tools.HalyardBulkLoad.*;
-
-import com.msd.gin.halyard.common.HalyardTableUtils;
-import com.msd.gin.halyard.tools.HalyardBulkLoad.RioFileInputFormat;
+import static com.msd.gin.halyard.tools.HalyardBulkLoad.DEFAULT_CONTEXT_PROPERTY;
+import static com.msd.gin.halyard.tools.HalyardBulkLoad.DEFAULT_TIMESTAMP_PROPERTY;
+import static com.msd.gin.halyard.tools.HalyardBulkLoad.OVERRIDE_CONTEXT_PROPERTY;
+import static com.msd.gin.halyard.tools.HalyardBulkLoad.SKIP_INVALID_PROPERTY;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
@@ -37,6 +36,7 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapreduce.Job;
@@ -51,6 +51,9 @@ import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.ntriples.NTriplesUtil;
 
+import com.msd.gin.halyard.common.HalyardTableUtils;
+import com.msd.gin.halyard.tools.HalyardBulkLoad.RioFileInputFormat;
+
 /**
  * Apache Hadoop MapReduce Tool for calculating pre-splits of an HBase table before a large dataset bulk-load.
  * Splits are based on the keys of a sample of the data to be loaded.
@@ -61,9 +64,11 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
     static final String TABLE_PROPERTY = "halyard.presplit.table";
     static final String SPLIT_LIMIT_PROPERTY = "halyard.presplit.limit";
     static final String DECIMATION_FACTOR_PROPERTY = "halyard.presplit.decimation";
+    static final String SALT_SPLIT_BITS_PROPERTY = "halyard.presplit.saltsplitbits";
 
     private static final long DEFAULT_SPLIT_LIMIT = 80000000l;
     private static final int DEFAULT_DECIMATION_FACTOR = 1000;
+    private static final int DEFAULT_SALT_SPLIT_BITS = HalyardTableUtils.SALT_BITS;
 
     /**
      * Mapper class transforming randomly selected sample of parsed Statement into set of HBase Keys and sizes
@@ -79,9 +84,6 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             decimationFactor = conf.getInt(DECIMATION_FACTOR_PROPERTY, DEFAULT_DECIMATION_FACTOR);
-            for (byte b = 1; b < 6; b++) {
-                context.write(new ImmutableBytesWritable(new byte[] {b}), new LongWritable(1));
-            }
             timestamp = conf.getLong(DEFAULT_TIMESTAMP_PROPERTY, System.currentTimeMillis());
         }
 
@@ -99,22 +101,24 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
     static final class PreSplitReducer extends Reducer<ImmutableBytesWritable, LongWritable, NullWritable, NullWritable>  {
 
         private long size = 0, splitLimit;
-        private byte lastRegion = 0;
+        private int saltSplitBits;
+        private int lastSalt = 0;
         private final List<byte[]> splits = new ArrayList<>();
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
             splitLimit = context.getConfiguration().getLong(SPLIT_LIMIT_PROPERTY, DEFAULT_SPLIT_LIMIT);
+            saltSplitBits = context.getConfiguration().getInt(SALT_SPLIT_BITS_PROPERTY, DEFAULT_SALT_SPLIT_BITS);
         }
 
         @Override
 	public void reduce(ImmutableBytesWritable key, Iterable<LongWritable> values, Context context) throws IOException, InterruptedException {
-            byte region = key.get()[key.getOffset()];
-            if (lastRegion != region || size > splitLimit) {
-                byte[] split = lastRegion != region ? new byte[]{region} : key.copyBytes();
+            final int salt = HalyardTableUtils.getSalt(key.get()[key.getOffset()]) >> (HalyardTableUtils.SALT_BITS - saltSplitBits);
+            if (lastSalt != salt || size > splitLimit) {
+                byte[] split = (lastSalt != salt) ? new byte[]{HalyardTableUtils.addSalt((byte)0, salt)} : key.copyBytes();
                 splits.add(split);
-                context.setStatus("#" + splits.size() + " " + Arrays.toString(split));
-                lastRegion = key.get()[key.getOffset()];
+                context.setStatus("#" + splits.size() + " " + Bytes.toHex(split));
+                lastSalt = salt;
                 size = 0;
             }
             for (LongWritable val : values) {
@@ -146,6 +150,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
         addOption("o", "named-graph-override", null, "Optionally override named graph also for quads, named graph is stripped from quads if --default-named-graph option is not specified", false, false);
         addOption("d", "decimation-factor", "decimation_factor", "Optionally overide pre-split random decimation factor (default is 1000)", false, true);
         addOption("l", "split-limit-size", "size", "Optionally override calculated split size (default is 80000000)", false, true);
+        addOption("ssb", "salt-split-bits", "split_bits", "Optionally override the number of salt bits to split on (default is 4)", false, true);
     }
 
     @Override
@@ -173,6 +178,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
         getConf().setLong(DEFAULT_TIMESTAMP_PROPERTY, getConf().getLong(DEFAULT_TIMESTAMP_PROPERTY, System.currentTimeMillis()));
         getConf().setInt(DECIMATION_FACTOR_PROPERTY, Integer.parseInt(cmd.getOptionValue('d', String.valueOf(DEFAULT_DECIMATION_FACTOR))));
         getConf().setLong(SPLIT_LIMIT_PROPERTY, Long.parseLong(cmd.getOptionValue('l', String.valueOf(DEFAULT_SPLIT_LIMIT))));
+        getConf().setInt(SALT_SPLIT_BITS_PROPERTY, Integer.parseInt(cmd.getOptionValue("ssb", String.valueOf(DEFAULT_SALT_SPLIT_BITS))));
         Job job = Job.getInstance(getConf(), "HalyardPreSplit -> " + target);
          job.getConfiguration().set(TABLE_PROPERTY, target);
         job.setJarByClass(HalyardPreSplit.class);

@@ -16,14 +16,15 @@
  */
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.common.HBaseServerTestInstance;
-import com.msd.gin.halyard.sail.HBaseSail;
+import static org.junit.Assert.assertEquals;
+
 import java.io.File;
 import java.io.PrintStream;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Random;
 import java.util.TreeMap;
+
 import org.apache.commons.cli.MissingOptionException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.util.ToolRunner;
@@ -38,13 +39,15 @@ import org.eclipse.rdf4j.sail.SailConnection;
 import org.eclipse.rdf4j.sail.SailException;
 import org.junit.Assert;
 import org.junit.Test;
-import static org.junit.Assert.assertEquals;
+
+import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import com.msd.gin.halyard.sail.HBaseSail;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
-public class HalyardBulkUpdateTest {
+public class HalyardBulkUpdateTest extends HBaseServerTestInstance {
 
     private static final String TABLE = "bulkupdatetesttable";
 

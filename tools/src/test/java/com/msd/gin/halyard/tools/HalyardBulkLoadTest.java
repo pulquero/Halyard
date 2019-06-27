@@ -16,12 +16,15 @@
  */
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.common.HBaseServerTestInstance;
-import com.msd.gin.halyard.sail.HBaseSail;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.util.zip.GZIPOutputStream;
+
 import org.apache.commons.cli.MissingOptionException;
 import org.apache.hadoop.util.ToolRunner;
 import org.eclipse.rdf4j.model.Literal;
@@ -32,13 +35,15 @@ import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.sail.SailConnection;
 import org.junit.Test;
-import static org.junit.Assert.*;
+
+import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import com.msd.gin.halyard.sail.HBaseSail;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
-public class HalyardBulkLoadTest {
+public class HalyardBulkLoadTest extends HBaseServerTestInstance {
 
     @Test
     public void testBulkLoad() throws Exception {
@@ -91,7 +96,7 @@ public class HalyardBulkLoadTest {
 
         HBaseSail sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "bulkLoadTable", false, 0, true, 0, null, null);
         SailRepository rep = new SailRepository(sail);
-        rep.initialize();
+        rep.init();
         assertCount(rep, "select (count(*) as ?c) where {?s ?p ?o}", 1000);
         assertCount(rep, "select (count(*) as ?c) where {graph ?g{?s ?p ?o}}", 0);
         rep.shutDown();
@@ -105,7 +110,7 @@ public class HalyardBulkLoadTest {
 
         sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "bulkLoadTable", false, 0, true, 0, null, null);
         rep = new SailRepository(sail);
-        rep.initialize();
+        rep.init();
         assertCount(rep, "select (count(*) as ?c) where {graph <http://whatever/graph>{?s ?p ?o}}", 100);
         rep.shutDown();
 
@@ -118,7 +123,7 @@ public class HalyardBulkLoadTest {
 
         sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "bulkLoadTable", false, 0, true, 0, null, null);
         rep = new SailRepository(sail);
-        rep.initialize();
+        rep.init();
         assertCount(rep, "select (count(*) as ?c) where {graph <"+ file1.toURI().toString() + ">{?s ?p ?o}}", 800);
         assertCount(rep, "select (count(*) as ?c) where {graph <"+ file2.toURI().toString() + ">{?s ?p ?o}}", 100);
         assertCount(rep, "select (count(*) as ?c) where {graph <"+ file3.toURI().toString() + ">{?s ?p ?o}}", 0);
@@ -133,7 +138,7 @@ public class HalyardBulkLoadTest {
 
         sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "bulkLoadTable", false, 0, true, 0, null, null);
         rep = new SailRepository(sail);
-        rep.initialize();
+        rep.init();
         assertCount(rep, "select (count(*) as ?c) where {graph <http://what"+ file1.toURI().getPath() + ">{?s ?p ?o}}", 800);
         assertCount(rep, "select (count(*) as ?c) where {graph <http://what"+ file2.toURI().getPath() + ">{?s ?p ?o}}", 100);
         assertCount(rep, "select (count(*) as ?c) where {graph <http://what"+ file3.toURI().getPath() + ">{?s ?p ?o}}", 100);

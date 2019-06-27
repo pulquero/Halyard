@@ -46,7 +46,7 @@ import static org.junit.Assert.*;
  * @author Adam Sotona (MSD)
  */
 @RunWith(Parameterized.class)
-public class HBaseSailHashConflictTest {
+public class HBaseSailHashConflictTest extends HBaseServerTestInstance {
 
 	private static final Resource SUBJ = SimpleValueFactory.getInstance().createIRI("http://testConflictingHash/subject1/");
     private static final IRI PRED = SimpleValueFactory.getInstance().createIRI("http://testConflictingHash/pred1/");

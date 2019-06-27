@@ -16,7 +16,7 @@
  */
 package com.msd.gin.halyard.sail;
 
-import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import static org.junit.Assert.assertEquals;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -28,13 +28,13 @@ import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import com.msd.gin.halyard.common.HBaseServerTestInstance;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
-public class SES2154SubselectOptionalTest {
+public class SES2154SubselectOptionalTest extends HBaseServerTestInstance {
 
     @Test
     public void testSES2154SubselectOptional() throws Exception {
@@ -54,5 +54,4 @@ public class SES2154SubselectOptionalTest {
 		}
         rep.shutDown();
     }
-
 }

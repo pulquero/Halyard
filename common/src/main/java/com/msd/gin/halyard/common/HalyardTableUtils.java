@@ -16,6 +16,11 @@
  */
 package com.msd.gin.halyard.common;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import com.google.common.hash.Hashing;
+import com.msd.gin.halyard.common.MultiResultScanner.AsyncTableScanner;
+
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
@@ -34,6 +39,10 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeConstants;
@@ -53,6 +62,7 @@ import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.filter.ColumnPrefixFilter;
@@ -82,10 +92,6 @@ import org.eclipse.rdf4j.model.vocabulary.VOID;
 import org.eclipse.rdf4j.model.vocabulary.XMLSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
-import com.google.common.hash.Hashing;
 
 /**
  * Core Halyard utility class performing RDF to HBase mappings and base HBase table and key management. The methods of this class define how
@@ -135,6 +141,9 @@ public final class HalyardTableUtils {
 
 	private static final int PREFIXES = 3;
 	private static final int ID_SIZE = 20;
+	public static final int SALT_BITS = 4;
+	public static final int NUM_SALTS = 1<<SALT_BITS;
+	private static final int SALT_SHIFT = 8 - SALT_BITS;
 
 	static final byte[] STOP_KEY_16 = new byte[2];
 	static final byte[] STOP_KEY_32 = new byte[4];
@@ -156,6 +165,8 @@ public final class HalyardTableUtils {
     private static final DataBlockEncoding DEFAULT_DATABLOCK_ENCODING = DataBlockEncoding.PREFIX;
     private static final String REGION_MAX_FILESIZE = "10000000000";
     private static final String REGION_SPLIT_POLICY = "org.apache.hadoop.hbase.regionserver.ConstantSizeRegionSplitPolicy";
+	// enough threads to keep us busy with work until the next set of scanner results are ready
+	private static final ExecutorService SCANNER_EXECUTOR = Executors.newFixedThreadPool(4);
 
 	private static final ThreadLocal<MessageDigest> MD = new ThreadLocal<MessageDigest>() {
         @Override
@@ -596,6 +607,21 @@ public final class HalyardTableUtils {
 		return conn.getTable(htableName);
 	}
 
+	public static ResultScanner getScanner(TableProvider tableProvider, List<Scan> scans) throws IOException {
+		if(scans.size() == 1) {
+			return tableProvider.getTable().getScanner(scans.get(0));
+		} else {
+			CompletionService<AsyncTableScanner> completionService = new ExecutorCompletionService<>(SCANNER_EXECUTOR);
+			List<AsyncTableScanner> scanners = new ArrayList<>(scans.size());
+			for(Scan scan : scans) {
+				AsyncTableScanner scanner = new AsyncTableScanner(tableProvider, scan);
+				scanners.add(scanner);
+				completionService.submit(scanner);
+			}
+			return new MultiResultScanner(completionService, scanners);
+		}
+	}
+
 	public static Connection getConnection(Configuration config) throws IOException {
 		Configuration cfg = HBaseConfiguration.create(config);
 		cfg.setLong(HConstants.HBASE_CLIENT_SCANNER_TIMEOUT_PERIOD, 3600000l);
@@ -617,23 +643,25 @@ public final class HalyardTableUtils {
     }
 
     /**
-	 * Calculates the split keys (one for each permutation of the CSPO HBase Key prefix).
+	 * Calculates the split keys (one for each salt).
 	 * 
-	 * @param splitBits must be between 0 and 16, larger values result in more keys.
+	 * @param splitBits must be between 0 and 20, larger values result in more keys.
 	 * @return An array of keys represented as {@code byte[]}s
 	 */
     static byte[][] calculateSplits(int splitBits) {
+        if (splitBits < 0 || splitBits > 16) throw new IllegalArgumentException("Illegal nunmber of split bits");
         TreeSet<byte[]> splitKeys = new TreeSet<>(Bytes.BYTES_COMPARATOR);
-        //basic presplits
-        splitKeys.add(new byte[]{POS_PREFIX});
-        splitKeys.add(new byte[]{OSP_PREFIX});
-        splitKeys.add(new byte[]{CSPO_PREFIX});
-        splitKeys.add(new byte[]{CPOS_PREFIX});
-        splitKeys.add(new byte[]{COSP_PREFIX});
-        //common presplits
-        addSplits(splitKeys, new byte[]{SPO_PREFIX}, splitBits);
-        addSplits(splitKeys, new byte[]{POS_PREFIX}, splitBits);
-        addSplits(splitKeys, new byte[]{OSP_PREFIX}, splitBits);
+        // can split the salt by 4 bits
+        int step = 1 << (4 - Math.min(splitBits, 4));
+        for(int i=step; i<NUM_SALTS; i+=step) {
+        	splitKeys.add(new byte[] {addSalt((byte)0, i)});
+        }
+        if (splitBits > 4) {
+        	// handle remaining 16 bits
+	        for(int i=0; i<NUM_SALTS; i++) {
+		        addSplits(splitKeys, new byte[]{addSalt((byte)0, i)}, splitBits-4);
+	        }
+        }
         return splitKeys.toArray(new byte[splitKeys.size()][]);
     }
 
@@ -644,9 +672,6 @@ public final class HalyardTableUtils {
      * @param splitBits between 0 and 16, larger values generate smaller split steps
      */
     private static void addSplits(TreeSet<byte[]> splitKeys, byte[] prefix, int splitBits) {
-        if (splitBits == 0) return;
-        if (splitBits < 0 || splitBits > 16) throw new IllegalArgumentException("Illegal nunmber of split bits");
-
         final int splitStep = 1 << (16 - splitBits); //1 splitBit gives a split step of 32768, 8 splitBits gives a split step of 256
         for (int i = splitStep; i <= 0xFFFF; i += splitStep) { // 0xFFFF is 65535 so a split step of 32768 will give 2 iterations, larger split bits give more iterations
             byte bb[] = Arrays.copyOf(prefix, prefix.length + 2);
@@ -723,7 +748,9 @@ public final class HalyardTableUtils {
             default:
             	throw new AssertionError("Invalid prefix: "+prefix);
         }
-        return r.array();
+
+        byte[] rBytes = r.array();
+        return salt(rBytes);
     }
 
 	private static byte[] qualifier(byte prefix, RDFValue<?> v1, RDFValue<?> v2, RDFValue<?> v3, RDFValue<?> v4) {
@@ -889,34 +916,35 @@ public final class HalyardTableUtils {
      * @param ctx optional context Resource
      * @return HBase Scan instance to retrieve all data potentially matching the Statement pattern
      */
-	public static Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) {
+	public static Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) throws IOException {
+		Scan scan;
 		if (ctx == null) {
 			if (subj == null) {
 				if (pred == null) {
 					if (obj == null) {
-						return scan3_0(SPO_PREFIX, RDFSubject.STOP_KEY, RDFPredicate.STOP_KEY, RDFObject.END_STOP_KEY);
+						scan = scan3_0(SPO_PREFIX, RDFSubject.STOP_KEY, RDFPredicate.STOP_KEY, RDFObject.END_STOP_KEY);
                     } else {
-						return scan3_1(OSP_PREFIX, obj, RDFSubject.STOP_KEY, RDFPredicate.END_STOP_KEY);
+                    	scan = scan3_1(OSP_PREFIX, obj, RDFSubject.STOP_KEY, RDFPredicate.END_STOP_KEY);
                     }
                 } else {
 					if (obj == null) {
-						return scan3_1(POS_PREFIX, pred, RDFObject.STOP_KEY, RDFSubject.END_STOP_KEY);
+						scan = scan3_1(POS_PREFIX, pred, RDFObject.STOP_KEY, RDFSubject.END_STOP_KEY);
                     } else {
-						return scan3_2(POS_PREFIX, pred, obj, RDFSubject.END_STOP_KEY);
+                    	scan = scan3_2(POS_PREFIX, pred, obj, RDFSubject.END_STOP_KEY);
                     }
                 }
             } else {
 				if (pred == null) {
 					if (obj == null) {
-						return scan3_1(SPO_PREFIX, subj, RDFPredicate.STOP_KEY, RDFObject.END_STOP_KEY);
+						scan = scan3_1(SPO_PREFIX, subj, RDFPredicate.STOP_KEY, RDFObject.END_STOP_KEY);
                     } else {
-						return scan3_2(OSP_PREFIX, obj, subj, RDFPredicate.END_STOP_KEY);
+                    	scan = scan3_2(OSP_PREFIX, obj, subj, RDFPredicate.END_STOP_KEY);
                     }
                 } else {
 					if (obj == null) {
-						return scan3_2(SPO_PREFIX, subj, pred, RDFObject.END_STOP_KEY);
+						scan = scan3_2(SPO_PREFIX, subj, pred, RDFObject.END_STOP_KEY);
                     } else {
-						return scan3_3(SPO_PREFIX, subj, pred, obj);
+                    	scan = scan3_3(SPO_PREFIX, subj, pred, obj);
                     }
                 }
             }
@@ -924,36 +952,110 @@ public final class HalyardTableUtils {
 			if (subj == null) {
 				if (pred == null) {
 					if (obj == null) {
-						return scan4_1(CSPO_PREFIX, ctx, RDFSubject.STOP_KEY, RDFPredicate.STOP_KEY, RDFObject.END_STOP_KEY);
+						scan = scan4_1(CSPO_PREFIX, ctx, RDFSubject.STOP_KEY, RDFPredicate.STOP_KEY, RDFObject.END_STOP_KEY);
                     } else {
-						return scan4_2(COSP_PREFIX, ctx, obj, RDFSubject.STOP_KEY, RDFPredicate.END_STOP_KEY);
+                    	scan = scan4_2(COSP_PREFIX, ctx, obj, RDFSubject.STOP_KEY, RDFPredicate.END_STOP_KEY);
                     }
                 } else {
 					if (obj == null) {
-						return scan4_2(CPOS_PREFIX, ctx, pred, RDFObject.STOP_KEY, RDFSubject.END_STOP_KEY);
+						scan = scan4_2(CPOS_PREFIX, ctx, pred, RDFObject.STOP_KEY, RDFSubject.END_STOP_KEY);
                     } else {
-						return scan4_3(CPOS_PREFIX, ctx, pred, obj, RDFSubject.END_STOP_KEY);
+                    	scan = scan4_3(CPOS_PREFIX, ctx, pred, obj, RDFSubject.END_STOP_KEY);
                     }
                 }
             } else {
 				if (pred == null) {
 					if (obj == null) {
-						return scan4_2(CSPO_PREFIX, ctx, subj, RDFPredicate.STOP_KEY, RDFObject.END_STOP_KEY);
+						scan = scan4_2(CSPO_PREFIX, ctx, subj, RDFPredicate.STOP_KEY, RDFObject.END_STOP_KEY);
                     } else {
-						return scan4_3(COSP_PREFIX, ctx, obj, subj, RDFPredicate.END_STOP_KEY);
+                    	scan = scan4_3(COSP_PREFIX, ctx, obj, subj, RDFPredicate.END_STOP_KEY);
                     }
                 } else {
 					if (obj == null) {
-						return scan4_3(CSPO_PREFIX, ctx, subj, pred, RDFObject.END_STOP_KEY);
+						scan = scan4_3(CSPO_PREFIX, ctx, subj, pred, RDFObject.END_STOP_KEY);
                     } else {
-						return scan4_4(CSPO_PREFIX, ctx, subj, pred, obj);
+                    	scan = scan4_4(CSPO_PREFIX, ctx, subj, pred, obj);
                     }
                 }
             }
         }
+		return scan;
     }
 
-    /**
+	public static List<Scan> addSalt(Scan scan) throws IOException {
+		List<Scan> saltedScans = new ArrayList<>(NUM_SALTS);
+		appendSaltedScans(scan, saltedScans);
+		return saltedScans;
+	}
+
+	public static void appendSaltedScans(Scan scan, List<Scan> saltedScans) throws IOException {
+		byte[] startRow = scan.getStartRow();
+		byte[] stopRow = scan.getStopRow();
+		if (startRow.length > 1 && stopRow.length > 1 && scan.isGetScan()) {
+			byte[] saltedStartRow = salt(Bytes.copy(startRow));
+			byte[] saltedStopRow = salt(Bytes.copy(stopRow));
+
+			Scan saltedScan = new Scan(scan);
+			saltedScan.setStartRow(saltedStartRow);
+			saltedScan.setStopRow(saltedStopRow);
+			saltedScans.add(saltedScan);
+		} else {
+			for (int i = 0; i < NUM_SALTS; i++) {
+				Scan saltedScan = new Scan(scan);
+
+				byte[] saltedStartRow;
+				if (startRow != null && startRow.length > 0) {
+					saltedStartRow = Bytes.copy(startRow);
+					saltedStartRow[0] = addSalt(saltedStartRow[0], i);
+				} else {
+					saltedStartRow = new byte[] { addSalt((byte) 0, i) };
+				}
+				saltedScan.setStartRow(saltedStartRow);
+
+				byte[] saltedStopRow;
+				if (stopRow != null && stopRow.length > 0) {
+					saltedStopRow = Bytes.copy(stopRow);
+					saltedStopRow[0] = addSalt(saltedStopRow[0], i);
+				} else {
+					if (i < NUM_SALTS - 1) {
+						saltedStopRow = new byte[] { addSalt((byte) 0, i + 1) };
+					} else {
+						saltedStopRow = HConstants.EMPTY_END_ROW;
+					}
+				}
+				saltedScan.setStopRow(saltedStopRow);
+
+				saltedScans.add(saltedScan);
+			}
+		}
+	}
+
+	private static byte[] salt(byte[] key) {
+		byte b = key[1];
+		int salt = (byte) ((b >> SALT_SHIFT) & 0x0F);
+		key[0] = addSalt(key[0], salt);
+		return key;
+
+	}
+
+	public static byte addSalt(byte prefix, int salt) {
+		int shiftedSalt = salt << SALT_SHIFT;
+		return (byte) (shiftedSalt | prefix);
+	}
+
+	public static byte unsalt(byte saltedPrefix) {
+		return (byte) (saltedPrefix & 0x0F);
+	}
+
+	public static int getSalt(byte saltedPrefix) {
+		return (saltedPrefix >> SALT_SHIFT) & 0x0F;
+	}
+
+	public static ResultScanner getScanner(TableProvider tableProvider, RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) throws IOException {
+		return getScanner(tableProvider, addSalt(scan(subj, pred, obj, ctx)));
+	}
+
+	/**
 	 * Parser method returning all Statements from a single HBase Scan Result
 	 * 
      * @param subj subject if known
@@ -1002,7 +1104,7 @@ public final class HalyardTableUtils {
         IRI p;
         Value o;
         Resource c;
-    	byte prefix = key.get();
+    	byte prefix = unsalt(key.get());
         switch(prefix) {
         	case SPO_PREFIX:
         		s = parseShortRDFValue(subj, key, cn, cv, RDFSubject.KEY_SIZE, vf);
