@@ -61,7 +61,7 @@ class MemoryStoreWithHalyardStrategy extends MemoryStore {
                                 } catch (InterruptedException ex) {
                                     //ignore
                                 }
-                                return super.hasNext(); //To change body of generated methods, choose Tools | Templates.
+                                return super.hasNext();
                             }
 
                             @Override
