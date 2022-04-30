@@ -813,6 +813,30 @@ public class ValueIO {
 		}
 	}
 
+	ByteBuffer writeLanguagePrefix(String langTag, ByteBuffer b) {
+		Short hash = wellKnownLangs.inverse().get(langTag);
+		if (hash != null) {
+			b = ensureCapacity(b, 1+LANG_HASH_SIZE);
+			b.put(LANGUAGE_HASH_LITERAL_TYPE);
+			b.putShort(hash);
+		} else {
+			if (langTag.length() > Short.MAX_VALUE) {
+				int truncatePos = langTag.lastIndexOf('-', Short.MAX_VALUE-1);
+				// check for single tag
+				if (langTag.charAt(truncatePos-2) == '-') {
+					truncatePos -= 2;
+				}
+				langTag = langTag.substring(0, truncatePos);
+			}
+			ByteBuffer langBytes = writeUncompressedString(langTag);
+			b = ensureCapacity(b, 1+1+langBytes.remaining());
+			b.put(LANGUAGE_LITERAL_TYPE);
+			b.put((byte) langBytes.remaining());
+			b.put(langBytes);
+		}
+		return b;
+	}
+
 	public Writer createWriter(TripleWriter tw) {
 		return new Writer(tw);
 	}
@@ -953,26 +977,7 @@ public class ValueIO {
 		private ByteBuffer writeLiteral(Literal l, ByteBuffer b) {
 			if(l.getLanguage().isPresent()) {
 				String langTag = l.getLanguage().get();
-				Short hash = wellKnownLangs.inverse().get(langTag);
-				if (hash != null) {
-					b = ensureCapacity(b, 1+LANG_HASH_SIZE);
-					b.put(LANGUAGE_HASH_LITERAL_TYPE);
-					b.putShort(hash);
-				} else {
-					if (langTag.length() > Short.MAX_VALUE) {
-						int truncatePos = langTag.lastIndexOf('-', Short.MAX_VALUE-1);
-						// check for single tag
-						if (langTag.charAt(truncatePos-2) == '-') {
-							truncatePos -= 2;
-						}
-						langTag = langTag.substring(0, truncatePos);
-					}
-					ByteBuffer langBytes = writeUncompressedString(langTag);
-					b = ensureCapacity(b, 1+1+langBytes.remaining());
-					b.put(LANGUAGE_LITERAL_TYPE);
-					b.put((byte) langBytes.remaining());
-					b.put(langBytes);
-				}
+				b = writeLanguagePrefix(langTag, b);
 				return writeString(l.getLabel(), b);
 			} else {
 				ByteWriter writer = byteWriters.get(l.getDatatype());
