@@ -16,14 +16,14 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 
-public class LiteralStrategyTest {
+public class ConstrainedValueStrategyTest {
 
     private Repository repo;
     private RepositoryConnection con;
 
     @Before
     public void setUp() throws Exception {
-        repo = new SailRepository(new MemoryStoreWithLiteralStrategy());
+        repo = new SailRepository(new MemoryStoreWithConstraintsStrategy());
         repo.init();
         con = repo.getConnection();
     }
@@ -58,5 +58,41 @@ public class LiteralStrategyTest {
         assertTrue(res.hasNext());
         BindingSet bs = res.next();
         assertEquals("c", ((IRI)bs.getValue("s")).getLocalName());
+    }
+
+    @Test
+    public void testFilterIRIs() {
+        ValueFactory vf = con.getValueFactory();
+        con.add(vf.createIRI("http://whatever/a"), vf.createIRI("http://whatever/val"), vf.createLiteral(1));
+        con.add(vf.createBNode(), vf.createIRI("http://whatever/val"), vf.createLiteral("foo"));
+    	String q ="SELECT ?s { ?s ?p ?o filter(isIRI(?s)) }";
+        TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate();
+        assertTrue(res.hasNext());
+        BindingSet bs = res.next();
+        assertTrue(bs.getValue("s").isIRI());
+    }
+
+    @Test
+    public void testFilterBNodes() {
+        ValueFactory vf = con.getValueFactory();
+        con.add(vf.createIRI("http://whatever/a"), vf.createIRI("http://whatever/val"), vf.createLiteral(1));
+        con.add(vf.createBNode(), vf.createIRI("http://whatever/val"), vf.createLiteral("foo"));
+    	String q ="SELECT ?s { ?s ?p ?o filter(isBlank(?s)) }";
+        TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate();
+        assertTrue(res.hasNext());
+        BindingSet bs = res.next();
+        assertTrue(bs.getValue("s").isBNode());
+    }
+
+    @Test
+    public void testFilterIsNumeric() {
+        ValueFactory vf = con.getValueFactory();
+        con.add(vf.createIRI("http://whatever/a"), vf.createIRI("http://whatever/val"), vf.createLiteral(1));
+        con.add(vf.createIRI("http://whatever/b"), vf.createIRI("http://whatever/val"), vf.createLiteral("foo"));
+    	String q ="SELECT ?s { ?s ?p ?o filter(isNumeric(?o)) }";
+        TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate();
+        assertTrue(res.hasNext());
+        BindingSet bs = res.next();
+        assertEquals("a", ((IRI)bs.getValue("s")).getLocalName());
     }
 }

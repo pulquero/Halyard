@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.vocab.HALYARD;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
@@ -27,7 +29,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.*;
 
-public class StatementIndexTest {
+public class StatementIndexScanTest {
     private static final String SUBJ = "http://whatever/subj";
     private static final String CTX = "http://whatever/ctx";
 
@@ -36,6 +38,7 @@ public class StatementIndexTest {
     private static Set<Statement> allStatements;
     private static Set<Literal> allLiterals;
     private static Set<Literal> stringLiterals;
+    private static Set<Literal> nonstringLiterals;
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -44,20 +47,22 @@ public class StatementIndexTest {
 		rdfFactory = RDFFactory.create(table);
 
         SimpleValueFactory vf = SimpleValueFactory.getInstance();
-        allStatements = new HashSet<>();
-        allLiterals = new HashSet<>();
         stringLiterals = new HashSet<>();
+        nonstringLiterals = new HashSet<>();
         for (int i=0; i<5; i++) {
-			allLiterals.add(vf.createLiteral(Math.random()));
-			allLiterals.add(vf.createLiteral((long) Math.random()));
-			Literal strl = vf.createLiteral(String.valueOf(Math.random()));
-			stringLiterals.add(strl);
-			allLiterals.add(strl);
+			stringLiterals.add(vf.createLiteral(String.valueOf(Math.random())));
+			stringLiterals.add(vf.createLiteral(String.valueOf(Math.random()), "en"));
+			nonstringLiterals.add(vf.createLiteral(Math.random()));
+			nonstringLiterals.add(vf.createLiteral((long) Math.random()));
         }
-        allLiterals.add(vf.createLiteral(new Date()));
+        nonstringLiterals.add(vf.createLiteral(new Date()));
+        allLiterals = new HashSet<>();
+        allLiterals.addAll(stringLiterals);
+        allLiterals.addAll(nonstringLiterals);
         long timestamp = System.currentTimeMillis();
 		List<Put> puts = new ArrayList<>();
         Resource subj = vf.createIRI(SUBJ);
+        allStatements = new HashSet<>();
         for (Literal l : allLiterals) {
             Statement stmt = vf.createStatement(subj, RDF.VALUE, l, vf.createIRI(CTX));
             allStatements.add(stmt);
@@ -109,6 +114,7 @@ public class StatementIndexTest {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : HalyardTableUtils.parseStatements(null, null, null, null, r, reader, rdfFactory)) {
+                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
             }
@@ -127,6 +133,7 @@ public class StatementIndexTest {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : HalyardTableUtils.parseStatements(null, null, null, null, r, reader, rdfFactory)) {
+                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
             }
@@ -143,11 +150,12 @@ public class StatementIndexTest {
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = rdfFactory.getSPOIndex().scanWithConstraints(rdfSubj, rdfPred, new LiteralConstraints(XSD.STRING));
+        Scan scan = rdfFactory.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, new ObjectConstraint(XSD.STRING));
         try (ResultScanner rs = table.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : HalyardTableUtils.parseStatements(rdfSubj, rdfPred, null, null, r, reader, rdfFactory)) {
+                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
             }
@@ -164,18 +172,17 @@ public class StatementIndexTest {
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = rdfFactory.getSPOIndex().scanWithConstraints(rdfSubj, rdfPred, new LiteralConstraints(XSD.STRING));
+        Scan scan = rdfFactory.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, new ObjectConstraint(HALYARD.NON_STRING));
         try (ResultScanner rs = table.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : HalyardTableUtils.parseStatements(rdfSubj, rdfPred, null, null, r, reader, rdfFactory)) {
+                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
             }
         }
-        Set<Literal> nonStringLiterals = new HashSet<Literal>(allLiterals);
-        nonStringLiterals.removeAll(stringLiterals);
-        assertEquals(stringLiterals, actual);
+        assertEquals(nonstringLiterals, actual);
     }
 
     @Test
@@ -185,11 +192,12 @@ public class StatementIndexTest {
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = rdfFactory.getPOSIndex().scanWithConstraints(rdfPred, new LiteralConstraints(XSD.STRING));
+        Scan scan = rdfFactory.getPOSIndex().scanWithConstraint(rdfPred, new ObjectConstraint(XSD.STRING));
         try (ResultScanner rs = table.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : HalyardTableUtils.parseStatements(null, rdfPred, null, null, r, reader, rdfFactory)) {
+                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
             }
@@ -204,18 +212,17 @@ public class StatementIndexTest {
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = rdfFactory.getPOSIndex().scanWithConstraints(rdfPred, new LiteralConstraints(XSD.STRING));
+        Scan scan = rdfFactory.getPOSIndex().scanWithConstraint(rdfPred, new ObjectConstraint(HALYARD.NON_STRING));
         try (ResultScanner rs = table.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : HalyardTableUtils.parseStatements(null, rdfPred, null, null, r, reader, rdfFactory)) {
+                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
             }
         }
-        Set<Literal> nonStringLiterals = new HashSet<Literal>(allLiterals);
-        nonStringLiterals.removeAll(stringLiterals);
-        assertEquals(stringLiterals, actual);
+        assertEquals(nonstringLiterals, actual);
     }
 
     @Test
@@ -224,11 +231,12 @@ public class StatementIndexTest {
         ValueIO.Reader reader = rdfFactory.createReader(vf);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = rdfFactory.getOSPIndex().scanWithConstraints(new LiteralConstraints(XSD.STRING));
+        Scan scan = rdfFactory.getOSPIndex().scanWithConstraint(new ObjectConstraint(XSD.STRING));
         try (ResultScanner rs = table.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : HalyardTableUtils.parseStatements(null, null, null, null, r, reader, rdfFactory)) {
+                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
             }
@@ -242,17 +250,16 @@ public class StatementIndexTest {
         ValueIO.Reader reader = rdfFactory.createReader(vf);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = rdfFactory.getOSPIndex().scanWithConstraints(new LiteralConstraints(XSD.STRING));
+        Scan scan = rdfFactory.getOSPIndex().scanWithConstraint(new ObjectConstraint(HALYARD.NON_STRING));
         try (ResultScanner rs = table.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : HalyardTableUtils.parseStatements(null, null, null, null, r, reader, rdfFactory)) {
-                    actual.add((Literal) stmt.getObject());
+                   assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
+                   actual.add((Literal) stmt.getObject());
                 }
             }
         }
-        Set<Literal> nonStringLiterals = new HashSet<Literal>(allLiterals);
-        nonStringLiterals.removeAll(stringLiterals);
-        assertEquals(stringLiterals, actual);
+        assertEquals(nonstringLiterals, actual);
     }
 }
