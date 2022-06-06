@@ -31,12 +31,12 @@ import java.util.List;
 import java.util.Properties;
 
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.PosixParser;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -115,7 +115,8 @@ public abstract class AbstractHalyardTool implements Tool {
     }
 
     private static final class OrderedOption extends Option {
-        final int order;
+        private static final long serialVersionUID = 1456615004231240773L;
+		final int order;
         public OrderedOption(int order, String opt, String longOpt, String argName, String description, boolean required) {
             super(opt, longOpt, argName != null, description);
             setArgName(argName);
@@ -137,7 +138,7 @@ public abstract class AbstractHalyardTool implements Tool {
     @Override
     public final int run(String[] args) throws Exception {
         try {
-            CommandLine cmd = new PosixParser(){
+            CommandLine cmd = new DefaultParser(){
                 @Override
                 protected void checkRequiredOptions() throws MissingOptionException {
                     if (!cmd.hasOption('h') && !cmd.hasOption('v')) {
