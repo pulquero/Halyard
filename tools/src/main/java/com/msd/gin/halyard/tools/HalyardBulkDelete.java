@@ -74,10 +74,15 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
     private static final String OBJECT = "halyard.delete.object";
     private static final String CONTEXTS = "halyard.delete.contexts";
 
+    enum Counters {
+		REMOVED_KVS,
+		TOTAL_KVS
+	}
+
     static final class DeleteMapper extends RdfTableMapper<ImmutableBytesWritable, KeyValue> {
 
         final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
-        long total = 0, deleted = 0;
+        long totalKvs = 0, deletedKvs = 0;
         Resource subj;
         IRI pred;
         Value obj;
@@ -89,15 +94,15 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
             openKeyspace(conf, conf.get(SOURCE), conf.get(SNAPSHOT_PATH));
             ValueFactory vf = rdfFactory.getIdValueFactory();
             String s = conf.get(SUBJECT);
-            if (s!= null) {
+            if (s != null) {
                 subj = NTriplesUtil.parseResource(s, vf);
             }
             String p = conf.get(PREDICATE);
-            if (p!= null) {
+            if (p != null) {
                 pred = NTriplesUtil.parseURI(p, vf);
             }
             String o = conf.get(OBJECT);
-            if (o!= null) {
+            if (o != null) {
                 obj = NTriplesUtil.parseValue(o, vf);
             }
             String cs[] = conf.getStrings(CONTEXTS);
@@ -125,12 +130,12 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
                         c.getValueLength());
                     rowKey.set(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength());
                     output.write(rowKey, kv);
-                    deleted++;
+                    deletedKvs++;
                 } else {
                     output.progress();
                 }
-                if (total++ % 10000l == 0) {
-                    String msg = MessageFormat.format("{0} / {1} cells deleted", deleted, total);
+                if (totalKvs++ % 10000l == 0) {
+                    String msg = MessageFormat.format("{0} / {1} cells deleted", deletedKvs, totalKvs);
                     output.setStatus(msg);
                     LOG.info(msg);
                 }
@@ -139,6 +144,8 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 
         @Override
         protected void cleanup(Context output) throws IOException {
+        	output.getCounter(Counters.REMOVED_KVS).increment(deletedKvs);
+        	output.getCounter(Counters.TOTAL_KVS).increment(totalKvs);
         	closeKeyspace();
         }
     }
@@ -167,6 +174,26 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         String target = cmd.getOptionValue('t');
     	boolean useSnapshot = cmd.hasOption('n') && cmd.hasOption('u');
         String source = useSnapshot ? cmd.getOptionValue('n') : target;
+        getConf().set(SOURCE, source);
+        if (cmd.hasOption('u')) {
+			FileSystem fs = CommonFSUtils.getRootDirFileSystem(getConf());
+        	if (fs.exists(new Path(cmd.getOptionValue('u')))) {
+        		throw new IOException("Snapshot restore directory already exists");
+        	}
+        	getConf().set(SNAPSHOT_PATH, cmd.getOptionValue('u'));
+        }
+        if (cmd.hasOption('s')) {
+        	getConf().set(SUBJECT, cmd.getOptionValue('s'));
+        }
+        if (cmd.hasOption('p')) {
+        	getConf().set(PREDICATE, cmd.getOptionValue('p'));
+        }
+        if (cmd.hasOption('o')) {
+        	getConf().set(OBJECT, cmd.getOptionValue('o'));
+        }
+        if (cmd.hasOption('g')) {
+        	getConf().setStrings(CONTEXTS, cmd.getOptionValues('g'));
+        }
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
             NTriplesUtil.class,
             Rio.class,
@@ -178,26 +205,6 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
             AuthenticationProtos.class);
         HBaseConfiguration.addHbaseResources(getConf());
         Job job = Job.getInstance(getConf(), "HalyardDelete " + source);
-        job.getConfiguration().set(SOURCE, source);
-        if (cmd.hasOption('u')) {
-			FileSystem fs = CommonFSUtils.getRootDirFileSystem(getConf());
-        	if (fs.exists(new Path(cmd.getOptionValue('u')))) {
-        		throw new IOException("Snapshot restore directory already exists");
-        	}
-            job.getConfiguration().set(SNAPSHOT_PATH, cmd.getOptionValue('u'));
-        }
-        if (cmd.hasOption('s')) {
-            job.getConfiguration().set(SUBJECT, cmd.getOptionValue('s'));
-        }
-        if (cmd.hasOption('p')) {
-            job.getConfiguration().set(PREDICATE, cmd.getOptionValue('p'));
-        }
-        if (cmd.hasOption('o')) {
-            job.getConfiguration().set(OBJECT, cmd.getOptionValue('o'));
-        }
-        if (cmd.hasOption('g')) {
-            job.getConfiguration().setStrings(CONTEXTS, cmd.getOptionValues('g'));
-        }
         job.setJarByClass(HalyardBulkDelete.class);
         TableMapReduceUtil.initCredentials(job);
 
