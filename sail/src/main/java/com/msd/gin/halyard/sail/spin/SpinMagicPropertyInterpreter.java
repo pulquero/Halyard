@@ -14,7 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.eclipse.rdf4j.common.exception.RDF4JException;
+import org.eclipse.rdf4j.RDF4JException;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
@@ -42,8 +42,8 @@ import org.eclipse.rdf4j.query.algebra.evaluation.federation.TupleFunctionFedera
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.TripleSources;
-import org.eclipse.rdf4j.query.algebra.helpers.BGPCollector;
 import org.eclipse.rdf4j.query.algebra.helpers.AbstractQueryModelVisitor;
+import org.eclipse.rdf4j.query.algebra.helpers.BGPCollector;
 import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 import org.eclipse.rdf4j.queryrender.sparql.SPARQLQueryRenderer;

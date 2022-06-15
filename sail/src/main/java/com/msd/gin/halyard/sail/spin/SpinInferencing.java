@@ -7,7 +7,6 @@
  *******************************************************************************/
 package com.msd.gin.halyard.sail.spin;
 
-import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -45,7 +44,7 @@ public class SpinInferencing {
 	}
 
 	public static int executeRule(Resource subj, Resource rule, QueryPreparer queryPreparer, SpinParser parser,
-			InferencerConnection conn) throws RDF4JException {
+			InferencerConnection conn) {
 		int nofInferred;
 		TripleSource tripleSource = queryPreparer.getTripleSource();
 		ParsedOperation parsedOp = parser.parse(rule, tripleSource);
@@ -74,7 +73,7 @@ public class SpinInferencing {
 	}
 
 	public static ConstraintViolation checkConstraint(Resource subj, Resource constraint, QueryPreparer queryPreparer,
-			SpinParser parser) throws RDF4JException {
+			SpinParser parser) {
 		ConstraintViolation violation;
 		TripleSource tripleSource = queryPreparer.getTripleSource();
 		ParsedQuery parsedQuery = parser.parseQuery(constraint, tripleSource);
@@ -101,7 +100,7 @@ public class SpinInferencing {
 	}
 
 	private static void addBindings(Resource subj, Resource opResource, ParsedOperation parsedOp, Operation op,
-			TripleSource tripleSource, SpinParser parser) throws RDF4JException {
+			TripleSource tripleSource, SpinParser parser) {
 		if (!parser.isThisUnbound(opResource, tripleSource)) {
 			op.setBinding(THIS_VAR, subj);
 		}
@@ -146,7 +145,7 @@ public class SpinInferencing {
 		}
 
 		@Override
-		protected void addStatement(Resource subj, IRI pred, Value obj, Resource ctxt) throws RDF4JException {
+		protected void addStatement(Resource subj, IRI pred, Value obj, Resource ctxt) {
 			super.addStatement(subj, pred, obj, ctxt);
 			stmtCount++;
 		}

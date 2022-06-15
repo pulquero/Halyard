@@ -223,7 +223,7 @@ public class HBaseSail implements Sail {
 	}
 
 	@Override
-	public void init() throws SailException {
+	public void initialize() throws SailException {
 		try {
 			if (tableName != null) {
 				if (!hConnectionIsShared) {
