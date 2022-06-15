@@ -24,6 +24,7 @@ import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.Timestamped;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.sail.HBaseSail.SailConnectionFactory;
+import com.msd.gin.halyard.sail.spin.SpinFunctionInterpreter;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy.ServiceRoot;
 import com.msd.gin.halyard.vocab.HALYARD;
@@ -84,8 +85,7 @@ import org.eclipse.rdf4j.sail.SailConnectionQueryPreparer;
 import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.UnknownSailTransactionStateException;
 import org.eclipse.rdf4j.sail.UpdateContext;
-import org.eclipse.rdf4j.sail.spin.SpinFunctionInterpreter;
-import org.eclipse.rdf4j.sail.spin.SpinMagicPropertyInterpreter;
+import com.msd.gin.halyard.sail.spin.SpinMagicPropertyInterpreter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -60,7 +60,7 @@ import org.eclipse.rdf4j.spin.function.AskFunction;
 import org.eclipse.rdf4j.spin.function.ConstructTupleFunction;
 import org.eclipse.rdf4j.spin.function.EvalFunction;
 import org.eclipse.rdf4j.spin.function.SelectTupleFunction;
-import org.eclipse.rdf4j.spin.function.spif.CanInvoke;
+import com.msd.gin.halyard.function.spif.CanInvoke;
 import org.eclipse.rdf4j.spin.function.spif.ConvertSpinRDFToString;
 
 /**
@@ -223,7 +223,7 @@ public class HBaseSail implements Sail {
 	}
 
 	@Override
-    public void initialize() throws SailException { //initialize the SAIL
+	public void init() throws SailException {
 		try {
 			if (tableName != null) {
 				if (!hConnectionIsShared) {
