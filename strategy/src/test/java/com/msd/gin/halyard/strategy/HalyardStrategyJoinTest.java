@@ -4,6 +4,7 @@ import com.msd.gin.halyard.algebra.HashJoin;
 import com.msd.gin.halyard.algebra.NestedLoops;
 
 import java.io.InputStream;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -180,7 +181,7 @@ public class HalyardStrategyJoinTest {
         }
         Set<BindingSet> expectedResults;
         try (InputStream in = getClass().getResourceAsStream(expectedOutput)) {
-            try (TupleQueryResult res = QueryResultIO.parseTuple(in, TupleQueryResultFormat.SPARQL)) {
+            try (TupleQueryResult res = QueryResultIO.parseTuple(in, TupleQueryResultFormat.SPARQL, new WeakReference<Object>(this))) {
                 expectedResults = toSet(res);
             }
         }

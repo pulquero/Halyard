@@ -306,7 +306,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
             this.namedGraph = ng == null ? null : SVF.createIRI(ng);
             this.decimationFactor = conf.getInt(DECIMATION_FACTOR, DEFAULT_DECIMATION_FACTOR);
             sail = new HBaseSail(conf, conf.get(SOURCE_NAME_PROPERTY), false, 0, true, 0, null, null);
-            sail.initialize();
+            sail.init();
 			conn = sail.getConnection();
             setupOutput();
             write(CARDINALITY, RDF.TYPE, RDF.PROPERTY);

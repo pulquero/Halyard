@@ -212,7 +212,7 @@ public final class HalyardStats extends AbstractHalyardTool {
                         if (sail == null) {
                             Configuration conf = output.getConfiguration();
                             sail = new HBaseSail(conf, conf.get(SOURCE_NAME_PROPERTY), false, 0, true, 0, null, null);
-                            sail.initialize();
+                            sail.init();
 							conn = sail.getConnection();
                         }
 						for (Statement st : stmts) {
@@ -423,7 +423,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             String targetUrl = conf.get(TARGET);
             if (targetUrl == null) {
                 sail = new HBaseSail(conf, conf.get(SOURCE_NAME_PROPERTY), false, 0, true, 0, null, null);
-                sail.initialize();
+                sail.init();
 				conn = sail.getConnection();
 				conn.setNamespace(SD.PREFIX, SD.NAMESPACE);
 				conn.setNamespace(VOID.PREFIX, VOID.NAMESPACE);
