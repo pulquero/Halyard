@@ -17,6 +17,8 @@ import org.eclipse.rdf4j.model.ValueFactory;
 public class SearchDocument {
 	public static final String ID_FIELD = "id";
 	public static final String LABEL_FIELD = "label";
+	public static final String POINT_SUBFIELD = "point";
+	public static final String LABEL_POINT_FIELD = LABEL_FIELD + "." + POINT_SUBFIELD;
 	public static final String LANG_FIELD = "lang";
 	public static final String DATATYPE_FIELD = "datatype";
 
