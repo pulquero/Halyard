@@ -1711,8 +1711,8 @@ final class HalyardTupleExprEvaluation {
         }, bindings);
     }
 
-    private void evaluateHashJoin(BindingSetPipe topPipe, final Join join, final BindingSet bindings) {
-    	evaluateHashJoin(topPipe, join, bindings, false);
+    private void evaluateHashJoin(BindingSetPipe parentPipe, final Join join, final BindingSet bindings) {
+    	precompileHashJoin(join, false).evaluate(parentPipe, bindings);
     }
 
     /**
@@ -1841,56 +1841,22 @@ final class HalyardTupleExprEvaluation {
     }
 
     private void evaluateHashLeftJoin(BindingSetPipe parentPipe, final LeftJoin leftJoin, final BindingSet bindings) {
-    	evaluateHashJoin(parentPipe, leftJoin, bindings, true);
+    	precompileHashJoin(leftJoin, true).evaluate(parentPipe, bindings);
     }
 
-    private void evaluateHashJoin(BindingSetPipe topPipe, final BinaryTupleOperator join, final BindingSet bindings, boolean isLeftJoin) {
-    	AbstractHashTableJoiner joiner = isLeftJoin ? new LeftHashTableJoiner(topPipe, join, bindings) : new HashTableJoiner(topPipe, join, bindings);
-    	buildHashTable(joiner, bindings, isLeftJoin ? Integer.MAX_VALUE : hashJoinLimit);
-    }
-
-    private void buildHashTable(AbstractHashTableJoiner joiner, final BindingSet bindings, final int hashJoinLimit) {
-    	joiner.join.setAlgorithm(Algorithms.HASH_JOIN);
-    	parentStrategy.initTracking(joiner.join);
-        BindingSetPipeEvaluationStep step = precompileTupleExpr(joiner.buildExpr);
-		step.evaluate(new BindingSetPipe(null) {
-	    	HashJoinTable hashTable = joiner.createHashTable();
-            @Override
-            protected boolean next(BindingSet buildBs) {
-            	HashJoinTable partition;
-            	synchronized (this) {
-                	if (hashTable.entryCount() >= hashJoinLimit) {
-                		partition = hashTable;
-                		hashTable = joiner.createHashTable();
-                	} else {
-                		partition = null;
-                	}
-            		hashTable.put(buildBs);
-            	}
-            	if (partition != null) {
-            		joiner.doJoin(partition, false);
-            	}
-            	return true;
-            }
-            @Override
-			protected void doClose() {
-            	synchronized (this) {
-            		if (hashTable != null) {
-                   		joiner.doJoin(hashTable, true);
-            			hashTable = null;
-            		}
-            	}
-            }
-            @Override
-            public String toString() {
-            	return "HashTableBindingSetPipe";
-            }
-    	}, bindings);
+    private BindingSetPipeEvaluationStep precompileHashJoin(final BinaryTupleOperator join, boolean isLeftJoin) {
+    	if (isLeftJoin) {
+    		return new LeftHashTableJoiner(join);
+    	} else {
+    		return new HashTableJoiner(join);
+    	}
     }
 
 
-	private static Set<String> getJoinAttributes(TupleExpr probeExpr,  TupleExpr buildExpr) {
+	private static Set<String> getJoinAttributes(BinaryTupleOperator join) {
 		Set<String> joinAttributeNames;
+		TupleExpr probeExpr = join.getLeftArg();
+		TupleExpr buildExpr = join.getRightArg();
 		// for statement patterns can ignore equal common constant vars
 		if (probeExpr instanceof StatementPattern && buildExpr instanceof StatementPattern) {
 			Map<String,Var> probeVars = getVars((StatementPattern) probeExpr);
@@ -1939,26 +1905,24 @@ final class HalyardTupleExprEvaluation {
         return c.toArray(new String[c.size()]);
     }
 
-    private abstract class AbstractHashTableJoiner {
+    private abstract class AbstractHashTableJoiner implements BindingSetPipeEvaluationStep {
     	private final AtomicLong joinsInProgress = new AtomicLong();
     	private final AtomicBoolean joinsFinished = new AtomicBoolean();
-    	private final BindingSetPipe parent;
     	private final BinaryTupleOperator join;
     	private final TupleExpr probeExpr;
     	private final TupleExpr buildExpr;
-    	private final BindingSet bindings;
+    	private final int hashTableLimit;
     	private final Set<String> joinAttributeSet;
     	private final String[] joinAttributes;
 		private final String[] buildAttributes;
 		private final int initialSize;
 
-    	protected AbstractHashTableJoiner(BindingSetPipe parent, BinaryTupleOperator join, BindingSet bindings) {
-    		this.parent = parent;
+    	protected AbstractHashTableJoiner(BinaryTupleOperator join, int hashTableLimit) {
     		this.join = join;
-    		this.bindings = bindings;
         	this.probeExpr = join.getLeftArg();
         	this.buildExpr = join.getRightArg();
-        	this.joinAttributeSet = getJoinAttributes(probeExpr, buildExpr);
+        	this.hashTableLimit = hashTableLimit;
+        	this.joinAttributeSet = getJoinAttributes(join);
         	this.joinAttributes = toStringArray(joinAttributeSet);
     		this.buildAttributes = toStringArray(buildExpr.getBindingNames());
     		this.initialSize = (int) Math.min(MAX_INITIAL_HASH_JOIN_TABLE_SIZE, Math.max(0, buildExpr.getResultSizeEstimate()));
@@ -1985,12 +1949,52 @@ final class HalyardTupleExprEvaluation {
 			return buildBsv.joinTo(buildAttributes, probeBs);
 		}
 
+		public void evaluate(BindingSetPipe parent, BindingSet bindings) {
+	    	join.setAlgorithm(Algorithms.HASH_JOIN);
+	    	parentStrategy.initTracking(join);
+	        BindingSetPipeEvaluationStep step = precompileTupleExpr(buildExpr);
+			step.evaluate(new BindingSetPipe(parent) {
+		    	HashJoinTable hashTable = createHashTable();
+	            @Override
+	            protected boolean next(BindingSet buildBs) {
+	            	HashJoinTable partition;
+	            	synchronized (this) {
+	                	if (hashTable.entryCount() >= hashTableLimit) {
+	                		partition = hashTable;
+	                		hashTable = createHashTable();
+	                	} else {
+	                		partition = null;
+	                	}
+	            		hashTable.put(buildBs);
+	            	}
+	            	if (partition != null) {
+	            		doJoin(parent, partition, bindings, false);
+	            	}
+	            	return true;
+	            }
+	            @Override
+				protected void doClose() {
+	            	synchronized (this) {
+	            		if (hashTable != null) {
+	                   		doJoin(parent, hashTable, bindings, true);
+	            			hashTable = null;
+	            		}
+	            	}
+	            }
+	            @Override
+	            public String toString() {
+	            	return "HashTableBindingSetPipe";
+	            }
+	    	}, bindings);
+	    }
+
     	/**
     	 * Performs a hash-join.
     	 * @param hashTablePartition hash table to join against.
+    	 * @param bindings
     	 * @param isLast true if this is the last time doJoin() will be called for the current join operation.
     	 */
-    	public final void doJoin(HashJoinTable hashTablePartition, boolean isLast) {
+    	public final void doJoin(BindingSetPipe parent, HashJoinTable hashTablePartition, BindingSet bindings, boolean isLast) {
     		if (hashTablePartition.entryCount() == 0) {
     			if (isLast) {
     				parent.close();
@@ -2033,8 +2037,8 @@ final class HalyardTupleExprEvaluation {
     }
 
 	final class HashTableJoiner extends AbstractHashTableJoiner {
-		HashTableJoiner(BindingSetPipe parent, BinaryTupleOperator join, BindingSet bindings) {
-			super(parent, join, bindings);
+		HashTableJoiner(BinaryTupleOperator join) {
+			super(join, hashJoinLimit);
 		}
 
 		final class HashJoinBindingSetPipe extends AbstractHashJoinBindingSetPipe {
@@ -2090,8 +2094,8 @@ final class HalyardTupleExprEvaluation {
 	}
 
 	final class LeftHashTableJoiner extends AbstractHashTableJoiner {
-		LeftHashTableJoiner(BindingSetPipe parent, BinaryTupleOperator join, BindingSet bindings) {
-			super(parent, join, bindings);
+		LeftHashTableJoiner(BinaryTupleOperator join) {
+			super(join, Integer.MAX_VALUE);
 		}
 
 		final class LeftHashJoinBindingSetPipe extends AbstractHashJoinBindingSetPipe {
