@@ -1712,7 +1712,7 @@ final class HalyardTupleExprEvaluation {
     }
 
     private void evaluateHashJoin(BindingSetPipe parentPipe, final Join join, final BindingSet bindings) {
-    	precompileHashJoin(join, false).evaluate(parentPipe, bindings);
+    	precompileHashJoin(join).evaluate(parentPipe, bindings);
     }
 
     /**
@@ -1841,46 +1841,17 @@ final class HalyardTupleExprEvaluation {
     }
 
     private void evaluateHashLeftJoin(BindingSetPipe parentPipe, final LeftJoin leftJoin, final BindingSet bindings) {
-    	precompileHashJoin(leftJoin, true).evaluate(parentPipe, bindings);
+    	precompileHashJoin(leftJoin).evaluate(parentPipe, bindings);
     }
 
-    private BindingSetPipeEvaluationStep precompileHashJoin(final BinaryTupleOperator join, boolean isLeftJoin) {
-    	if (isLeftJoin) {
-    		return new LeftHashTableJoiner(join);
+    private BindingSetPipeEvaluationStep precompileHashJoin(final BinaryTupleOperator join) {
+    	if (join instanceof LeftJoin) {
+    		return new LeftHashTableJoiner((LeftJoin)join);
     	} else {
-    		return new HashTableJoiner(join);
+    		return new HashTableJoiner((Join)join);
     	}
     }
 
-
-	private static Set<String> getJoinAttributes(BinaryTupleOperator join) {
-		Set<String> joinAttributeNames;
-		TupleExpr probeExpr = join.getLeftArg();
-		TupleExpr buildExpr = join.getRightArg();
-		// for statement patterns can ignore equal common constant vars
-		if (probeExpr instanceof StatementPattern && buildExpr instanceof StatementPattern) {
-			Map<String,Var> probeVars = getVars((StatementPattern) probeExpr);
-			Map<String,Var> buildVars = getVars((StatementPattern) buildExpr);
-			joinAttributeNames = new HashSet<>(5);
-			for (Map.Entry<String,Var> entry : probeVars.entrySet()) {
-				String name = entry.getKey();
-				Var otherVar = buildVars.get(name);
-				if (otherVar != null) {
-					if (!isSameConstant(entry.getValue(), otherVar)) {
-						joinAttributeNames.add(name);
-					}
-				}
-			}
-		} else {
-    		joinAttributeNames = probeExpr.getBindingNames();
-    		if (!joinAttributeNames.isEmpty()) {
-    			// make modifiable
-    			joinAttributeNames = new HashSet<>(joinAttributeNames);
-    			joinAttributeNames.retainAll(buildExpr.getBindingNames());
-    		}
-		}
-		return joinAttributeNames;
-	}
 
 	private static boolean isSameConstant(Var v1, Var v2) {
 		return v1.isConstant() && v2.isConstant() && v1.getValue().equals(v2.getValue());
@@ -1922,10 +1893,37 @@ final class HalyardTupleExprEvaluation {
         	this.probeExpr = join.getLeftArg();
         	this.buildExpr = join.getRightArg();
         	this.hashTableLimit = hashTableLimit;
-        	this.joinAttributeSet = getJoinAttributes(join);
+        	this.joinAttributeSet = getJoinAttributes();
         	this.joinAttributes = toStringArray(joinAttributeSet);
     		this.buildAttributes = toStringArray(buildExpr.getBindingNames());
     		this.initialSize = (int) Math.min(MAX_INITIAL_HASH_JOIN_TABLE_SIZE, Math.max(0, buildExpr.getResultSizeEstimate()));
+    	}
+
+    	private Set<String> getJoinAttributes() {
+    		Set<String> joinAttributeNames;
+    		// for statement patterns can ignore equal common constant vars
+    		if (probeExpr instanceof StatementPattern && buildExpr instanceof StatementPattern) {
+    			Map<String,Var> probeVars = getVars((StatementPattern) probeExpr);
+    			Map<String,Var> buildVars = getVars((StatementPattern) buildExpr);
+    			joinAttributeNames = new HashSet<>(5);
+    			for (Map.Entry<String,Var> entry : probeVars.entrySet()) {
+    				String name = entry.getKey();
+    				Var otherVar = buildVars.get(name);
+    				if (otherVar != null) {
+    					if (!isSameConstant(entry.getValue(), otherVar)) {
+    						joinAttributeNames.add(name);
+    					}
+    				}
+    			}
+    		} else {
+        		joinAttributeNames = probeExpr.getBindingNames();
+        		if (!joinAttributeNames.isEmpty()) {
+        			// make modifiable
+        			joinAttributeNames = new HashSet<>(joinAttributeNames);
+        			joinAttributeNames.retainAll(buildExpr.getBindingNames());
+        		}
+    		}
+    		return joinAttributeNames;
     	}
 
     	final HashJoinTable createHashTable() {
@@ -1949,6 +1947,7 @@ final class HalyardTupleExprEvaluation {
 			return buildBsv.joinTo(buildAttributes, probeBs);
 		}
 
+		@Override
 		public void evaluate(BindingSetPipe parent, BindingSet bindings) {
 	    	join.setAlgorithm(Algorithms.HASH_JOIN);
 	    	parentStrategy.initTracking(join);
@@ -1968,7 +1967,7 @@ final class HalyardTupleExprEvaluation {
 	            		hashTable.put(buildBs);
 	            	}
 	            	if (partition != null) {
-	            		doJoin(parent, partition, bindings, false);
+	            		startJoin(partition, bindings, false);
 	            	}
 	            	return true;
 	            }
@@ -1976,39 +1975,38 @@ final class HalyardTupleExprEvaluation {
 				protected void doClose() {
 	            	synchronized (this) {
 	            		if (hashTable != null) {
-	                   		doJoin(parent, hashTable, bindings, true);
+	                   		startJoin(hashTable, bindings, true);
 	            			hashTable = null;
 	            		}
 	            	}
 	            }
+	        	/**
+	        	 * Performs a hash-join.
+	        	 * @param hashTablePartition hash table to join against.
+	        	 * @param bindings
+	        	 * @param isLast true if this is the last time doJoin() will be called for the current join operation.
+	        	 */
+	        	private void startJoin(HashJoinTable hashTablePartition, BindingSet bindings, boolean isLast) {
+	        		if (hashTablePartition.entryCount() == 0) {
+	        			if (isLast) {
+	        				parent.close();
+	        			}
+	        		} else {
+	        			joinsInProgress.incrementAndGet();
+	        			if (isLast) {
+	                		joinsFinished.set(true);
+	        			}
+	        			// NB: this part may execute asynchronously
+	        	        BindingSetPipeEvaluationStep step = precompileTupleExpr(join.getLeftArg());
+	                	step.evaluate(createPipe(parent, hashTablePartition), bindings);
+	        		}
+	        	}
 	            @Override
 	            public String toString() {
 	            	return "HashTableBindingSetPipe";
 	            }
 	    	}, bindings);
 	    }
-
-    	/**
-    	 * Performs a hash-join.
-    	 * @param hashTablePartition hash table to join against.
-    	 * @param bindings
-    	 * @param isLast true if this is the last time doJoin() will be called for the current join operation.
-    	 */
-    	public final void doJoin(BindingSetPipe parent, HashJoinTable hashTablePartition, BindingSet bindings, boolean isLast) {
-    		if (hashTablePartition.entryCount() == 0) {
-    			if (isLast) {
-    				parent.close();
-    			}
-    		} else {
-    			joinsInProgress.incrementAndGet();
-    			if (isLast) {
-            		joinsFinished.set(true);
-    			}
-    			// NB: this part may execute asynchronously
-    	        BindingSetPipeEvaluationStep step = precompileTupleExpr(join.getLeftArg());
-            	step.evaluate(createPipe(parent, hashTablePartition), bindings);
-    		}
-    	}
 
     	protected abstract BindingSetPipe createPipe(BindingSetPipe parent, HashJoinTable hashTablePartition);
 
@@ -2037,7 +2035,7 @@ final class HalyardTupleExprEvaluation {
     }
 
 	final class HashTableJoiner extends AbstractHashTableJoiner {
-		HashTableJoiner(BinaryTupleOperator join) {
+		HashTableJoiner(Join join) {
 			super(join, hashJoinLimit);
 		}
 
@@ -2094,7 +2092,7 @@ final class HalyardTupleExprEvaluation {
 	}
 
 	final class LeftHashTableJoiner extends AbstractHashTableJoiner {
-		LeftHashTableJoiner(BinaryTupleOperator join) {
+		LeftHashTableJoiner(LeftJoin join) {
 			super(join, Integer.MAX_VALUE);
 		}
 
