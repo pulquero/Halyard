@@ -253,7 +253,7 @@ final class HalyardTupleExprEvaluation {
         } else if (expr instanceof BinaryTupleOperator) {
         	return precompileBinaryTupleOperator((BinaryTupleOperator) expr);
         } else if (expr instanceof StarJoin) {
-        	return (parent, bindings) -> evaluateStarJoin(parent, (StarJoin) expr, bindings);
+        	return precompileStarJoin((StarJoin) expr);
         } else if (expr instanceof SingletonSet) {
         	return precompileSingletonSet((SingletonSet) expr);
         } else if (expr instanceof EmptySet) {
@@ -2371,7 +2371,7 @@ final class HalyardTupleExprEvaluation {
         };
     }
 
-    private void evaluateStarJoin(BindingSetPipe parent, StarJoin starJoin, BindingSet bindings) {
+    private BindingSetPipeEvaluationStep precompileStarJoin(StarJoin starJoin) {
     	// Detach the args into a join tree.
     	List<? extends TupleExpr> args = starJoin.getArgs();
     	Join nestedJoins = (Join) Algebra.join(args);
@@ -2383,7 +2383,7 @@ final class HalyardTupleExprEvaluation {
         BindingSetPipeEvaluationStep step = precompileJoin(topJoin);
         // now re-attach
         starJoin.setArgs(args);
-    	step.evaluate(parent, bindings);
+        return step;
     }
 
     /**
