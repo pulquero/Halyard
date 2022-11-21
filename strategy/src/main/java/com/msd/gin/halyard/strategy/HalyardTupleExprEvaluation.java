@@ -69,6 +69,7 @@ import java.util.function.Predicate;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.ConvertingIteration;
@@ -153,10 +154,8 @@ import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.StrictEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.TupleFunctionEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.DescribeIteration;
-import org.eclipse.rdf4j.query.algebra.evaluation.iterator.PathIteration;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.ProjectionIterator;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.QueryContextIteration;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
@@ -2475,34 +2474,186 @@ final class HalyardTupleExprEvaluation {
      * @param alp
      */
     private BindingSetPipeEvaluationStep precompileArbitraryLengthPath(ArbitraryLengthPath alp) {
+        final StatementPattern.Scope scope = alp.getScope();
+        final Var startVar = alp.getSubjectVar();
+        final Var endVar = alp.getObjectVar();
+        final Var contextVar = alp.getContextVar();
+        final long minLength = alp.getMinLength();
+        assert minLength == 0 || minLength == 1;
+        long startLength = minLength;
+        BindingSetPipeEvaluationStep zeroStep;
+        if (startLength >= 0) {
+        	ZeroLengthPath zlp = new ZeroLengthPath(scope, startVar.clone(), endVar.clone(), contextVar != null ? contextVar.clone() : null);
+        	zeroStep = precompileTupleExpr(zlp);
+        	startLength++;
+        } else {
+        	zeroStep = null;
+        }
+    	PathSegment pathSegment = new PathSegment(alp);
     	return (parent, bindings) -> {
-	        final StatementPattern.Scope scope = alp.getScope();
-	        final Var subjectVar = alp.getSubjectVar();
-	        final TupleExpr pathExpression = alp.getPathExpression();
-	        final Var objVar = alp.getObjectVar();
-	        final Var contextVar = alp.getContextVar();
-	        final long minLength = alp.getMinLength();
-	        //temporary solution using copy of the original iterator
-	        //re-writing this to push model is a bit more complex task
-	        try {
-	        	parentStrategy.executor.pullAndPushAsync(parent, bs -> new PathIteration(new StrictEvaluationStrategy(null, null) {
-	                @Override
-	                public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(ZeroLengthPath zlp, BindingSet bindings) throws QueryEvaluationException {
-	                    zlp.setParentNode(alp);
-	                    return parentStrategy.evaluate(zlp, bindings);
-	                }
-	
-	                @Override
-	                public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(TupleExpr expr, BindingSet bindings) throws QueryEvaluationException {
-	                    expr.setParentNode(alp);
-	                    return parentStrategy.evaluate(expr, bindings);
-	                }
-	
-	            }, scope, subjectVar, pathExpression, objVar, contextVar, minLength, bs), alp, bindings, parentStrategy);
-	        } catch (QueryEvaluationException e) {
-	            parent.handleException(e);
-	        }
+    		if (isUnbound(startVar, bindings) || isUnbound(endVar, bindings)) {
+    			parent.close();
+    			return;
+    		}
+            long currentLength = minLength;
+            if (currentLength == 0) {
+            	zeroStep.evaluate(new BindingSetPipe(parent) {
+            		@Override
+            		protected void doClose() {
+            			// don't close - not yet done
+            		}
+            	}, bindings);
+            	currentLength++;
+            }
+    		PathState path = new PathState(pathSegment, startVar, endVar, bindings);
+    		BindingSet pathBindings = path.createStepBindings();
+	        path.pathSegment.step.evaluate(new PipeJoin(parent, new ResultTracker(alp)) {
+	        	@Override
+	        	protected boolean next(BindingSet bs) {
+	            	Value currentStart = bs.getValue(path.pathSegment.stepStartName);
+	            	Value currentEnd = bs.getValue(path.pathSegment.stepEndName);
+	        		return path.evaluateNext(this, currentStart, currentEnd, Collections.singletonList(currentStart));
+	        	}
+	        }, pathBindings);
     	};
+    }
+
+    final class PathSegment {
+    	final String startVarName;
+    	final String endVarName;
+    	final String stepStartName = "__start_" + hashCode();
+    	final String stepEndName = "__end_" + hashCode();
+    	final BindingSetPipeEvaluationStep step;
+    	PathSegment(ArbitraryLengthPath alp) {
+            Var startVar = alp.getSubjectVar();
+            Var endVar = alp.getObjectVar();
+            startVarName = startVar.getName();
+            endVarName = endVar.getName();
+            // create a generic path step
+            TupleExpr pathExpr = alp.getPathExpression().clone();
+            pathExpr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {
+            	@Override
+            	public void meet(Var var) {
+            		String name = var.getName();
+            		if (name.equals(startVarName)) {
+            			var.replaceWith(new Var(stepStartName));
+            		} else if (name.equals(endVarName)) {
+            			var.replaceWith(new Var(stepEndName));
+            		}
+            	}
+            });
+            step = precompileTupleExpr(pathExpr);
+    	}
+    }
+
+    final class PathState {
+    	final PathSegment pathSegment;
+    	final BindingSet queryBindings;
+    	final Value startValue;
+    	final Value endValue;
+    	final BigHashSet<Pair<Value,Value>> visited = BigHashSet.create(collectionMemoryThreshold);
+
+    	PathState(PathSegment pathSegment, Var startVar, Var endVar, BindingSet bindings) {
+    		this.pathSegment = pathSegment;
+    		this.queryBindings = bindings;
+    		this.startValue = Algebra.getVarValue(startVar, bindings);
+    		this.endValue = Algebra.getVarValue(endVar, bindings);
+    	}
+
+    	BindingSet createStepBindings() {
+    		QueryBindingSet bindings = new QueryBindingSet(queryBindings.size());
+    		for (Binding b : queryBindings) {
+    			if (pathSegment.startVarName.equals(b.getName())) {
+    				bindings.addBinding(pathSegment.stepStartName, b.getValue());
+    			} else if (pathSegment.endVarName.equals(b.getName())) {
+    				bindings.addBinding(pathSegment.stepEndName, b.getValue());
+    			} else {
+    				bindings.addBinding(b);
+    			}
+    		}
+    		return bindings;
+    	}
+
+    	BindingSet createResultBindings(Pair<Value,Value> endpoints) {
+    		QueryBindingSet bindings = new QueryBindingSet(queryBindings.size());
+    		for (Binding b : queryBindings) {
+    			if (!b.getName().startsWith(pathSegment.stepStartName) && !b.getName().startsWith(pathSegment.stepEndName)) {
+    				bindings.addBinding(b);
+    			}
+    		}
+    		if (!bindings.hasBinding(pathSegment.startVarName)) {
+    			bindings.addBinding(pathSegment.startVarName, endpoints.getLeft());
+    		}
+    		if (!bindings.hasBinding(pathSegment.endVarName)) {
+    			bindings.addBinding(pathSegment.endVarName, endpoints.getRight());
+    		}
+    		return bindings;
+    	}
+
+    	boolean evaluateNext(PipeJoin primary, Value currentStart, Value currentEnd, List<Value> path) {
+        	Pair<Value,Value> endpoints = Pair.of(currentStart, currentEnd);
+        	int currentLength = path.size();
+        	try {
+	        	if (!hasVisited(currentLength, endpoints)) {
+	        		boolean more = true;
+	        		// push the current segment
+	        		if (more && (startValue == null || currentStart.equals(startValue)) && (endValue == null || currentEnd.equals(endValue))) {
+	        			more = pushNext(primary, endpoints);
+	        		}
+	        		// push longer chains
+        			if (startValue == null) {
+        				for (Value si : path) {
+		        			more = pushNext(primary, Pair.of(si, currentEnd));
+		        		}
+        			} else if (currentLength > 1) {
+	        			more = pushNext(primary, Pair.of(startValue, currentEnd));
+        			}
+		        	if (more) {
+		        		QueryBindingSet nextBindings = new QueryBindingSet(queryBindings);
+			        	nextBindings.setBinding(pathSegment.stepStartName, currentEnd);
+			        	nextBindings.removeBinding(pathSegment.stepEndName);
+			    		primary.startSecondaryPipe();
+			            pathSegment.step.evaluate(new PipeJoin(primary.getParent(), null) {
+			            	@Override
+			            	protected boolean next(BindingSet bs) {
+				            	Value nextStart = bs.getValue(pathSegment.stepStartName);
+				            	Value nextEnd = bs.getValue(pathSegment.stepEndName);
+				            	List<Value> nextPath = new ArrayList<>(path);
+				            	nextPath.add(nextStart);
+			            		return evaluateNext(this, nextStart, nextEnd, nextPath);
+			            	}
+	                        @Override
+	        				protected void doClose() {
+	                        	super.close();
+	                        	primary.endSecondaryPipe();
+	                        }
+			            }, nextBindings);
+		        	}
+		            return more;
+	        	} else {
+	    			return !primary.getParent().isClosed();
+	        	}
+        	} catch (IOException ioe) {
+        		return primary.getParent().handleException(ioe);
+        	}
+        }
+
+        boolean hasVisited(long currentLength, Pair<Value,Value> endpoints) throws IOException {
+        	if (currentLength <= 2) {
+        		// impossible to have already visited
+        		return false;
+        	} else {
+				return visited.contains(endpoints);
+        	}
+        }
+
+        boolean pushNext(PipeJoin primary, Pair<Value,Value> endpoints) throws IOException {
+    		if (visited.add(endpoints)) {
+    			return primary.pushToParent(createResultBindings(endpoints));
+    		} else {
+    			return !primary.getParent().isClosed();
+    		}
+        }
     }
 
     /**
