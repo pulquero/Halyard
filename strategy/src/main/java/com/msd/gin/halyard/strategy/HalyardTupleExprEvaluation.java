@@ -1677,8 +1677,12 @@ final class HalyardTupleExprEvaluation {
     	join.setAlgorithm(Algorithms.NESTED_LOOPS);
         BindingSetPipeEvaluationStep outerStep = precompileTupleExpr(join.getLeftArg());
         BindingSetPipeEvaluationStep innerStep = precompileTupleExpr(join.getRightArg());
+        return precompileNestedLoopsJoin(outerStep, innerStep, new ResultTracker(join));
+    }
+
+    private BindingSetPipeEvaluationStep precompileNestedLoopsJoin(BindingSetPipeEvaluationStep outerStep, BindingSetPipeEvaluationStep innerStep, ResultTracker resultTracker) {
         return (topPipe, bindings) -> {
-	        outerStep.evaluate(new PipeJoin(topPipe, new ResultTracker(join)) {
+	        outerStep.evaluate(new PipeJoin(topPipe, resultTracker) {
 	            @Override
 	            protected boolean next(BindingSet bs) {
 	            	startSecondaryPipe();
@@ -2347,17 +2351,12 @@ final class HalyardTupleExprEvaluation {
     }
 
     private BindingSetPipeEvaluationStep precompileStarJoin(StarJoin starJoin) {
-    	// Detach the args into a join tree.
     	List<? extends TupleExpr> args = starJoin.getArgs();
-    	Join nestedJoins = (Join) Algebra.join(args);
-    	Join topJoin = new StarJoin.TopJoin(starJoin, nestedJoins.getLeftArg(), nestedJoins.getRightArg());
-		JoinAlgorithmOptimizer algoOpt = parentStrategy.getJoinAlgorithmOptimizer();
-    	if (algoOpt != null) {
-    		algoOpt.optimize(topJoin, null, null);
+    	int i = args.size() - 1;
+    	BindingSetPipeEvaluationStep step = precompileTupleExpr(args.get(i));
+    	for (i--; i>=0; i--) {
+    		step = precompileNestedLoopsJoin(precompileTupleExpr(args.get(i)), step, (i==0) ? new ResultTracker(starJoin) : null);
     	}
-        BindingSetPipeEvaluationStep step = precompileJoin(topJoin);
-        // now re-attach
-        starJoin.setArgs(args);
         return step;
     }
 
