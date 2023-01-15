@@ -16,6 +16,16 @@
  */
 package com.msd.gin.halyard.sail;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.msd.gin.halyard.common.KeyspaceConnection;
+import com.msd.gin.halyard.common.RDFObject;
+import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.common.ValueIO;
+import com.msd.gin.halyard.sail.search.SearchClient;
+import com.msd.gin.halyard.sail.search.SearchDocument;
+import com.msd.gin.halyard.vocab.HALYARD;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -34,21 +44,15 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.sail.SailException;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.msd.gin.halyard.common.KeyspaceConnection;
-import com.msd.gin.halyard.common.RDFObject;
-import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.common.ValueIO;
-import com.msd.gin.halyard.sail.search.SearchClient;
-import com.msd.gin.halyard.sail.search.SearchDocument;
-import com.msd.gin.halyard.vocab.HALYARD;
-
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 
 public class HBaseSearchTripleSource extends HBaseTripleSource {
 	private final SearchClient searchClient;
+
+	private static boolean isSearchStatement(Value obj) {
+		return (obj != null) && obj.isLiteral() && HALYARD.SEARCH.equals(((Literal) obj).getDatatype());
+	}
 
 	public HBaseSearchTripleSource(KeyspaceConnection table, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, HBaseSail.ScanSettings settings, SearchClient searchClient, HBaseSail.Ticker ticker) {
 		super(table, vf, stmtIndices, timeoutSecs, settings, ticker);
@@ -56,8 +60,17 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 	}
 
 	@Override
+	protected boolean hasStatementInternal(Resource subj, IRI pred, Value obj, QueryContexts queryContexts) throws QueryEvaluationException {
+		if (isSearchStatement(obj)) {
+			return hasStatementFallback(subj, pred, obj, queryContexts);
+		} else {
+			return super.hasStatementInternal(subj, pred, obj, queryContexts);
+		}
+	}
+
+	@Override
 	protected CloseableIteration<? extends Statement, IOException> createStatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contexts, ValueIO.Reader reader) throws QueryEvaluationException {
-		if (obj != null && obj.isLiteral() && (HALYARD.SEARCH.equals(((Literal) obj).getDatatype()))) {
+		if (isSearchStatement(obj)) {
 			if (searchClient == null) {
 				throw new QueryEvaluationException("Search index not configured");
 			}
