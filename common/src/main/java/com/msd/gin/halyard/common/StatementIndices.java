@@ -13,6 +13,7 @@ import javax.annotation.Nullable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
@@ -26,7 +27,7 @@ import com.msd.gin.halyard.vocab.HALYARD;
 import static com.msd.gin.halyard.common.StatementIndex.VAR_CARDINALITY;
 
 public final class StatementIndices {
-	private final Configuration conf;
+	private final int maxCaching;
 	private final RDFFactory rdfFactory;
 	private final StatementIndex<SPOC.S,SPOC.P,SPOC.O,SPOC.C> spo;
 	private final StatementIndex<SPOC.P,SPOC.O,SPOC.S,SPOC.C> pos;
@@ -41,48 +42,57 @@ public final class StatementIndices {
 	}
 
 	public StatementIndices(Configuration conf, RDFFactory rdfFactory) {
-		this.conf = conf;
+        this.maxCaching = conf.getInt(HConstants.HBASE_CLIENT_SCANNER_CACHING, HConstants.DEFAULT_HBASE_CLIENT_SCANNER_CACHING);
 		this.rdfFactory = rdfFactory;
-
-		RDFRole<SPOC.S> subject = rdfFactory.getSubjectRole();
-		RDFRole<SPOC.P> predicate = rdfFactory.getPredicateRole();
-		RDFRole<SPOC.O> object = rdfFactory.getObjectRole();
-		RDFRole<SPOC.C> context = rdfFactory.getContextRole();
 
 		this.spo = new StatementIndex<>(
 			StatementIndex.Name.SPO, 0, false,
-			subject, predicate, object, context,
+			rdfFactory.getSubjectRole(),
+			rdfFactory.getPredicateRole(),
+			rdfFactory.getObjectRole(),
+			rdfFactory.getContextRole(),
 			rdfFactory, conf
 		);
 		this.pos = new StatementIndex<>(
 			StatementIndex.Name.POS, 1, false,
-			predicate, object, subject, context,
+			rdfFactory.getPredicateRole(),
+			rdfFactory.getObjectRole(),
+			rdfFactory.getSubjectRole(),
+			rdfFactory.getContextRole(),
 			rdfFactory, conf
 		);
 		this.osp = new StatementIndex<>(
 			StatementIndex.Name.OSP, 2, false,
-			object, subject, predicate, context,
+			rdfFactory.getObjectRole(),
+			rdfFactory.getSubjectRole(),
+			rdfFactory.getPredicateRole(),
+			rdfFactory.getContextRole(),
 			rdfFactory, conf
 		);
 		this.cspo = new StatementIndex<>(
 			StatementIndex.Name.CSPO, 3, true,
-			context, subject, predicate, object,
+			rdfFactory.getContextRole(),
+			rdfFactory.getSubjectRole(),
+			rdfFactory.getPredicateRole(),
+			rdfFactory.getObjectRole(),
 			rdfFactory, conf
 		);
 		this.cpos = new StatementIndex<>(
 			StatementIndex.Name.CPOS, 4, true,
-			context, predicate, object, subject,
+			rdfFactory.getContextRole(),
+			rdfFactory.getPredicateRole(),
+			rdfFactory.getObjectRole(),
+			rdfFactory.getSubjectRole(),
 			rdfFactory, conf
 		);
 		this.cosp = new StatementIndex<>(
 			StatementIndex.Name.COSP, 5, true,
-			context, object, subject, predicate,
+			rdfFactory.getContextRole(),
+			rdfFactory.getObjectRole(),
+			rdfFactory.getSubjectRole(),
+			rdfFactory.getPredicateRole(),
 			rdfFactory, conf
 		);
-	}
-
-	public Configuration getConfiguration() {
-		return conf;
 	}
 
 	public RDFFactory getRDFFactory() {
@@ -127,23 +137,23 @@ public final class StatementIndices {
 
 	public Scan scanAll() {
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
+        int rowBatchSize = Math.min(maxCaching, cardinality);
 		return HalyardTableUtils.scan(
 			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.get3StartKey(), spo.get4StartKey()),
 			cosp.concat(true, cosp.role1.stopKey(), cosp.role2.stopKey(), cosp.get3StopKey(), cosp.role4.endStopKey()),
-			cardinality,
-			true,
-			conf
+			rowBatchSize,
+			true
 		);
 	}
 
 	public Scan scanDefaultIndices() {
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
+        int rowBatchSize = Math.min(maxCaching, cardinality);
 		return HalyardTableUtils.scan(
 			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.get3StartKey(), spo.get4StartKey()),
 			osp.concat(true, osp.role1.stopKey(), osp.role2.stopKey(), osp.get3StopKey(), osp.role4.endStopKey()),
-			cardinality,
-			true,
-			conf
+			rowBatchSize,
+			true
 		);
 	}
 
