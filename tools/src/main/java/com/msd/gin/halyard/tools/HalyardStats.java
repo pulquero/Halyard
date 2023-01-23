@@ -39,9 +39,11 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.WeakHashMap;
 
 import org.apache.commons.cli.CommandLine;
@@ -128,9 +130,11 @@ public final class HalyardStats extends AbstractHalyardTool {
         boolean update;
 
         IRI graph = HALYARD.STATS_ROOT_NODE, lastGraph = HALYARD.STATS_ROOT_NODE;
-        long triples, distinctSubjects, properties, distinctObjects, classes, removed;
+        long triples, distinctSubjects, distinctProperties, distinctObjects, classes, removed;
         long distinctIRIReferenceSubjects, distinctIRIReferenceObjects, distinctBlankNodeObjects, distinctBlankNodeSubjects, distinctLiterals;
         long distinctTripleSubjects, distinctTripleObjects;
+        Set<Value> valueDedup;
+        Set<Value> classDedup;
         IRI subsetType;
 		Value subsetId;
         long setThreshold, setCounter, subsetThreshold, subsetCounter;
@@ -257,49 +261,70 @@ public final class HalyardStats extends AbstractHalyardTool {
             }
             boolean hashChange = !matchAndCopyKey(key, hashOffset, keyLen, lastKeyFragment) || index != lastIndex || lastGraph != graph;
             if (hashChange) {
-                resetSubset(output);
-				Statement stmt = stmts.get(0);
-                switch (index.getName()) {
-                    case SPO:
-                    case CSPO:
-                        distinctSubjects++;
-                        Resource subj = stmt.getSubject();
-                        if (subj.isIRI()) {
-                            distinctIRIReferenceSubjects++;
-                        } else if (subj.isTriple()) {
-                        	distinctTripleSubjects++;
-                        } else {
-                            distinctBlankNodeSubjects++;
-                        }
-                        subsetType = VOID_EXT.SUBJECT;
-                        subsetId = subj;
-                        break;
-                    case POS:
-                    case CPOS:
-                        properties++;
-                        subsetType = VOID.PROPERTY;
-                        subsetId = stmt.getPredicate();
-                        break;
-                    case OSP:
-                    case COSP:
-                        distinctObjects++;
-                        Value obj = stmt.getObject();
-                        if (obj.isIRI()) {
-                        	distinctIRIReferenceObjects++;
-                        } else if (obj.isTriple()) {
-                        	distinctTripleObjects++;
-                        } else if (obj.isBNode()) {
-                        	distinctBlankNodeObjects++;
-                        } else {
-                            distinctLiterals++;
-                        }
-                        subsetType = VOID_EXT.OBJECT;
-                        subsetId = obj;
-                        break;
-                    default:
-                        throw new AssertionError("Unknown region #" + index);
-                }
+            	valueDedup = new HashSet<>();
             }
+            for (Statement stmt : stmts) {
+	            switch (index.getName()) {
+	                case SPO:
+	                case CSPO:
+	                	{
+	                        Resource subj = stmt.getSubject();
+	                        if (valueDedup.add(subj)) {
+		                        resetSubset(output);
+		                        distinctSubjects++;
+		                        if (subj.isIRI()) {
+		                            distinctIRIReferenceSubjects++;
+		                        } else if (subj.isTriple()) {
+		                        	distinctTripleSubjects++;
+		                        } else {
+		                            distinctBlankNodeSubjects++;
+		                        }
+		                        subsetType = VOID_EXT.SUBJECT;
+		                        subsetId = subj;
+	                        }
+	                        subsetCounter++;
+	                	}
+	                    break;
+	                case POS:
+	                case CPOS:
+	                	{
+                			IRI pred = stmt.getPredicate();
+                			if (valueDedup.add(pred)) {
+                				resetSubset(output);
+		                        distinctProperties++;
+		                        subsetType = VOID.PROPERTY;
+		                        subsetId = pred;
+                			}
+                			subsetCounter++;
+	                	}
+	                    break;
+	                case OSP:
+	                case COSP:
+	                	{
+	                        Value obj = stmt.getObject();
+	                        if (valueDedup.add(obj)) {
+	                        	resetSubset(output);
+		                        distinctObjects++;
+		                        if (obj.isIRI()) {
+		                        	distinctIRIReferenceObjects++;
+		                        } else if (obj.isTriple()) {
+		                        	distinctTripleObjects++;
+		                        } else if (obj.isBNode()) {
+		                        	distinctBlankNodeObjects++;
+		                        } else {
+		                            distinctLiterals++;
+		                        }
+		                        subsetType = VOID_EXT.OBJECT;
+		                        subsetId = obj;
+	                        }
+	                        subsetCounter++;
+	                	}
+	                    break;
+	                default:
+	                    throw new AssertionError("Unknown region #" + index);
+	            }
+            }
+
             int stmtCount = stmts.size();
             switch (index.getName()) {
                 case SPO:
@@ -307,24 +332,37 @@ public final class HalyardStats extends AbstractHalyardTool {
                     triples += stmtCount;
                     break;
                 case POS:
-                    if (Arrays.equals(POS_TYPE_HASH, lastKeyFragment) && (!matchAndCopyKey(key, hashOffset + predicateKeySize, objectKeySize, lastClassFragment) || hashChange)) {
-                    	classes++;
+                    if (Arrays.equals(POS_TYPE_HASH, lastKeyFragment)) {
+                    	if (!matchAndCopyKey(key, hashOffset + predicateKeySize, objectKeySize, lastClassFragment) || hashChange) {
+                    		classDedup = new HashSet<>();
+                    	}
+                    	for (Statement stmt : stmts) {
+                    		if (classDedup.add(stmt.getObject())) {
+                    			classes++;
+                    		}
+                    	}
                     }
                     break;
                 case CPOS:
-                    if (Arrays.equals(CPOS_TYPE_HASH, lastKeyFragment) && (!matchAndCopyKey(key, hashOffset + predicateKeySize, objectKeySize, lastClassFragment) || hashChange)) {
-                    	classes++;
+                    if (Arrays.equals(CPOS_TYPE_HASH, lastKeyFragment)) {
+                    	if (!matchAndCopyKey(key, hashOffset + predicateKeySize, objectKeySize, lastClassFragment) || hashChange) {
+                    		classDedup = new HashSet<>();
+                    	}
+                    	for (Statement stmt : stmts) {
+                    		if (classDedup.add(stmt.getObject())) {
+                    			classes++;
+                    		}
+                    	}
                     }
                     break;
                 default:
             }
-            subsetCounter += stmtCount;
             setCounter += stmtCount;
             lastIndex = index;
             lastGraph = graph;
             output.progress();
             if ((counter++ % STATUS_UPDATE_INTERVAL) == 0) {
-                output.setStatus(MessageFormat.format("reg:{0} {1} t:{2} s:{3} p:{4} o:{5} c:{6} r:{7}", index, counter, triples, distinctSubjects, properties, distinctObjects, classes, removed));
+                output.setStatus(MessageFormat.format("reg:{0} {1} t:{2} s:{3} p:{4} o:{5} c:{6} r:{7}", index, counter, triples, distinctSubjects, distinctProperties, distinctObjects, classes, removed));
             }
         }
 
@@ -348,7 +386,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             if (graph == HALYARD.STATS_ROOT_NODE || setCounter >= setThreshold) {
                 report(output, VOID.TRIPLES, null, triples);
                 report(output, VOID.DISTINCT_SUBJECTS, null, distinctSubjects);
-                report(output, VOID.PROPERTIES, null, properties);
+                report(output, VOID.PROPERTIES, null, distinctProperties);
                 report(output, VOID.DISTINCT_OBJECTS, null, distinctObjects);
                 report(output, VOID.CLASSES, null, classes);
                 report(output, VOID_EXT.DISTINCT_IRI_REFERENCE_OBJECTS, null, distinctIRIReferenceObjects);
@@ -364,7 +402,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             setCounter = 0;
             triples = 0;
             distinctSubjects = 0;
-            properties = 0;
+            distinctProperties = 0;
             distinctObjects = 0;
             classes = 0;
             distinctIRIReferenceObjects = 0;
