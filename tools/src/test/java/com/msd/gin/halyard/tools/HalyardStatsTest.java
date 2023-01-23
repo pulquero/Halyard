@@ -18,6 +18,7 @@ package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
 import com.msd.gin.halyard.common.HalyardTableUtils;
+import com.msd.gin.halyard.common.TableConfig;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.vocab.HALYARD;
 import com.msd.gin.halyard.vocab.VOID_EXT;
@@ -70,8 +71,8 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 		return new HalyardStats();
 	}
 
-	private static Sail createData(String tableName) throws Exception {
-        final HBaseSail sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), tableName, true, -1, true, 0, null, null);
+	private static Sail createData(String tableName, Configuration conf) throws Exception {
+        final HBaseSail sail = new HBaseSail(conf, tableName, true, -1, true, 0, null, null);
         sail.init();
 		try (SailConnection conn = sail.getConnection()) {
 			try (InputStream ref = HalyardStatsTest.class.getResourceAsStream("testData.trig")) {
@@ -90,12 +91,30 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 
 	@Test
     public void testStatsTarget() throws Exception {
-		Sail sail = createData("statsTable");
+		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
+		testStatsTarget("statsTable", conf);
+    }
+
+	@Test
+    public void testStatsTarget_degenerateKeys() throws Exception {
+		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
+    	conf.setInt(TableConfig.KEY_SIZE_SUBJECT, 1);
+    	conf.setInt(TableConfig.END_KEY_SIZE_SUBJECT, 1);
+    	conf.setInt(TableConfig.KEY_SIZE_PREDICATE, 1);
+    	conf.setInt(TableConfig.END_KEY_SIZE_PREDICATE, 1);
+    	conf.setInt(TableConfig.KEY_SIZE_OBJECT, 1);
+    	conf.setInt(TableConfig.END_KEY_SIZE_OBJECT, 1);
+    	conf.setInt(TableConfig.KEY_SIZE_CONTEXT, 1);
+		testStatsTarget("statsDegenerateTable", conf);
+    }
+
+    private void testStatsTarget(String tableName, Configuration conf) throws Exception {
+		Sail sail = createData(tableName, conf);
 		sail.shutDown();
 
         File root = createTempDir("test_stats");
 
-        assertEquals(0, run(new String[]{"-s", "statsTable", "-t", root.toURI().toURL().toString() + "stats{0}.trig", "-R", "100", "-r", "100", "-o", "http://whatever/myStats"}));
+        assertEquals(0, run(new String[]{"-s", tableName, "-t", root.toURI().toURL().toString() + "stats{0}.trig", "-R", "100", "-r", "100", "-o", "http://whatever/myStats"}));
 
         File stats = new File(root, "stats0.trig");
         assertTrue(stats.isFile());
@@ -161,7 +180,8 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 
     @Test
     public void testStatsUpdate() throws Exception {
-        Sail sail = createData("statsTable2");
+		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
+        Sail sail = createData("statsTable2", conf);
 
 		// update stats
 		assertEquals(0, run(new String[] { "-s", "statsTable2", "-R", "100", "-r", "100" }));
@@ -213,7 +233,8 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 
     @Test
     public void testStatsTargetPartial() throws Exception {
-        Sail sail = createData("statsTable3");
+		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
+        Sail sail = createData("statsTable3", conf);
 		sail.shutDown();
 
         File root = createTempDir("test_stats");
@@ -233,12 +254,13 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 
 	@Test
     public void testStatsTarget_snapshot() throws Exception {
+		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
 		String table = "statsTable4";
-		Sail sail = createData(table);
+		Sail sail = createData(table, conf);
 		sail.shutDown();
 
 		String snapshot = table + "Snapshot";
-		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
+		conf = HBaseServerTestInstance.getInstanceConfig(); // clean config
     	try (Connection conn = HalyardTableUtils.getConnection(conf)) {
         	try (Admin admin = conn.getAdmin()) {
         		admin.snapshot(snapshot, TableName.valueOf(table));

@@ -37,9 +37,9 @@ Download and unzip the latest `halyard-sdk-<version>.zip` bundle from the [relea
 
 Halyard is expected to run on an Apache Hadoop cluster node with configured Apache HBase client. Apache Hadoop and Apache HBase components are not bundled with Halyard. The runtime requirements are:
 
-* Apache Hadoop version 2.10 or higher
-* Apache HBase version 2.4 or higher
-* Java 8 Runtime
+* Apache Hadoop version 3.3 or higher
+* Apache HBase version 2.5 or higher
+* Java 11 Runtime
 
 </div>
 
@@ -49,6 +49,7 @@ Halyard is expected to run on an Apache Hadoop cluster node with configured Apac
 
 * Read the [documentation](https://pulquero.github.io/Halyard/getting-started.html)
 * Download the [binaries](https://github.com/pulquero/Halyard/releases)
+* [Tuning](tuning.md)
 * Clone the [GitHub repository](https://github.com/pulquero/Halyard)
 * See the [open issues](https://github.com/pulquero/Halyard/issues)
 
