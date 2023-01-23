@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,7 +117,7 @@ public final class HalyardKeys extends AbstractHalyardTool {
 	}
 
 	static final class StatsReducer extends AbstractStatsReducer<NullWritable, NullWritable> {
-		private final Map<StatementIndex.Name,Map<Integer,Long>> statsByPrefix = new HashMap<>();
+		private final Map<StatementIndex.Name,Map<Integer,Long>> statsByPrefix = new EnumMap<>(StatementIndex.Name.class);
 
 		@Override
         protected void setup(Context context) throws IOException, InterruptedException {
