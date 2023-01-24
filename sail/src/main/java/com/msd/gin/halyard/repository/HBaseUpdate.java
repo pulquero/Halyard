@@ -167,10 +167,6 @@ public class HBaseUpdate extends SailUpdate {
 					deleteInfo = null;
 				}
 
-				TimestampedUpdateContext tsUc = new TimestampedUpdateContext(uc.getUpdateExpr(), uc.getDataset(), uc.getBindingSet(), uc.isIncludeInferred());
-				long timeout = maxExecutionTime > 0 ? maxExecutionTime : Integer.MAX_VALUE;
-				QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(sail.getExecutor().getMaxQueueSize(), timeout, TimeUnit.SECONDS);
-				evaluateWhereClause(pipe, whereClause, uc);
 				if (con.isTrackResultSize()) {
 					if (deleteInfo != null) {
 						deleteInfo.getClause().setResultSizeActual(0);
@@ -179,6 +175,10 @@ public class HBaseUpdate extends SailUpdate {
 						insertInfo.getClause().setResultSizeActual(0);
 					}
 				}
+				TimestampedUpdateContext tsUc = new TimestampedUpdateContext(uc.getUpdateExpr(), uc.getDataset(), uc.getBindingSet(), uc.isIncludeInferred());
+				long timeout = maxExecutionTime > 0 ? maxExecutionTime : Integer.MAX_VALUE;
+				QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(sail.getExecutor().getMaxQueueSize(), timeout, TimeUnit.SECONDS);
+				evaluateWhereClause(pipe, whereClause, uc);
 				pipe.collect(next -> {
 					if (deleteInfo != null) {
 						deleteBoundTriples(next, deleteInfo, tsUc);

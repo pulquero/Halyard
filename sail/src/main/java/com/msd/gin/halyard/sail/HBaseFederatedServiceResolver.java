@@ -38,8 +38,7 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 	private static final String MAX_VERSIONS_QUERY_PARAM = "maxVersions";
 	private static final String ENDPOINT_QUERY = "PREFIX halyard: <" + HALYARD.NAMESPACE + ">\n" + "SELECT ?user ?pass WHERE { GRAPH halyard:endpoints {?url halyard:username ?user; halyard:password ?pass} }";
 
-	private static final HBaseRepositoryManager REPO_MANAGER = new HBaseRepositoryManager();
-
+	private final HBaseRepositoryManager repoManager = new HBaseRepositoryManager();
 	private final Connection hConnection;
 	private final Configuration config;
 	private final String defaultTableName;
@@ -68,7 +67,7 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 		this.usePush = usePush;
 		this.evaluationTimeout = evaluationTimeout;
 		this.ticker = ticker;
-		this.REPO_MANAGER.init();
+		this.repoManager.init();
 	}
 
 	@Override
@@ -115,7 +114,7 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 				URL url = new URL(serviceUrl);
 				if (url.getUserInfo() == null) {
 					// check for stored authentication info
-					Repository systemRepo = REPO_MANAGER.getSystemRepository();
+					Repository systemRepo = repoManager.getSystemRepository();
 					try (RepositoryConnection conn = systemRepo.getConnection()) {
 						TupleQuery query = conn.prepareTupleQuery(ENDPOINT_QUERY);
 						query.setBinding("url", systemRepo.getValueFactory().createIRI(serviceUrl));
@@ -141,6 +140,6 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 	@Override
 	public void shutDown() {
 		super.shutDown();
-		REPO_MANAGER.shutDown();
+		repoManager.shutDown();
 	}
 }
