@@ -57,7 +57,7 @@ public final class HalyardHash extends AbstractHalyardTool {
 	static final class HashMapper extends Mapper<LongWritable, Statement, ImmutableBytesWritable, ImmutableBytesWritable> {
 		private final ImmutableBytesWritable outputKey = new ImmutableBytesWritable();
 		private final ImmutableBytesWritable outputValue = new ImmutableBytesWritable();
-		private final SplittableRandom random = new SplittableRandom(0);
+		private final SplittableRandom random = new SplittableRandom();
 		private ByteBuffer kbb;
 		private ByteBuffer vbb;
 		private int decimationFactor;

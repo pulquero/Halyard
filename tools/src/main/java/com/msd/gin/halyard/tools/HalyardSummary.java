@@ -119,7 +119,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
 
         private final ImmutableBytesWritable outputKey = new ImmutableBytesWritable();
         private final LongWritable outputValue = new LongWritable();
-        private final SplittableRandom random = new SplittableRandom(0);
+        private final SplittableRandom random = new SplittableRandom();
         private int decimationFactor;
 
         @Override
