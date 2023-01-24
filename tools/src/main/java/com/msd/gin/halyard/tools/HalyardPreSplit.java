@@ -85,7 +85,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
 
         private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
         private final LongWritable keyValueLength = new LongWritable();
-        private final SplittableRandom random = new SplittableRandom(0);
+        private final SplittableRandom random = new SplittableRandom();
         private StatementIndices stmtIndices;
         private int decimationFactor;
         private long sampledStmts = 0L;

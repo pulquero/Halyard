@@ -61,7 +61,7 @@ public final class HalyardKeys extends AbstractHalyardTool {
 	static final class KeyColumnMapper extends TableMapper<ImmutableBytesWritable, LongWritable> {
 		private final ImmutableBytesWritable outputKey = new ImmutableBytesWritable();
 		private final LongWritable outputValue = new LongWritable();
-		private final SplittableRandom random = new SplittableRandom(0);
+		private final SplittableRandom random = new SplittableRandom();
 		private int decimationFactor;
 		private long counter = 0;
 
