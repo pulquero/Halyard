@@ -32,10 +32,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.text.MessageFormat;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.HashSet;
-import java.util.Set;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -97,20 +94,13 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
     static final class IndexerMapper extends RdfTableMapper<NullWritable, Text>  {
 
         final Text outputJson = new Text();
-        String source;
-        int objectKeySize;
-        int contextKeySize;
         long counter = 0, exports = 0, statements = 0;
-        byte[] lastHash;
-        Set<Literal> literals;
+        Literal lastLiteral;
 
         @Override
         protected void setup(Context context) throws IOException {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
-            objectKeySize = rdfFactory.getObjectRole().keyHashSize();
-            contextKeySize = rdfFactory.getContextRole().keyHashSize();
-            lastHash = new byte[objectKeySize];
         }
 
         @Override
@@ -119,17 +109,11 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
                 output.setStatus(MessageFormat.format("{0} st:{1} exp:{2} ", counter, statements, exports));
             }
 
-            byte[] hash = new byte[objectKeySize];
-            System.arraycopy(key.get(), key.getOffset() + 1 + (stmtIndices.toIndex(key.get()[key.getOffset()]).isQuadIndex() ? contextKeySize : 0), hash, 0, objectKeySize);
-            if (!Arrays.equals(hash, lastHash)) {
-            	literals = new HashSet<>();
-            	lastHash = hash;
-            }
-
             for (Statement st : HalyardTableUtils.parseStatements(null, null, null, null, value, valueReader, stmtIndices)) {
                 statements++;
             	Literal l = (Literal) st.getObject();
-                if (literals.add(l)) {
+                if (!l.equals(lastLiteral)) {
+                	lastLiteral = l;
             		StringBuilderWriter json = new StringBuilderWriter(128);
 	                json.append("{\"").append(SearchDocument.ID_FIELD).append("\":");
 	                String id = rdfFactory.id(l).toString();
