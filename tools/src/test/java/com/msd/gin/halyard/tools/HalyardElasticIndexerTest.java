@@ -18,6 +18,7 @@ package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
 import com.msd.gin.halyard.common.RDFFactory;
+import com.msd.gin.halyard.common.TableConfig;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -63,8 +64,24 @@ public class HalyardElasticIndexerTest extends AbstractHalyardToolTest {
 
 	@Test
     public void testElasticIndexer() throws Exception {
+		testElasticIndexer("elasticTable", HBaseServerTestInstance.getInstanceConfig());
+	}
+
+	@Test
+    public void testElasticIndexer_degenerateKeys() throws Exception {
 		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
-        HBaseSail sail = new HBaseSail(conf, "elasticTable", true, 0, true, 0, null, null);
+    	conf.setInt(TableConfig.KEY_SIZE_SUBJECT, 1);
+    	conf.setInt(TableConfig.END_KEY_SIZE_SUBJECT, 1);
+    	conf.setInt(TableConfig.KEY_SIZE_PREDICATE, 1);
+    	conf.setInt(TableConfig.END_KEY_SIZE_PREDICATE, 1);
+    	conf.setInt(TableConfig.KEY_SIZE_OBJECT, 1);
+    	conf.setInt(TableConfig.END_KEY_SIZE_OBJECT, 1);
+    	conf.setInt(TableConfig.KEY_SIZE_CONTEXT, 1);
+		testElasticIndexer("elasticDegenerateTable", conf);
+	}
+
+	public void testElasticIndexer(String tableName, Configuration conf) throws Exception {
+        HBaseSail sail = new HBaseSail(conf, tableName, true, 0, true, 0, null, null);
         sail.init();
         ValueFactory vf = SimpleValueFactory.getInstance();
 		try (SailConnection conn = sail.getConnection()) {
@@ -77,11 +94,11 @@ public class HalyardElasticIndexerTest extends AbstractHalyardToolTest {
 			}
 		}
 		RDFFactory rdfFactory = sail.getRDFFactory();
-        testElasticIndexer(false, vf, rdfFactory);
-        testElasticIndexer(true, vf, rdfFactory);
+        testElasticIndexer(tableName, false, vf, rdfFactory);
+        testElasticIndexer(tableName, true, vf, rdfFactory);
     }
 
-    public void testElasticIndexer(boolean namedGraphOnly, ValueFactory vf, RDFFactory rdfFactory) throws Exception {
+    public void testElasticIndexer(String tableName, boolean namedGraphOnly, ValueFactory vf, RDFFactory rdfFactory) throws Exception {
         final String[] requestUri = new String[2];
         final JSONObject[] createRequest = new JSONObject[1];
         final List<String> bulkBody = new ArrayList<>(200);
@@ -238,8 +255,9 @@ public class HalyardElasticIndexerTest extends AbstractHalyardToolTest {
             System.setProperty("exclude.es-hadoop", "true");
             int serverPort = server.getAddress().getPort();
             String indexUrl = "http://localhost:" + serverPort + INDEX_PATH;
-            String[] cmdLineArgs = namedGraphOnly ? new String[]{"-s", "elasticTable", "-t", indexUrl, "-c", "-g", "http://whatever/graph#1"}
-            : new String[]{"-s", "elasticTable", "-t", indexUrl, "-c"};
+            String[] cmdLineArgs = namedGraphOnly ?
+            		new String[]{"-s", tableName, "-t", indexUrl, "-c", "-g", "http://whatever/graph#1"}
+            		: new String[]{"-s", tableName, "-t", indexUrl, "-c"};
             int rc = run(cmdLineArgs);
             assertEquals(0, rc);
         } finally {

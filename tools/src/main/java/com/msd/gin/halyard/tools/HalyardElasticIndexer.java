@@ -20,7 +20,9 @@ import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
+import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.SSLSettings;
+import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.sail.search.SearchDocument;
 
@@ -35,6 +37,7 @@ import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -65,6 +68,7 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.GEO;
@@ -97,39 +101,43 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
     static final class IndexerMapper extends RdfTableMapper<NullWritable, Text>  {
 
         final Text outputJson = new Text();
-        String source;
-        int objectKeySize;
-        int contextKeySize;
         long counter = 0, exports = 0, statements = 0;
+        StatementIndex<?,?,?,?> lastIndex;
+        Set<Value> lastLiterals;
         byte[] lastHash;
-        Set<Literal> literals;
+        int hashOffset;
+        int hashLen;
 
         @Override
         protected void setup(Context context) throws IOException {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
-            objectKeySize = rdfFactory.getObjectRole().keyHashSize();
-            contextKeySize = rdfFactory.getContextRole().keyHashSize();
-            lastHash = new byte[objectKeySize];
         }
 
         @Override
-        protected void map(ImmutableBytesWritable key, Result value, Context output) throws IOException, InterruptedException {
-            if ((counter++ % STATUS_UPDATE_INTERVAL) == 0) {
-                output.setStatus(MessageFormat.format("{0} st:{1} exp:{2} ", counter, statements, exports));
+        protected void map(ImmutableBytesWritable rowKey, Result value, Context output) throws IOException, InterruptedException {
+        	byte[] key = rowKey.get();
+            StatementIndex<?,?,?,?> index = stmtIndices.toIndex(key[rowKey.getOffset()]);
+            if (index != lastIndex) {
+            	lastIndex = index;
+            	lastHash = new byte[0];
+            	hashOffset = index.isQuadIndex() ? 1 + index.getRole(RDFRole.Name.CONTEXT).keyHashSize() : 1;
+                hashLen = index.getRole(RDFRole.Name.OBJECT).keyHashSize();
             }
 
-            byte[] hash = new byte[objectKeySize];
-            System.arraycopy(key.get(), key.getOffset() + 1 + (stmtIndices.toIndex(key.get()[key.getOffset()]).isQuadIndex() ? contextKeySize : 0), hash, 0, objectKeySize);
-            if (!Arrays.equals(hash, lastHash)) {
-            	literals = new HashSet<>();
-            	lastHash = hash;
+            if (!Arrays.equals(key, hashOffset, hashOffset + hashLen, lastHash, 0, lastHash.length)) {
+            	if (lastHash.length != hashLen) {
+            		lastHash = new byte[hashLen];
+            	}
+            	System.arraycopy(key, hashOffset, lastHash, 0, hashLen);
+            	lastLiterals = new HashSet<>();
             }
 
-            for (Statement st : HalyardTableUtils.parseStatements(null, null, null, null, value, valueReader, stmtIndices)) {
+            List<Statement> stmts = HalyardTableUtils.parseStatements(null, null, null, null, value, valueReader, stmtIndices);
+            for (Statement st : stmts) {
                 statements++;
             	Literal l = (Literal) st.getObject();
-                if (literals.add(l)) {
+                if (lastLiterals.add(l)) {
             		StringBuilderWriter json = new StringBuilderWriter(128);
 	                json.append("{\"").append(SearchDocument.ID_FIELD).append("\":");
 	                String id = rdfFactory.id(l).toString();
@@ -161,6 +169,10 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
 	                output.write(NullWritable.get(), outputJson);
 	                exports++;
                 }
+            }
+
+            if ((counter++ % STATUS_UPDATE_INTERVAL) == 0) {
+                output.setStatus(MessageFormat.format("{0} st:{1} exp:{2} ", counter, statements, exports));
             }
         }
 
