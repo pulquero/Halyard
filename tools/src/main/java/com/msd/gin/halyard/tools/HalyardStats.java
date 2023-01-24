@@ -22,8 +22,7 @@ import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFContext;
 import com.msd.gin.halyard.common.RDFFactory;
-import com.msd.gin.halyard.common.RDFPredicate;
-import com.msd.gin.halyard.common.SPOC;
+import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueIO;
@@ -105,69 +104,35 @@ public final class HalyardStats extends AbstractHalyardTool {
 
     static final class StatsMapper extends RdfTableMapper<ImmutableBytesWritable, LongWritable>  {
         private static final long STATUS_UPDATE_INTERVAL = 100000L;
+        private static final IRI DEFAULT_GRAPH_NODE = HALYARD.STATS_ROOT_NODE;
 
         final ImmutableBytesWritable outputKey = new ImmutableBytesWritable();
         final LongWritable outputValue = new LongWritable();
         ByteBuffer bb = ByteBuffer.allocate(ValueIO.DEFAULT_BUFFER_SIZE);
-    	RDFPredicate RDF_TYPE_PREDICATE;
-    	byte[] POS_TYPE_HASH;
-    	byte[] CPOS_TYPE_HASH;
         IRI statsContext, namedGraphContext;
-        byte[] cspoStatsContextHash;
-    	StatementIndex<SPOC.S,SPOC.P,SPOC.O,SPOC.C> spo;
-    	StatementIndex<SPOC.P,SPOC.O,SPOC.S,SPOC.C> pos;
-    	StatementIndex<SPOC.O,SPOC.S,SPOC.P,SPOC.C> osp;
-    	StatementIndex<SPOC.C,SPOC.S,SPOC.P,SPOC.O> cspo;
-    	StatementIndex<SPOC.C,SPOC.P,SPOC.O,SPOC.S> cpos;
-    	StatementIndex<SPOC.C,SPOC.O,SPOC.S,SPOC.P> cosp;
-        int subjectKeySize;
-        int predicateKeySize;
-        int objectKeySize;
-        int contextKeySize;
-        byte[] lastSubjFragment;
-        byte[] lastPredFragment;
-        byte[] lastObjFragment;
-        byte[] lastCtxFragment;
-        byte[] lastClassFragment;
         StatementIndex<?,?,?,?> lastIndex;
-        long counter = 0;
+        long counter = 0L;
         boolean update;
 
-        IRI graph = HALYARD.STATS_ROOT_NODE, lastGraph = HALYARD.STATS_ROOT_NODE;
-        long triples, distinctSubjects, distinctProperties, distinctObjects, classes, removed;
+        Resource graph = DEFAULT_GRAPH_NODE, lastGraph;
+        long triples, distinctSubjects, properties, distinctObjects, classes, removed;
         long distinctIRIReferenceSubjects, distinctIRIReferenceObjects, distinctBlankNodeObjects, distinctBlankNodeSubjects, distinctLiterals;
         long distinctTripleSubjects, distinctTripleObjects;
-        Set<Value> valueDedup;
-        Set<Value> classDedup;
+        Value rdfClass;
         IRI subsetType;
 		Value subsetId;
+		Set<Value> lastSubsetIds;
+		byte[] lastHash;
+		int hashOffset;
+		int hashLen;
         long setThreshold, setCounter, subsetThreshold, subsetCounter;
         HBaseSail sail;
-		SailConnection conn;
+		SailConnection sailConn;
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
-            spo = stmtIndices.getSPOIndex();
-            pos = stmtIndices.getPOSIndex();
-            osp = stmtIndices.getOSPIndex();
-            cspo = stmtIndices.getCSPOIndex();
-            cpos = stmtIndices.getCPOSIndex();
-            cosp = stmtIndices.getCOSPIndex();
-            subjectKeySize = rdfFactory.getSubjectRole().keyHashSize();
-            predicateKeySize = rdfFactory.getPredicateRole().keyHashSize();
-            objectKeySize = rdfFactory.getObjectRole().keyHashSize();
-            contextKeySize = rdfFactory.getContextRole().keyHashSize();
-            lastSubjFragment = new byte[subjectKeySize];
-            lastPredFragment = new byte[predicateKeySize];
-            lastObjFragment = new byte[objectKeySize];
-            lastCtxFragment = new byte[contextKeySize];
-            lastClassFragment = new byte[objectKeySize];
-            spo = stmtIndices.getSPOIndex();
-        	RDF_TYPE_PREDICATE = rdfFactory.createPredicate(RDF.TYPE);
-        	POS_TYPE_HASH = RDF_TYPE_PREDICATE.getKeyHash(pos);
-        	CPOS_TYPE_HASH = RDF_TYPE_PREDICATE.getKeyHash(cpos);
             update = conf.get(TARGET) == null;
             setThreshold = conf.getLong(GRAPH_THRESHOLD, DEFAULT_THRESHOLD);
             subsetThreshold = conf.getLong(PARTITION_THRESHOLD, DEFAULT_THRESHOLD);
@@ -177,22 +142,18 @@ public final class HalyardStats extends AbstractHalyardTool {
             if (namedGraph != null) {
             	namedGraphContext = vf.createIRI(namedGraph);
             }
-			cspoStatsContextHash = rdfFactory.createContext(statsContext).getKeyHash(cspo);
         }
 
-        /**
-         * Copies source into target, and also returns true if target was the same as source.
-         */
-        private boolean matchAndCopyKey(byte[] source, int offset, int len, byte[] target) {
-            boolean match = true;
-            for (int i=0; i<len; i++) {
-                if (source[i + offset] != target[i]) {
-                    match = false;
-                    break;
-                }
+        private SailConnection getConnection(Context output) {
+            if (sail == null) {
+                Configuration conf = output.getConfiguration();
+                sail = new HBaseSail(conf, conf.get(SOURCE_NAME_PROPERTY), false, 0, true, 0, null, null);
+                sail.init();
             }
-            System.arraycopy(source, offset, target, 0, len);
-            return match;
+            if (sailConn == null) {
+            	sailConn = sail.getConnection();
+            }
+            return sailConn;
         }
 
         private boolean matchingGraphContext(Resource subject) {
@@ -210,168 +171,129 @@ public final class HalyardStats extends AbstractHalyardTool {
         protected void map(ImmutableBytesWritable rowKey, Result value, Context output) throws IOException, InterruptedException {
         	byte[] key = rowKey.get();
             StatementIndex<?,?,?,?> index = stmtIndices.toIndex(key[rowKey.getOffset()]);
-			List<Statement> stmts = HalyardTableUtils.parseStatements(null, null, null, null, value, valueReader, stmtIndices);
-            int hashOffset;
-            if (!index.isQuadIndex()) {
-            	// triple region
-                hashOffset = rowKey.getOffset() + 1;
-            } else {
-            	// quad region
-                hashOffset = rowKey.getOffset() + 1 + contextKeySize;
-                if (!matchAndCopyKey(key, rowKey.getOffset() + 1, contextKeySize, lastCtxFragment) || index != lastIndex) {
-                    reset(output);
-					graph = (IRI) stmts.get(0).getContext();
-                }
-                if (update && index == cspo) {
-                    if (Arrays.equals(cspoStatsContextHash, lastCtxFragment)) {
-                        if (sail == null) {
-                            Configuration conf = output.getConfiguration();
-                            sail = new HBaseSail(conf, conf.get(SOURCE_NAME_PROPERTY), false, 0, true, 0, null, null);
-                            sail.init();
-							conn = sail.getConnection();
-                        }
-						for (Statement st : stmts) {
-                            if (statsContext.equals(st.getContext()) && matchingGraphContext(st.getSubject())) {
-								conn.removeStatement(null, st.getSubject(), st.getPredicate(), st.getObject(), st.getContext());
-                                removed++;
-                            }
-                        }
-                        lastIndex = index;
-                        return;  //do no count removed statements
-                    }
+            if (index != lastIndex) {
+            	lastIndex = index;
+            	lastHash = new byte[0];
+            	lastGraph = null;
+            	hashOffset = index.isQuadIndex() ? 1 + index.getRole(RDFRole.Name.CONTEXT).keyHashSize() : 1;
+                switch (index.getName()) {
+                    case SPO:
+                    case CSPO:
+                        hashLen = index.getRole(RDFRole.Name.SUBJECT).keyHashSize();
+                        subsetType = VOID_EXT.SUBJECT;
+                        break;
+                    case POS:
+                    case CPOS:
+                        hashLen = index.getRole(RDFRole.Name.PREDICATE).keyHashSize();
+                        subsetType = VOID.PROPERTY;
+                        break;
+                    case OSP:
+                    case COSP:
+                        hashLen = index.getRole(RDFRole.Name.OBJECT).keyHashSize();
+                        subsetType = VOID_EXT.OBJECT;
+                        break;
+                    default:
+                        throw new IOException("Unknown region #" + index);
                 }
             }
 
-            int keyLen;
-            byte[] lastKeyFragment;
-            switch (index.getName()) {
-                case SPO:
-                case CSPO:
-                	keyLen = subjectKeySize;
-                	lastKeyFragment = lastSubjFragment;
-                    break;
-                case POS:
-                case CPOS:
-                	keyLen = predicateKeySize;
-                	lastKeyFragment = lastPredFragment;
-                    break;
-                case OSP:
-                case COSP:
-                	keyLen = objectKeySize;
-                	lastKeyFragment = lastObjFragment;
-                    break;
-                default:
-                    throw new IOException("Unknown region #" + index);
+            if (!Arrays.equals(key, hashOffset, hashOffset + hashLen, lastHash, 0, lastHash.length)) {
+            	if (lastHash.length != hashLen) {
+            		lastHash = new byte[hashLen];
+            	}
+            	System.arraycopy(key, hashOffset, lastHash, 0, hashLen);
+            	lastSubsetIds = new HashSet<>();
             }
-            boolean hashChange = !matchAndCopyKey(key, hashOffset, keyLen, lastKeyFragment) || index != lastIndex || lastGraph != graph;
-            if (hashChange) {
-            	valueDedup = new HashSet<>();
-            	output.getCounter(Counters.KEYS).increment(1);
-            }
+
+            List<Statement> stmts = HalyardTableUtils.parseStatements(null, null, null, null, value, valueReader, stmtIndices);
             for (Statement stmt : stmts) {
-	            switch (index.getName()) {
-	                case SPO:
-	                case CSPO:
-	                	{
-	                        Resource subj = stmt.getSubject();
-	                        if (valueDedup.add(subj)) {
-		                        resetSubset(output);
-		                        distinctSubjects++;
-		                        if (subj.isIRI()) {
-		                            distinctIRIReferenceSubjects++;
-		                        } else if (subj.isTriple()) {
-		                        	distinctTripleSubjects++;
-		                        } else {
-		                            distinctBlankNodeSubjects++;
+            	Resource ctx = index.isQuadIndex() ? stmt.getContext() : DEFAULT_GRAPH_NODE;
+            	if (!ctx.equals(lastGraph)) {
+            		lastGraph = ctx;
+            		lastSubsetIds = new HashSet<>();
+            		reset(output);
+                    rdfClass = null;
+            		graph = ctx;
+            	}
+            	if (update && index.getName() == StatementIndex.Name.CSPO && graph.equals(statsContext)) {
+                    if (matchingGraphContext(stmt.getSubject())) {
+						getConnection(output).removeStatement(null, stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext());
+                        removed++;
+                    }
+            	} else {
+		            switch (index.getName()) {
+		                case SPO:
+		                case CSPO:
+		                	{
+		                        Resource subj = stmt.getSubject();
+		                        if (lastSubsetIds.add(subj)) {
+			                        resetSubset(output);
+			                        distinctSubjects++;
+			                        if (subj.isIRI()) {
+			                            distinctIRIReferenceSubjects++;
+			                        } else if (subj.isTriple()) {
+			                        	distinctTripleSubjects++;
+			                        } else {
+			                            distinctBlankNodeSubjects++;
+			                        }
+			                        subsetId = subj;
 		                        }
-		                        subsetType = VOID_EXT.SUBJECT;
-		                        subsetId = subj;
-	                        }
-	                        subsetCounter++;
-	                	}
-	                    break;
-	                case POS:
-	                case CPOS:
-	                	{
-                			IRI pred = stmt.getPredicate();
-                			if (valueDedup.add(pred)) {
-                				resetSubset(output);
-		                        distinctProperties++;
-		                        subsetType = VOID.PROPERTY;
-		                        subsetId = pred;
-                			}
-                			subsetCounter++;
-	                	}
-	                    break;
-	                case OSP:
-	                case COSP:
-	                	{
-	                        Value obj = stmt.getObject();
-	                        if (valueDedup.add(obj)) {
-	                        	resetSubset(output);
-		                        distinctObjects++;
-		                        if (obj.isIRI()) {
-		                        	distinctIRIReferenceObjects++;
-		                        } else if (obj.isTriple()) {
-		                        	distinctTripleObjects++;
-		                        } else if (obj.isBNode()) {
-		                        	distinctBlankNodeObjects++;
-		                        } else {
-		                            distinctLiterals++;
+		                		triples++;
+		                	}
+		                    break;
+		                case POS:
+		                case CPOS:
+		                	{
+	                			IRI pred = stmt.getPredicate();
+		                        if (lastSubsetIds.add(pred)) {
+	                				resetSubset(output);
+			                        properties++;
+			                        subsetId = pred;
+	                			}
+	                    		if (RDF.TYPE.equals(stmt.getPredicate())) {
+	                    			Value obj = stmt.getObject();
+	                    			if (!obj.equals(rdfClass)) {
+		                    			rdfClass = obj;
+		                    			classes++;
+	                    			}
+	                    		}
+		                	}
+		                    break;
+		                case OSP:
+		                case COSP:
+		                	{
+		                        Value obj = stmt.getObject();
+		                        if (lastSubsetIds.add(obj)) {
+		                        	resetSubset(output);
+			                        distinctObjects++;
+			                        if (obj.isIRI()) {
+			                        	distinctIRIReferenceObjects++;
+			                        } else if (obj.isTriple()) {
+			                        	distinctTripleObjects++;
+			                        } else if (obj.isBNode()) {
+			                        	distinctBlankNodeObjects++;
+			                        } else {
+			                            distinctLiterals++;
+			                        }
+			                        subsetId = obj;
 		                        }
-		                        subsetType = VOID_EXT.OBJECT;
-		                        subsetId = obj;
-	                        }
-	                        subsetCounter++;
-	                	}
-	                    break;
-	                default:
-	                    throw new AssertionError("Unknown region #" + index);
-	            }
+		                	}
+		                    break;
+		                default:
+		                    throw new AssertionError("Unknown region #" + index);
+		            }
+	                setCounter++;
+	                subsetCounter++;
+            	}
             }
 
-            int stmtCount = stmts.size();
-            switch (index.getName()) {
-                case SPO:
-                case CSPO:
-                    triples += stmtCount;
-                    break;
-                case POS:
-                    if (Arrays.equals(POS_TYPE_HASH, lastKeyFragment)) {
-                    	if (!matchAndCopyKey(key, hashOffset + predicateKeySize, objectKeySize, lastClassFragment) || hashChange) {
-                    		classDedup = new HashSet<>();
-                    	}
-                    	for (Statement stmt : stmts) {
-                    		if (classDedup.add(stmt.getObject())) {
-                    			classes++;
-                    		}
-                    	}
-                    }
-                    break;
-                case CPOS:
-                    if (Arrays.equals(CPOS_TYPE_HASH, lastKeyFragment)) {
-                    	if (!matchAndCopyKey(key, hashOffset + predicateKeySize, objectKeySize, lastClassFragment) || hashChange) {
-                    		classDedup = new HashSet<>();
-                    	}
-                    	for (Statement stmt : stmts) {
-                    		if (classDedup.add(stmt.getObject())) {
-                    			classes++;
-                    		}
-                    	}
-                    }
-                    break;
-                default:
-            }
-            setCounter += stmtCount;
-            lastIndex = index;
-            lastGraph = graph;
             output.progress();
             if ((counter++ % STATUS_UPDATE_INTERVAL) == 0) {
-                output.setStatus(MessageFormat.format("reg:{0} {1} t:{2} s:{3} p:{4} o:{5} c:{6} r:{7}", index, counter, triples, distinctSubjects, distinctProperties, distinctObjects, classes, removed));
+                output.setStatus(MessageFormat.format("reg:{0} {1} t:{2} s:{3} p:{4} o:{5} c:{6} r:{7}", index, counter, triples, distinctSubjects, properties, distinctObjects, classes, removed));
             }
         }
 
-		private void report(Context output, IRI property, Value partitionId, long count) throws IOException, InterruptedException {
+        private void report(Context output, IRI property, Value partitionId, long count) throws IOException, InterruptedException {
             if (count > 0 && (namedGraphContext == null || namedGraphContext.equals(graph))) {
             	ValueIO.Writer writer = rdfFactory.streamWriter;
             	bb.clear();
@@ -388,10 +310,10 @@ public final class HalyardStats extends AbstractHalyardTool {
         }
 
 		private void reset(Context output) throws IOException, InterruptedException {
-            if (graph == HALYARD.STATS_ROOT_NODE || setCounter >= setThreshold) {
+            if (graph == DEFAULT_GRAPH_NODE || setCounter >= setThreshold) {
                 report(output, VOID.TRIPLES, null, triples);
                 report(output, VOID.DISTINCT_SUBJECTS, null, distinctSubjects);
-                report(output, VOID.PROPERTIES, null, distinctProperties);
+                report(output, VOID.PROPERTIES, null, properties);
                 report(output, VOID.DISTINCT_OBJECTS, null, distinctObjects);
                 report(output, VOID.CLASSES, null, classes);
                 report(output, VOID_EXT.DISTINCT_IRI_REFERENCE_OBJECTS, null, distinctIRIReferenceObjects);
@@ -407,7 +329,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             setCounter = 0;
             triples = 0;
             distinctSubjects = 0;
-            distinctProperties = 0;
+            properties = 0;
             distinctObjects = 0;
             classes = 0;
             distinctIRIReferenceObjects = 0;
@@ -430,9 +352,9 @@ public final class HalyardStats extends AbstractHalyardTool {
         @Override
         protected void cleanup(Context output) throws IOException, InterruptedException {
         	reset(output);
-        	if (conn != null) {
-				conn.close();
-				conn = null;
+        	if (sailConn != null) {
+        		sailConn.close();
+        		sailConn = null;
         	}
             if (sail != null) {
 				sail.shutDown();
@@ -461,7 +383,7 @@ public final class HalyardStats extends AbstractHalyardTool {
 
         OutputStream out;
         RDFWriter writer;
-        Map<IRI, Boolean> graphs;
+        Map<Resource, Boolean> graphs;
         IRI statsGraphContext;
         ValueFactory vf;
         HBaseSail sail;
@@ -526,14 +448,14 @@ public final class HalyardStats extends AbstractHalyardTool {
 
         	ValueIO.Reader reader = rdfFactory.streamReader;
         	ByteBuffer bb = ByteBuffer.wrap(key.get(), key.getOffset(), key.getLength());
-        	IRI graph = (IRI) ValueIO.readValue(bb, reader, Short.BYTES);
+        	Resource graph = (Resource) ValueIO.readValue(bb, reader, Short.BYTES);
         	IRI predicate = (IRI) ValueIO.readValue(bb, reader, Short.BYTES);
             Value partitionId = bb.hasRemaining() ? reader.readValue(bb) : null;
 
             if (SD.NAMED_GRAPH_PROPERTY.equals(predicate)) { //workaround to at least count all small named graph that are below the threshold
                 writeStatement(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, graph);
             } else {
-                IRI statsNode;
+                Resource statsNode;
                 if (HALYARD.STATS_ROOT_NODE.equals(graph)) {
                     statsNode = HALYARD.STATS_ROOT_NODE;
                 } else {

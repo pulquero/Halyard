@@ -205,19 +205,19 @@ public class RDFFactory {
 		};
 	}
 
-	public RDFRole<SPOC.S> getSubjectRole() {
+	RDFRole<SPOC.S> getSubjectRole() {
 		return subject;
 	}
 
-	public RDFRole<SPOC.P> getPredicateRole() {
+	RDFRole<SPOC.P> getPredicateRole() {
 		return predicate;
 	}
 
-	public RDFRole<SPOC.O> getObjectRole() {
+	RDFRole<SPOC.O> getObjectRole() {
 		return object;
 	}
 
-	public RDFRole<SPOC.C> getContextRole() {
+	RDFRole<SPOC.C> getContextRole() {
 		return context;
 	}
 
