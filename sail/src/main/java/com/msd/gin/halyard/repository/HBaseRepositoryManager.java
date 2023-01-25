@@ -18,6 +18,7 @@ package com.msd.gin.halyard.repository;
 
 import com.msd.gin.halyard.common.TableConfig;
 import com.msd.gin.halyard.sail.HBaseSail;
+import com.msd.gin.halyard.strategy.HalyardEvaluationExecutor;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -142,6 +143,7 @@ public final class HBaseRepositoryManager extends RepositoryManager {
                 }
             }
         }
+		HalyardEvaluationExecutor.getInstance(config).shutdown();
     }
 
     @Override

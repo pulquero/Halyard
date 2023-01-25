@@ -26,7 +26,9 @@ import com.msd.gin.halyard.query.QueueingBindingSetPipe;
 import com.msd.gin.halyard.util.RateTracker;
 
 import java.lang.management.ManagementFactory;
+import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -36,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.JMException;
 import javax.management.MBeanServer;
+import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 
 import org.apache.hadoop.conf.Configuration;
@@ -81,6 +84,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
     private final Cache<TupleExpr, Integer> priorityMapCache = CacheBuilder.newBuilder().weakKeys().build();
 
     private final RateTracker taskRateTracker;
+	private final Runnable shutdownAction;
 
     private int threads;
     private int maxRetries;
@@ -94,19 +98,21 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	private int pollTimeoutMillis;
 	private int offerTimeoutMillis;
 
-	private static void registerMBeans(MBeanServer mbs, HalyardEvaluationExecutor executor) throws JMException {
+	private static List<ObjectInstance> registerMBeans(MBeanServer mbs, HalyardEvaluationExecutor executor) throws JMException {
+		List<ObjectInstance> mbeanInsts = new ArrayList<>();
 		{
 			Hashtable<String,String> attrs = new Hashtable<>();
 			attrs.put("type", HalyardEvaluationExecutor.class.getName());
 			attrs.put("id", Integer.toString(executor.hashCode()));
-			mbs.registerMBean(executor, ObjectName.getInstance(StrategyConfig.JMX_DOMAIN, attrs));
+			mbeanInsts.add(mbs.registerMBean(executor, ObjectName.getInstance(StrategyConfig.JMX_DOMAIN, attrs)));
 		}
 		{
 			Hashtable<String,String> attrs = new Hashtable<>();
 			attrs.put("type", TrackingThreadPoolExecutor.class.getName());
 			attrs.put("id", Integer.toString(executor.executor.hashCode()));
-			mbs.registerMBean(executor.executor, ObjectName.getInstance(StrategyConfig.JMX_DOMAIN, attrs));
+			mbeanInsts.add(mbs.registerMBean(executor.executor, ObjectName.getInstance(StrategyConfig.JMX_DOMAIN, attrs)));
 		}
+		return mbeanInsts;
 	}
 
 	public static HalyardEvaluationExecutor getInstance(Configuration conf) {
@@ -118,6 +124,14 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 			}
 		}
 		return instance;
+	}
+
+	private static void removeInstance(HalyardEvaluationExecutor executor) {
+		synchronized (HalyardEvaluationExecutor.class) {
+			if (instance == executor) {
+				instance = null;
+			}
+		}
 	}
 
 	HalyardEvaluationExecutor(Configuration conf) {
@@ -157,12 +171,27 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 		}, 1000L, TimeUnit.SECONDS.toMillis(threadPoolCheckPeriodSecs));
 
 		MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+		List<ObjectInstance> mbeanInsts;
 		try {
-			registerMBeans(mbs, this);
+			mbeanInsts = registerMBeans(mbs, this);
 		} catch (JMException e) {
 			throw new AssertionError(e);
 		}
-		
+
+		this.shutdownAction = () -> {
+			for (ObjectInstance inst : mbeanInsts) {
+				try {
+					mbs.unregisterMBean(inst.getObjectName());
+				} catch (JMException e) {
+					// ignore
+				}
+			}
+			removeInstance(this);
+		};
+	}
+
+	public void shutdown() {
+		shutdownAction.run();
 	}
 
 	@Override

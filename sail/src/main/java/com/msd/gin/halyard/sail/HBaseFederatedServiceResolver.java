@@ -38,13 +38,14 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 	private static final String MAX_VERSIONS_QUERY_PARAM = "maxVersions";
 	private static final String ENDPOINT_QUERY = "PREFIX halyard: <" + HALYARD.NAMESPACE + ">\n" + "SELECT ?user ?pass WHERE { GRAPH halyard:endpoints {?url halyard:username ?user; halyard:password ?pass} }";
 
-	private final HBaseRepositoryManager repoManager = new HBaseRepositoryManager();
 	private final Connection hConnection;
 	private final Configuration config;
 	private final String defaultTableName;
 	private final boolean usePush;
 	private final int evaluationTimeout;
 	private final Ticker ticker;
+	private final Object systemRepoLock = new Object();
+	private volatile Repository systemRepo;
 
 	static String getName(FederatedServiceResolver federatedServiceResolver) {
 		return federatedServiceResolver.getClass().getSimpleName() + "@" + Integer.toHexString(federatedServiceResolver.hashCode());
@@ -67,7 +68,6 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 		this.usePush = usePush;
 		this.evaluationTimeout = evaluationTimeout;
 		this.ticker = ticker;
-		this.repoManager.init();
 	}
 
 	@Override
@@ -113,8 +113,12 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 			try {
 				URL url = new URL(serviceUrl);
 				if (url.getUserInfo() == null) {
+					synchronized (systemRepoLock) {
+						if (systemRepo == null) {
+							systemRepo = HBaseRepositoryManager.createSystemRepository(config);
+						}
+					}
 					// check for stored authentication info
-					Repository systemRepo = repoManager.getSystemRepository();
 					try (RepositoryConnection conn = systemRepo.getConnection()) {
 						TupleQuery query = conn.prepareTupleQuery(ENDPOINT_QUERY);
 						query.setBinding("url", systemRepo.getValueFactory().createIRI(serviceUrl));
@@ -140,6 +144,11 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 	@Override
 	public void shutDown() {
 		super.shutDown();
-		repoManager.shutDown();
+		synchronized (systemRepoLock) {
+			if (systemRepo != null) {
+				systemRepo.shutDown();
+				systemRepo = null;
+			}
+		}
 	}
 }
