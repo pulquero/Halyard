@@ -20,6 +20,7 @@ import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.rio.TriGStarParser;
 import com.msd.gin.halyard.util.LFUCache;
 import com.msd.gin.halyard.util.LRUCache;
 import com.msd.gin.halyard.vocab.HALYARD;
@@ -31,7 +32,6 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
@@ -86,6 +86,7 @@ import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
 import org.eclipse.rdf4j.rio.helpers.NTriplesParserSettings;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
+import org.eclipse.rdf4j.rio.trix.TriXParser;
 import org.eclipse.rdf4j.rio.turtle.TurtleParser;
 
 /**
@@ -147,32 +148,28 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
 		ADDED_STATEMENTS
 	}
 
-    static void setParsers() {
-        //this is a workaround to avoid autodetection of .xml files as TriX format and hook on .trix file extension only
+    static void replaceParser(RDFFormat format, RDFParserFactory newpf) {
         RDFParserRegistry reg = RDFParserRegistry.getInstance();
-        Optional<RDFParserFactory> trixPF = reg.get(RDFFormat.TRIX);
-        if (trixPF.isPresent()) {
-            reg.remove(trixPF.get());
-            final RDFParser trixParser = trixPF.get().getParser();
-            reg.add(new RDFParserFactory() {
-                @Override
-                public RDFFormat getRDFFormat() {
-                    RDFFormat t = RDFFormat.TRIX;
-                    return new RDFFormat(t.getName(), t.getMIMETypes(), t.getCharset(), Arrays.asList("trix"), t.getStandardURI(), t.supportsNamespaces(), t.supportsContexts(), t.supportsRDFStar());
-                }
+        reg.get(format).ifPresent(pf -> reg.remove(pf));
+        reg.add(newpf);
+    }
 
-                @Override
-                public RDFParser getParser() {
-                    return trixParser;
-                }
-            });
-        }
-        //this is a workaround to make Turtle parser more resistent to invalid URIs when in dirty mode
-        Optional<RDFParserFactory> turtlePF = reg.get(RDFFormat.TURTLE);
-        if (turtlePF.isPresent()) {
-            reg.remove(turtlePF.get());
-        }
-        reg.add(new RDFParserFactory() {
+    static void setParsers() {
+        // this is a workaround to avoid autodetection of .xml files as TriX format and hook on .trix file extension only
+        replaceParser(RDFFormat.TRIX, new RDFParserFactory() {
+            @Override
+            public RDFFormat getRDFFormat() {
+                RDFFormat t = RDFFormat.TRIX;
+                return new RDFFormat(t.getName(), t.getMIMETypes(), t.getCharset(), Arrays.asList("trix"), t.getStandardURI(), t.supportsNamespaces(), t.supportsContexts(), t.supportsRDFStar());
+            }
+
+            @Override
+            public RDFParser getParser() {
+                return new TriXParser();
+            }
+        });
+        // this is a workaround to make Turtle parser more resistant to invalid URIs when in dirty mode
+        replaceParser(RDFFormat.TURTLE, new RDFParserFactory() {
             @Override
             public RDFFormat getRDFFormat() {
                 return RDFFormat.TURTLE;
@@ -209,6 +206,8 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
                 };
             }
         });
+        // this is a workaround for https://github.com/eclipse/rdf4j/issues/3664
+        replaceParser(RDFFormat.TRIGSTAR, new TriGStarParser.Factory());
     }
 
     /**
