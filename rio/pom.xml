@@ -37,11 +37,23 @@
 			<version>${assertj.version}</version>
 			<scope>test</scope>
 		</dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>test</scope>
+        </dependency>
 		<dependency>
 			<groupId>org.eclipse.rdf4j</groupId>
 			<artifactId>rdf4j-rio-api</artifactId>
 			<version>${rdf4j.version}</version>
 			<type>test-jar</type>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.rdf4j</groupId>
+			<artifactId>rdf4j-rio-testsuite</artifactId>
+			<version>${rdf4j.version}</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
