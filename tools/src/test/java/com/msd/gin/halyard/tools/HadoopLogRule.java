@@ -19,19 +19,21 @@ public class HadoopLogRule implements TestRule {
 	@Override
 	public Statement apply(Statement base, Description description) {
 		return new Statement() {
+			Pattern errPattern = Pattern.compile("Exception|Error|Caused by: |Suppressed: ", Pattern.CASE_INSENSITIVE);
+			Pattern exclPattern = Pattern.compile("Shuffle Errors|IO_ERROR|NOT_SERVING_REGION_EXCEPTION|error_?prone|rdf4j-common-exception", Pattern.CASE_INSENSITIVE);
+
 			@Override
 			public void evaluate() throws Throwable {
 				try {
 					base.evaluate();
 				} catch(Throwable err) {
-					Pattern errPattern = Pattern.compile("Exception|Error|Caused by: |Suppressed: ", Pattern.CASE_INSENSITIVE);
 					Path clusterHome = Paths.get("target/test/data/testCluster");
 					if (Files.exists(clusterHome)) {
 						Files.walk(clusterHome)
 						.filter(p -> "syslog".equals(p.getFileName().toString()))
 						.forEach(f -> {
 							try(Stream<String> lines = Files.lines(f)) {
-								String log = lines.filter(l -> errPattern.matcher(l).find() || l.startsWith("\tat "))
+								String log = lines.filter(l -> (errPattern.matcher(l).find() && !exclPattern.matcher(l).find()) || l.startsWith("\tat "))
 		    					.map(l -> "*** "+l+"\n")
 		    					.reduce("", String::concat);
 								System.out.println(log);
