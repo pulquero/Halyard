@@ -156,7 +156,7 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
         }
 
         @Override
-        public void meet(Filter node) throws RuntimeException {
+        public void meet(Filter node) {
         	super.meet(node);
             updateMap(node);
         }

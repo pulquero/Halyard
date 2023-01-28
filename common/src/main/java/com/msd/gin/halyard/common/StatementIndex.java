@@ -165,35 +165,24 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	private int get3KeyHashSize() {
 		return isQuadIndex ? role3.keyHashSize() : role3.endKeyHashSize();
 	}
-	private <T extends SPOC<?>> byte[] get3KeyHash(StatementIndex<?,?,T,?> index, RDFIdentifier<? extends T> k) {
-		return isQuadIndex ? k.getKeyHash(index) : k.getEndKeyHash(index);
-	}
-	byte[] keyHash(RDFRole<?> role, ValueIdentifier id) {
-		int len = role.keyHashSize();
-		// rotate key so ordering is different for different prefixes
-		// this gives better load distribution when traversing between prefixes
-		return id.rotate(len, role.toShift(this), new byte[len]);
-	}
-
-	byte[] endKeyHash(RDFRole<?> role, ValueIdentifier id) {
-		int len = role.endKeyHashSize();
-		return len > 0 ? id.rotate(len, role.toShift(this), new byte[len]) : new byte[0];
+	private <T extends SPOC<?>> byte[] get3KeyHash(StatementIndex<?,?,T,?> index, RDFIdentifier k) {
+		return isQuadIndex ? role3.keyHash(k.getId()) : role3.endKeyHash(k.getId());
 	}
 	private int get3QualifierHashSize() {
 		return isQuadIndex ? role3.qualifierHashSize() : role3.endQualifierHashSize();
 	}
-	private void write3QualifierHashTo(RDFIdentifier<?> k, ByteBuffer b) {
+	private void write3QualifierHashTo(RDFIdentifier k, RDFRole<?> role, ByteBuffer b) {
 		if (isQuadIndex) {
-			k.writeQualifierHashTo(b);
+			role.writeQualifierHashTo(k.getId(), b);
 		} else {
-			k.writeEndQualifierHashTo(b);
+			role.writeEndQualifierHashTo(k.getId(), b);
 		}
 	}
 	ByteSequence get4StartKey() {
 		return isQuadIndex ? role4.endStartKey() : ByteSequence.EMPTY;
 	}
 
-	byte[] row(RDFIdentifier<? extends T1> v1, RDFIdentifier<? extends T2> v2, RDFIdentifier<? extends T3> v3, @Nullable RDFIdentifier<? extends T4> v4) {
+	byte[] row(RDFIdentifier v1, RDFIdentifier v2, RDFIdentifier v3, @Nullable RDFIdentifier v4) {
 		boolean hasQuad = (v4 != null);
 		if (isQuadIndex && !hasQuad) {
 			throw new NullPointerException("Missing identifier from quad.");
@@ -201,25 +190,25 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		byte[] r = new byte[1 + role1.keyHashSize() + role2.keyHashSize() + get3KeyHashSize() + (hasQuad ? role4.endKeyHashSize() : 0)];
 		ByteBuffer bb = ByteBuffer.wrap(r);
 		bb.put(prefix);
-		bb.put(v1.getKeyHash(this));
-		bb.put(v2.getKeyHash(this));
+		bb.put(role1.keyHash(v1.getId()));
+		bb.put(role2.keyHash(v2.getId()));
 		bb.put(get3KeyHash(this, v3));
 		if(hasQuad) {
-			bb.put(v4.getEndKeyHash(this));
+			bb.put(role4.endKeyHash(v4.getId()));
 		}
 		return r;
 	}
 
-	byte[] qualifier(RDFIdentifier<? extends T1> v1, @Nullable RDFIdentifier<? extends T2> v2, @Nullable RDFIdentifier<? extends T3> v3, @Nullable RDFIdentifier<? extends T4> v4) {
+	byte[] qualifier(RDFIdentifier v1, @Nullable RDFIdentifier v2, @Nullable RDFIdentifier v3, @Nullable RDFIdentifier v4) {
 		byte[] cq = new byte[role1.qualifierHashSize() + (v2 != null ? role2.qualifierHashSize() : 0) + (v3 != null ? get3QualifierHashSize() : 0) + (v4 != null ? role4.endQualifierHashSize() : 0)];
 		ByteBuffer bb = ByteBuffer.wrap(cq);
-		v1.writeQualifierHashTo(bb);
+		role1.writeQualifierHashTo(v1.getId(), bb);
 		if(v2 != null) {
-			v2.writeQualifierHashTo(bb);
+			role2.writeQualifierHashTo(v2.getId(), bb);
     		if(v3 != null) {
-				write3QualifierHashTo(v3, bb);
+				write3QualifierHashTo(v3, role3, bb);
         		if(v4 != null) {
-					v4.writeEndQualifierHashTo(bb);
+					role4.writeEndQualifierHashTo(v4.getId(), bb);
         		}
     		}
 		}
@@ -331,7 +320,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 
 	private ValueIdentifier parseId(RDFRole<?> role, ByteBuffer key, ByteBuffer cn, int keySize) {
 		byte[] idBytes = new byte[rdfFactory.getIdSize()];
-		rdfFactory.idFormat.unrotate(key.array(), key.arrayOffset() + key.position(), keySize, role.toShift(this), idBytes);
+		rdfFactory.idFormat.unrotate(key.array(), key.arrayOffset() + key.position(), keySize, role.getByteShift(), idBytes);
 		key.position(key.position()+keySize);
 		cn.get(idBytes, keySize, idBytes.length - keySize);
 		return rdfFactory.id(idBytes);
@@ -343,7 +332,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	}
 
 	Scan scan(ValueIdentifier id) {
-		ByteSequence kb = new ByteArray(keyHash(role1, id));
+		ByteSequence kb = new ByteArray(role1.keyHash(id));
 		byte[] cq = role1.qualifierHash(id);
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 		return scan(
@@ -375,11 +364,11 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		return scan;
 	}
-	public Scan scan(RDFIdentifier<? extends T1> k) {
+	public Scan scan(RDFIdentifier k) {
 		return scanWithConstraint(k, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier<? extends T1> k, ValueConstraint constraint) {
-		ByteSequence kb = new ByteArray(k.getKeyHash(this));
+	public Scan scanWithConstraint(RDFIdentifier k1, ValueConstraint constraint) {
+		ByteSequence kb = new ByteArray(role1.keyHash(k1.getId()));
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 		Scan scan = scan(
 			kb, role2.startKey(), get3StartKey(), get4StartKey(),
@@ -387,7 +376,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			cardinality,
 			false
 		);
-		Filter qf = new ColumnPrefixFilter(qualifier(k, null, null, null));
+		Filter qf = new ColumnPrefixFilter(qualifier(k1, null, null, null));
 		if (constraint != null) {
 			List<Filter> filters = new ArrayList<>();
 			filters.add(qf);
@@ -402,15 +391,15 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		return scan;
 	}
-	public Scan scan(RDFIdentifier<? extends T1> k1, RDFIdentifier<? extends T2> k2) {
+	public Scan scan(RDFIdentifier k1, RDFIdentifier k2) {
 		return scanWithConstraint(k1, k2, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier<? extends T1> k1, RDFIdentifier<? extends T2> k2, ValueConstraint constraint) {
-		ByteSequence k1b = new ByteArray(k1.getKeyHash(this));
+	public Scan scanWithConstraint(RDFIdentifier k1, RDFIdentifier k2, ValueConstraint constraint) {
+		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId()));
 		ByteSequence k2b, stop2;
 		int cardinality;
 		if (k2 != null) {
-			k2b = new ByteArray(k2.getKeyHash(this));
+			k2b = new ByteArray(role2.keyHash(k2.getId()));
 			stop2 = k2b;
 			cardinality = VAR_CARDINALITY*VAR_CARDINALITY;
 		} else {
@@ -439,12 +428,12 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		return scan;
 	}
-	public Scan scan(RDFIdentifier<? extends T1> k1, RDFIdentifier<? extends T2> k2, RDFIdentifier<? extends T3> k3) {
+	public Scan scan(RDFIdentifier k1, RDFIdentifier k2, RDFIdentifier k3) {
 		return scanWithConstraint(k1, k2, k3, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier<? extends T1> k1, RDFIdentifier<? extends T2> k2, RDFIdentifier<? extends T3> k3, ValueConstraint constraint) {
-		ByteSequence k1b = new ByteArray(k1.getKeyHash(this));
-		ByteSequence k2b = new ByteArray(k2.getKeyHash(this));
+	public Scan scanWithConstraint(RDFIdentifier k1, RDFIdentifier k2, RDFIdentifier k3, ValueConstraint constraint) {
+		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId()));
+		ByteSequence k2b = new ByteArray(role2.keyHash(k2.getId()));
 		ByteSequence k3b, stop3;
 		int cardinality;
 		if (k3 != null) {
@@ -477,11 +466,11 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		return scan;
 	}
-	public Scan scan(RDFIdentifier<? extends T1> k1, RDFIdentifier<? extends T2> k2, RDFIdentifier<? extends T3> k3, RDFIdentifier<? extends T4> k4) {
-		byte[] k1b = k1.getKeyHash(this);
-		byte[] k2b = k2.getKeyHash(this);
+	public Scan scan(RDFIdentifier k1, RDFIdentifier k2, RDFIdentifier k3, RDFIdentifier k4) {
+		byte[] k1b = role1.keyHash(k1.getId());
+		byte[] k2b = role2.keyHash(k2.getId());
 		byte[] k3b = get3KeyHash(this, k3);
-		byte[] k4b = k4.getEndKeyHash(this);
+		byte[] k4b = role4.endKeyHash(k4.getId());
 		int cardinality = 1;
 		return scan(
 			new ByteArray(k1b), new ByteArray(k2b), new ByteArray(k3b), new ByteArray(k4b),

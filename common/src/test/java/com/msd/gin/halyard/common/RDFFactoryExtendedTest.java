@@ -36,10 +36,18 @@ public class RDFFactoryExtendedTest {
 		Configuration littleNibbleConf = new Configuration();
 		littleNibbleConf.setInt(TableConfig.ID_TYPE_INDEX, 0);
 		littleNibbleConf.setBoolean(TableConfig.ID_TYPE_NIBBLE, true);
+		littleNibbleConf.setInt(TableConfig.KEY_SIZE_SUBJECT, 3);
+		littleNibbleConf.setInt(TableConfig.END_KEY_SIZE_SUBJECT, 4);
+		littleNibbleConf.setInt(TableConfig.KEY_SIZE_CONTEXT, 4);
+		littleNibbleConf.setInt(TableConfig.END_KEY_SIZE_CONTEXT, 2);
 
 		Configuration bigNibbleConf = new Configuration();
 		bigNibbleConf.setInt(TableConfig.ID_TYPE_INDEX, 1);
 		bigNibbleConf.setBoolean(TableConfig.ID_TYPE_NIBBLE, false);
+		bigNibbleConf.setInt(TableConfig.KEY_SIZE_SUBJECT, 4);
+		bigNibbleConf.setInt(TableConfig.END_KEY_SIZE_SUBJECT, 2);
+		bigNibbleConf.setInt(TableConfig.KEY_SIZE_CONTEXT, 4);
+		bigNibbleConf.setInt(TableConfig.END_KEY_SIZE_CONTEXT, 3);
 
 		return Arrays.<Object[]>asList(
 			new Object[] {littleNibbleConf},
@@ -69,6 +77,17 @@ public class RDFFactoryExtendedTest {
 				}
 			}
 		}
+	}
+
+	@Test
+	public void testKeySizes() {
+		int endKeySize = conf.getInt(TableConfig.END_KEY_SIZE_SUBJECT, 0);
+		RDFRole<?> role = rdfFactory.getSubjectRole(StatementIndex.Name.POS);
+		assertEquals(endKeySize, role.endKeyHashSize());
+
+		endKeySize = conf.getInt(TableConfig.END_KEY_SIZE_CONTEXT, 0);
+		role = rdfFactory.getContextRole(StatementIndex.Name.OSP);
+		assertEquals(endKeySize, role.endKeyHashSize());
 	}
 
 	@Test

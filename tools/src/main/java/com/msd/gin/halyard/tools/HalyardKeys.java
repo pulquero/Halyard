@@ -221,9 +221,7 @@ public final class HalyardKeys extends AbstractHalyardTool {
 			keyspace.close();
 		}
         StatementIndices indices = new StatementIndices(getConf(), rdfFactory);
-        Scan scan = indices.scanAll();
-        scan.setAllowPartialResults(false);
-        scan.setBatch(-1);
+        Scan scan = HalyardTableUtils.scanCompleteRows(indices.scanAll());
         keyspace.initMapperJob(
             scan,
             KeyColumnMapper.class,

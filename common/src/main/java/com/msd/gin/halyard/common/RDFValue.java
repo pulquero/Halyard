@@ -5,17 +5,17 @@ import java.util.Objects;
 
 import org.eclipse.rdf4j.model.Value;
 
-public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFIdentifier<T> {
+public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFIdentifier {
 	final V val;
 	private final RDFFactory rdfFactory;
 	private ByteBuffer ser;
 
-	public static <V extends Value> boolean matches(V value, RDFValue<V,?> pattern) {
+	public static <V extends Value, T extends SPOC<V>> boolean matches(V value, RDFValue<V, T> pattern) {
 		return pattern == null || pattern.val.equals(value);
 	}
 
 
-	protected RDFValue(RDFRole<T> role, V val, RDFFactory valueIO) {
+	protected RDFValue(RDFRole.Name role, V val, RDFFactory valueIO) {
 		super(role);
 		this.val = Objects.requireNonNull(val);
 		this.rdfFactory = Objects.requireNonNull(valueIO);

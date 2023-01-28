@@ -76,7 +76,7 @@ public class HalyardTableUtilsTest {
     @Test
     public void testConfig() {
     	assertEquals(ID_SIZE, rdfFactory.getIdSize());
-    	assertEquals(OBJECT_KEY_SIZE, rdfFactory.getObjectRole().keyHashSize());
+    	assertEquals(OBJECT_KEY_SIZE, rdfFactory.getObjectRole(StatementIndex.Name.POS).keyHashSize());
     }
 
     @Test

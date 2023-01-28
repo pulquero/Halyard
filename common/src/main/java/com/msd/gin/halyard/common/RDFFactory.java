@@ -29,6 +29,7 @@ import com.google.common.collect.HashBiMap;
 @ThreadSafe
 public class RDFFactory {
 	private static final Logger LOGGER = LoggerFactory.getLogger(RDFFactory.class);
+	private static final int NOT_SET = -1;
 	private static final int MIN_KEY_SIZE = 1;
 	private static final Map<HalyardTableConfiguration,RDFFactory> FACTORIES = Collections.synchronizedMap(new HashMap<>());
 
@@ -38,13 +39,16 @@ public class RDFFactory {
 	private final BiMap<ValueIdentifier, IRI> wellKnownIriIds = HashBiMap.create(256);
 	final ValueIdentifier.Format idFormat;
 	final int typeSaltSize;
+	final int subjectKeySize;
+	final int subjectEndKeySize;
+	final int predicateKeySize;
+	final int predicateEndKeySize;
+	final int objectKeySize;
+	final int objectEndKeySize;
+	final int contextKeySize;
+	final int contextEndKeySize;
 
 	final ValueIO valueIO;
-
-	private final RDFRole<SPOC.S> subject;
-	private final RDFRole<SPOC.P> predicate;
-	private final RDFRole<SPOC.O> object;
-	private final RDFRole<SPOC.C> context;
 
 	public static RDFFactory create(Configuration config) {
 		HalyardTableConfiguration halyardConfig = new HalyardTableConfiguration(config);
@@ -97,23 +101,23 @@ public class RDFFactory {
 			halyardConfig.getInt(TableConfig.STRING_COMPRESSION, 500)
 		);
 		String confIdAlgo = halyardConfig.get(TableConfig.ID_HASH, null);
-		int confIdSize = halyardConfig.getInt(TableConfig.ID_SIZE, -1);
+		int confIdSize = halyardConfig.getInt(TableConfig.ID_SIZE, NOT_SET);
 		int idSize = Hashes.getHash(confIdAlgo, confIdSize).size();
 		LOGGER.info("Identifier hash: {} {}-bit ({} bytes)", confIdAlgo, idSize*Byte.SIZE, idSize);
 
-		int typeIndex = lessThan(lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.ID_TYPE_INDEX, -1), 0), Short.BYTES), idSize);
+		int typeIndex = lessThan(lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.ID_TYPE_INDEX, NOT_SET), 0), Short.BYTES), idSize);
 		ValueIdentifier.TypeNibble typeNibble = halyardConfig.getBoolean(TableConfig.ID_TYPE_NIBBLE, false) ? ValueIdentifier.TypeNibble.LITTLE_NIBBLE : ValueIdentifier.TypeNibble.BIG_NIBBLE;
 		idFormat = new ValueIdentifier.Format(confIdAlgo, idSize, typeIndex, typeNibble);
 		typeSaltSize = idFormat.getSaltSize();
 
-		int subjectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_SUBJECT, -1), MIN_KEY_SIZE), idSize);
-		int subjectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_SUBJECT, -1), MIN_KEY_SIZE), idSize);
-		int predicateKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_PREDICATE, -1), MIN_KEY_SIZE), idSize);
-		int predicateEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_PREDICATE, -1), MIN_KEY_SIZE), idSize);
-		int objectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_OBJECT, -1), MIN_KEY_SIZE), idSize);
-		int objectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_OBJECT, -1), MIN_KEY_SIZE), idSize);
-		int contextKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_CONTEXT, -1), MIN_KEY_SIZE), idSize);
-		int contextEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_CONTEXT, -1), 0), idSize);
+		subjectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_SUBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
+		subjectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_SUBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
+		predicateKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_PREDICATE, NOT_SET), MIN_KEY_SIZE), idSize);
+		predicateEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_PREDICATE, NOT_SET), MIN_KEY_SIZE), idSize);
+		objectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_OBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
+		objectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_OBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
+		contextKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_CONTEXT, NOT_SET), MIN_KEY_SIZE), idSize);
+		contextEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_CONTEXT, NOT_SET), 0), idSize);
 
 		idTripleWriter = valueIO.createWriter(new IdTripleWriter());
 		streamWriter = valueIO.createStreamWriter();
@@ -127,31 +131,6 @@ public class RDFFactory {
 						wellKnownIriIds.get(id), idIri));
 			}
 		}
-
-		this.subject = new RDFRole<>(
-			RDFRole.Name.SUBJECT,
-			idSize,
-			subjectKeySize, subjectEndKeySize,
-			0, 2, 1, Short.BYTES
-		);
-		this.predicate = new RDFRole<>(
-			RDFRole.Name.PREDICATE,
-			idSize,
-			predicateKeySize, predicateEndKeySize,
-			1, 0, 2, Short.BYTES
-		);
-		this.object = new RDFRole<>(
-			RDFRole.Name.OBJECT,
-			idSize,
-			objectKeySize, objectEndKeySize,
-			2, 1, 0, Integer.BYTES
-		);
-		this.context = new RDFRole<>(
-			RDFRole.Name.CONTEXT,
-			idSize,
-			contextKeySize, contextEndKeySize,
-			0, 0, 0, Short.BYTES
-		);
 	}
 
 	public Collection<Namespace> getWellKnownNamespaces() {
@@ -205,20 +184,88 @@ public class RDFFactory {
 		};
 	}
 
-	RDFRole<SPOC.S> getSubjectRole() {
-		return subject;
+	RDFRole<SPOC.S> getSubjectRole(StatementIndex.Name index) {
+		return new RDFRole<>(
+			RDFRole.Name.SUBJECT,
+			idFormat.size,
+			subjectKeySize, subjectEndKeySize,
+			getSubjectShift(index), Short.BYTES
+		);
 	}
 
-	RDFRole<SPOC.P> getPredicateRole() {
-		return predicate;
+	private int getSubjectShift(StatementIndex.Name index) {
+		switch(index) {
+			case SPO:
+			case CSPO:
+				return 0;
+			case POS:
+			case CPOS:
+				return 2;
+			case OSP:
+			case COSP:
+				return 1;
+			default:
+				throw new AssertionError();
+		}
 	}
 
-	RDFRole<SPOC.O> getObjectRole() {
-		return object;
+	RDFRole<SPOC.P> getPredicateRole(StatementIndex.Name index) {
+		return new RDFRole<>(
+			RDFRole.Name.PREDICATE,
+			idFormat.size,
+			predicateKeySize, predicateEndKeySize,
+			getPredicateShift(index), Short.BYTES
+		);
 	}
 
-	RDFRole<SPOC.C> getContextRole() {
-		return context;
+	private int getPredicateShift(StatementIndex.Name index) {
+		switch(index) {
+			case SPO:
+			case CSPO:
+				return 1;
+			case POS:
+			case CPOS:
+				return 0;
+			case OSP:
+			case COSP:
+				return 2;
+			default:
+				throw new AssertionError();
+		}
+	}
+
+	RDFRole<SPOC.O> getObjectRole(StatementIndex.Name index) {
+		return new RDFRole<>(
+			RDFRole.Name.OBJECT,
+			idFormat.size,
+			objectKeySize, objectEndKeySize,
+			getObjectShift(index), Integer.BYTES
+		);
+	}
+
+	private int getObjectShift(StatementIndex.Name index) {
+		switch(index) {
+			case SPO:
+			case CSPO:
+				return 2;
+			case POS:
+			case CPOS:
+				return 1;
+			case OSP:
+			case COSP:
+				return 0;
+			default:
+				throw new AssertionError();
+		}
+	}
+
+	RDFRole<SPOC.C> getContextRole(StatementIndex.Name index) {
+		return new RDFRole<>(
+			RDFRole.Name.CONTEXT,
+			idFormat.size,
+			contextKeySize, contextEndKeySize,
+			0, Short.BYTES
+		);
 	}
 
 	public ValueIdentifier id(Value v) {
@@ -275,32 +322,32 @@ public class RDFFactory {
 		return buf;
 	}
 
-	public RDFIdentifier<SPOC.S> createSubjectId(ValueIdentifier id) {
-		return new RDFIdentifier<>(subject, id);
+	public RDFIdentifier createSubjectId(ValueIdentifier id) {
+		return new RDFIdentifier(RDFRole.Name.SUBJECT, id);
 	}
 
-	public RDFIdentifier<SPOC.P> createPredicateId(ValueIdentifier id) {
-		return new RDFIdentifier<>(predicate, id);
+	public RDFIdentifier createPredicateId(ValueIdentifier id) {
+		return new RDFIdentifier(RDFRole.Name.PREDICATE, id);
 	}
 
-	public RDFIdentifier<SPOC.O> createObjectId(ValueIdentifier id) {
-		return new RDFIdentifier<>(object, id);
+	public RDFIdentifier createObjectId(ValueIdentifier id) {
+		return new RDFIdentifier(RDFRole.Name.OBJECT, id);
 	}
 
 	public RDFSubject createSubject(Resource val) {
-		return RDFSubject.create(subject, val, this);
+		return RDFSubject.create(val, this);
 	}
 
 	public RDFPredicate createPredicate(IRI val) {
-		return RDFPredicate.create(predicate, val, this);
+		return RDFPredicate.create(val, this);
 	}
 
 	public RDFObject createObject(Value val) {
-		return RDFObject.create(object, val, this);
+		return RDFObject.create(val, this);
 	}
 
 	public RDFContext createContext(Resource val) {
-		return RDFContext.create(context, val, this);
+		return RDFContext.create(val, this);
 	}
 
 	/**

@@ -15,12 +15,10 @@ public final class RDFRole<T extends SPOC<?>> {
 	private final ByteFiller stopKey;
 	private final ByteFiller endStartKey;
 	private final ByteFiller endStopKey;
-	private final int sshift;
-	private final int pshift;
-	private final int oshift;
+	private final int shift;
 	private final int sizeLength;
 
-	public RDFRole(Name name, int idSize, int keyHashSize, int endKeyHashSize, int sshift, int pshift, int oshift, int sizeLength) {
+	public RDFRole(Name name, int idSize, int keyHashSize, int endKeyHashSize, int shift, int sizeLength) {
 		this.name = name;
 		this.idSize = idSize;
 		this.keyHashSize = keyHashSize;
@@ -29,9 +27,7 @@ public final class RDFRole<T extends SPOC<?>> {
 		this.stopKey = new ByteFiller((byte)0xFF, keyHashSize);
 		this.endStartKey = new ByteFiller((byte)0x00, endKeyHashSize);
 		this.endStopKey = new ByteFiller((byte)0xFF, endKeyHashSize);
-		this.sshift = sshift;
-		this.pshift = pshift;
-		this.oshift = oshift;
+		this.shift = shift;
 		this.sizeLength = sizeLength;
 	}
 
@@ -61,6 +57,16 @@ public final class RDFRole<T extends SPOC<?>> {
 
 	int sizeLength() {
 		return sizeLength;
+	}
+
+	byte[] keyHash(ValueIdentifier id) {
+		// rotate key so ordering is different for different prefixes
+		// this gives better load distribution when traversing between prefixes
+		return id.rotate(keyHashSize, shift, new byte[keyHashSize]);
+	}
+
+	byte[] endKeyHash(ValueIdentifier id) {
+		return endKeyHashSize > 0 ? id.rotate(endKeyHashSize, shift, new byte[endKeyHashSize]) : new byte[0];
 	}
 
 	byte[] qualifierHash(ValueIdentifier id) {
@@ -93,20 +99,8 @@ public final class RDFRole<T extends SPOC<?>> {
 		return endStopKey;
 	}
 
-	int toShift(StatementIndex<?,?,?,?> index) {
-		switch(index.getName()) {
-			case SPO:
-			case CSPO:
-				return sshift;
-			case POS:
-			case CPOS:
-				return pshift;
-			case OSP:
-			case COSP:
-				return oshift;
-			default:
-				throw new AssertionError();
-		}
+	int getByteShift() {
+		return shift;
 	}
 
 	@Override

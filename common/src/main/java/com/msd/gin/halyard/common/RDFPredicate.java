@@ -4,15 +4,15 @@ import javax.annotation.Nullable;
 
 import org.eclipse.rdf4j.model.IRI;
 
-public final class RDFPredicate extends RDFValue<IRI,SPOC.P> {
-	static RDFPredicate create(RDFRole<SPOC.P> role, @Nullable IRI pred, RDFFactory rdfFactory) {
+public final class RDFPredicate extends RDFValue<IRI, SPOC.P> {
+	static RDFPredicate create(@Nullable IRI pred, RDFFactory rdfFactory) {
 		if(pred == null) {
 			return null;
 		}
-		return new RDFPredicate(role, pred, rdfFactory);
+		return new RDFPredicate(pred, rdfFactory);
 	}
 
-	private RDFPredicate(RDFRole<SPOC.P> role, IRI val, RDFFactory rdfFactory) {
-		super(role, val, rdfFactory);
+	private RDFPredicate(IRI val, RDFFactory rdfFactory) {
+		super(RDFRole.Name.PREDICATE, val, rdfFactory);
 	}
 }

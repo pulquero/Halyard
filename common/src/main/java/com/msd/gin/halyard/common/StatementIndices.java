@@ -47,50 +47,50 @@ public final class StatementIndices {
 
 		this.spo = new StatementIndex<>(
 			StatementIndex.Name.SPO, 0, false,
-			rdfFactory.getSubjectRole(),
-			rdfFactory.getPredicateRole(),
-			rdfFactory.getObjectRole(),
-			rdfFactory.getContextRole(),
+			rdfFactory.getSubjectRole(StatementIndex.Name.SPO),
+			rdfFactory.getPredicateRole(StatementIndex.Name.SPO),
+			rdfFactory.getObjectRole(StatementIndex.Name.SPO),
+			rdfFactory.getContextRole(StatementIndex.Name.SPO),
 			rdfFactory, conf
 		);
 		this.pos = new StatementIndex<>(
 			StatementIndex.Name.POS, 1, false,
-			rdfFactory.getPredicateRole(),
-			rdfFactory.getObjectRole(),
-			rdfFactory.getSubjectRole(),
-			rdfFactory.getContextRole(),
+			rdfFactory.getPredicateRole(StatementIndex.Name.POS),
+			rdfFactory.getObjectRole(StatementIndex.Name.POS),
+			rdfFactory.getSubjectRole(StatementIndex.Name.POS),
+			rdfFactory.getContextRole(StatementIndex.Name.POS),
 			rdfFactory, conf
 		);
 		this.osp = new StatementIndex<>(
 			StatementIndex.Name.OSP, 2, false,
-			rdfFactory.getObjectRole(),
-			rdfFactory.getSubjectRole(),
-			rdfFactory.getPredicateRole(),
-			rdfFactory.getContextRole(),
+			rdfFactory.getObjectRole(StatementIndex.Name.OSP),
+			rdfFactory.getSubjectRole(StatementIndex.Name.OSP),
+			rdfFactory.getPredicateRole(StatementIndex.Name.OSP),
+			rdfFactory.getContextRole(StatementIndex.Name.OSP),
 			rdfFactory, conf
 		);
 		this.cspo = new StatementIndex<>(
 			StatementIndex.Name.CSPO, 3, true,
-			rdfFactory.getContextRole(),
-			rdfFactory.getSubjectRole(),
-			rdfFactory.getPredicateRole(),
-			rdfFactory.getObjectRole(),
+			rdfFactory.getContextRole(StatementIndex.Name.CSPO),
+			rdfFactory.getSubjectRole(StatementIndex.Name.CSPO),
+			rdfFactory.getPredicateRole(StatementIndex.Name.CSPO),
+			rdfFactory.getObjectRole(StatementIndex.Name.CSPO),
 			rdfFactory, conf
 		);
 		this.cpos = new StatementIndex<>(
 			StatementIndex.Name.CPOS, 4, true,
-			rdfFactory.getContextRole(),
-			rdfFactory.getPredicateRole(),
-			rdfFactory.getObjectRole(),
-			rdfFactory.getSubjectRole(),
+			rdfFactory.getContextRole(StatementIndex.Name.CPOS),
+			rdfFactory.getPredicateRole(StatementIndex.Name.CPOS),
+			rdfFactory.getObjectRole(StatementIndex.Name.CPOS),
+			rdfFactory.getSubjectRole(StatementIndex.Name.CPOS),
 			rdfFactory, conf
 		);
 		this.cosp = new StatementIndex<>(
 			StatementIndex.Name.COSP, 5, true,
-			rdfFactory.getContextRole(),
-			rdfFactory.getObjectRole(),
-			rdfFactory.getSubjectRole(),
-			rdfFactory.getPredicateRole(),
+			rdfFactory.getContextRole(StatementIndex.Name.COSP),
+			rdfFactory.getObjectRole(StatementIndex.Name.COSP),
+			rdfFactory.getSubjectRole(StatementIndex.Name.COSP),
+			rdfFactory.getPredicateRole(StatementIndex.Name.COSP),
 			rdfFactory, conf
 		);
 	}
@@ -200,7 +200,7 @@ public final class StatementIndices {
 		StatementIndex<SPOC.C,SPOC.O,SPOC.S,SPOC.P> index = cosp;
 		int typeSaltSize = rdfFactory.typeSaltSize;
 		if (typeSaltSize == 1) {
-			ByteSequence ctxb = new ByteArray(ctx.getKeyHash(index));
+			ByteSequence ctxb = new ByteArray(index.role1.keyHash(ctx.getId()));
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
 				ctxb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.startKey()), index.get3StartKey(), index.get4StartKey(),
@@ -218,7 +218,7 @@ public final class StatementIndices {
 		StatementIndex<SPOC.P,SPOC.O,SPOC.S,SPOC.C> index = pos;
 		int typeSaltSize = rdfFactory.typeSaltSize;
 		if (typeSaltSize == 1) {
-			ByteSequence predb = new ByteArray(pred.getKeyHash(index));
+			ByteSequence predb = new ByteArray(index.role1.keyHash(pred.getId()));
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
 				predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.startKey()), index.get3StartKey(), index.get4StartKey(),
@@ -237,8 +237,8 @@ public final class StatementIndices {
 		StatementIndex<SPOC.C,SPOC.P,SPOC.O,SPOC.S> index = cpos;
 		int typeSaltSize = rdfFactory.typeSaltSize;
 		if (typeSaltSize == 1) {
-			ByteSequence predb = new ByteArray(pred.getKeyHash(index));
-			ByteSequence ctxb = new ByteArray(ctx.getKeyHash(index));
+			ByteSequence ctxb = new ByteArray(index.role1.keyHash(ctx.getId()));
+			ByteSequence predb = new ByteArray(index.role2.keyHash(pred.getId()));
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
 				ctxb, predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role3.startKey()), index.get4StartKey(),
@@ -254,7 +254,7 @@ public final class StatementIndices {
 	/**
 	 * Performs a scan using any suitable index.
 	 */
-	public Scan scan(@Nonnull RDFIdentifier<? extends SPOC.S> s, @Nonnull RDFIdentifier<? extends SPOC.P> p, @Nonnull RDFIdentifier<? extends SPOC.O> o, @Nullable RDFIdentifier<? extends SPOC.C> c) {
+	public Scan scan(@Nonnull RDFIdentifier s, @Nonnull RDFIdentifier p, @Nonnull RDFIdentifier o, @Nullable RDFIdentifier c) {
 		Scan scan;
 		if (c == null) {
 			int h = Math.floorMod(Objects.hash(s, p, o), 3);
@@ -313,9 +313,9 @@ public final class StatementIndices {
 			b.get(sid).get(pid).get(oid);
 	
 			RDFContext ckey = rdfFactory.createContext(HALYARD.TRIPLE_GRAPH_CONTEXT);
-			RDFIdentifier<SPOC.S> skey = rdfFactory.createSubjectId(rdfFactory.id(sid));
-			RDFIdentifier<SPOC.P> pkey = rdfFactory.createPredicateId(rdfFactory.id(pid));
-			RDFIdentifier<SPOC.O> okey = rdfFactory.createObjectId(rdfFactory.id(oid));
+			RDFIdentifier skey = rdfFactory.createSubjectId(rdfFactory.id(sid));
+			RDFIdentifier pkey = rdfFactory.createPredicateId(rdfFactory.id(pid));
+			RDFIdentifier okey = rdfFactory.createObjectId(rdfFactory.id(oid));
 			Scan scan = scan(skey, pkey, okey, ckey);
 			try {
 				Result result;

@@ -198,23 +198,24 @@ public class RDFFactoryTest {
         RDFFactory rdfFactory = stmtIndices.getRDFFactory();
 		for(StatementIndex<?,?,?,?> idx : new StatementIndex[] {spo, pos, osp, cspo, cpos, cosp}) {
 			String testName = v.toString() + " for " + idx.toString();
-			byte[] keyHash = v.getKeyHash(idx);
-			int keyHashSize = v.getRole().keyHashSize();
+			RDFRole<?> role = idx.getRole(v.getRoleName());
+			byte[] keyHash = role.keyHash(v.getId());
+			int keyHashSize = role.keyHashSize();
 			assertEquals(testName, keyHashSize, keyHash.length);
 
 			byte[] idxIdBytes = new byte[rdfFactory.getIdSize()];
-			id.getFormat().unrotate(keyHash, 0, keyHashSize, v.getRole().toShift(idx), idxIdBytes);
-			v.writeQualifierHashTo(ByteBuffer.wrap(idxIdBytes, keyHashSize, idxIdBytes.length-keyHashSize));
+			id.getFormat().unrotate(keyHash, 0, keyHashSize, role.getByteShift(), idxIdBytes);
+			role.writeQualifierHashTo(v.getId(), ByteBuffer.wrap(idxIdBytes, keyHashSize, idxIdBytes.length-keyHashSize));
 			assertEquals(testName, id, rdfFactory.id(idxIdBytes));
 
 			if(!(v instanceof RDFContext)) { // context doesn't have end-hashes
-				byte[] endKeyHash = v.getEndKeyHash(idx);
-				int endKeyHashSize = v.getRole().endKeyHashSize();
+				byte[] endKeyHash = role.endKeyHash(v.getId());
+				int endKeyHashSize = role.endKeyHashSize();
 				assertEquals(testName, endKeyHashSize, endKeyHash.length);
 
 				byte[] cidxIdBytes = new byte[rdfFactory.getIdSize()];
-				id.getFormat().unrotate(endKeyHash, 0, endKeyHashSize, v.getRole().toShift(idx), cidxIdBytes);
-				v.writeEndQualifierHashTo(ByteBuffer.wrap(cidxIdBytes, endKeyHashSize, cidxIdBytes.length-endKeyHashSize));
+				id.getFormat().unrotate(endKeyHash, 0, endKeyHashSize, role.getByteShift(), cidxIdBytes);
+				role.writeEndQualifierHashTo(v.getId(), ByteBuffer.wrap(cidxIdBytes, endKeyHashSize, cidxIdBytes.length-endKeyHashSize));
 				assertEquals(testName, id, rdfFactory.id(cidxIdBytes));
 			}
 		}
