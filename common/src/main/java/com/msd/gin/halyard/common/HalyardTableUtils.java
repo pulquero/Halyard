@@ -668,6 +668,10 @@ public final class HalyardTableUtils {
 		return scanAll;
 	}
 
+	public static Scan scanCompleteRows(Scan scan) {
+		return scan.setAllowPartialResults(false).setBatch(-1);
+	}
+
 	public static boolean exists(KeyspaceConnection kc, Scan scan) throws IOException {
 		try (ResultScanner scanner = kc.getScanner(scanSingle(scan))) {
 			for (Result result : scanner) {
