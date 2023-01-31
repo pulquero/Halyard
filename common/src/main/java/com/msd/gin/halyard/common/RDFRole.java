@@ -10,23 +10,17 @@ public final class RDFRole<T extends SPOC<?>> {
 	private final Name name;
 	private final int idSize;
 	private final int keyHashSize;
-	private final int endKeyHashSize;
-	private final ByteFiller startKey;
-	private final ByteFiller stopKey;
-	private final ByteFiller endStartKey;
-	private final ByteFiller endStopKey;
+	private final ByteSequence startKey;
+	private final ByteSequence stopKey;
 	private final int shift;
 	private final int sizeLength;
 
-	public RDFRole(Name name, int idSize, int keyHashSize, int endKeyHashSize, int shift, int sizeLength) {
+	public RDFRole(Name name, int idSize, int keyHashSize, int shift, int sizeLength, boolean required) {
 		this.name = name;
 		this.idSize = idSize;
 		this.keyHashSize = keyHashSize;
-		this.endKeyHashSize = endKeyHashSize;
-		this.startKey = new ByteFiller((byte)0x00, keyHashSize);
+		this.startKey = required ? new ByteFiller((byte)0x00, keyHashSize) : ByteSequence.EMPTY;
 		this.stopKey = new ByteFiller((byte)0xFF, keyHashSize);
-		this.endStartKey = new ByteFiller((byte)0x00, endKeyHashSize);
-		this.endStopKey = new ByteFiller((byte)0xFF, endKeyHashSize);
 		this.shift = shift;
 		this.sizeLength = sizeLength;
 	}
@@ -43,16 +37,8 @@ public final class RDFRole<T extends SPOC<?>> {
 		return keyHashSize;
 	}
 
-	public int endKeyHashSize() {
-		return endKeyHashSize;
-	}
-
 	int qualifierHashSize() {
 		return idSize - keyHashSize;
-	}
-
-	int endQualifierHashSize() {
-		return idSize - endKeyHashSize;
 	}
 
 	int sizeLength() {
@@ -62,11 +48,7 @@ public final class RDFRole<T extends SPOC<?>> {
 	byte[] keyHash(ValueIdentifier id) {
 		// rotate key so ordering is different for different prefixes
 		// this gives better load distribution when traversing between prefixes
-		return id.rotate(keyHashSize, shift, new byte[keyHashSize]);
-	}
-
-	byte[] endKeyHash(ValueIdentifier id) {
-		return endKeyHashSize > 0 ? id.rotate(endKeyHashSize, shift, new byte[endKeyHashSize]) : new byte[0];
+		return keyHashSize > 0 ? id.rotate(keyHashSize, shift, new byte[keyHashSize]) : new byte[0];
 	}
 
 	byte[] qualifierHash(ValueIdentifier id) {
@@ -79,24 +61,12 @@ public final class RDFRole<T extends SPOC<?>> {
 		return id.writeSliceTo(keyHashSize(), qualifierHashSize(), bb);
 	}
 
-	ByteBuffer writeEndQualifierHashTo(ValueIdentifier id, ByteBuffer bb) {
-		return id.writeSliceTo(endKeyHashSize(), endQualifierHashSize(), bb);
-	}
-
-	ByteFiller startKey() {
+	ByteSequence startKey() {
 		return startKey;
 	}
 
-	ByteFiller stopKey() {
+	ByteSequence stopKey() {
 		return stopKey;
-	}
-
-	ByteFiller endStartKey() {
-		return endStartKey;
-	}
-
-	ByteFiller endStopKey() {
-		return endStopKey;
 	}
 
 	int getByteShift() {

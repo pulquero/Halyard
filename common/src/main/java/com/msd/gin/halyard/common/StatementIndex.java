@@ -27,7 +27,17 @@ import org.eclipse.rdf4j.model.ValueFactory;
  */
 @ThreadSafe
 public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 extends SPOC<?>,T4 extends SPOC<?>> {
-	public enum Name {SPO, POS, OSP, CSPO, CPOS, COSP};
+	public enum Name {
+		SPO(false), POS(false), OSP(false), CSPO(true), CPOS(true), COSP(true);
+
+		private final boolean isQuad;
+		Name(boolean isQuad) {
+			this.isQuad = isQuad;
+		}
+		public boolean isQuadIndex() {
+			return this.isQuad;
+		}
+	};
 	private static final byte WELL_KNOWN_IRI_MARKER = (byte) ('#' | 0x80);  // marker must be negative (msb set) so it is distinguishable from a length (>=0)
 	static final int VAR_CARDINALITY = 10;
 
@@ -109,7 +119,6 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 
 	private final Name name;
 	final byte prefix;
-	private final boolean isQuadIndex;
 	final RDFRole<T1> role1;
 	final RDFRole<T2> role2;
 	final RDFRole<T3> role3;
@@ -120,10 +129,9 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	private final RDFFactory rdfFactory;
 	private final int maxCaching;
 
-	StatementIndex(Name name, int prefix, boolean isQuadIndex, RDFRole<T1> role1, RDFRole<T2> role2, RDFRole<T3> role3, RDFRole<T4> role4, RDFFactory rdfFactory, Configuration conf) {
+	StatementIndex(Name name, int prefix, RDFRole<T1> role1, RDFRole<T2> role2, RDFRole<T3> role3, RDFRole<T4> role4, RDFFactory rdfFactory, Configuration conf) {
 		this.name = name;
 		this.prefix = (byte) prefix;
-		this.isQuadIndex = isQuadIndex;
 		this.role1 = role1;
 		this.role2 = role2;
 		this.role3 = role3;
@@ -152,63 +160,33 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return spocRoles[name.ordinal()];
 	}
 
-	public boolean isQuadIndex() {
-		return isQuadIndex;
-	}
-
-	ByteSequence get3StartKey() {
-		return isQuadIndex ? role3.startKey() : role3.endStartKey();
-	}
-	ByteSequence get3StopKey() {
-		return isQuadIndex ? role3.stopKey() : role3.endStopKey();
-	}
-	private int get3KeyHashSize() {
-		return isQuadIndex ? role3.keyHashSize() : role3.endKeyHashSize();
-	}
-	private <T extends SPOC<?>> byte[] get3KeyHash(StatementIndex<?,?,T,?> index, RDFIdentifier k) {
-		return isQuadIndex ? role3.keyHash(k.getId()) : role3.endKeyHash(k.getId());
-	}
-	private int get3QualifierHashSize() {
-		return isQuadIndex ? role3.qualifierHashSize() : role3.endQualifierHashSize();
-	}
-	private void write3QualifierHashTo(RDFIdentifier k, RDFRole<?> role, ByteBuffer b) {
-		if (isQuadIndex) {
-			role.writeQualifierHashTo(k.getId(), b);
-		} else {
-			role.writeEndQualifierHashTo(k.getId(), b);
-		}
-	}
-	ByteSequence get4StartKey() {
-		return isQuadIndex ? role4.endStartKey() : ByteSequence.EMPTY;
-	}
-
 	byte[] row(RDFIdentifier v1, RDFIdentifier v2, RDFIdentifier v3, @Nullable RDFIdentifier v4) {
 		boolean hasQuad = (v4 != null);
-		if (isQuadIndex && !hasQuad) {
+		if (name.isQuadIndex() && !hasQuad) {
 			throw new NullPointerException("Missing identifier from quad.");
 		}
-		byte[] r = new byte[1 + role1.keyHashSize() + role2.keyHashSize() + get3KeyHashSize() + (hasQuad ? role4.endKeyHashSize() : 0)];
+		byte[] r = new byte[1 + role1.keyHashSize() + role2.keyHashSize() + role3.keyHashSize() + (hasQuad ? role4.keyHashSize() : 0)];
 		ByteBuffer bb = ByteBuffer.wrap(r);
 		bb.put(prefix);
 		bb.put(role1.keyHash(v1.getId()));
 		bb.put(role2.keyHash(v2.getId()));
-		bb.put(get3KeyHash(this, v3));
+		bb.put(role3.keyHash(v3.getId()));
 		if(hasQuad) {
-			bb.put(role4.endKeyHash(v4.getId()));
+			bb.put(role4.keyHash(v4.getId()));
 		}
 		return r;
 	}
 
 	byte[] qualifier(RDFIdentifier v1, @Nullable RDFIdentifier v2, @Nullable RDFIdentifier v3, @Nullable RDFIdentifier v4) {
-		byte[] cq = new byte[role1.qualifierHashSize() + (v2 != null ? role2.qualifierHashSize() : 0) + (v3 != null ? get3QualifierHashSize() : 0) + (v4 != null ? role4.endQualifierHashSize() : 0)];
+		byte[] cq = new byte[role1.qualifierHashSize() + (v2 != null ? role2.qualifierHashSize() : 0) + (v3 != null ? role3.qualifierHashSize() : 0) + (v4 != null ? role4.qualifierHashSize() : 0)];
 		ByteBuffer bb = ByteBuffer.wrap(cq);
 		role1.writeQualifierHashTo(v1.getId(), bb);
 		if(v2 != null) {
 			role2.writeQualifierHashTo(v2.getId(), bb);
     		if(v3 != null) {
-				write3QualifierHashTo(v3, role3, bb);
+    			role3.writeQualifierHashTo(v3.getId(), bb);
         		if(v4 != null) {
-					role4.writeEndQualifierHashTo(v4.getId(), bb);
+					role4.writeQualifierHashTo(v4.getId(), bb);
         		}
     		}
 		}
@@ -217,7 +195,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 
 	byte[] value(RDFValue<?,T1> v1, RDFValue<?,T2> v2, RDFValue<?,T3> v3, @Nullable RDFValue<?,T4> v4) {
 		boolean hasQuad = (v4 != null);
-		if (isQuadIndex && !hasQuad) {
+		if (name.isQuadIndex() && !hasQuad) {
 			throw new NullPointerException("Missing value from quad.");
 		}
 		int sizeLen1 = role1.sizeLength();
@@ -238,8 +216,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		RDFValue<?,?>[] args = new RDFValue<?,?>[] {subj, pred, obj, ctx};
 		Value v1 = parseRDFValue(role1, args[argIndices[0]], key, cn, cv, role1.keyHashSize(), reader);
 		Value v2 = parseRDFValue(role2, args[argIndices[1]], key, cn, cv, role2.keyHashSize(), reader);
-		Value v3 = parseRDFValue(role3, args[argIndices[2]], key, cn, cv, get3KeyHashSize(), reader);
-		Value v4 = parseLastRDFValue(role4, args[argIndices[3]], key, cn, cv, role4.endKeyHashSize(), reader);
+		Value v3 = parseRDFValue(role3, args[argIndices[2]], key, cn, cv, role3.keyHashSize(), reader);
+		Value v4 = parseLastRDFValue(role4, args[argIndices[3]], key, cn, cv, role4.keyHashSize(), reader);
 		return createStatement(new Value[] {v1, v2, v3, v4}, reader.getValueFactory());
 	}
 
@@ -336,8 +314,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		byte[] cq = role1.qualifierHash(id);
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 		return scan(
-			kb, role2.startKey(), get3StartKey(), get4StartKey(),
-			kb, role2.stopKey(), get3StopKey(), role4.endStopKey(),
+			kb, role2.startKey(), role3.startKey(), role4.startKey(),
+			kb, role2.stopKey(), role3.stopKey(), role4.stopKey(),
 			cardinality,
 			false
 		).setFilter(new ColumnPrefixFilter(cq));
@@ -348,8 +326,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	public Scan scanWithConstraint(ValueConstraint constraint) {
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 		Scan scan = scan(
-			role1.startKey(), role2.startKey(), get3StartKey(), get4StartKey(),
-			role1.stopKey(),  role2.stopKey(),  get3StopKey(),  role4.endStopKey(),
+			role1.startKey(), role2.startKey(), role3.startKey(), role4.startKey(),
+			role1.stopKey(),  role2.stopKey(),  role3.stopKey(),  role4.stopKey(),
 			cardinality,
 			true
 		);
@@ -357,8 +335,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			List<Filter> filters = new ArrayList<>();
 			appendLiteralFilters(ByteSequence.EMPTY, null,
 				role1.startKey(), role1.stopKey(),
-				concat3(role2.startKey(), get3StartKey(), get4StartKey()),
-				concat3(role2.stopKey(),  get3StopKey(),  role4.endStopKey()),
+				concat3(role2.startKey(), role3.startKey(), role4.startKey()),
+				concat3(role2.stopKey(),  role3.stopKey(),  role4.stopKey()),
 				constraint, filters);
 			scan.setFilter(new FilterList(filters));
 		}
@@ -371,8 +349,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		ByteSequence kb = new ByteArray(role1.keyHash(k1.getId()));
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 		Scan scan = scan(
-			kb, role2.startKey(), get3StartKey(), get4StartKey(),
-			kb, role2.stopKey(),  get3StopKey(),  role4.endStopKey(),
+			kb, role2.startKey(), role3.startKey(), role4.startKey(),
+			kb, role2.stopKey(),  role3.stopKey(),  role4.stopKey(),
 			cardinality,
 			false
 		);
@@ -382,8 +360,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			filters.add(qf);
 			appendLiteralFilters(kb, null,
 				role2.startKey(), role2.stopKey(),
-				concat2(get3StartKey(), get4StartKey()),
-				concat2(get3StopKey(),  role4.endStopKey()),
+				concat2(role3.startKey(), role4.startKey()),
+				concat2(role3.stopKey(),  role4.stopKey()),
 				constraint, filters);
 			scan.setFilter(new FilterList(filters));
 		} else {
@@ -408,8 +386,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 		}
 		Scan scan = scan(
-			k1b, k2b, get3StartKey(), get4StartKey(),
-			k1b, stop2, get3StopKey(), role4.endStopKey(),
+			k1b, k2b, role3.startKey(), role4.startKey(),
+			k1b, stop2, role3.stopKey(), role4.stopKey(),
 			cardinality,
 			false
 		);
@@ -418,9 +396,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			List<Filter> filters = new ArrayList<>();
 			filters.add(qf);
 			appendLiteralFilters(concat2(k1b, k2b), k2 == null ? concat2(k1b, stop2) : null,
-				get3StartKey(), get3StopKey(),
-				get4StartKey(),
-				role4.endStopKey(),
+				role3.startKey(), role3.stopKey(),
+				role4.startKey(), role4.stopKey(),
 				constraint, filters);
 			scan.setFilter(new FilterList(filters));
 		} else {
@@ -437,17 +414,17 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		ByteSequence k3b, stop3;
 		int cardinality;
 		if (k3 != null) {
-			k3b = new ByteArray(get3KeyHash(this, k3));
+			k3b = new ByteArray(role3.keyHash(k3.getId()));
 			stop3 = k3b;
 			cardinality = VAR_CARDINALITY;
 		} else {
-			k3b = get3StartKey();
-			stop3 = get3StopKey();
+			k3b = role3.startKey();
+			stop3 = role3.stopKey();
 			cardinality = VAR_CARDINALITY*VAR_CARDINALITY;
 		}
 		Scan scan = scan(
-			k1b, k2b, k3b, get4StartKey(),
-			k1b, k2b, stop3, role4.endStopKey(),
+			k1b, k2b, k3b, role4.startKey(),
+			k1b, k2b, stop3, role4.stopKey(),
 			cardinality,
 			false
 		);
@@ -456,7 +433,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			List<Filter> filters = new ArrayList<>();
 			filters.add(qf);
 			appendLiteralFilters(concat3(k1b, k2b, k3b), k3 == null ? concat3(k1b, k2b, stop3) : null,
-				get4StartKey(), role4.endStopKey(),
+				role4.startKey(), role4.stopKey(),
 				ByteSequence.EMPTY,
 				ByteSequence.EMPTY,
 				constraint, filters);
@@ -469,8 +446,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	public Scan scan(RDFIdentifier k1, RDFIdentifier k2, RDFIdentifier k3, RDFIdentifier k4) {
 		byte[] k1b = role1.keyHash(k1.getId());
 		byte[] k2b = role2.keyHash(k2.getId());
-		byte[] k3b = get3KeyHash(this, k3);
-		byte[] k4b = role4.endKeyHash(k4.getId());
+		byte[] k3b = role3.keyHash(k3.getId());
+		byte[] k4b = role4.keyHash(k4.getId());
 		int cardinality = 1;
 		return scan(
 			new ByteArray(k1b), new ByteArray(k2b), new ByteArray(k3b), new ByteArray(k4b),

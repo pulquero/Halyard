@@ -175,7 +175,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             	lastIndex = index;
             	lastHash = new byte[0];
             	lastGraph = null;
-            	hashOffset = index.isQuadIndex() ? 1 + index.getRole(RDFRole.Name.CONTEXT).keyHashSize() : 1;
+            	hashOffset = index.getName().isQuadIndex() ? 1 + index.getRole(RDFRole.Name.CONTEXT).keyHashSize() : 1;
                 switch (index.getName()) {
                     case SPO:
                     case CSPO:
@@ -207,7 +207,7 @@ public final class HalyardStats extends AbstractHalyardTool {
 
             List<Statement> stmts = HalyardTableUtils.parseStatements(null, null, null, null, value, valueReader, stmtIndices);
             for (Statement stmt : stmts) {
-            	Resource ctx = index.isQuadIndex() ? stmt.getContext() : DEFAULT_GRAPH_NODE;
+            	Resource ctx = index.getName().isQuadIndex() ? stmt.getContext() : DEFAULT_GRAPH_NODE;
             	if (!ctx.equals(lastGraph)) {
             		lastGraph = ctx;
             		lastSubsetIds = new HashSet<>();
