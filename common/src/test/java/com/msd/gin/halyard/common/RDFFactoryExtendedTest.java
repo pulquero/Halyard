@@ -81,13 +81,20 @@ public class RDFFactoryExtendedTest {
 
 	@Test
 	public void testKeySizes() {
-		int endKeySize = conf.getInt(TableConfig.END_KEY_SIZE_SUBJECT, 0);
+		int subjEndKeySize = conf.getInt(TableConfig.END_KEY_SIZE_SUBJECT, 0);
 		RDFRole<?> role = rdfFactory.getSubjectRole(StatementIndex.Name.POS);
-		assertEquals(endKeySize, role.endKeyHashSize());
+		assertEquals(subjEndKeySize, role.keyHashSize());
 
-		endKeySize = conf.getInt(TableConfig.END_KEY_SIZE_CONTEXT, 0);
+		int ctxEndKeySize = conf.getInt(TableConfig.END_KEY_SIZE_CONTEXT, 0);
 		role = rdfFactory.getContextRole(StatementIndex.Name.OSP);
-		assertEquals(endKeySize, role.endKeyHashSize());
+		assertEquals(ctxEndKeySize, role.keyHashSize());
+
+		role = rdfFactory.getSubjectRole(StatementIndex.Name.CPOS);
+		assertEquals(subjEndKeySize, role.keyHashSize());
+
+		int ctxKeySize = conf.getInt(TableConfig.KEY_SIZE_CONTEXT, 0);
+		role = rdfFactory.getContextRole(StatementIndex.Name.COSP);
+		assertEquals(ctxKeySize, role.keyHashSize());
 	}
 
 	@Test

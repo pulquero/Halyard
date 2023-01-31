@@ -121,7 +121,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
             if (index != lastIndex) {
             	lastIndex = index;
             	lastHash = new byte[0];
-            	hashOffset = index.isQuadIndex() ? 1 + index.getRole(RDFRole.Name.CONTEXT).keyHashSize() : 1;
+            	hashOffset = index.getName().isQuadIndex() ? 1 + index.getRole(RDFRole.Name.CONTEXT).keyHashSize() : 1;
                 hashLen = index.getRole(RDFRole.Name.OBJECT).keyHashSize();
             }
 

@@ -46,7 +46,7 @@ public final class StatementIndices {
 		this.rdfFactory = rdfFactory;
 
 		this.spo = new StatementIndex<>(
-			StatementIndex.Name.SPO, 0, false,
+			StatementIndex.Name.SPO, 0,
 			rdfFactory.getSubjectRole(StatementIndex.Name.SPO),
 			rdfFactory.getPredicateRole(StatementIndex.Name.SPO),
 			rdfFactory.getObjectRole(StatementIndex.Name.SPO),
@@ -54,7 +54,7 @@ public final class StatementIndices {
 			rdfFactory, conf
 		);
 		this.pos = new StatementIndex<>(
-			StatementIndex.Name.POS, 1, false,
+			StatementIndex.Name.POS, 1,
 			rdfFactory.getPredicateRole(StatementIndex.Name.POS),
 			rdfFactory.getObjectRole(StatementIndex.Name.POS),
 			rdfFactory.getSubjectRole(StatementIndex.Name.POS),
@@ -62,7 +62,7 @@ public final class StatementIndices {
 			rdfFactory, conf
 		);
 		this.osp = new StatementIndex<>(
-			StatementIndex.Name.OSP, 2, false,
+			StatementIndex.Name.OSP, 2,
 			rdfFactory.getObjectRole(StatementIndex.Name.OSP),
 			rdfFactory.getSubjectRole(StatementIndex.Name.OSP),
 			rdfFactory.getPredicateRole(StatementIndex.Name.OSP),
@@ -70,7 +70,7 @@ public final class StatementIndices {
 			rdfFactory, conf
 		);
 		this.cspo = new StatementIndex<>(
-			StatementIndex.Name.CSPO, 3, true,
+			StatementIndex.Name.CSPO, 3,
 			rdfFactory.getContextRole(StatementIndex.Name.CSPO),
 			rdfFactory.getSubjectRole(StatementIndex.Name.CSPO),
 			rdfFactory.getPredicateRole(StatementIndex.Name.CSPO),
@@ -78,7 +78,7 @@ public final class StatementIndices {
 			rdfFactory, conf
 		);
 		this.cpos = new StatementIndex<>(
-			StatementIndex.Name.CPOS, 4, true,
+			StatementIndex.Name.CPOS, 4,
 			rdfFactory.getContextRole(StatementIndex.Name.CPOS),
 			rdfFactory.getPredicateRole(StatementIndex.Name.CPOS),
 			rdfFactory.getObjectRole(StatementIndex.Name.CPOS),
@@ -86,7 +86,7 @@ public final class StatementIndices {
 			rdfFactory, conf
 		);
 		this.cosp = new StatementIndex<>(
-			StatementIndex.Name.COSP, 5, true,
+			StatementIndex.Name.COSP, 5,
 			rdfFactory.getContextRole(StatementIndex.Name.COSP),
 			rdfFactory.getObjectRole(StatementIndex.Name.COSP),
 			rdfFactory.getSubjectRole(StatementIndex.Name.COSP),
@@ -139,8 +139,8 @@ public final class StatementIndices {
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
         int rowBatchSize = Math.min(maxCaching, cardinality);
 		return HalyardTableUtils.scan(
-			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.get3StartKey(), spo.get4StartKey()),
-			cosp.concat(true, cosp.role1.stopKey(), cosp.role2.stopKey(), cosp.get3StopKey(), cosp.role4.endStopKey()),
+			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.role3.startKey(), spo.role4.startKey()),
+			cosp.concat(true, cosp.role1.stopKey(), cosp.role2.stopKey(), cosp.role3.stopKey(), cosp.role4.stopKey()),
 			rowBatchSize,
 			true
 		);
@@ -150,8 +150,8 @@ public final class StatementIndices {
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
         int rowBatchSize = Math.min(maxCaching, cardinality);
 		return HalyardTableUtils.scan(
-			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.get3StartKey(), spo.get4StartKey()),
-			osp.concat(true, osp.role1.stopKey(), osp.role2.stopKey(), osp.get3StopKey(), osp.role4.endStopKey()),
+			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.role3.startKey(), spo.role4.startKey()),
+			osp.concat(true, osp.role1.stopKey(), osp.role2.stopKey(), osp.role3.stopKey(), osp.role4.stopKey()),
 			rowBatchSize,
 			true
 		);
@@ -185,8 +185,8 @@ public final class StatementIndices {
 		if (typeSaltSize == 1) {
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
-				rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role1.startKey()), index.role2.startKey(), index.get3StartKey(), index.get4StartKey(),
-				rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role1.stopKey()), index.role2.stopKey(), index.get3StopKey(), index.role4.endStopKey(),
+				rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role1.startKey()), index.role2.startKey(), index.role3.startKey(), index.role4.startKey(),
+				rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role1.stopKey()), index.role2.stopKey(), index.role3.stopKey(), index.role4.stopKey(),
 				cardinality,
 				true
 			);
@@ -203,8 +203,8 @@ public final class StatementIndices {
 			ByteSequence ctxb = new ByteArray(index.role1.keyHash(ctx.getId()));
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
-				ctxb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.startKey()), index.get3StartKey(), index.get4StartKey(),
-				ctxb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.stopKey()), index.get3StopKey(), index.role4.endStopKey(),
+				ctxb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.startKey()), index.role3.startKey(), index.role4.startKey(),
+				ctxb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.stopKey()), index.role3.stopKey(), index.role4.stopKey(),
 				cardinality,
 				true
 			);
@@ -221,8 +221,8 @@ public final class StatementIndices {
 			ByteSequence predb = new ByteArray(index.role1.keyHash(pred.getId()));
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
-				predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.startKey()), index.get3StartKey(), index.get4StartKey(),
-				predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.stopKey()), index.get3StopKey(), index.role4.endStopKey(),
+				predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.startKey()), index.role3.startKey(), index.role4.startKey(),
+				predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.stopKey()), index.role3.stopKey(), index.role4.stopKey(),
 				cardinality,
 				true
 			);
@@ -241,8 +241,8 @@ public final class StatementIndices {
 			ByteSequence predb = new ByteArray(index.role2.keyHash(pred.getId()));
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
-				ctxb, predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role3.startKey()), index.get4StartKey(),
-				ctxb, predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role3.stopKey()), index.role4.endStopKey(),
+				ctxb, predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role3.startKey()), index.role4.startKey(),
+				ctxb, predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role3.stopKey()), index.role4.stopKey(),
 				cardinality,
 				true
 			);

@@ -10,6 +10,37 @@ public final class TableConfig {
     public static final String ID_SIZE = "halyard.id.size";
     public static final String ID_TYPE_INDEX = "halyard.id.type.index";
     public static final String ID_TYPE_NIBBLE = "halyard.id.type.nibble";
+
+    public static final String KEY_SIZE_SPO_SUBJECT = "halyard.key.spo.subject.size";
+    public static final String KEY_SIZE_SPO_PREDICATE = "halyard.key.spo.predicate.size";
+    public static final String KEY_SIZE_SPO_OBJECT = "halyard.key.spo.object.size";
+    public static final String KEY_SIZE_SPO_CONTEXT = "halyard.key.spo.context.size";
+
+    public static final String KEY_SIZE_POS_SUBJECT = "halyard.key.pos.subject.size";
+    public static final String KEY_SIZE_POS_PREDICATE = "halyard.key.pos.predicate.size";
+    public static final String KEY_SIZE_POS_OBJECT = "halyard.key.pos.object.size";
+    public static final String KEY_SIZE_POS_CONTEXT = "halyard.key.pos.context.size";
+    
+    public static final String KEY_SIZE_OSP_SUBJECT = "halyard.key.osp.subject.size";
+    public static final String KEY_SIZE_OSP_PREDICATE = "halyard.key.osp.predicate.size";
+    public static final String KEY_SIZE_OSP_OBJECT = "halyard.key.osp.object.size";
+    public static final String KEY_SIZE_OSP_CONTEXT = "halyard.key.osp.context.size";
+
+    public static final String KEY_SIZE_CSPO_SUBJECT = "halyard.key.cspo.subject.size";
+    public static final String KEY_SIZE_CSPO_PREDICATE = "halyard.key.cspo.predicate.size";
+    public static final String KEY_SIZE_CSPO_OBJECT = "halyard.key.cspo.object.size";
+    public static final String KEY_SIZE_CSPO_CONTEXT = "halyard.key.cspo.context.size";
+
+    public static final String KEY_SIZE_CPOS_SUBJECT = "halyard.key.cpos.subject.size";
+    public static final String KEY_SIZE_CPOS_PREDICATE = "halyard.key.cpos.predicate.size";
+    public static final String KEY_SIZE_CPOS_OBJECT = "halyard.key.cpos.object.size";
+    public static final String KEY_SIZE_CPOS_CONTEXT = "halyard.key.cpos.context.size";
+
+    public static final String KEY_SIZE_COSP_SUBJECT = "halyard.key.cosp.subject.size";
+    public static final String KEY_SIZE_COSP_PREDICATE = "halyard.key.cosp.predicate.size";
+    public static final String KEY_SIZE_COSP_OBJECT = "halyard.key.cosp.object.size";
+    public static final String KEY_SIZE_COSP_CONTEXT = "halyard.key.cosp.context.size";
+
     public static final String KEY_SIZE_SUBJECT = "halyard.key.subject.size";
     public static final String END_KEY_SIZE_SUBJECT = "halyard.endKey.subject.size";
     public static final String KEY_SIZE_PREDICATE = "halyard.key.predicate.size";

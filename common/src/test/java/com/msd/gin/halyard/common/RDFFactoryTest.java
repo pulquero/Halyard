@@ -207,17 +207,6 @@ public class RDFFactoryTest {
 			id.getFormat().unrotate(keyHash, 0, keyHashSize, role.getByteShift(), idxIdBytes);
 			role.writeQualifierHashTo(v.getId(), ByteBuffer.wrap(idxIdBytes, keyHashSize, idxIdBytes.length-keyHashSize));
 			assertEquals(testName, id, rdfFactory.id(idxIdBytes));
-
-			if(!(v instanceof RDFContext)) { // context doesn't have end-hashes
-				byte[] endKeyHash = role.endKeyHash(v.getId());
-				int endKeyHashSize = role.endKeyHashSize();
-				assertEquals(testName, endKeyHashSize, endKeyHash.length);
-
-				byte[] cidxIdBytes = new byte[rdfFactory.getIdSize()];
-				id.getFormat().unrotate(endKeyHash, 0, endKeyHashSize, role.getByteShift(), cidxIdBytes);
-				role.writeEndQualifierHashTo(v.getId(), ByteBuffer.wrap(cidxIdBytes, endKeyHashSize, cidxIdBytes.length-endKeyHashSize));
-				assertEquals(testName, id, rdfFactory.id(cidxIdBytes));
-			}
 		}
 	}
 }

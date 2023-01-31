@@ -39,16 +39,35 @@ public class RDFFactory {
 	private final BiMap<ValueIdentifier, IRI> wellKnownIriIds = HashBiMap.create(256);
 	final ValueIdentifier.Format idFormat;
 	final int typeSaltSize;
-	final int subjectKeySize;
-	final int subjectEndKeySize;
-	final int predicateKeySize;
-	final int predicateEndKeySize;
-	final int objectKeySize;
-	final int objectEndKeySize;
-	final int contextKeySize;
-	final int contextEndKeySize;
+	final IndexKeySizes spoKeySizes;
+	final IndexKeySizes posKeySizes;
+	final IndexKeySizes ospKeySizes;
+	final IndexKeySizes cspoKeySizes;
+	final IndexKeySizes cposKeySizes;
+	final IndexKeySizes cospKeySizes;
 
 	final ValueIO valueIO;
+
+	static final class IndexKeySizes {
+		int subjectSize;
+		int predicateSize;
+		int objectSize;
+		int contextSize;
+
+		IndexKeySizes(int subjectSize, int predicateSize, int objectSize, int contextSize) {
+			this.subjectSize = subjectSize;
+			this.predicateSize = predicateSize;
+			this.objectSize = objectSize;
+			this.contextSize = contextSize;
+		}
+
+		void readFrom(Configuration conf, String prefix) {
+			subjectSize = conf.getInt(prefix + ".subject.size", subjectSize);
+			predicateSize = conf.getInt(prefix + ".predicate.size", predicateSize);
+			objectSize = conf.getInt(prefix + ".object.size", objectSize);
+			contextSize = conf.getInt(prefix + ".context.size", contextSize);
+		}
+	}
 
 	public static RDFFactory create(Configuration config) {
 		HalyardTableConfiguration halyardConfig = new HalyardTableConfiguration(config);
@@ -110,14 +129,27 @@ public class RDFFactory {
 		idFormat = new ValueIdentifier.Format(confIdAlgo, idSize, typeIndex, typeNibble);
 		typeSaltSize = idFormat.getSaltSize();
 
-		subjectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_SUBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
-		subjectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_SUBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
-		predicateKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_PREDICATE, NOT_SET), MIN_KEY_SIZE), idSize);
-		predicateEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_PREDICATE, NOT_SET), MIN_KEY_SIZE), idSize);
-		objectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_OBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
-		objectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_OBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
-		contextKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_CONTEXT, NOT_SET), MIN_KEY_SIZE), idSize);
-		contextEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_CONTEXT, NOT_SET), 0), idSize);
+		int subjectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_SUBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
+		int subjectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_SUBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
+		int predicateKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_PREDICATE, NOT_SET), MIN_KEY_SIZE), idSize);
+		int predicateEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_PREDICATE, NOT_SET), MIN_KEY_SIZE), idSize);
+		int objectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_OBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
+		int objectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_OBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
+		int contextKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_CONTEXT, NOT_SET), MIN_KEY_SIZE), idSize);
+		int contextEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_CONTEXT, NOT_SET), 0), idSize);
+
+		spoKeySizes = new IndexKeySizes(subjectKeySize, predicateKeySize, objectEndKeySize, contextEndKeySize);
+		spoKeySizes.readFrom(halyardConfig, "halyard.key.spo");
+		posKeySizes = new IndexKeySizes(subjectEndKeySize, predicateKeySize, objectKeySize, contextEndKeySize);
+		posKeySizes.readFrom(halyardConfig, "halyard.key.pos");
+		ospKeySizes = new IndexKeySizes(subjectKeySize, predicateEndKeySize, objectKeySize, contextEndKeySize);
+		ospKeySizes.readFrom(halyardConfig, "halyard.key.osp");
+		cspoKeySizes = new IndexKeySizes(subjectKeySize, predicateKeySize, objectEndKeySize, contextKeySize);
+		cspoKeySizes.readFrom(halyardConfig, "halyard.key.cspo");
+		cposKeySizes = new IndexKeySizes(subjectEndKeySize, predicateKeySize, objectKeySize, contextKeySize);
+		cposKeySizes.readFrom(halyardConfig, "halyard.key.cpos");
+		cospKeySizes = new IndexKeySizes(subjectKeySize, predicateEndKeySize, objectKeySize, contextKeySize);
+		cospKeySizes.readFrom(halyardConfig, "halyard.key.cosp");
 
 		idTripleWriter = valueIO.createWriter(new IdTripleWriter());
 		streamWriter = valueIO.createStreamWriter();
@@ -184,12 +216,32 @@ public class RDFFactory {
 		};
 	}
 
+	private IndexKeySizes getKeySizes(StatementIndex.Name index) {
+		switch(index) {
+			case SPO:
+				return spoKeySizes;
+			case POS:
+				return posKeySizes;
+			case OSP:
+				return ospKeySizes;
+			case CSPO:
+				return cspoKeySizes;
+			case CPOS:
+				return cposKeySizes;
+			case COSP:
+				return cospKeySizes;
+			default:
+				throw new AssertionError();
+		}
+	}
+
 	RDFRole<SPOC.S> getSubjectRole(StatementIndex.Name index) {
 		return new RDFRole<>(
 			RDFRole.Name.SUBJECT,
 			idFormat.size,
-			subjectKeySize, subjectEndKeySize,
-			getSubjectShift(index), Short.BYTES
+			getKeySizes(index).subjectSize,
+			getSubjectShift(index), Short.BYTES,
+			true
 		);
 	}
 
@@ -213,8 +265,9 @@ public class RDFFactory {
 		return new RDFRole<>(
 			RDFRole.Name.PREDICATE,
 			idFormat.size,
-			predicateKeySize, predicateEndKeySize,
-			getPredicateShift(index), Short.BYTES
+			getKeySizes(index).predicateSize,
+			getPredicateShift(index), Short.BYTES,
+			true
 		);
 	}
 
@@ -238,8 +291,9 @@ public class RDFFactory {
 		return new RDFRole<>(
 			RDFRole.Name.OBJECT,
 			idFormat.size,
-			objectKeySize, objectEndKeySize,
-			getObjectShift(index), Integer.BYTES
+			getKeySizes(index).objectSize,
+			getObjectShift(index), Integer.BYTES,
+			true
 		);
 	}
 
@@ -263,8 +317,9 @@ public class RDFFactory {
 		return new RDFRole<>(
 			RDFRole.Name.CONTEXT,
 			idFormat.size,
-			contextKeySize, contextEndKeySize,
-			0, Short.BYTES
+			getKeySizes(index).contextSize,
+			0, Short.BYTES,
+			index.isQuadIndex()
 		);
 	}
 
