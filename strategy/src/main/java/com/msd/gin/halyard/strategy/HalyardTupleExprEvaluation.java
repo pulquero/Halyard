@@ -1565,7 +1565,7 @@ final class HalyardTupleExprEvaluation {
 	            protected boolean next(BindingSet bs) {
 	                long l = counter.incrementAndGet();
 	                if (l <= offset) {
-	                    return true;
+	                    return !parent.isClosed();
 	                } else if (l <= limit) {
 		            	parentStrategy.incrementResultSizeActual(slice);
 		            	boolean pushMore = parent.push(bs);
