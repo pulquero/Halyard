@@ -61,6 +61,8 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 	private String snapshotRestorePath = null;
     private boolean push = true;
     private int evaluationTimeout = 180; //3 min
+	private boolean trackResultSize = false;
+	private boolean trackResultTime = false;
 	private URL elasticIndexURL = null;
 	private String elasticUsername = null;
 	private String elasticPassword = null;
@@ -166,10 +168,27 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
         this.evaluationTimeout = evaluationTimeout;
     }
 
-    /**
-     * Sets ElasticSearch index URL
-     * @param elasticIndexURL String ElasticSearch index URL
-     */
+	public boolean isTrackResultSize() {
+		return trackResultSize;
+	}
+
+	public void setTrackResultSize(boolean trackSize) {
+		this.trackResultSize = trackSize;
+	}
+
+	public boolean isTrackResultTime() {
+		return trackResultTime;
+	}
+
+	public void setTrackResultTime(boolean trackTime) {
+		this.trackResultTime = trackTime;
+	}
+
+	/**
+	 * Sets ElasticSearch index URL
+	 * 
+	 * @param elasticIndexURL String ElasticSearch index URL
+	 */
     public void setElasticIndexURL(URL elasticIndexURL) {
         this.elasticIndexURL = elasticIndexURL;
     }
@@ -259,6 +278,9 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 		}
         graph.add(implNode, HALYARD.PUSH_STRATEGY_PROPERTY, vf.createLiteral(push));
         graph.add(implNode, HALYARD.EVALUATION_TIMEOUT_PROPERTY, vf.createLiteral(evaluationTimeout));
+		graph.add(implNode, HALYARD.TRACK_RESULT_SIZE_PROPERTY, vf.createLiteral(trackResultSize));
+		graph.add(implNode, HALYARD.TRACK_RESULT_TIME_PROPERTY, vf.createLiteral(trackResultTime));
+
         if (elasticIndexURL != null) {
         	graph.add(implNode, HALYARD.ELASTIC_INDEX_URL_PROPERTY, vf.createLiteral(elasticIndexURL.toString()));
 			if (elasticUsername != null) {
@@ -335,6 +357,24 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
         } catch (NumberFormatException e) {
             throw new SailConfigException(e);
         }
+
+	Optional<Literal> trackResultSizeValue = Models.objectLiteral(graph.filter(implNode, HALYARD.TRACK_RESULT_SIZE_PROPERTY, null));
+	if (trackResultSizeValue.isPresent()) {
+		try {
+			setTrackResultSize(trackResultSizeValue.get().booleanValue());
+		} catch (IllegalArgumentException e) {
+			throw new SailConfigException(e);
+		}
+		}
+	Optional<Literal> trackResultTimeValue = Models.objectLiteral(graph.filter(implNode, HALYARD.TRACK_RESULT_TIME_PROPERTY, null));
+	if (trackResultTimeValue.isPresent()) {
+		try {
+			setTrackResultTime(trackResultTimeValue.get().booleanValue());
+		} catch (IllegalArgumentException e) {
+			throw new SailConfigException(e);
+		}
+		}
+
         Optional<Literal> elasticIndexValue = backCompatibilityFilterObjectLiteral(graph, implNode, HALYARD.ELASTIC_INDEX_URL_PROPERTY);
         if (elasticIndexValue.isPresent()) {
 			String elasticIndexUrl = elasticIndexValue.get().stringValue();

@@ -129,6 +129,34 @@
 					</tr>
 					<tr>
 						<th>
+							Track Result Size
+						</th>
+						<td>
+							<input type="radio" name="Track Result Size" size="48"
+								value="true" />
+							<xsl:value-of select="$true.label" />
+							<input type="radio" name="Track Result Size" size="48"
+								value="false" checked="true" />
+							<xsl:value-of select="$false.label" />
+						</td>
+						<td></td>
+					</tr>
+					<tr>
+						<th>
+							Track Result Time
+						</th>
+						<td>
+							<input type="radio" name="Track Result Time" size="48"
+								value="true" />
+							<xsl:value-of select="$true.label" />
+							<input type="radio" name="Track Result Time" size="48"
+								value="false" checked="true" />
+							<xsl:value-of select="$false.label" />
+						</td>
+						<td></td>
+					</tr>
+					<tr>
+						<th>
 							Optional ElasticSearch Index URL
 						</th>
 						<td>

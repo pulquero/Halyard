@@ -86,6 +86,8 @@ public final class HBaseSailFactory implements SailFactory {
 				throw new SailConfigException("Invalid sail configuration: missing table name or snapshot");
 			}
 			sail.includeNamespaces = true;
+			sail.setTrackResultSize(hconfig.isTrackResultSize());
+			sail.setTrackResultTime(hconfig.isTrackResultTime());
             return sail;
         } else {
             throw new SailConfigException("Invalid configuration: " + config);

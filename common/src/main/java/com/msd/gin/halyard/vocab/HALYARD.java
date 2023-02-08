@@ -62,6 +62,8 @@ public final class HALYARD implements Vocabulary {
     public final static IRI PUSH_STRATEGY_PROPERTY = SVF.createIRI(NAMESPACE, "pushStrategy");
 
     public final static IRI EVALUATION_TIMEOUT_PROPERTY = SVF.createIRI(NAMESPACE, "evaluationTimeout");
+    public final static IRI TRACK_RESULT_SIZE_PROPERTY = SVF.createIRI(NAMESPACE, "trackResultSize");
+    public final static IRI TRACK_RESULT_TIME_PROPERTY = SVF.createIRI(NAMESPACE, "trackResultTime");
 
     public final static IRI ELASTIC_INDEX_URL_PROPERTY = SVF.createIRI(NAMESPACE, "elasticIndexURL");
 

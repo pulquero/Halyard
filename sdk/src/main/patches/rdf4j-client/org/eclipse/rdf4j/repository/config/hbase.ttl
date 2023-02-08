@@ -21,6 +21,8 @@
          halyard:snapshotRestorePath "{%HBase Snapshot restore path|%}" ;
          halyard:pushStrategy "{%Use Halyard Push Evaluation Strategy|true|false%}" ;
          halyard:evaluationTimeout "{%Query Evaluation Timeout|180%}" ;
+         halyard:trackResultSize "{%Track Result Size|true|false%}" ;
+         halyard:trackResultTime "{%Track Result Time|true|false%}" ;
          halyard:elasticIndexURL "{%ElasticSearch Index URL|%}" ;
          halyard:elasticUsername "{%ElasticSearch Username|%}" ;
          halyard:elasticPassword "{%ElasticSearch Password|%}" ;
