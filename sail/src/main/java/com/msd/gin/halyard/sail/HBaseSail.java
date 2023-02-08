@@ -32,7 +32,6 @@ import com.msd.gin.halyard.spin.SpinParser;
 import com.msd.gin.halyard.spin.SpinParser.Input;
 import com.msd.gin.halyard.strategy.HalyardEvaluationExecutor;
 import com.msd.gin.halyard.strategy.HalyardEvaluationExecutorMXBean;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.File;
 import java.io.IOException;
@@ -71,10 +70,7 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.common.transaction.IsolationLevels;
-import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.vocabulary.RDF;
-import org.eclipse.rdf4j.model.vocabulary.SD;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryContextInitializer;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.AbstractFederatedServiceResolver;
@@ -83,7 +79,6 @@ import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceRes
 import org.eclipse.rdf4j.query.algebra.evaluation.function.FunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
 import org.eclipse.rdf4j.sail.Sail;
-import org.eclipse.rdf4j.sail.SailConnection;
 import org.eclipse.rdf4j.sail.SailException;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
@@ -457,7 +452,9 @@ public class HBaseSail implements BindingSetPipeSail, HBaseSailMXBean {
 		valueFactory = IdValueFactory.INSTANCE;
 
 		if (includeNamespaces) {
-			addNamespaces();
+			try (HBaseSailConnection conn = getConnection()) {
+				conn.addNamespaces();
+			}
 		}
 
 		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(
@@ -537,18 +534,6 @@ public class HBaseSail implements BindingSetPipeSail, HBaseSailMXBean {
 
 	private boolean isInitialized() {
 		return (keyspace != null) && (rdfFactory != null) && (stmtIndices != null);
-	}
-
-	private void addNamespaces() {
-		try (SailConnection conn = getConnection()) {
-			boolean nsExists = conn.hasStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.GRAPH_CLASS, false, HALYARD.SYSTEM_GRAPH_CONTEXT);
-			if (!nsExists) {
-				for (Namespace ns : rdfFactory.getWellKnownNamespaces()) {
-					conn.setNamespace(ns.getPrefix(), ns.getName());
-				}
-				conn.addStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.GRAPH_CLASS, HALYARD.SYSTEM_GRAPH_CONTEXT);
-			}
-		}
 	}
 
 	public Configuration getConfiguration() {
@@ -651,7 +636,7 @@ public class HBaseSail implements BindingSetPipeSail, HBaseSailMXBean {
     }
 
     @Override
-	public BindingSetPipeSailConnection getConnection() throws SailException {
+	public HBaseSailConnection getConnection() throws SailException {
 		if (!isInitialized()) {
 			throw new IllegalStateException("Sail is not initialized or has been shut down");
 		}

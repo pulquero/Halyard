@@ -79,6 +79,7 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleNamespace;
 import org.eclipse.rdf4j.model.util.Literals;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.SD;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
 import org.eclipse.rdf4j.query.Binding;
@@ -694,8 +695,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
 	}
 
-	private void deleteSystemStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws IOException {
-		long timestamp = getDefaultTimestamp(true);
+	private void deleteSystemStatements(Resource subj, IRI pred, Value obj, long timestamp, Resource... contexts) throws IOException {
 		try (CloseableIteration<? extends Statement, SailException> iter = getStatements(subj, pred, obj, true, contexts)) {
 			while (iter.hasNext()) {
 				Statement st = iter.next();
@@ -741,6 +741,21 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
         }
     }
 
+	void addNamespaces() throws SailException {
+		boolean nsExists = hasStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.GRAPH_CLASS, false, HALYARD.SYSTEM_GRAPH_CONTEXT);
+		if (!nsExists) {
+			long timestamp = getDefaultTimestamp(true); // true as first doing a delete followed by insert
+			for (Namespace ns : sail.getRDFFactory().getWellKnownNamespaces()) {
+				setNamespace(ns.getPrefix(), ns.getName(), timestamp);
+			}
+			try {
+				insertSystemStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.GRAPH_CLASS, HALYARD.SYSTEM_GRAPH_CONTEXT, timestamp);
+			} catch (IOException ex) {
+				throw new SailException(ex);
+			}
+		}
+	}
+
     @Override
     public String getNamespace(String prefix) throws SailException {
         ValueFactory vf = sail.getValueFactory();
@@ -770,11 +785,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
     @Override
     public void setNamespace(String prefix, String name) throws SailException {
+		long timestamp = getDefaultTimestamp(true); // true as first doing a delete followed by insert
+		setNamespace(prefix, name, timestamp);
+	}
+
+	private void setNamespace(String prefix, String name, long timestamp) throws SailException {
 		checkWritable();
         ValueFactory vf = sail.getValueFactory();
         try {
-			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
-			long timestamp = getDefaultTimestamp(false);
+			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
 			insertSystemStatement(vf.createIRI(name), HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), HALYARD.SYSTEM_GRAPH_CONTEXT, timestamp);
         } catch (IOException e) {
 			throw new SailException("Namespace prefix could not be presisted due to an exception", e);
@@ -785,8 +804,9 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     public void removeNamespace(String prefix) throws SailException {
 		checkWritable();
         ValueFactory vf = sail.getValueFactory();
+		long timestamp = getDefaultTimestamp(true);
         try {
-			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
+			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
         } catch (IOException e) {
         	throw new SailException("Namespace prefix could not be removed due to an exception", e);
         }
@@ -795,8 +815,9 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     @Override
     public void clearNamespaces() throws SailException {
 		checkWritable();
+		long timestamp = getDefaultTimestamp(true);
         try {
-			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, null, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
+			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, null, timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
         } catch (IOException e) {
         	throw new SailException("Namespaces could not be cleared due to an exception", e);
         }
