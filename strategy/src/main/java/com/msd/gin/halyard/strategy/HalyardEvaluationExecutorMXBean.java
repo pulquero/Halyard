@@ -13,6 +13,9 @@ public interface HalyardEvaluationExecutorMXBean {
 	void setQueuePollTimeoutMillis(int millis);
 	int getQueuePollTimeoutMillis();
 
+	void setMinTaskRate(float rate);
+	float getMinTaskRate();
+
 	float getTaskRatePerSecond();
 
 	TrackingThreadPoolExecutorMXBean getThreadPoolExecutor();

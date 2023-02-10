@@ -91,6 +91,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
     private int retryLimit;
     private int threadGain;
     private int maxThreads;
+    private float minTaskRate;
 
 	private final TrackingThreadPoolExecutor executor;
 
@@ -140,6 +141,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	    setRetryLimit(conf.getInt(StrategyConfig.HALYARD_EVALUATION_RETRY_LIMIT, 100));
 	    threadGain = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREAD_GAIN, 5);
 	    maxThreads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_THREADS, 100);
+	    minTaskRate = conf.getFloat(StrategyConfig.HALYARD_EVALUATION_MIN_TASK_RATE, 0.1f);
 		executor = createExecutor("Halyard Executors", "Halyard ", threads);
 
 	    maxQueueSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_QUEUE_SIZE, 5000);
@@ -232,6 +234,16 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	@Override
 	public int getQueuePollTimeoutMillis() {
 		return pollTimeoutMillis;
+	}
+
+	@Override
+	public void setMinTaskRate(float rate) {
+		this.minTaskRate = rate;
+	}
+
+	@Override
+	public float getMinTaskRate() {
+		return minTaskRate;
 	}
 
 	@Override
@@ -582,7 +594,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
             }
 
         	private boolean checkThreads(int retries) {
-        		final boolean overallProgress = taskRateTracker.getRatePerSecond() > 0.0f;
+        		final boolean overallProgress = taskRateTracker.getRatePerSecond() > minTaskRate;
         		// if not making any progress overall
         		if (!overallProgress) {
             		final int maxPoolSize = executor.getMaximumPoolSize();
@@ -591,7 +603,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	        			// then try adding some emergency threads
 	    				synchronized (executor) {
 	    					// check thread pool hasn't been modified already in the meantime and still blocked
-	    					if (maxPoolSize == executor.getMaximumPoolSize() && executor.getActiveCount() == maxPoolSize && taskRateTracker.getRatePerSecond() == 0.0f) {
+	    					if (maxPoolSize == executor.getMaximumPoolSize() && executor.getActiveCount() == maxPoolSize && taskRateTracker.getRatePerSecond() <= minTaskRate) {
 	    						if (maxPoolSize < maxThreads) {
 	    							int newMaxPoolSize = Math.min(maxPoolSize + threadGain, maxThreads);
 	    							LOGGER.warn("Iteration {}: all {} threads seem to be blocked (taskRate {}) - adding {} more\n{}", Integer.toHexString(this.hashCode()), executor.getPoolSize(), taskRateTracker.getRatePerSecond(), newMaxPoolSize - maxPoolSize, executor.toString());
