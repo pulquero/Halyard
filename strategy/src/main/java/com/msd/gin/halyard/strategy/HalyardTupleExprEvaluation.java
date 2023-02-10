@@ -74,6 +74,7 @@ import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.ConvertingIteration;
 import org.eclipse.rdf4j.common.iteration.FilterIteration;
 import org.eclipse.rdf4j.common.iteration.LookAheadIteration;
+import org.eclipse.rdf4j.common.iteration.SingletonIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
@@ -808,7 +809,7 @@ final class HalyardTupleExprEvaluation {
         	BindingSetPipeEvaluationStep step = precompileTupleExpr(root.getArg());
         	return (parent, bindings) -> {
                 parentStrategy.sharedValueOfNow = null;
-        		step.evaluate(parent, bindings);
+        		step.evaluate(parentStrategy.track(parent, root), bindings);
         	};
         } else if (expr instanceof DescribeOperator) {
         	return precompileDescribeOperator((DescribeOperator) expr);
@@ -1635,38 +1636,43 @@ final class HalyardTupleExprEvaluation {
             freeVars.remove(boundVar.getName());
             fsBindings.addBinding(boundVar.getName(), boundVar.getValue());
         }
+
         String baseUri = service.getBaseURI();
 	    try {
 	        // special case: no free variables => perform ASK query
 	        if (freeVars.isEmpty()) {
+	    		parentStrategy.initTracking(service);
 	            // check if triples are available (with inserted bindings)
 	            if (fs.ask(service, fsBindings, baseUri)) {
+					parentStrategy.incrementResultSizeActual(service);
 	                topPipe.push(fsBindings);
 	            }
             	topPipe.close();
 	        } else {
 		        // otherwise: perform a SELECT query
-		        BindingSetPipe pipe;
-		    	if (service.isSilent()) {
-		    		pipe = new BindingSetPipe(topPipe) {
-		    			@Override
-		    			public boolean handleException(Throwable thr) {
-		    				close();
-		    				return false;
-		    			}
-		    			@Override
-		    			public String toString() {
-		    				return "SilentBindingSetPipe";
-		    			}
-		    		};
-		    	} else {
-		    		pipe = topPipe;
-		    	}
 		        if (fs instanceof BindingSetPipeFederatedService) {
-		        	((BindingSetPipeFederatedService)fs).select(pipe, service, freeVars, fsBindings, baseUri);
+	            	try {
+	            		((BindingSetPipeFederatedService)fs).select(parentStrategy.track(topPipe, service), service, freeVars, fsBindings, baseUri);
+	            	} catch (RuntimeException e) {
+	            		if (service.isSilent()) {
+	            			topPipe.close();
+	            		} else {
+	            			topPipe.handleException(e);
+	            		}
+	            	}
 		        } else {
-		            QueryEvaluationStep evalStep = bs -> fs.select(service, freeVars, bs, baseUri);
-		            parentStrategy.executor.pullAndPushAsync(pipe, evalStep, service, fsBindings, parentStrategy);
+		            QueryEvaluationStep evalStep = bs -> {
+		            	try {
+		            		return fs.select(service, freeVars, bs, baseUri);
+		            	} catch (RuntimeException e) {
+		            		if (service.isSilent()) {
+		            			return new SingletonIteration<>(bindings);
+		            		} else {
+		            			throw e;
+		            		}
+		            	}
+	            	};
+		            parentStrategy.executor.pullAndPushAsync(topPipe, evalStep, service, fsBindings, parentStrategy);
 		        }
 	        }
 	    } catch (QueryEvaluationException e) {

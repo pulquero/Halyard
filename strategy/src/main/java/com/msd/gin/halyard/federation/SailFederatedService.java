@@ -79,7 +79,11 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 	public void select(BindingSetPipe handler, Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
 		if (sail instanceof BindingSetPipeSail) {
 			try (BindingSetPipeSailConnection conn = ((BindingSetPipeSail)sail).getConnection()) {
-				conn.evaluate(new InsertBindingSetPipe(new CloseConnectionBindingSetPipe(handler, conn), bindings), ServiceRoot.create(service), null, bindings, true);
+				handler = new CloseConnectionBindingSetPipe(new InsertBindingSetPipe(handler, bindings), conn);
+				if (service.isSilent()) {
+					handler = new SilentBindingSetPipe(handler);
+				}
+				conn.evaluate(handler, ServiceRoot.create(service), null, bindings, true);
 			}
 		} else {
 			try (CloseableIteration<BindingSet, QueryEvaluationException> result = select(service, projectionVars, bindings, baseUri)) {
@@ -204,6 +208,19 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 				combined.setBinding(binding);
 			}
 			return super.next(combined);
+		}
+	}
+
+
+	private static class SilentBindingSetPipe extends BindingSetPipe {
+		SilentBindingSetPipe(BindingSetPipe parent) {
+			super(parent);
+		}
+
+		@Override
+		public boolean handleException(Throwable thr) {
+			close();
+			return false;
 		}
 	}
 }

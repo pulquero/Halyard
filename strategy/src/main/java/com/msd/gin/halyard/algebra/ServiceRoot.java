@@ -9,19 +9,22 @@ package com.msd.gin.halyard.algebra;
 
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.Service;
-import org.eclipse.rdf4j.query.algebra.TupleExpr;
 
 public final class ServiceRoot extends QueryRoot {
     private static final long serialVersionUID = 7052207623408379003L;
 
     public static ServiceRoot create(Service service) {
-        return new ServiceRoot(service.getArg());
+        return new ServiceRoot(service);
     }
 
-    public final TupleExpr originalServiceArgs;
+    private final Service service;
 
-    private ServiceRoot(TupleExpr serviceArgs) {
-        super(serviceArgs.clone());
-        this.originalServiceArgs = serviceArgs;
+    private ServiceRoot(Service service) {
+        super(service.getArg().clone());
+        this.service = service;
+    }
+
+    public Service getService() {
+    	return service;
     }
 }

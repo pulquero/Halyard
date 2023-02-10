@@ -203,18 +203,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
     @Override
     public BindingSetPipeQueryEvaluationStep precompile(TupleExpr expr) {
-    	BindingSetPipeQueryEvaluationStep step = tupleEval.precompile(expr);
-    	return new BindingSetPipeQueryEvaluationStep() {
-			@Override
-			public void evaluate(BindingSetPipe parent, BindingSet bindings) {
-				step.evaluate(parent, bindings);
-			}
-
-			@Override
-			public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(BindingSet bindings) {
-				return track(step.evaluate(bindings), expr);
-			}
-    	};
+    	return tupleEval.precompile(expr);
     }
 
     /**
@@ -235,6 +224,17 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		}
 
 		return iter;
+	}
+
+	BindingSetPipe track(BindingSetPipe parent, TupleExpr expr) {
+		initTracking(expr);
+		return new BindingSetPipe(parent) {
+			@Override
+			protected boolean next(BindingSet bs) {
+				incrementResultSizeActual(expr);
+				return super.next(bs);
+			}
+		};
 	}
 
 	void initTracking(TupleExpr queryNode) {

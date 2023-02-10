@@ -301,7 +301,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
             // while we have a strong ref to the root node, none of the child node keys should be gc-ed
 
             //starting priority for ServiceRoot must be evaluated from the original service args node
-            int startingPriority = root instanceof ServiceRoot ? getPriorityForNode(((ServiceRoot)root).originalServiceArgs) - 1 : 0;
+            int startingPriority = (root instanceof ServiceRoot) ? getPriorityForNode(((ServiceRoot)root).getService().getArg()) - 1 : 0;
             final AtomicInteger counter = new AtomicInteger(startingPriority);
 
             // populate the priority cache
