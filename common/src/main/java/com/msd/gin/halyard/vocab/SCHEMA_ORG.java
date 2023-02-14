@@ -38,6 +38,7 @@ public final class SCHEMA_ORG implements Vocabulary {
     public static final IRI PERIODICAL = SVF.createIRI(NAMESPACE, "Periodical");
     public static final IRI ORGANIZATION = SVF.createIRI(NAMESPACE, "Organization");
     public static final IRI EDUCATIONAL_ORGANIZATION = SVF.createIRI(NAMESPACE, "EducationalOrganization");
+    public static final IRI GOVERNMENT_ORGANIZATION = SVF.createIRI(NAMESPACE, "GovernmentOrganization");
     public static final IRI HOSPITAL = SVF.createIRI(NAMESPACE, "Hospital");
     public static final IRI MONETARY_GRANT = SVF.createIRI(NAMESPACE, "MonetaryGrant");
     public static final IRI POSTAL_ADDRESS = SVF.createIRI(NAMESPACE, "PostalAddress");
@@ -95,4 +96,5 @@ public final class SCHEMA_ORG implements Vocabulary {
     public static final IRI URL = SVF.createIRI(NAMESPACE, "url");
     public static final IRI VOLUME_NUMBER = SVF.createIRI(NAMESPACE, "volumeNumber");
     public static final IRI WORKS_FOR = SVF.createIRI(NAMESPACE, "worksFor");
+    public static final IRI JOB_TITLE = SVF.createIRI(NAMESPACE, "jobTitle");
 }
