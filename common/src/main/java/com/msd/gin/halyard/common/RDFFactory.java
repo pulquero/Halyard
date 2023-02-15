@@ -1,5 +1,8 @@
 package com.msd.gin.halyard.common;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -23,9 +26,6 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
-
 @ThreadSafe
 public class RDFFactory {
 	private static final Logger LOGGER = LoggerFactory.getLogger(RDFFactory.class);
@@ -37,6 +37,7 @@ public class RDFFactory {
 	public final ValueIO.Writer streamWriter;
 	public final ValueIO.Reader streamReader;
 	private final BiMap<ValueIdentifier, IRI> wellKnownIriIds = HashBiMap.create(256);
+	final int version;
 	final ValueIdentifier.Format idFormat;
 	final int typeSaltSize;
 	final IndexKeySizes spoKeySizes;
@@ -114,6 +115,10 @@ public class RDFFactory {
 	}
 
 	private RDFFactory(HalyardTableConfiguration halyardConfig) {
+		version = halyardConfig.getInt(TableConfig.TABLE_VERSION, 0);
+		if (version > TableConfig.CURRENT_VERSION) {
+			throw new RuntimeException("Unsupported table format - please upgrade");
+		}
 		valueIO = new ValueIO(
 			halyardConfig.getBoolean(TableConfig.VOCAB, true),
 			halyardConfig.getBoolean(TableConfig.LANG, true),
@@ -151,9 +156,13 @@ public class RDFFactory {
 		cospKeySizes = new IndexKeySizes(subjectKeySize, predicateEndKeySize, objectKeySize, contextKeySize);
 		cospKeySizes.readFrom(halyardConfig, "halyard.key.cosp");
 
-		idTripleWriter = valueIO.createWriter(new IdTripleWriter());
 		streamWriter = valueIO.createStreamWriter();
 		streamReader = valueIO.createStreamReader(IdValueFactory.INSTANCE);
+		if (version >= TableConfig.VERSION_4_6) {
+			idTripleWriter = streamWriter;
+		} else {
+			idTripleWriter = valueIO.createWriter(new IdTripleWriter());
+		}
 
 		for (IRI iri : valueIO.wellKnownIris.values()) {
 			IdentifiableIRI idIri = new IdentifiableIRI(iri.stringValue());
@@ -420,6 +429,8 @@ public class RDFFactory {
 	}
 
 
+	// maintained for backwards compatibility
+	@Deprecated(since="4.6", forRemoval=true)
 	private final class IdTripleWriter implements TripleWriter {
 		@Override
 		public ByteBuffer writeTriple(Resource subj, IRI pred, Value obj, ValueIO.Writer writer, ByteBuffer buf) {

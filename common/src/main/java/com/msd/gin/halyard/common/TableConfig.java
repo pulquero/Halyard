@@ -6,6 +6,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 public final class TableConfig {
+    public static final String TABLE_VERSION = "halyard.table.version";
+    static final int NO_VERSION = 0;
+    static final int VERSION_4_6 = 460;
+    static final int CURRENT_VERSION = VERSION_4_6;
+
     public static final String ID_HASH = "halyard.id.hash";
     public static final String ID_SIZE = "halyard.id.size";
     public static final String ID_TYPE_INDEX = "halyard.id.type.index";

@@ -292,11 +292,19 @@ public final class StatementIndices {
 	}
 
 	public ValueIO.Reader createTableReader(ValueFactory vf, KeyspaceConnection conn) {
-		return rdfFactory.valueIO.createReader(vf, new TableTripleReader(conn));
+		ValueIO.Reader reader;
+		if (rdfFactory.version >= TableConfig.VERSION_4_6) {
+			reader = rdfFactory.valueIO.createStreamReader(vf);
+		} else {
+			reader = rdfFactory.valueIO.createReader(vf, new TableTripleReader(conn));
+		}
+		return reader;
 	}
 
 
 
+	// maintained for backwards compatibility
+	@Deprecated(since="4.6", forRemoval=true)
 	private final class TableTripleReader implements TripleReader {
 		private final KeyspaceConnection conn;
 	
