@@ -71,6 +71,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
     private static final long DEFAULT_SPLIT_LIMIT = 55000000000l;
     private static final int DEFAULT_DECIMATION_FACTOR = 1000;
     private static final int DEFAULT_MAX_VERSIONS = 1;
+    private static final String NULL_TABLE = "-";
 
     enum Counters {
     	SAMPLED_STATEMENTS,
@@ -136,6 +137,8 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
         private long valueSize = 0;
         private int maxValueCount = 0;
         private long maxValueSize = 0;
+        private byte[] maxCountKey;
+        private byte[] maxSizeKey;
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
@@ -154,13 +157,15 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
                 int splitNum = splits.size();
                 String splitString = Bytes.toHex(splitBytes);
                 context.setStatus("#" + splitNum + " " + splitString);
-                logger.info("Split {} ({}): size {}, sampled keys {}, mean value count {}, mean value size {}, max value count {}, max value size {}", splitNum, splitString, splitSize, keyCount, valueCount/keyCount, valueSize/keyCount, maxValueCount, maxValueSize);
+                logger.info("Split {} ({}): size {}, sampled keys {}, mean value count {}, mean value size {}, max value count {} ({}), max value size {} ({})", splitNum, splitString, splitSize, keyCount, valueCount/keyCount, valueSize/keyCount, maxValueCount, Bytes.toHex(maxCountKey), maxValueSize, Bytes.toHex(maxSizeKey));
                 lastRegion = region;
                 keyCount = 0;
                 valueCount = 0;
                 valueSize = 0;
                 maxValueCount = 0;
                 maxValueSize = 0;
+                maxCountKey = null;
+                maxSizeKey = null;
             }
             int sampleCount = 0;
             int sampledSize = 0;
@@ -171,27 +176,36 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
             keyCount++;
             valueCount += sampleCount;
             valueSize += sampledSize;
-            maxValueCount = Math.max(sampleCount, maxValueCount);
-            maxValueSize = Math.max(sampledSize, maxValueSize);
+            if (sampleCount > maxValueCount) {
+            	maxValueCount = sampleCount;
+            	maxCountKey = key.copyBytes();
+            }
+            if (sampledSize > maxValueSize) {
+            	maxValueSize = sampledSize;
+            	maxSizeKey = key.copyBytes();
+            }
         }
 
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
         	context.getCounter(Counters.TOTAL_SPLITS).setValue(splits.size());
             Configuration conf = context.getConfiguration();
-            TableName tableName = TableName.valueOf(conf.get(TABLE_PROPERTY));
-            int maxVersions = conf.getInt(MAX_VERSIONS_PROPERTY, DEFAULT_MAX_VERSIONS);
-            boolean overwrite = conf.getBoolean(OVERWRITE_PROPERTY, false);
-            try (Connection conn = HalyardTableUtils.getConnection(conf)) {
-            	if (overwrite) {
-		    		try (Admin admin = conn.getAdmin()) {
-		    			if (admin.tableExists(tableName)) {
-		    				admin.disableTable(tableName);
-		    				admin.deleteTable(tableName);
-		    			}
-		    		}
-            	}
-	            HalyardTableUtils.createTable(conn, tableName, splits.toArray(new byte[splits.size()][]), maxVersions).close();
+            String target = conf.get(TABLE_PROPERTY);
+            if (!NULL_TABLE.equals(target)) {
+	            TableName tableName = TableName.valueOf(target);
+	            int maxVersions = conf.getInt(MAX_VERSIONS_PROPERTY, DEFAULT_MAX_VERSIONS);
+	            boolean overwrite = conf.getBoolean(OVERWRITE_PROPERTY, false);
+	            try (Connection conn = HalyardTableUtils.getConnection(conf)) {
+	            	if (overwrite) {
+			    		try (Admin admin = conn.getAdmin()) {
+			    			if (admin.tableExists(tableName)) {
+			    				admin.disableTable(tableName);
+			    				admin.deleteTable(tableName);
+			    			}
+			    		}
+	            	}
+		            HalyardTableUtils.createTable(conn, tableName, splits.toArray(new byte[splits.size()][]), maxVersions).close();
+	            }
             }
         }
     }
@@ -207,7 +221,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
             "Example: halyard presplit -s hdfs://my_RDF_files -t mydataset [-g 'http://whatever/graph']"
         );
         addOption("s", "source", "source_paths", SOURCE_PATHS_PROPERTY, "Source path(s) with RDF files, more paths can be delimited by comma, the paths are recursively searched for the supported files", true, true);
-        addOption("t", "target", "dataset_table", "Target HBase table with Halyard RDF store, optional HBase namespace of the target table must already exist", true, true);
+        addOption("t", "target", "dataset_table", TABLE_PROPERTY, "Target HBase table with Halyard RDF store, optional HBase namespace of the target table must already exist", true, true);
         addOption("i", "allow-invalid-iris", null, ALLOW_INVALID_IRIS_PROPERTY, "Optionally allow invalid IRI values (less overhead)", false, false);
         addOption("k", "skip-invalid-lines", null, SKIP_INVALID_LINES_PROPERTY, "Optionally skip invalid lines", false, false);
         addOption("g", "default-named-graph", "named_graph", DEFAULT_CONTEXT_PROPERTY, "Optionally specify default target named graph", false, true);
@@ -221,9 +235,10 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
     @Override
     protected int run(CommandLine cmd) throws Exception {
     	configureString(cmd, 's', null);
-        String target = cmd.getOptionValue('t');
+    	configureString(cmd, 't', null);
         configureBoolean(cmd, 'f');
-        if (!getConf().getBoolean(OVERWRITE_PROPERTY, false)) {
+        String target = getConf().get(TABLE_PROPERTY);
+        if (!NULL_TABLE.equals(target) && !getConf().getBoolean(OVERWRITE_PROPERTY, false)) {
 	        try (Connection con = ConnectionFactory.createConnection(getConf())) {
 	            try (Admin admin = con.getAdmin()) {
 	                if (admin.tableExists(TableName.valueOf(target))) {
@@ -252,7 +267,6 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
                 RDFParser.class);
         HBaseConfiguration.addHbaseResources(getConf());
         Job job = Job.getInstance(getConf(), "HalyardPreSplit -> " + target);
-        job.getConfiguration().set(TABLE_PROPERTY, target);
         job.setJarByClass(HalyardPreSplit.class);
         job.setMapperClass(RDFDecimatingMapper.class);
         job.setMapOutputKeyClass(ImmutableBytesWritable.class);
