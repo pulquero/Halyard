@@ -22,10 +22,13 @@ import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.tools.HalyardBulkLoad.RioFileInputFormat;
+import com.msd.gin.halyard.util.LFUCache;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.SplittableRandom;
 
 import org.apache.commons.cli.CommandLine;
@@ -76,6 +79,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
     enum Counters {
     	SAMPLED_STATEMENTS,
     	TOTAL_STATEMENTS,
+    	TOTAL_STATEMENTS_READ,
     	TOTAL_SPLITS
     }
 
@@ -87,10 +91,12 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
         private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
         private final LongWritable keyValueLength = new LongWritable();
         private final SplittableRandom random = new SplittableRandom();
+        private final Set<Statement> stmtDedup = Collections.newSetFromMap(new LFUCache<>(2000, 0.1f));
         private StatementIndices stmtIndices;
         private int decimationFactor;
         private long sampledStmts = 0L;
         private long totalStmts = 0L;
+        private long totalStmtsRead = 0L;
         private long nextStmtToSample = 0L;
 
         @Override
@@ -102,27 +108,32 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
         }
 
         @Override
-        protected void map(LongWritable key, Statement value, final Context context) throws IOException, InterruptedException {
-        	if (totalStmts % decimationFactor == 0) {
-        		// pick a random representative from the next decimationFactor worth of statements
-       			nextStmtToSample = totalStmts + random.nextInt(decimationFactor);
+        protected void map(LongWritable key, Statement stmt, final Context context) throws IOException, InterruptedException {
+        	// best effort statement deduplication
+        	if (stmtDedup.add(stmt)) {
+	        	if (totalStmts % decimationFactor == 0) {
+	        		// pick a random representative from the next decimationFactor worth of statements
+	       			nextStmtToSample = totalStmts + random.nextInt(decimationFactor);
+	        	}
+	        	if (totalStmts == nextStmtToSample) {
+	                List<? extends KeyValue> kvs = HalyardTableUtils.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), 0, stmtIndices);
+	        		for (KeyValue keyValue: kvs) {
+	                    rowKey.set(keyValue.getRowArray(), keyValue.getRowOffset(), keyValue.getRowLength());
+	                    keyValueLength.set(keyValue.getLength());
+	                    context.write(rowKey, keyValueLength);
+	                }
+	        		sampledStmts++;
+	            }
+	            totalStmts++;
         	}
-        	if (totalStmts == nextStmtToSample) {
-                List<? extends KeyValue> kvs = HalyardTableUtils.insertKeyValues(value.getSubject(), value.getPredicate(), value.getObject(), value.getContext(), 0, stmtIndices);
-        		for (KeyValue keyValue: kvs) {
-                    rowKey.set(keyValue.getRowArray(), keyValue.getRowOffset(), keyValue.getRowLength());
-                    keyValueLength.set(keyValue.getLength());
-                    context.write(rowKey, keyValueLength);
-                }
-        		sampledStmts++;
-            }
-            totalStmts++;
+        	totalStmtsRead++;
         }
 
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
         	context.getCounter(Counters.SAMPLED_STATEMENTS).increment(sampledStmts);
         	context.getCounter(Counters.TOTAL_STATEMENTS).increment(totalStmts);
+        	context.getCounter(Counters.TOTAL_STATEMENTS_READ).increment(totalStmtsRead);
         }
     }
 
@@ -144,6 +155,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
         protected void setup(Context context) throws IOException, InterruptedException {
             splitLimit = context.getConfiguration().getLong(SPLIT_LIMIT_PROPERTY, DEFAULT_SPLIT_LIMIT);
             decimationFactor = context.getConfiguration().getInt(DECIMATION_FACTOR_PROPERTY, DEFAULT_DECIMATION_FACTOR);
+            logger.info("NB: results may be affected by duplicate statements");
         }
 
         @Override
