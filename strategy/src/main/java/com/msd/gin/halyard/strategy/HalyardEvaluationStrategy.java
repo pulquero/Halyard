@@ -18,6 +18,7 @@ package com.msd.gin.halyard.strategy;
 
 import com.google.common.base.Stopwatch;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.query.BindingSetPipe;
@@ -26,6 +27,8 @@ import com.msd.gin.halyard.query.ValuePipeQueryValueEvaluationStep;
 import com.msd.gin.halyard.strategy.HalyardTupleExprEvaluation.QuadPattern;
 import com.msd.gin.halyard.vocab.HALYARD;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -71,6 +74,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	 * Used to allow queries across more than one Halyard datasets
 	 */
     private final FederatedServiceResolver serviceResolver;
+    private final Map<String,FederatedService> federatedServices = new HashMap<>();
     private final TripleSource tripleSource;
     private final QueryContext queryContext;
 	final HalyardEvaluationExecutor executor;
@@ -175,7 +179,13 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
         if (serviceResolver == null) {
             throw new QueryEvaluationException("No Service Resolver set.");
         }
-        return serviceResolver.getService(serviceUrl);
+        return federatedServices.computeIfAbsent(serviceUrl, (endpoint) -> {
+        	FederatedService fedService = serviceResolver.getService(serviceUrl);
+        	if (fedService instanceof HalyardFederatedService) {
+        		fedService = ((HalyardFederatedService)fedService).createPrivateInstance();
+        	}
+        	return fedService;
+        });
     }
 
 	@Override

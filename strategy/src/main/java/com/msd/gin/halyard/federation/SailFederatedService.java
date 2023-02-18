@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.EmptyIteration;
@@ -53,9 +54,13 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 		sail.shutDown();
 	}
 
+	protected SailConnection getConnection() {
+		return sail.getConnection();
+	}
+
 	@Override
 	public boolean ask(Service service, BindingSet bindings, String baseUri) throws QueryEvaluationException {
-		try (SailConnection conn = sail.getConnection()) {
+		try (SailConnection conn = getConnection()) {
 			try (CloseableIteration<? extends BindingSet, QueryEvaluationException> res = conn.evaluate(ServiceRoot.create(service), null, bindings, true)) {
 				return res.hasNext();
 			}
@@ -65,7 +70,7 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 	@Override
 	public CloseableIteration<BindingSet, QueryEvaluationException> select(Service service, Set<String> projectionVars,
 			BindingSet bindings, String baseUri) throws QueryEvaluationException {
-		SailConnection conn = sail.getConnection();
+		SailConnection conn = getConnection();
 		CloseableIteration<? extends BindingSet, QueryEvaluationException> iter = conn.evaluate(ServiceRoot.create(service), null, bindings, true);
 		CloseableIteration<BindingSet, QueryEvaluationException> result = new InsertBindingSetCursor((CloseableIteration<BindingSet, QueryEvaluationException>) iter, bindings);
 		result = new CloseConnectionIteration(result, conn);
@@ -78,7 +83,7 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 	@Override
 	public void select(BindingSetPipe handler, Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
 		if (sail instanceof BindingSetPipeSail) {
-			try (BindingSetPipeSailConnection conn = ((BindingSetPipeSail)sail).getConnection()) {
+			try (BindingSetPipeSailConnection conn = (BindingSetPipeSailConnection) getConnection()) {
 				handler = new CloseConnectionBindingSetPipe(new InsertBindingSetPipe(handler, bindings), conn);
 				if (service.isSilent()) {
 					handler = new SilentBindingSetPipe(handler);
@@ -105,7 +110,8 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 			return new EmptyIteration<>();
 		}
 
-		CloseableIteration<BindingSet, QueryEvaluationException> result = new SimpleServiceIteration(service, allBindings, baseUri);
+		Set<String> projectionVars = new HashSet<>(service.getServiceVars());
+		CloseableIteration<BindingSet, QueryEvaluationException> result = new SimpleServiceIteration(allBindings, b -> select(service, projectionVars, b, baseUri));
 		if (service.isSilent()) {
 			result = new SilentIteration<>(result);
 		}
@@ -113,31 +119,28 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 	}
 
 
-	private final class SimpleServiceIteration extends JoinExecutorBase<BindingSet> {
+	private static final class SimpleServiceIteration extends JoinExecutorBase<BindingSet> {
 
-		private final Service service;
 		private final List<BindingSet> allBindings;
-		private final String baseUri;
+		private final Function<BindingSet,CloseableIteration<BindingSet, QueryEvaluationException>> selectEvaluator;
 
-		public SimpleServiceIteration(Service service, List<BindingSet> allBindings, String baseUri) {
+		public SimpleServiceIteration(List<BindingSet> allBindings, Function<BindingSet,CloseableIteration<BindingSet, QueryEvaluationException>> selectEvaluator) {
 			super(null, null, null);
-			this.service = service;
 			this.allBindings = allBindings;
-			this.baseUri = baseUri;
+			this.selectEvaluator = selectEvaluator;
 			run();
 		}
 
 		@Override
 		protected void handleBindings() throws Exception {
-			Set<String> projectionVars = new HashSet<>(service.getServiceVars());
 			for (BindingSet b : allBindings) {
-				addResult(select(service, projectionVars, b, baseUri));
+				addResult(selectEvaluator.apply(b));
 			}
 		}
 	}
 
 
-	private static class CloseConnectionIteration implements CloseableIteration<BindingSet, QueryEvaluationException> {
+	private static final class CloseConnectionIteration implements CloseableIteration<BindingSet, QueryEvaluationException> {
 		private final CloseableIteration<BindingSet, QueryEvaluationException> delegate;
 		private final SailConnection conn;
 
@@ -172,7 +175,7 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 	}
 
 
-	private static class CloseConnectionBindingSetPipe extends BindingSetPipe {
+	private static final class CloseConnectionBindingSetPipe extends BindingSetPipe {
 		private final SailConnection conn;
 
 		CloseConnectionBindingSetPipe(BindingSetPipe parent, SailConnection conn) {
@@ -191,7 +194,7 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 	}
 
 
-	private static class InsertBindingSetPipe extends BindingSetPipe {
+	private static final class InsertBindingSetPipe extends BindingSetPipe {
 		private final BindingSet bindingSet;
 
 		InsertBindingSetPipe(BindingSetPipe parent, BindingSet bs) {
@@ -212,7 +215,7 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 	}
 
 
-	private static class SilentBindingSetPipe extends BindingSetPipe {
+	private static final class SilentBindingSetPipe extends BindingSetPipe {
 		SilentBindingSetPipe(BindingSetPipe parent) {
 			super(parent);
 		}

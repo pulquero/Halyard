@@ -71,6 +71,7 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.query.MutableBindingSet;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryContextInitializer;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.AbstractFederatedServiceResolver;
@@ -637,21 +638,25 @@ public class HBaseSail implements BindingSetPipeSail, HBaseSailMXBean {
 
     @Override
 	public HBaseSailConnection getConnection() throws SailException {
+		return getConnection(connFactory);
+    }
+
+	HBaseSailConnection getConnection(SailConnectionFactory connectionFactory) throws SailException {
 		if (!isInitialized()) {
 			throw new IllegalStateException("Sail is not initialized or has been shut down");
 		}
 		HBaseSailConnection conn;
 		try {
-			conn = connFactory.createConnection(this);
+			conn = connectionFactory.createConnection(this);
 		} catch (IOException ioe) {
 			throw new SailException(ioe);
 		}
 		conn.setTrackResultSize(trackResultSize);
 		conn.setTrackResultTime(trackResultTime);
 		return conn;
-    }
+	}
 
-    @Override
+	@Override
     public ValueFactory getValueFactory() {
 		if (valueFactory == null) {
 			throw new IllegalStateException("Sail is not initialized");
@@ -668,4 +673,8 @@ public class HBaseSail implements BindingSetPipeSail, HBaseSailMXBean {
     public IsolationLevel getDefaultIsolationLevel() {
         return IsolationLevels.NONE;
     }
+
+	void addQueryString(MutableBindingSet bs, String queryString) {
+		bs.setBinding(HBaseSailConnection.SOURCE_STRING_BINDING, getValueFactory().createLiteral(queryString));
+	}
 }

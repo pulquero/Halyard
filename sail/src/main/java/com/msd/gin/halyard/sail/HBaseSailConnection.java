@@ -16,8 +16,6 @@
  */
 package com.msd.gin.halyard.sail;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.common.HalyardTableUtils;
@@ -43,18 +41,10 @@ import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.BufferedMutator;
 import org.apache.hadoop.hbase.client.Delete;
@@ -116,7 +106,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	public static final String QUERY_CONTEXT_SEARCH_ATTRIBUTE = SearchClient.class.getName();
 	private static final int NO_UPDATE_PARTS = -1;
 
-	private final Cache<PreparedQueryKey, PreparedQuery> queryCache;
+	private final QueryCache queryCache;
 
     private final HBaseSail sail;
 	private final boolean usePush;
@@ -128,11 +118,13 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private boolean lastUpdateWasDelete;
 
 	public HBaseSailConnection(HBaseSail sail) throws IOException {
+		this(sail, new QueryCache(sail.getConfiguration()));
+	}
+
+	HBaseSailConnection(HBaseSail sail, QueryCache cache) throws IOException {
 		this.sail = sail;
 		usePush = sail.pushStrategy;
-		Configuration conf = sail.getConfiguration();
-		int queryCacheMaxSize = conf.getInt(EvaluationConfig.QUERY_CACHE_MAX_SIZE, 100);
-		queryCache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumSize(queryCacheMaxSize).expireAfterWrite(1L, TimeUnit.HOURS).build();
+		queryCache = cache;
 		// tables are lightweight but not thread-safe so get a new instance per sail
 		// connection
 		this.keyspaceConn = sail.keyspace.getConnection();
@@ -214,7 +206,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		return strategy;
 	}
 
-	private TupleExpr optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, final boolean includeInferred, TripleSource source, EvaluationStrategy strategy) {
+	TupleExpr optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, final boolean includeInferred, TripleSource source, EvaluationStrategy strategy) {
 		if (cloneTupleExpression) {
 			tupleExpr = tupleExpr.clone();
 		}
@@ -243,21 +235,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		LOGGER.debug("Query tree before optimization:\n{}", tupleExpr);
 		TupleExpr optimizedTree;
 		if (sourceString != null && cloneTupleExpression) {
-			PreparedQueryKey pqkey = new PreparedQueryKey(sourceString, updatePart, dataset, bindings, includeInferred);
-			PreparedQuery preparedQuery;
-			try {
-				preparedQuery = queryCache.get(pqkey, () -> {
-					TupleExpr optimizedTupleExpr = optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
-					return new PreparedQuery(optimizedTupleExpr);
-				});
-			} catch (ExecutionException e) {
-				if (e.getCause() instanceof RuntimeException) {
-					throw (RuntimeException) e.getCause();
-				} else {
-					throw new AssertionError(e);
-				}
-			}
-			optimizedTree = preparedQuery.getTupleExpression();
+			optimizedTree = queryCache.getOptimizedQuery(this, sourceString, updatePart, tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
 			LOGGER.debug("Query tree after optimization (cached):\n{}", tupleExpr);
 		} else {
 			optimizedTree = optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
@@ -823,73 +801,6 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
         }
     }
 
-	private static final class PreparedQueryKey implements Serializable {
-		private static final long serialVersionUID = -8673870599435959092L;
-
-		final String sourceString;
-		final Integer updatePart;
-		final Set<IRI> datasetGraphs;
-		final Set<IRI> datasetNamedGraphs;
-		final IRI datasetInsertGraph;
-		final Set<IRI> datasetRemoveGraphs;
-		final Set<String> bindingNames;
-		final boolean includeInferred;
-
-		static <E> Set<E> copy(Set<E> set) {
-			switch (set.size()) {
-				case 0:
-					return Collections.emptySet();
-				case 1:
-					return Collections.singleton(set.iterator().next());
-				default:
-					return new HashSet<>(set);
-			}
-		}
-
-		PreparedQueryKey(String sourceString, int updatePart, Dataset dataset, BindingSet bindings, boolean includeInferred) {
-			this.sourceString = sourceString;
-			this.updatePart = Integer.valueOf(updatePart);
-			this.datasetGraphs = dataset != null ? copy(dataset.getDefaultGraphs()) : null;
-			this.datasetNamedGraphs = dataset != null ? copy(dataset.getNamedGraphs()) : null;
-			this.datasetInsertGraph = dataset != null ? dataset.getDefaultInsertGraph() : null;
-			this.datasetRemoveGraphs = dataset != null ? copy(dataset.getDefaultRemoveGraphs()) : null;
-			this.bindingNames = copy(bindings.getBindingNames());
-			this.includeInferred = includeInferred;
-		}
-
-		private Object[] toArray() {
-			return new Object[] { sourceString, updatePart, bindingNames, includeInferred, datasetGraphs, datasetNamedGraphs, datasetInsertGraph, datasetRemoveGraphs };
-		}
-
-		@Override
-		public boolean equals(Object o) {
-			if (!(o instanceof PreparedQueryKey)) {
-				return false;
-			}
-			PreparedQueryKey other = (PreparedQueryKey) o;
-			return Arrays.equals(this.toArray(), other.toArray());
-		}
-
-		@Override
-		public int hashCode() {
-			return Objects.hash(toArray());
-		}
-	}
-
-	protected static final class PreparedQuery {
-		private final TupleExpr tree; // our golden copy
-
-		public PreparedQuery(TupleExpr tree) {
-			this.tree = tree;
-		}
-
-		/**
-		 * Returns a copy of the query tree for execution.
-		 */
-		public TupleExpr getTupleExpression() {
-			return tree.clone();
-		}
-	}
 
 	static final class Factory implements SailConnectionFactory {
 		static final SailConnectionFactory INSTANCE = new Factory();
