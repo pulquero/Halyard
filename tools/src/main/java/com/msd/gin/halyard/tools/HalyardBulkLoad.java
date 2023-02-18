@@ -31,7 +31,9 @@ import java.io.InputStream;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
@@ -145,7 +147,8 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
 
     enum Counters {
 		ADDED_KVS,
-		ADDED_STATEMENTS
+		ADDED_STATEMENTS,
+    	TOTAL_STATEMENTS_READ
 	}
 
     static void replaceParser(RDFFormat format, RDFParserFactory newpf) {
@@ -216,10 +219,12 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
     public static final class RDFMapper extends Mapper<LongWritable, Statement, ImmutableBytesWritable, KeyValue> {
 
         private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
+        private final Set<Statement> stmtDedup = Collections.newSetFromMap(new LFUCache<>(2000, 0.1f));
         private StatementIndices stmtIndices;
         private long timestamp;
         private long addedKvs;
         private long addedStmts;
+        private long totalStmtsRead;
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
@@ -231,18 +236,23 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
 
         @Override
         protected void map(LongWritable key, Statement stmt, final Context output) throws IOException, InterruptedException {
-            for (KeyValue keyValue: HalyardTableUtils.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp, stmtIndices)) {
-                rowKey.set(keyValue.getRowArray(), keyValue.getRowOffset(), keyValue.getRowLength());
-                output.write(rowKey, keyValue);
-                addedKvs++;
-            }
-            addedStmts++;
+        	// best effort statement deduplication
+        	if (stmtDedup.add(stmt)) {
+	            for (KeyValue keyValue: HalyardTableUtils.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp, stmtIndices)) {
+	                rowKey.set(keyValue.getRowArray(), keyValue.getRowOffset(), keyValue.getRowLength());
+	                output.write(rowKey, keyValue);
+	                addedKvs++;
+	            }
+	            addedStmts++;
+        	}
+        	totalStmtsRead++;
         }
 
         @Override
         protected void cleanup(Context output) throws IOException {
         	output.getCounter(Counters.ADDED_KVS).increment(addedKvs);
         	output.getCounter(Counters.ADDED_STATEMENTS).increment(addedStmts);
+        	output.getCounter(Counters.TOTAL_STATEMENTS_READ).increment(totalStmtsRead);
         }
     }
 
