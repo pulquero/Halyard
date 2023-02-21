@@ -41,6 +41,7 @@ import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
@@ -586,13 +587,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
         }
     }
 
-	private void insertStatement(Resource subj, IRI pred, Value obj, @Nullable Resource ctx, long timestamp) throws IOException {
+	protected int insertStatement(Resource subj, IRI pred, Value obj, @Nullable Resource ctx, long timestamp) throws IOException {
 		if (ctx != null && ctx.isTriple()) {
 			throw new SailException("context argument can not be of type Triple: " + ctx);
 		}
-		for (KeyValue kv : HalyardTableUtils.insertKeyValues(subj, pred, obj, ctx, timestamp, sail.getStatementIndices())) {
+		List<? extends KeyValue> kvs = HalyardTableUtils.insertKeyValues(subj, pred, obj, ctx, timestamp, sail.getStatementIndices());
+		for (KeyValue kv : kvs) {
 			put(kv);
 		}
+		return kvs.size();
 	}
 
 	private void insertSystemStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
@@ -657,7 +660,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		flush();
 		if (!HalyardTableUtils.isTripleReferenced(keyspaceConn, t, sail.getStatementIndices())) {
 			// orphaned so safe to remove
-			deleteStatement(t.getSubject(), t.getPredicate(), t.getObject(), HALYARD.TRIPLE_GRAPH_CONTEXT, timestamp);
+			deleteSystemStatement(t.getSubject(), t.getPredicate(), t.getObject(), HALYARD.TRIPLE_GRAPH_CONTEXT, timestamp);
 			if (t.getSubject().isTriple()) {
 				removeTriple((Triple) t.getSubject(), timestamp);
 			}
@@ -667,10 +670,12 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
 	}
 
-	private void deleteStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
-		for (KeyValue kv : HalyardTableUtils.deleteKeyValues(subj, pred, obj, ctx, timestamp, sail.getStatementIndices())) {
+	protected int deleteStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
+		List<? extends KeyValue> kvs = HalyardTableUtils.deleteKeyValues(subj, pred, obj, ctx, timestamp, sail.getStatementIndices());
+		for (KeyValue kv : kvs) {
 			delete(kv);
 		}
+		return kvs.size();
 	}
 
 	private void deleteSystemStatements(Resource subj, IRI pred, Value obj, long timestamp, Resource... contexts) throws IOException {
@@ -713,7 +718,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 	private void clearAllStatements() throws SailException {
         try {
-			HalyardTableUtils.clearTriples(sail.hConnection, sail.tableName);
+			HalyardTableUtils.clearStatements(sail.hConnection, sail.tableName);
         } catch (IOException ex) {
             throw new SailException(ex);
         }

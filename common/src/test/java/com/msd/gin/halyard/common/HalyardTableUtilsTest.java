@@ -179,7 +179,7 @@ public class HalyardTableUtilsTest {
         try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p, o, null, stmtIndices))) {
             assertNotNull(rs.next());
         }
-		HalyardTableUtils.clearTriples(conn, table.getName());
+		HalyardTableUtils.clearStatements(conn, table.getName());
         try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p, o, null, stmtIndices))) {
             assertNull(rs.next());
         }

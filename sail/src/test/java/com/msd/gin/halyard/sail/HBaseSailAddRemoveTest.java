@@ -17,8 +17,10 @@
 package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
+
 import java.util.Arrays;
 import java.util.Collection;
+
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
@@ -32,6 +34,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+
 import static org.junit.Assert.*;
 
 /**
@@ -87,39 +90,33 @@ public class HBaseSailAddRemoveTest {
 		try (SailConnection conn = sail.getConnection()) {
 			conn.addStatement(SUBJ, PRED, OBJ);
 			conn.addStatement(SUBJ, PRED, OBJ, CONTEXT);
-			CloseableIteration<? extends Statement, SailException> iter;
-			iter = conn.getStatements(null, null, null, true);
-			assertTrue(iter.hasNext());
-			iter.next();
-			assertTrue(iter.hasNext());
-			Statement st = iter.next();
-			assertFalse(iter.hasNext());
-			iter.close();
-			assertEquals(SUBJ, st.getSubject());
-			assertEquals(PRED, st.getPredicate());
-			assertEquals(OBJ, st.getObject());
-			iter = conn.getStatements(null, null, null, true, CONTEXT);
-			assertTrue(iter.hasNext());
-			st = iter.next();
-			assertFalse(iter.hasNext());
-			iter.close();
-			assertEquals(SUBJ, st.getSubject());
-			assertEquals(PRED, st.getPredicate());
-			assertEquals(OBJ, st.getObject());
-			assertEquals(CONTEXT, st.getContext());
+			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
+				assertTrue(iter.hasNext());
+				iter.next();
+				assertTrue(iter.hasNext());
+				Statement st = iter.next();
+				assertEquals(SUBJ, st.getSubject());
+				assertEquals(PRED, st.getPredicate());
+				assertEquals(OBJ, st.getObject());
+				assertFalse(iter.hasNext());
+			}
+			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true, CONTEXT)) {
+				assertTrue(iter.hasNext());
+				Statement st = iter.next();
+				assertEquals(SUBJ, st.getSubject());
+				assertEquals(PRED, st.getPredicate());
+				assertEquals(OBJ, st.getObject());
+				assertEquals(CONTEXT, st.getContext());
+				assertFalse(iter.hasNext());
+			}
 			conn.removeStatements(subj, pred, obj, CONTEXT);
-			iter = conn.getStatements(null, null, null, true);
-			assertTrue(iter.hasNext());
-			iter.close();
+			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
+				assertTrue(iter.hasNext());
+			}
 			conn.removeStatements(subj, pred, obj);
-			iter = conn.getStatements(null, null, null, true);
-			assertFalse(iter.hasNext());
-			iter.close();
+			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
+				assertFalse(iter.hasNext());
+			}
 		}
     }
-
-	@Test
-	public void testAddRemoveTriple() {
-
-	}
 }

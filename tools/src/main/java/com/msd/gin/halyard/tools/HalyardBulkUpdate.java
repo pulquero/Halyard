@@ -88,6 +88,8 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
     private static final long STATUS_UPDATE_INTERVAL = 10000L;
 
     enum Counters {
+		ADDED_STATEMENTS,
+		REMOVED_STATEMENTS,
 		ADDED_KVS,
 		REMOVED_KVS
 	}
@@ -100,6 +102,11 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         private String tableName;
         private long timestamp;
         private int stage;
+        private String queryName;
+        private final AtomicLong addedStmts = new AtomicLong();
+        private final AtomicLong removedStmts = new AtomicLong();
+        private final AtomicLong addedKvs = new AtomicLong();
+        private final AtomicLong removedKvs = new AtomicLong();
 
         @Override
         public void run(Context context) throws IOException, InterruptedException {
@@ -109,10 +116,10 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
             stage = conf.getInt(STAGE_PROPERTY, 0);
             final QueryInputFormat.QueryInputSplit qis = (QueryInputFormat.QueryInputSplit)context.getInputSplit();
             final String query = qis.getQuery();
-            final String name = qis.getQueryName();
+            queryName = qis.getQueryName();
             ParsedUpdate parsedUpdate = QueryParserUtil.parseUpdate(QueryLanguage.SPARQL, query, null);
             if (parsedUpdate.getUpdateExprs().size() <= stage) {
-                context.setStatus("Nothing to execute in: " + name + " for stage #" + stage);
+                context.setStatus("Nothing to execute in: " + queryName + " for stage #" + stage);
             } else {
                 UpdateExpr ue = parsedUpdate.getUpdateExprs().get(stage);
                 LOG.info(ue.toString());
@@ -122,9 +129,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                 if (d != null) {
                     singleUpdate.map(ue, d);
                 }
-                context.setStatus("Execution of: " + name + " stage #" + stage);
-                final AtomicLong addedKvs = new AtomicLong();
-                final AtomicLong removedKvs = new AtomicLong();
+                context.setStatus("Execution of: " + queryName + " stage #" + stage);
 				final HBaseSail sail = new HBaseSail(context.getConfiguration(), tableName, false, 0, true, 0, ElasticSettings.from(conf), new HBaseSail.Ticker() {
                     @Override
                     public void tick() {
@@ -137,6 +142,19 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 							private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
 
 							@Override
+							protected int insertStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
+								int insertedKvs = super.insertStatement(subj, pred, obj, ctx, timestamp);
+								long _addedStmts = addedStmts.incrementAndGet();
+								long _addedKvs = addedKvs.addAndGet(insertedKvs);
+								if (_addedStmts % STATUS_UPDATE_INTERVAL == 0) {
+									context.getCounter(Counters.ADDED_STATEMENTS).setValue(_addedStmts);
+									context.getCounter(Counters.ADDED_KVS).setValue(_addedKvs);
+									updateStatus(context);
+								}
+								return insertedKvs;
+							}
+
+							@Override
 							protected void put(KeyValue kv) throws IOException {
 								rowKey.set(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength());
 								try {
@@ -144,13 +162,19 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 								} catch (InterruptedException ex) {
 									throw new IOException(ex);
 								}
-								long added = addedKvs.incrementAndGet();
-								if (added % STATUS_UPDATE_INTERVAL == 0) {
-									context.getCounter(Counters.ADDED_KVS).setValue(added);
-									long removed = removedKvs.get();
-									context.setStatus(name + " - " + added + " added " + removed + " removed");
-									LOG.info("{} KeyValues added and {} removed", added, removed);
+							}
+
+							@Override
+							protected int deleteStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
+								int deletedKvs = super.deleteStatement(subj, pred, obj, ctx, timestamp);
+								long _removedStmts = removedStmts.incrementAndGet();
+								long _removedKvs = removedKvs.addAndGet(deletedKvs);
+								if (_removedStmts % STATUS_UPDATE_INTERVAL == 0) {
+									context.getCounter(Counters.REMOVED_STATEMENTS).setValue(_removedStmts);
+									context.getCounter(Counters.REMOVED_KVS).setValue(_removedKvs);
+									updateStatus(context);
 								}
+								return deletedKvs;
 							}
 
 							@Override
@@ -160,13 +184,6 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 									context.write(rowKey, kv);
 								} catch (InterruptedException ex) {
 									throw new IOException(ex);
-								}
-								long removed = removedKvs.incrementAndGet();
-								if (removed % STATUS_UPDATE_INTERVAL == 0) {
-									context.getCounter(Counters.REMOVED_KVS).setValue(removed);
-									long added = addedKvs.get();
-									context.setStatus(name + " - " + added + " added " + removed + " removed");
-									LOG.info("{} KeyValues added and {} removed", added, removed);
 								}
 							}
 
@@ -196,7 +213,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                         try(SailRepositoryConnection con = rep.getConnection()) {
 	                        Update upd = new HBaseUpdate(singleUpdate, sail, con);
 	                        LOG.info("Execution of: {}", query);
-	                        context.setStatus(name);
+	                        context.setStatus(queryName);
 	                        upd.execute();
                         }
                     } finally {
@@ -205,10 +222,19 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                 } finally {
                 	sail.getFunctionRegistry().remove(fn);
                 }
-                context.setStatus(name + " - " + addedKvs.get() + " added " + removedKvs.get() + " removed");
-                LOG.info("Query finished with {} KeyValues added and {} removed", addedKvs.get(), removedKvs.get());
+                updateStatus(context);
+                LOG.info("Query finished with {} statements ({} KeyValues) added and {} ({} KeyValues) removed", addedStmts.get(), addedKvs.get(), removedStmts.get(), removedKvs.get());
             }
         }
+
+		private void updateStatus(Context context) {
+			long _addedStmts = addedStmts.get();
+			long _removedStmts = removedStmts.get();
+			long _addedKvs = addedKvs.get();
+			long _removedKvs = removedKvs.get();
+            context.setStatus(String.format("%s - %d (%d) added %d (%d) removed", queryName, _addedStmts, _addedKvs, _removedStmts, _removedKvs));
+            LOG.info("{} statements ({} KeyValues) added and {} ({} KeyValues) removed",     _addedStmts, _addedKvs, _removedStmts, _removedKvs);
+		}
     }
 
     public HalyardBulkUpdate() {

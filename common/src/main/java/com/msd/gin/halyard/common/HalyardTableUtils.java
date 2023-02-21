@@ -166,7 +166,7 @@ public final class HalyardTableUtils {
 	 * @param tableName Table to truncate
 	 * @throws IOException throws IOException in case of any HBase IO problems
 	 */
-	public static void clearTriples(Connection conn, TableName tableName) throws IOException {
+	public static void clearStatements(Connection conn, TableName tableName) throws IOException {
 		Get getConfig = new Get(HalyardTableUtils.CONFIG_ROW_KEY);
 		Result config;
 		try (Table table = conn.getTable(tableName)) {

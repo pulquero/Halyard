@@ -730,7 +730,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             TableMapReduceUtil.initCredentials(job);
             if (job.waitForCompletion(true)) {
                 if (getConf().getBoolean(TRUNCATE_PROPERTY, false)) {
-					HalyardTableUtils.clearTriples(conn, tableName);
+					HalyardTableUtils.clearStatements(conn, tableName);
 					hTable.close();
                 }
 				BulkLoadHFiles.create(getConf()).bulkLoad(tableName, outPath);
