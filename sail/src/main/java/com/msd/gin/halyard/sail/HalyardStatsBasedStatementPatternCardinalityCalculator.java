@@ -16,6 +16,8 @@
  */
 package com.msd.gin.halyard.sail;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
 import com.msd.gin.halyard.vocab.HALYARD;
@@ -24,8 +26,7 @@ import com.msd.gin.halyard.vocab.VOID_EXT;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
@@ -49,12 +50,17 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 
 	private final TripleSource statsSource;
 	private final RDFFactory rdfFactory;
-	private final Map<IRI, Long> tripleCountCache = new HashMap<>(64);
+	private final Cache<IRI, Long> stmtCountCache;
 
-	public HalyardStatsBasedStatementPatternCardinalityCalculator(TripleSource statsSource, RDFFactory rdfFactory) {
+	static Cache<IRI, Long> newStatementCountCache() {
+		return CacheBuilder.newBuilder().concurrencyLevel(1).build();
+	}
+
+	public HalyardStatsBasedStatementPatternCardinalityCalculator(TripleSource statsSource, RDFFactory rdfFactory, Cache<IRI, Long> stmtCountCache) {
 		this.statsSource = statsSource;
 		this.rdfFactory = rdfFactory;
-    }
+		this.stmtCountCache = stmtCountCache;
+	}
 
     @Override
 	public double getCardinality(StatementPattern sp, Collection<String> boundVars) { // get the cardinality of the Statement form VOID statistics
@@ -100,25 +106,30 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 
     //get the Triples count for a giving subject from VOID statistics or return the default value
     private long getTriplesCount(IRI subjectNode, long defaultValue) {
-		return tripleCountCache.computeIfAbsent(subjectNode, node -> {
-			try (CloseableIteration<? extends Statement, QueryEvaluationException> ci = statsSource.getStatements(node, VOID.TRIPLES, null, HALYARD.STATS_GRAPH_CONTEXT)) {
-				if (ci.hasNext()) {
-					Value v = ci.next().getObject();
-					if (v.isLiteral()) {
-						try {
-							long l = ((Literal) v).longValue();
-							LOG.trace("triple stats for {} = {}", node, l);
-							return l;
-						} catch (NumberFormatException ignore) {
-							LOG.warn("Invalid statistics for {}: {}", node, v, ignore);
+		try {
+			return stmtCountCache.get(subjectNode, () -> {
+				try (CloseableIteration<? extends Statement, QueryEvaluationException> ci = statsSource.getStatements(subjectNode, VOID.TRIPLES, null, HALYARD.STATS_GRAPH_CONTEXT)) {
+					if (ci.hasNext()) {
+						Value v = ci.next().getObject();
+						if (v.isLiteral()) {
+							try {
+								long l = ((Literal) v).longValue();
+								LOG.trace("triple stats for {} = {}", subjectNode, l);
+								return l;
+							} catch (NumberFormatException ignore) {
+								LOG.warn("Invalid statistics for {}: {}", subjectNode, v, ignore);
+							}
 						}
+						LOG.warn("Invalid statistics for {}: {}", subjectNode, v);
 					}
-					LOG.warn("Invalid statistics for {}: {}", node, v);
 				}
-			}
-			LOG.trace("triple stats for {} are not available", node);
+				LOG.trace("triple stats for {} are not available", subjectNode);
+				return defaultValue;
+			});
+		} catch (ExecutionException ee) {
+			LOG.warn("Error retrieving statistics for {}", subjectNode, ee.getCause());
 			return defaultValue;
-		});
+		}
     }
 
     //calculate a multiplier for the triple count for this sub-part of the graph

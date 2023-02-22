@@ -55,7 +55,7 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
 
 	public static interface ServiceStatsProvider {
 	
-		HalyardEvaluationStatistics getStatsForService(String service);
+		HalyardEvaluationStatistics getStatsForService(String serviceUrl);
 	}
 
     private final ServiceStatsProvider srvProvider;

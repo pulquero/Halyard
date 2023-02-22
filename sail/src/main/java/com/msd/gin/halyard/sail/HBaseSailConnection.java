@@ -16,6 +16,7 @@
  */
 package com.msd.gin.halyard.sail;
 
+import com.google.common.cache.Cache;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.common.HalyardTableUtils;
@@ -108,24 +109,27 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private static final int NO_UPDATE_PARTS = -1;
 
 	private final QueryCache queryCache;
+	private final Cache<IRI, Long> stmtCountCache;
 
     private final HBaseSail sail;
 	private final boolean usePush;
 	private final SearchClient searchClient;
 	private KeyspaceConnection keyspaceConn;
+	private HalyardEvaluationStatistics statistics;
 	private BufferedMutator mutator;
 	private int pendingUpdateCount;
 	private long lastTimestamp = Long.MIN_VALUE;
 	private boolean lastUpdateWasDelete;
 
 	public HBaseSailConnection(HBaseSail sail) throws IOException {
-		this(sail, new QueryCache(sail.getConfiguration()));
+		this(sail, new QueryCache(sail.getConfiguration()), HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache());
 	}
 
-	HBaseSailConnection(HBaseSail sail, QueryCache cache) throws IOException {
+	HBaseSailConnection(HBaseSail sail, QueryCache cache, Cache<IRI, Long> stmtCountCache) throws IOException {
 		this.sail = sail;
-		usePush = sail.pushStrategy;
-		queryCache = cache;
+		this.usePush = sail.pushStrategy;
+		this.queryCache = cache;
+		this.stmtCountCache = stmtCountCache;
 		// tables are lightweight but not thread-safe so get a new instance per sail
 		// connection
 		this.keyspaceConn = sail.keyspace.getConnection();
@@ -525,7 +529,10 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     }
 
 	protected final HalyardEvaluationStatistics getStatistics() {
-		return sail.statistics;
+		if (statistics == null) {
+			statistics = sail.newStatistics(stmtCountCache);
+		}
+		return statistics;
 	}
 
 	protected long getTimestamp(UpdateContext op, boolean isDelete) {

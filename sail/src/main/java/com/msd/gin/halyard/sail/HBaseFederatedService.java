@@ -1,5 +1,6 @@
 package com.msd.gin.halyard.sail;
 
+import com.google.common.cache.Cache;
 import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.federation.SailFederatedService;
 import com.msd.gin.halyard.query.BindingSetPipe;
@@ -7,6 +8,7 @@ import com.msd.gin.halyard.query.BindingSetPipe;
 import java.util.Set;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.Service;
@@ -49,12 +51,13 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 	@Override
 	public FederatedService createPrivateInstance() {
 		return new HBaseFederatedService(sail) {
-			// NB: shared cache across all connections
+			// NB: shared caches across all connections
 			private final QueryCache queryCache = new QueryCache(sail.getConfiguration());
+			private final Cache<IRI, Long> stmtCountCache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache();
 
 			@Override
 			protected SailConnection getConnection() {
-				return sail.getConnection(sail -> new HBaseSailConnection(sail, queryCache));
+				return sail.getConnection(sail -> new HBaseSailConnection(sail, queryCache, stmtCountCache));
 			}
 		};
 	}

@@ -16,6 +16,7 @@
  */
 package com.msd.gin.halyard.sail;
 
+import com.google.common.cache.Cache;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
@@ -39,9 +40,12 @@ import java.lang.management.ManagementFactory;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 
@@ -70,6 +74,7 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.common.transaction.IsolationLevels;
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.MutableBindingSet;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
@@ -177,7 +182,6 @@ public class HBaseSail implements BindingSetPipeSail, HBaseSailMXBean {
 	final boolean create;
 	final boolean pushStrategy;
 	final int splitBits;
-	protected HalyardEvaluationStatistics statistics;
 	final int evaluationTimeoutSecs;
 	private boolean readOnly = true;
 	private long readOnlyTimestamp = 0L;
@@ -426,6 +430,32 @@ public class HBaseSail implements BindingSetPipeSail, HBaseSailMXBean {
 		throw new UnsupportedOperationException();
 	}
 
+	HalyardEvaluationStatistics newStatistics() {
+		return newStatistics(HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache());
+	}
+
+	HalyardEvaluationStatistics newStatistics(Cache<IRI, Long> tripleCountCache) {
+		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs),
+				rdfFactory, tripleCountCache);
+		HalyardEvaluationStatistics.ServiceStatsProvider srvStatsProvider = new HalyardEvaluationStatistics.ServiceStatsProvider() {
+			final Map<String, Optional<HalyardEvaluationStatistics>> serviceToStats = new HashMap<>();
+
+			public HalyardEvaluationStatistics getStatsForService(String serviceUrl) {
+				return serviceToStats.computeIfAbsent(serviceUrl, (service) -> {
+					FederatedService fedServ = federatedServiceResolver.getService(service);
+					if (fedServ instanceof SailFederatedService) {
+						Sail sail = ((SailFederatedService) fedServ).getSail();
+						if (sail instanceof HBaseSail) {
+							return Optional.of(((HBaseSail) sail).newStatistics());
+						}
+					}
+					return Optional.empty();
+				}).orElse(null);
+			}
+		};
+		return new HalyardEvaluationStatistics(spcalcFactory, srvStatsProvider);
+	}
+
 	@Override
 	public void init() throws SailException {
 		try {
@@ -457,21 +487,6 @@ public class HBaseSail implements BindingSetPipeSail, HBaseSailMXBean {
 				conn.addNamespaces();
 			}
 		}
-
-		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(
-				new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs), rdfFactory);
-		HalyardEvaluationStatistics.ServiceStatsProvider srvStatsProvider = service -> {
-			HalyardEvaluationStatistics fedStats = null;
-			FederatedService fedServ = federatedServiceResolver.getService(service);
-			if (fedServ instanceof SailFederatedService) {
-				Sail sail = ((SailFederatedService) fedServ).getSail();
-				if (sail instanceof HBaseSail) {
-					fedStats = ((HBaseSail) sail).statistics;
-				}
-			}
-			return fedStats;
-		};
-		statistics = new HalyardEvaluationStatistics(spcalcFactory, srvStatsProvider);
 
 		SpinFunctionInterpreter.registerSpinParsingFunctions(spinParser, functionRegistry, pushStrategy ? tupleFunctionRegistry : TupleFunctionRegistry.getInstance());
 		SpinMagicPropertyInterpreter.registerSpinParsingTupleFunctions(spinParser, tupleFunctionRegistry);

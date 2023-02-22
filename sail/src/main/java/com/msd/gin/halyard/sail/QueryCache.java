@@ -10,7 +10,6 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nonnull;
 
@@ -27,7 +26,7 @@ final class QueryCache {
 
 	QueryCache(Configuration conf) {
 		int queryCacheMaxSize = conf.getInt(EvaluationConfig.QUERY_CACHE_MAX_SIZE, 100);
-		cache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumSize(queryCacheMaxSize).expireAfterWrite(1L, TimeUnit.HOURS).build();
+		cache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumSize(queryCacheMaxSize).build();
 	}
 
 	TupleExpr getOptimizedQuery(HBaseSailConnection conn, String sourceString, int updatePart, TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, final boolean includeInferred, TripleSource tripleSource,
