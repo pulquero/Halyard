@@ -570,6 +570,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
         addStatementInternal(subj, pred, obj, contexts, timestamp);
     }
 
+	public void addSystemStatement(Resource subj, IRI pred, Value obj, Resource context, long timestamp) throws SailException {
+		checkWritable();
+		try {
+			insertSystemStatement(subj, pred, obj, context, timestamp);
+		} catch (IOException e) {
+			throw new SailException(e);
+		}
+	}
+
     private void checkWritable() {
 		if (!isOpen()) {
 			throw new IllegalStateException("Connection is closed");
@@ -646,6 +655,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
 	}
 
+	public void removeSystemStatement(Resource subj, IRI pred, Value obj, Resource context, long timestamp) throws SailException {
+		checkWritable();
+		try {
+			deleteSystemStatement(subj, pred, obj, context, timestamp);
+		} catch (IOException e) {
+			throw new SailException(e);
+		}
+	}
+
 	private void removeStatementInternal(Resource subj, IRI pred, Value obj, Resource[] contexts, long timestamp) throws SailException {
 		checkWritable();
 		try {
@@ -685,7 +703,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		return kvs.size();
 	}
 
-	private void deleteSystemStatements(Resource subj, IRI pred, Value obj, long timestamp, Resource... contexts) throws IOException {
+	private void deleteSystemStatements(@Nullable Resource subj, @Nullable IRI pred, @Nullable Value obj, long timestamp, Resource... contexts) throws IOException {
 		try (CloseableIteration<? extends Statement, SailException> iter = getStatements(subj, pred, obj, true, contexts)) {
 			while (iter.hasNext()) {
 				Statement st = iter.next();

@@ -27,6 +27,7 @@ import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueIO;
 import com.msd.gin.halyard.sail.HBaseSail;
+import com.msd.gin.halyard.sail.HBaseSailConnection;
 import com.msd.gin.halyard.vocab.HALYARD;
 import com.msd.gin.halyard.vocab.VOID_EXT;
 
@@ -80,7 +81,6 @@ import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
-import org.eclipse.rdf4j.sail.SailConnection;
 
 /**
  * MapReduce tool providing statistics about a Halyard dataset. Statistics about a dataset are reported in RDF using the VOID ontology. These statistics can be useful
@@ -95,6 +95,7 @@ public final class HalyardStats extends AbstractHalyardTool {
     private static final String PARTITION_THRESHOLD = confProperty(TOOL_NAME, "partition-threshold");
     private static final String STATS_GRAPH = confProperty(TOOL_NAME, "stats-graph");
     private static final String NAMED_GRAPH_PROPERTY = confProperty(TOOL_NAME, "named-graph");
+    private static final String TIMESTAMP_PROPERTY = confProperty(TOOL_NAME, "timestamp");
 
     private static final long DEFAULT_THRESHOLD = 1000;
 
@@ -113,6 +114,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         StatementIndex<?,?,?,?> lastIndex;
         long counter = 0L;
         boolean update;
+        long timestamp;
 
         Resource graph = DEFAULT_GRAPH_NODE, lastGraph;
         long triples, distinctSubjects, properties, distinctObjects, classes, removed;
@@ -127,13 +129,14 @@ public final class HalyardStats extends AbstractHalyardTool {
 		int hashLen;
         long setThreshold, setCounter, subsetThreshold, subsetCounter;
         HBaseSail sail;
-		SailConnection sailConn;
+		HBaseSailConnection sailConn;
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
-            update = conf.get(TARGET) == null;
+            update = (conf.get(TARGET) == null);
+            timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
             setThreshold = conf.getLong(GRAPH_THRESHOLD, DEFAULT_THRESHOLD);
             subsetThreshold = conf.getLong(PARTITION_THRESHOLD, DEFAULT_THRESHOLD);
             ValueFactory vf = IdValueFactory.INSTANCE;
@@ -144,7 +147,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             }
         }
 
-        private SailConnection getConnection(Context output) {
+        private HBaseSailConnection getConnection(Context output) {
             if (sail == null) {
                 Configuration conf = output.getConfiguration();
                 sail = new HBaseSail(conf, conf.get(SOURCE_NAME_PROPERTY), false, 0, true, 0, null, null);
@@ -217,7 +220,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             	}
             	if (update && index.getName() == StatementIndex.Name.CSPO && graph.equals(statsContext)) {
                     if (matchingGraphContext(stmt.getSubject())) {
-						getConnection(output).removeStatement(null, stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext());
+						getConnection(output).removeSystemStatement(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
                         removed++;
                     }
             	} else {
@@ -386,8 +389,9 @@ public final class HalyardStats extends AbstractHalyardTool {
         Map<Resource, Boolean> graphs;
         IRI statsGraphContext;
         ValueFactory vf;
+        long timestamp;
         HBaseSail sail;
-		SailConnection conn;
+		HBaseSailConnection conn;
         long removed = 0, added = 0;
 
         @Override
@@ -395,6 +399,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
             vf = IdValueFactory.INSTANCE;
+            timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
             statsGraphContext = vf.createIRI(conf.get(STATS_GRAPH));
             String targetUrl = conf.get(TARGET);
             if (targetUrl == null) {
@@ -487,7 +492,7 @@ public final class HalyardStats extends AbstractHalyardTool {
 
         private void writeStatement(Resource subj, IRI pred, Value obj) {
             if (conn != null) {
-				conn.addStatement(subj, pred, obj, statsGraphContext);
+				conn.addSystemStatement(subj, pred, obj, statsGraphContext, timestamp);
             }
             if (writer != null) {
                 writer.handleStatement(vf.createStatement(subj, pred, obj, statsGraphContext));
@@ -529,6 +534,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         addOption("g", "named-graph", "named_graph", NAMED_GRAPH_PROPERTY, "Optional restrict stats calculation to the given named graph only", false, true);
         addOption("o", "stats-named-graph", "target_graph", STATS_GRAPH, "Optional target named graph of the exported statistics (default value is '" + HALYARD.STATS_GRAPH_CONTEXT.stringValue() + "'), modification is recomended only for external export as internal Halyard optimizers expect the default value", false, true);
         addOption("u", "restore-dir", "restore_folder", SNAPSHOT_PATH_PROPERTY, "If specified then -s is a snapshot name and this is the restore folder on HDFS", false, true);
+        addOption("e", "target-timestamp", "timestamp", TIMESTAMP_PROPERTY, "Optionally specify timestamp of stat statements (default is actual time of the operation)", false, true);
     }
 
     @Override
@@ -543,6 +549,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         configureString(cmd, 'u', null);
         configureLong(cmd, 'R', DEFAULT_THRESHOLD);
         configureLong(cmd, 'r', DEFAULT_THRESHOLD);
+        configureLong(cmd, 'e', System.currentTimeMillis());
         String source = getConf().get(SOURCE_NAME_PROPERTY);
         String target = getConf().get(TARGET);
         String statsGraph = getConf().get(STATS_GRAPH);
