@@ -238,7 +238,13 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         protected void map(LongWritable key, Statement stmt, final Context output) throws IOException, InterruptedException {
         	// best effort statement deduplication
         	if (stmtDedup.add(stmt)) {
-	            for (KeyValue keyValue: HalyardTableUtils.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp, stmtIndices)) {
+        		List<? extends KeyValue> kvs;
+        		if (HALYARD.SYSTEM_GRAPH_CONTEXT.equals(stmt.getContext())) {
+        			kvs = HalyardTableUtils.insertSystemKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp, stmtIndices);
+        		} else {
+        			kvs = HalyardTableUtils.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp, stmtIndices);
+        		}
+	            for (KeyValue keyValue: kvs) {
 	                rowKey.set(keyValue.getRowArray(), keyValue.getRowOffset(), keyValue.getRowLength());
 	                output.write(rowKey, keyValue);
 	                addedKvs++;

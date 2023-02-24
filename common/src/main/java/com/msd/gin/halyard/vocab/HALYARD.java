@@ -47,7 +47,7 @@ public final class HALYARD implements Vocabulary {
 
     public static final IRI TRIPLE_GRAPH_CONTEXT = SVF.createIRI(NAMESPACE, "triples");
 
-    public static final IRI NAMESPACE_PREFIX_PROPERTY = HALYARD.SVF.createIRI(NAMESPACE, "namespacePrefix");
+    public static final IRI NAMESPACE_PREFIX_PROPERTY = SVF.createIRI(NAMESPACE, "namespacePrefix");
 
     public final static IRI TABLE_NAME_PROPERTY = SVF.createIRI(NAMESPACE, "tableName");
 
