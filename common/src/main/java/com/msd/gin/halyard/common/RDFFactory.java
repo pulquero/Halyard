@@ -33,7 +33,6 @@ public class RDFFactory {
 	private static final Map<HalyardTableConfiguration,RDFFactory> FACTORIES = Collections.synchronizedMap(new HashMap<>());
 
 	private final HalyardTableConfiguration halyardConfig;
-	public final ValueIO.Writer idTripleWriter;
 	public final ValueIO.Writer streamWriter;
 	public final ValueIO.Reader streamReader;
 	private final BiMap<ValueIdentifier, IRI> wellKnownIriIds = HashBiMap.create(256);
@@ -132,8 +131,11 @@ public class RDFFactory {
 	private RDFFactory(HalyardTableConfiguration halyardConfig) {
 		this.halyardConfig = halyardConfig;
 		version = halyardConfig.getInt(TableConfig.TABLE_VERSION);
+		if (version < TableConfig.VERSION_4_6_1) {
+			throw new RuntimeException("Old table format - please reload your data");
+		}
 		if (version > TableConfig.CURRENT_VERSION) {
-			throw new RuntimeException("Unsupported table format - please upgrade");
+			throw new RuntimeException("New table format - please upgrade your installation");
 		}
 		valueIO = new ValueIO(halyardConfig);
 		String confIdAlgo = halyardConfig.get(TableConfig.ID_HASH);
@@ -170,11 +172,6 @@ public class RDFFactory {
 
 		streamWriter = valueIO.createStreamWriter();
 		streamReader = valueIO.createStreamReader(IdValueFactory.INSTANCE);
-		if (version >= TableConfig.VERSION_4_6) {
-			idTripleWriter = streamWriter;
-		} else {
-			idTripleWriter = valueIO.createWriter(new IdTripleWriter());
-		}
 
 		for (IdentifiableIRI iri : halyardConfig.getWellKnownIRIs()) {
 			ValueIdentifier id = iri.getId(this);
@@ -351,7 +348,7 @@ public class RDFFactory {
 				id = idv.getId(this);
 			} else {
 				ByteBuffer ser = ByteBuffer.allocate(ValueIO.DEFAULT_BUFFER_SIZE);
-				ser = idTripleWriter.writeTo(v, ser);
+				ser = streamWriter.writeTo(v, ser);
 				ser.flip();
 				id = id(v, ser);
 			}
@@ -376,7 +373,7 @@ public class RDFFactory {
 	}
 
 	ByteBuffer getSerializedForm(Value v) {
-		byte[] b = idTripleWriter.toBytes(v);
+		byte[] b = streamWriter.toBytes(v);
 		return ByteBuffer.wrap(b).asReadOnlyBuffer();
 	}
 
@@ -437,15 +434,5 @@ public class RDFFactory {
 	 */
 	ValueIO.Reader createReader(ValueFactory vf) {
 		return valueIO.createReader(vf, null);
-	}
-
-
-	// maintained for backwards compatibility
-	@Deprecated(since="4.6", forRemoval=true)
-	private final class IdTripleWriter implements TripleWriter {
-		@Override
-		public ByteBuffer writeTriple(Resource subj, IRI pred, Value obj, ValueIO.Writer writer, ByteBuffer buf) {
-			return writeStatementId(subj, pred, obj, buf);
-		}
 	}
 }

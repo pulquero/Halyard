@@ -2,10 +2,6 @@
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration>
   <property>
-    <name>halyard.table.version</name>
-    <value>460</value>
-  </property>
-  <property>
     <name>halyard.id.hash</name>
     <value>SHA-1</value>
   </property>

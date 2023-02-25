@@ -116,7 +116,7 @@ public final class HalyardTableUtils {
 	public static void createTableIfNotExists(Connection conn, TableName htableName, int splitBits)
 			throws IOException {
 		if (!tableExists(conn, htableName)) {
-			createTable(conn, htableName, splitBits).close();;
+			createTable(conn, htableName, splitBits).close();
 		}
 	}
 

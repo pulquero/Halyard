@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.common;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
+import static com.msd.gin.halyard.common.StatementIndex.*;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -11,20 +11,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.ValueFactory;
-
-import com.msd.gin.halyard.vocab.HALYARD;
-import static com.msd.gin.halyard.common.StatementIndex.VAR_CARDINALITY;
 
 public final class StatementIndices {
 	private final int maxCaching;
@@ -292,56 +284,6 @@ public final class StatementIndices {
 	}
 
 	public ValueIO.Reader createTableReader(ValueFactory vf, KeyspaceConnection conn) {
-		ValueIO.Reader reader;
-		if (rdfFactory.version >= TableConfig.VERSION_4_6) {
-			reader = rdfFactory.valueIO.createStreamReader(vf);
-		} else {
-			reader = rdfFactory.valueIO.createReader(vf, new TableTripleReader(conn));
-		}
-		return reader;
-	}
-
-
-
-	// maintained for backwards compatibility
-	@Deprecated(since="4.6", forRemoval=true)
-	private final class TableTripleReader implements TripleReader {
-		private final KeyspaceConnection conn;
-	
-		public TableTripleReader(KeyspaceConnection conn) {
-			this.conn = conn;
-		}
-	
-		@Override
-		public Triple readTriple(ByteBuffer b, ValueIO.Reader valueReader) {
-			int idSize = rdfFactory.getIdSize();
-			byte[] sid = new byte[idSize];
-			byte[] pid = new byte[idSize];
-			byte[] oid = new byte[idSize];
-			b.get(sid).get(pid).get(oid);
-	
-			RDFContext ckey = rdfFactory.createContext(HALYARD.TRIPLE_GRAPH_CONTEXT);
-			RDFIdentifier skey = rdfFactory.createSubjectId(rdfFactory.id(sid));
-			RDFIdentifier pkey = rdfFactory.createPredicateId(rdfFactory.id(pid));
-			RDFIdentifier okey = rdfFactory.createObjectId(rdfFactory.id(oid));
-			Scan scan = scan(skey, pkey, okey, ckey);
-			try {
-				Result result;
-				try (ResultScanner scanner = conn.getScanner(scan)) {
-					result = scanner.next();
-				}
-				if (result == null) {
-					throw new IOException("Triple not found (no result)");
-				}
-				if (result.isEmpty()) {
-					throw new IOException("Triple not found (no cells)");
-				}
-				Cell[] cells = result.rawCells();
-				Statement stmt = HalyardTableUtils.parseStatement(null, null, null, ckey, cells[0], valueReader, StatementIndices.this);
-				return valueReader.getValueFactory().createTriple(stmt.getSubject(), stmt.getPredicate(), stmt.getObject());
-			} catch (IOException ioe) {
-				throw new RuntimeException(ioe);
-			}
-		}
+		return rdfFactory.valueIO.createStreamReader(vf);
 	}
 }

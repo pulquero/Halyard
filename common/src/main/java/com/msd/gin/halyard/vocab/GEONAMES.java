@@ -13,21 +13,24 @@ public final class GEONAMES implements Vocabulary {
     private static final SimpleValueFactory SVF = SimpleValueFactory.getInstance();
 
     public static final String PREFIX = "gn_ont";
+    public static final String S_PREFIX = "gns_ont";
     public static final String ID_PREFIX = "gn_id";
 
     public static final String NAMESPACE = "http://www.geonames.org/ontology#";
+    public static final String S_NAMESPACE = "https://www.geonames.org/ontology#";
     public static final String ID_NAMESPACE = "https://sws.geonames.org/";
 
     public static final Namespace NS = new SimpleNamespace(PREFIX, NAMESPACE);
+    public static final Namespace S_NS = new SimpleNamespace(S_PREFIX, S_NAMESPACE);
     public static final Namespace ID_NS = new IntegerNamespace(ID_PREFIX, ID_NAMESPACE);
 
-    public static final IRI CLASS = SVF.createIRI(NAMESPACE, "Class");
-    public static final IRI CODE = SVF.createIRI(NAMESPACE, "Code");
-    public static final IRI FEATURE = SVF.createIRI(NAMESPACE, "Feature");
-    public static final IRI GEONAMES_FEATURE = SVF.createIRI(NAMESPACE, "GeonamesFeature");
-    public static final IRI MAP = SVF.createIRI(NAMESPACE, "Map");
-    public static final IRI RDFDATA = SVF.createIRI(NAMESPACE, "RDFData");
-    public static final IRI WIKIPEDIA_ARTICLE_TYPE = SVF.createIRI(NAMESPACE, "WikipediaArticle");
+    public static final IRI CLASS = SVF.createIRI(S_NAMESPACE, "Class");
+    public static final IRI CODE = SVF.createIRI(S_NAMESPACE, "Code");
+    public static final IRI FEATURE = SVF.createIRI(S_NAMESPACE, "Feature");
+    public static final IRI GEONAMES_FEATURE = SVF.createIRI(S_NAMESPACE, "GeonamesFeature");
+    public static final IRI MAP = SVF.createIRI(S_NAMESPACE, "Map");
+    public static final IRI RDFDATA = SVF.createIRI(S_NAMESPACE, "RDFData");
+    public static final IRI WIKIPEDIA_ARTICLE_TYPE = SVF.createIRI(S_NAMESPACE, "WikipediaArticle");
 
     public static final IRI ALTERNATE_NAME = SVF.createIRI(NAMESPACE, "alternateName");
     public static final IRI CHILDREN_FEATURES = SVF.createIRI(NAMESPACE, "childrenFeatures");

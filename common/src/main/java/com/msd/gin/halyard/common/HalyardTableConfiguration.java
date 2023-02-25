@@ -149,6 +149,7 @@ final class HalyardTableConfiguration {
 	}
 
 	HalyardTableConfiguration(Iterable<Map.Entry<String,String>> conf) {
+		config.put(TableConfig.TABLE_VERSION, String.valueOf(TableConfig.CURRENT_VERSION));
 		Configuration defaultConf = new Configuration(false);
 		defaultConf.addResource(TableConfig.class.getResource("default-config.xml"));
 		copyTableConfig(defaultConf, config);
