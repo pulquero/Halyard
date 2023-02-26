@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 @ThreadSafe
 public class RDFFactory {
 	private static final Logger LOGGER = LoggerFactory.getLogger(RDFFactory.class);
-	private static final int NOT_SET = -1;
 	private static final int MIN_KEY_SIZE = 1;
 	private static final Map<HalyardTableConfiguration,RDFFactory> FACTORIES = Collections.synchronizedMap(new HashMap<>());
 
@@ -62,7 +61,7 @@ public class RDFFactory {
 			this.contextSize = contextSize;
 		}
 
-		void readFrom(Configuration conf, String prefix) {
+		void readFrom(HalyardTableConfiguration conf, String prefix) {
 			subjectSize = conf.getInt(prefix + ".subject.size", subjectSize);
 			predicateSize = conf.getInt(prefix + ".predicate.size", predicateSize);
 			objectSize = conf.getInt(prefix + ".object.size", objectSize);
@@ -115,33 +114,33 @@ public class RDFFactory {
 	}
 
 	private RDFFactory(HalyardTableConfiguration halyardConfig) {
-		version = halyardConfig.getInt(TableConfig.TABLE_VERSION, 0);
+		version = halyardConfig.getInt(TableConfig.TABLE_VERSION);
 		if (version > TableConfig.CURRENT_VERSION) {
 			throw new RuntimeException("Unsupported table format - please upgrade");
 		}
 		valueIO = new ValueIO(
-			halyardConfig.getBoolean(TableConfig.VOCAB, true),
-			halyardConfig.getBoolean(TableConfig.LANG, true),
-			halyardConfig.getInt(TableConfig.STRING_COMPRESSION, 500)
+			halyardConfig.getBoolean(TableConfig.VOCAB),
+			halyardConfig.getBoolean(TableConfig.LANG),
+			halyardConfig.getInt(TableConfig.STRING_COMPRESSION)
 		);
-		String confIdAlgo = halyardConfig.get(TableConfig.ID_HASH, null);
-		int confIdSize = halyardConfig.getInt(TableConfig.ID_SIZE, NOT_SET);
+		String confIdAlgo = halyardConfig.get(TableConfig.ID_HASH);
+		int confIdSize = halyardConfig.getInt(TableConfig.ID_SIZE);
 		int idSize = Hashes.getHash(confIdAlgo, confIdSize).size();
 		LOGGER.info("Identifier hash: {} {}-bit ({} bytes)", confIdAlgo, idSize*Byte.SIZE, idSize);
 
-		int typeIndex = lessThan(lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.ID_TYPE_INDEX, NOT_SET), 0), Short.BYTES), idSize);
-		ValueIdentifier.TypeNibble typeNibble = halyardConfig.getBoolean(TableConfig.ID_TYPE_NIBBLE, false) ? ValueIdentifier.TypeNibble.LITTLE_NIBBLE : ValueIdentifier.TypeNibble.BIG_NIBBLE;
+		int typeIndex = lessThan(lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.ID_TYPE_INDEX), 0), Short.BYTES), idSize);
+		ValueIdentifier.TypeNibble typeNibble = halyardConfig.getBoolean(TableConfig.ID_TYPE_NIBBLE) ? ValueIdentifier.TypeNibble.LITTLE_NIBBLE : ValueIdentifier.TypeNibble.BIG_NIBBLE;
 		idFormat = new ValueIdentifier.Format(confIdAlgo, idSize, typeIndex, typeNibble);
 		typeSaltSize = idFormat.getSaltSize();
 
-		int subjectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_SUBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
-		int subjectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_SUBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
-		int predicateKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_PREDICATE, NOT_SET), MIN_KEY_SIZE), idSize);
-		int predicateEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_PREDICATE, NOT_SET), MIN_KEY_SIZE), idSize);
-		int objectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_OBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
-		int objectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_OBJECT, NOT_SET), MIN_KEY_SIZE), idSize);
-		int contextKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_CONTEXT, NOT_SET), MIN_KEY_SIZE), idSize);
-		int contextEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_CONTEXT, NOT_SET), 0), idSize);
+		int subjectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_SUBJECT), MIN_KEY_SIZE), idSize);
+		int subjectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_SUBJECT), MIN_KEY_SIZE), idSize);
+		int predicateKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_PREDICATE), MIN_KEY_SIZE), idSize);
+		int predicateEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_PREDICATE), MIN_KEY_SIZE), idSize);
+		int objectKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_OBJECT), MIN_KEY_SIZE), idSize);
+		int objectEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_OBJECT), MIN_KEY_SIZE), idSize);
+		int contextKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.KEY_SIZE_CONTEXT), MIN_KEY_SIZE), idSize);
+		int contextEndKeySize = lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.END_KEY_SIZE_CONTEXT), 0), idSize);
 
 		spoKeySizes = new IndexKeySizes(subjectKeySize, predicateKeySize, objectEndKeySize, contextEndKeySize);
 		spoKeySizes.readFrom(halyardConfig, "halyard.key.spo");
