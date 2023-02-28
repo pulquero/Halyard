@@ -51,6 +51,11 @@
 			<artifactId>jsr305</artifactId>
 			<version>3.0.2</version>
 		</dependency>
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>${json.version}</version>
+		</dependency>
 
 		<dependency>
 			<groupId>org.eclipse.rdf4j</groupId>

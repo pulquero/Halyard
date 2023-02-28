@@ -190,6 +190,11 @@
 									<artifactId>ezmorph</artifactId>
 									<version>1.0.6</version>
 								</artifactItem>
+								<dependency>
+									<groupId>org.json</groupId>
+									<artifactId>json</artifactId>
+									<version>${json.version}</version>
+								</dependency>
 							</artifactItems>
 							<outputDirectory>${project.build.directory}/extra-libs</outputDirectory>
 							<overWriteReleases>true</overWriteReleases>

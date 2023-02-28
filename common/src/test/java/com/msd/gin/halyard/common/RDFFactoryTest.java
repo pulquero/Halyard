@@ -126,7 +126,7 @@ public class RDFFactoryTest {
 		buf = writer.writeTo(expectedValue, buf);
 		buf.flip();
 		byte actualEncodingType = buf.get(0);
-		assertEquals(expectedEncodingType, actualEncodingType);
+		assertEquals("Incorrect encoding type for "+expectedValue.toString(), expectedEncodingType, actualEncodingType);
 		int size = buf.limit();
 		Value actual = reader.readValue(buf);
 		assertEquals(expectedValue, actual);

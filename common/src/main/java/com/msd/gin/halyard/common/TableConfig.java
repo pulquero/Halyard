@@ -9,7 +9,8 @@ public final class TableConfig {
     public static final String TABLE_VERSION = "halyard.table.version";
     static final int NO_VERSION = 0;
     static final int VERSION_4_6 = 460;
-    static final int CURRENT_VERSION = VERSION_4_6;
+    static final int VERSION_4_6_1 = 461;
+    static final int CURRENT_VERSION = VERSION_4_6_1;
 
     public static final String ID_HASH = "halyard.id.hash";
     public static final String ID_SIZE = "halyard.id.size";
@@ -55,8 +56,10 @@ public final class TableConfig {
     public static final String KEY_SIZE_CONTEXT = "halyard.key.context.size";
     public static final String END_KEY_SIZE_CONTEXT = "halyard.endKey.context.size";
 
-	public static final String VOCAB = "halyard.vocabularies";
-	public static final String LANG = "halyard.languages";
+	public static final String VOCABS = "halyard.vocabularies";
+	public static final String NAMESPACES = "halyard.namespaces";
+	public static final String NAMESPACE_PREFIXES = "halyard.namespacePrefixes";
+	public static final String LANGS = "halyard.languages";
 	public static final String STRING_COMPRESSION = "halyard.string.compressionThreshold";
 
 	private static final Set<String> PROPERTIES;

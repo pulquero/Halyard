@@ -72,7 +72,7 @@ public class HalyardHashTest extends AbstractHalyardToolTest {
         conf.setInt(TableConfig.KEY_SIZE_OBJECT, 1);
         conf.setInt(TableConfig.END_KEY_SIZE_OBJECT, 1);
         conf.setInt(TableConfig.KEY_SIZE_CONTEXT, 1);
-        conf.setBoolean(TableConfig.VOCAB, false);
+        conf.setBoolean(TableConfig.VOCABS, false);
         assertEquals(86, run(conf, new String[]{"-s", file.toURI().toURL().toString()}));
     }
 }

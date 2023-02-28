@@ -90,6 +90,10 @@ final class TableKeyspace implements Keyspace {
 			this.table = table;
 		}
 
+		Table getTable() {
+			return table;
+		}
+
 		@Override
 		public Result get(Get get) throws IOException {
 			return table.get(get);

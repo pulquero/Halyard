@@ -145,12 +145,16 @@ public final class HalyardTableUtils {
 		Table table = conn.getTable(htableName);
 		Configuration conf = conn.getConfiguration();
 		HalyardTableConfiguration halyardConfig = new HalyardTableConfiguration(conf);
+		writeConfig(table, halyardConfig);
+		return table;
+	}
+
+	static void writeConfig(Table table, HalyardTableConfiguration halyardConfig) throws IOException {
 		ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
 		halyardConfig.writeXml(bout);
 		Put configPut = new Put(CONFIG_ROW_KEY)
 			.addColumn(CF_NAME, CONFIG_COL, bout.toByteArray());
 		table.put(configPut);
-		return table;
 	}
 
 	public static Connection getConnection(Configuration config) throws IOException {

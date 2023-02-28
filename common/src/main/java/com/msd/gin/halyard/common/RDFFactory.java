@@ -32,6 +32,7 @@ public class RDFFactory {
 	private static final int MIN_KEY_SIZE = 1;
 	private static final Map<HalyardTableConfiguration,RDFFactory> FACTORIES = Collections.synchronizedMap(new HashMap<>());
 
+	private final HalyardTableConfiguration halyardConfig;
 	public final ValueIO.Writer idTripleWriter;
 	public final ValueIO.Writer streamWriter;
 	public final ValueIO.Reader streamReader;
@@ -69,9 +70,13 @@ public class RDFFactory {
 		}
 	}
 
-	public static RDFFactory create(Configuration config) {
-		HalyardTableConfiguration halyardConfig = new HalyardTableConfiguration(config);
+
+	private static RDFFactory create(HalyardTableConfiguration halyardConfig) {
 		return FACTORIES.computeIfAbsent(halyardConfig, c -> new RDFFactory(halyardConfig));
+	}
+
+	public static RDFFactory create(Configuration config) {
+		return create(new HalyardTableConfiguration(config));
 	}
 
 	public static RDFFactory create(KeyspaceConnection conn) throws IOException {
@@ -89,7 +94,18 @@ public class RDFFactory {
 		Configuration halyardConf = new Configuration(false);
 		ByteArrayInputStream bin = new ByteArrayInputStream(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
 		halyardConf.addResource(bin);
-		return create(halyardConf);
+
+		HalyardTableConfiguration config;
+		// migrate old config
+		int version = halyardConf.getInt(TableConfig.TABLE_VERSION, 0);
+		if (version < TableConfig.CURRENT_VERSION && (conn instanceof TableKeyspace.TableKeyspaceConnection)) {
+			halyardConf.setInt(TableConfig.TABLE_VERSION, TableConfig.CURRENT_VERSION);
+			config = new HalyardTableConfiguration(halyardConf);
+			HalyardTableUtils.writeConfig(((TableKeyspace.TableKeyspaceConnection)conn).getTable(), config);
+		} else {
+			config = new HalyardTableConfiguration(halyardConf);
+		}
+		return create(config);
 	}
 
 	private static int lessThan(int x, int upperLimit) {
@@ -114,15 +130,12 @@ public class RDFFactory {
 	}
 
 	private RDFFactory(HalyardTableConfiguration halyardConfig) {
+		this.halyardConfig = halyardConfig;
 		version = halyardConfig.getInt(TableConfig.TABLE_VERSION);
 		if (version > TableConfig.CURRENT_VERSION) {
 			throw new RuntimeException("Unsupported table format - please upgrade");
 		}
-		valueIO = new ValueIO(
-			halyardConfig.getBoolean(TableConfig.VOCAB),
-			halyardConfig.getBoolean(TableConfig.LANG),
-			halyardConfig.getInt(TableConfig.STRING_COMPRESSION)
-		);
+		valueIO = new ValueIO(halyardConfig);
 		String confIdAlgo = halyardConfig.get(TableConfig.ID_HASH);
 		int confIdSize = halyardConfig.getInt(TableConfig.ID_SIZE);
 		int idSize = Hashes.getHash(confIdAlgo, confIdSize).size();
@@ -163,18 +176,17 @@ public class RDFFactory {
 			idTripleWriter = valueIO.createWriter(new IdTripleWriter());
 		}
 
-		for (IRI iri : valueIO.wellKnownIris.values()) {
-			IdentifiableIRI idIri = new IdentifiableIRI(iri.stringValue());
-			ValueIdentifier id = idIri.getId(this);
-			if (wellKnownIriIds.putIfAbsent(id, idIri) != null) {
+		for (IdentifiableIRI iri : halyardConfig.getWellKnownIRIs()) {
+			ValueIdentifier id = iri.getId(this);
+			if (wellKnownIriIds.putIfAbsent(id, iri) != null) {
 				throw new AssertionError(String.format("Hash collision between %s and %s",
-						wellKnownIriIds.get(id), idIri));
+						wellKnownIriIds.get(id), iri));
 			}
 		}
 	}
 
-	public Collection<Namespace> getWellKnownNamespaces() {
-		return valueIO.getWellKnownNamespaces();
+	public Collection<? extends Namespace> getWellKnownNamespaces() {
+		return halyardConfig.getWellKnownNamespaces();
 	}
 
 	IRI getWellKnownIRI(ValueIdentifier id) {

@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.common;
 
+import com.google.common.collect.ImmutableMap;
+
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -19,6 +21,7 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
+import org.json.JSONObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -49,9 +52,20 @@ public class RDFFactoryExtendedTest {
 		bigNibbleConf.setInt(TableConfig.KEY_SIZE_CONTEXT, 4);
 		bigNibbleConf.setInt(TableConfig.END_KEY_SIZE_CONTEXT, 3);
 
+		Configuration nsConf = new Configuration();
+		nsConf.setInt(TableConfig.KEY_SIZE_SUBJECT, 2);
+		nsConf.setInt(TableConfig.END_KEY_SIZE_SUBJECT, 2);
+		nsConf.setInt(TableConfig.KEY_SIZE_CONTEXT, 2);
+		nsConf.setInt(TableConfig.END_KEY_SIZE_CONTEXT, 2);
+		nsConf.set(TableConfig.VOCABS, JSONObject.valueToString(ImmutableMap.of(RDF.TYPE.stringValue(), 25)));
+		nsConf.set(TableConfig.NAMESPACES, JSONObject.valueToString(ImmutableMap.of("http://whatever", 1)));
+		nsConf.set(TableConfig.NAMESPACE_PREFIXES, JSONObject.valueToString(ImmutableMap.of("w", "http://whatever")));
+		nsConf.set(TableConfig.LANGS, JSONObject.valueToString(ImmutableMap.of("en", 1)));
+
 		return Arrays.<Object[]>asList(
 			new Object[] {littleNibbleConf},
-			new Object[] {bigNibbleConf}
+			new Object[] {bigNibbleConf},
+			new Object[] {nsConf}
 		);
 	}
 
@@ -156,6 +170,11 @@ public class RDFFactoryExtendedTest {
 		ValueIdentifier id = rdfFactory.id(RDF.TYPE);
 		IRI typeIri = rdfFactory.getWellKnownIRI(id);
 		assertEquals(RDF.TYPE, typeIri);
+	}
+
+	@Test
+	public void testNamespacePrefixes() {
+		assertTrue(rdfFactory.getWellKnownNamespaces().size() > 0);
 	}
 
 	@Test

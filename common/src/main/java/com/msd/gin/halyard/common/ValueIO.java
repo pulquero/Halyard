@@ -1,34 +1,20 @@
 package com.msd.gin.halyard.common;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Sets;
 import com.ibm.icu.text.UnicodeCompressor;
 import com.ibm.icu.text.UnicodeDecompressor;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.UncheckedIOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.BiFunction;
 
@@ -39,32 +25,16 @@ import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
 import javax.xml.transform.TransformerException;
 
-import org.apache.hadoop.hbase.util.Bytes;
 import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
-import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
-import org.eclipse.rdf4j.model.util.Vocabularies;
-import org.eclipse.rdf4j.model.vocabulary.DC;
-import org.eclipse.rdf4j.model.vocabulary.DCTERMS;
-import org.eclipse.rdf4j.model.vocabulary.FOAF;
 import org.eclipse.rdf4j.model.vocabulary.GEO;
-import org.eclipse.rdf4j.model.vocabulary.ORG;
-import org.eclipse.rdf4j.model.vocabulary.OWL;
-import org.eclipse.rdf4j.model.vocabulary.PROV;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
-import org.eclipse.rdf4j.model.vocabulary.RDFS;
-import org.eclipse.rdf4j.model.vocabulary.ROV;
-import org.eclipse.rdf4j.model.vocabulary.SD;
-import org.eclipse.rdf4j.model.vocabulary.SKOS;
-import org.eclipse.rdf4j.model.vocabulary.SKOSXL;
-import org.eclipse.rdf4j.model.vocabulary.VOID;
-import org.eclipse.rdf4j.model.vocabulary.WGS84;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.locationtech.jts.io.ParseException;
 import org.slf4j.Logger;
@@ -86,27 +56,6 @@ public class ValueIO {
 		"ka", "kk", "kn", "ko", "ky", "mk", "ml", "mn", "my", "or",
 		"ne", "ps", "ru", "sd", "sh", "sr", "ta", "tg", "th", "tt", "uk", "ur", "vi", "wuu", "yue", "zh"
 	);
-
-	private static List<Class<?>> getVocabularies() {
-		List<Class<?>> vocabs = new ArrayList<>(25);
-
-		LOGGER.info("Loading default vocabularies...");
-		Class<?>[] defaultVocabClasses = { RDF.class, RDFS.class, XSD.class, SD.class, VOID.class, FOAF.class,
-				OWL.class, DC.class, DCTERMS.class, SKOS.class, SKOSXL.class, ORG.class, GEO.class,
-				WGS84.class, PROV.class, ROV.class };
-		for (Class<?> vocabClass : defaultVocabClasses) {
-			LOGGER.debug("Loading vocabulary {}", vocabClass.getName());
-			vocabs.add(vocabClass);
-		}
-
-		LOGGER.info("Searching for additional vocabularies...");
-		for (Vocabulary vocab : ServiceLoader.load(Vocabulary.class)) {
-			LOGGER.info("Loading vocabulary {}", vocab.getClass().getName());
-			vocabs.add(vocab.getClass());
-		}
-
-		return Collections.unmodifiableList(vocabs);
-	}
 
 	interface ByteWriter {
 		ByteBuffer writeBytes(Literal l, ByteBuffer b);
@@ -427,143 +376,27 @@ public class ValueIO {
 		if (defaultValueIO == null) {
 			synchronized (ValueIO.class) {
 				if (defaultValueIO == null) {
-					boolean loadVocabularies = Boolean.parseBoolean(System.getProperty("halyard.vocabularies", "true"));
-					boolean loadLanguages = Boolean.parseBoolean(System.getProperty("halyard.languages", "true"));
-					int stringCompressionThreshold = Integer.parseInt(System.getProperty("halyard.string.compressionThreshold", "200"));
-					defaultValueIO = new ValueIO(loadVocabularies, loadLanguages, stringCompressionThreshold);
+					defaultValueIO = new ValueIO(new HalyardTableConfiguration((Iterable<Map.Entry<String, String>>) (Iterable<?>) System.getProperties().entrySet()));
 				}
 			}
 		}
 		return defaultValueIO;
 	}
 
-	private final BiMap<Short, String> wellKnownNamespaces = HashBiMap.create(256);
-	private final Map<String,Namespace> wellKnownNamespacePrefixes = new HashMap<>(256);
-	private final BiMap<Short, String> wellKnownLangs = HashBiMap.create(256);
-	protected final BiMap<Integer, IRI> wellKnownIris = HashBiMap.create(1024);
+	private final HalyardTableConfiguration config;
 	private final Map<IRI, ByteWriter> byteWriters = new HashMap<>(32);
 	private final Map<Integer, ByteReader> byteReaders = new HashMap<>(32);
-	private final Map<Short, IRIEncodingNamespace> iriEncoders = new HashMap<>();
 	private final int stringCompressionThreshold;
 
-	public ValueIO(boolean loadVocabularies, boolean loadLanguages, int stringCompressionThreshold) {
+	public ValueIO(HalyardTableConfiguration config) {
+		this.config = config;
+		int stringCompressionThreshold = config.getInt(TableConfig.STRING_COMPRESSION);
 		if (stringCompressionThreshold < 0) {
 			throw new IllegalArgumentException("String compression threshold must be greater than or equal to zero");
 		}
 		this.stringCompressionThreshold = stringCompressionThreshold;
 
-		if (loadVocabularies) {
-			for(Class<?> vocab : getVocabularies()) {
-				loadNamespaces(vocab);
-				loadIRIs(vocab);
-			}
-		}
-		if (loadLanguages) {
-			try {
-				loadLanguageTags();
-			} catch (IOException ioe) {
-				throw new UncheckedIOException(ioe);
-			}
-		}
-
 		addByteReaderWriters();
-	}
-
-	public Collection<Namespace> getWellKnownNamespaces() {
-		return wellKnownNamespacePrefixes.values();
-	}
-
-	private void loadNamespaces(Class<?> vocab) {
-		Collection<Namespace> namespaces = getNamespace(vocab);
-		addNamespaces(namespaces);
-
-		try {
-			Method getNamespaces = vocab.getMethod("getNamespaces");
-			namespaces = (Collection<Namespace>) getNamespaces.invoke(null);
-			addNamespaces(namespaces);
-		} catch (NoSuchMethodException e) {
-		} catch (IllegalAccessException e) {
-			throw new RuntimeException(e);
-		} catch (InvocationTargetException e) {
-			throw new RuntimeException(e.getCause());
-		}
-	}
-
-	private Set<Namespace> getNamespace(Class<?> vocabulary) {
-		Set<Namespace> namespaces = new HashSet<>();
-		for (Field f : vocabulary.getFields()) {
-			if (f.getType() == Namespace.class) {
-				try {
-					namespaces.add((Namespace) f.get(null));
-				} catch (IllegalAccessException ex) {
-					throw new AssertionError(ex);
-				}
-			}
-		}
-		return namespaces;
-	}
-
-	private void addNamespaces(Collection<Namespace> namespaces) {
-		for (Namespace namespace : namespaces) {
-			String name = namespace.getName();
-			Short hash = Hashes.hash16(Bytes.toBytes(name));
-			if (wellKnownNamespaces.putIfAbsent(hash, name) != null) {
-				throw new AssertionError(String.format("Hash collision between %s and %s",
-						wellKnownNamespaces.get(hash), name));
-			}
-			wellKnownNamespacePrefixes.put(namespace.getPrefix(), namespace);
-			if (namespace instanceof IRIEncodingNamespace) {
-				iriEncoders.put(hash, (IRIEncodingNamespace) namespace);
-			}
-		}
-	}
-
-	private void loadLanguageTags() throws IOException {
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream("languageTags"), "US-ASCII"))) {
-			reader.lines().forEach(langTag -> {
-				LOGGER.debug("Loading language {}", langTag);
-				addLanguageTag(langTag);
-				// add lowercase alternative
-				String lcLangTag = langTag.toLowerCase();
-				if (!lcLangTag.equals(langTag)) {
-					addLanguageTag(lcLangTag);
-				}
-			});
-		}
-	}
-
-	private void addLanguageTag(String langTag) {
-		Short hash = Hashes.hash16(Bytes.toBytes(langTag));
-		if (wellKnownLangs.putIfAbsent(hash, langTag) != null) {
-			throw new AssertionError(String.format("Hash collision between %s and %s",
-					wellKnownLangs.get(hash), langTag));
-		}
-	}
-
-	private void loadIRIs(Class<?> vocab) {
-		Collection<IRI> iris = Vocabularies.getIRIs(vocab);
-		addIRIs(iris);
-
-		try {
-			Method getIRIs = vocab.getMethod("getIRIs");
-			iris = (Collection<IRI>) getIRIs.invoke(null);
-			addIRIs(iris);
-		} catch (NoSuchMethodException e) {
-		} catch (IllegalAccessException e) {
-			throw new RuntimeException(e);
-		} catch (InvocationTargetException e) {
-			throw new RuntimeException(e.getCause());
-		}
-	}
-
-	private void addIRIs(Collection<IRI> iris) {
-		for (IRI iri : iris) {
-			Integer hash = Hashes.hash32(Bytes.toBytes(iri.stringValue()));
-			if (wellKnownIris.putIfAbsent(hash, iri) != null) {
-				throw new AssertionError(String.format("Hash collision between %s and %s",
-						wellKnownIris.get(hash), iri));
-			}
-		}
 	}
 
 	private void addByteWriter(IRI datatype, ByteWriter bw) {
@@ -779,7 +612,7 @@ public class ValueIO {
 				b.mark();
 				Short langHash = b.getShort(); // 16-bit hash
 				String label = readString(b);
-				String lang = wellKnownLangs.get(langHash);
+				String lang = config.getLanguageTag(langHash);
 				if (lang == null) {
 					b.limit(b.position()).reset();
 					throw new IllegalStateException(String.format("Unknown language tag hash: %s (%d) (label %s)", Hashes.encode(b), langHash, label));
@@ -964,7 +797,7 @@ public class ValueIO {
 	}
 
 	private ByteBuffer writeLanguagePrefix(String langTag, ByteBuffer b) {
-		Short hash = wellKnownLangs.inverse().get(langTag);
+		Short hash = config.getLanguageTagHash(langTag);
 		if (hash != null) {
 			b = ensureCapacity(b, 1+LANG_HASH_SIZE);
 			b.put(LANGUAGE_HASH_LITERAL_TYPE);
@@ -1050,7 +883,7 @@ public class ValueIO {
 		}
 
 		private ByteBuffer writeIRI(IRI iri, ByteBuffer b) {
-			Integer irihash = wellKnownIris.inverse().get(iri);
+			Integer irihash = config.getIRIHash(iri);
 			if (irihash != null) {
 				b = ensureCapacity(b, 1 + IRI_HASH_SIZE);
 				b.put(IRI_HASH_TYPE);
@@ -1060,7 +893,7 @@ public class ValueIO {
 				String ns = iri.getNamespace();
 				String localName = iri.getLocalName();
 				boolean endSlashEncodable = false;
-				Short nshash = wellKnownNamespaces.inverse().get(ns);
+				Short nshash = config.getNamespaceHash(ns);
 				if (nshash == null) {
 					// is it end-slash encodable?
 					String s = iri.stringValue();
@@ -1071,13 +904,13 @@ public class ValueIO {
 						if (sepPos > 0) {
 							ns = s.substring(0, sepPos+1);
 							localName = s.substring(sepPos+1, iriLen-1);
-							nshash = wellKnownNamespaces.inverse().get(ns);
+							nshash = config.getNamespaceHash(ns);
 							endSlashEncodable = true;
 						}
 					}
 				}
 				if (nshash != null) {
-					IRIEncodingNamespace iriEncoder = !localName.isEmpty() ? iriEncoders.get(nshash) : null;
+					IRIEncodingNamespace iriEncoder = !localName.isEmpty() ? config.getIRIEncodingNamespace(nshash) : null;
 					if (iriEncoder != null) {
 						b = ensureCapacity(b, 1 + NAMESPACE_HASH_SIZE);
 						final int failsafeMark = b.position();
@@ -1234,7 +1067,7 @@ public class ValueIO {
 				case IRI_HASH_TYPE:
 					b.mark();
 					Integer irihash = b.getInt(); // 32-bit hash
-					IRI iri = wellKnownIris.get(irihash);
+					IRI iri = config.getIRI(irihash);
 					if (iri == null) {
 						b.limit(b.position()).reset();
 						throw new IllegalStateException(String.format("Unknown IRI hash: %s (%d)", Hashes.encode(b), irihash));
@@ -1243,7 +1076,7 @@ public class ValueIO {
 				case NAMESPACE_HASH_TYPE:
 					b.mark();
 					Short nshash = b.getShort(); // 16-bit hash
-					String namespace = wellKnownNamespaces.get(nshash);
+					String namespace = config.getNamespace(nshash);
 					String localName = readUncompressedString(b);
 					if (namespace == null) {
 						b.limit(b.position()).reset();
@@ -1253,7 +1086,7 @@ public class ValueIO {
 				case ENCODED_IRI_TYPE:
 					b.mark();
 					nshash = b.getShort(); // 16-bit hash
-					IRIEncodingNamespace iriEncoder = iriEncoders.get(nshash);
+					IRIEncodingNamespace iriEncoder = config.getIRIEncodingNamespace(nshash);
 					if (iriEncoder == null) {
 						b.limit(b.position()).reset();
 						throw new IllegalStateException(String.format("Unknown IRI encoder hash: %s (%d)", Hashes.encode(b), nshash));
@@ -1262,7 +1095,7 @@ public class ValueIO {
 				case END_SLASH_ENCODED_IRI_TYPE:
 					b.mark();
 					nshash = b.getShort(); // 16-bit hash
-					iriEncoder = iriEncoders.get(nshash);
+					iriEncoder = config.getIRIEncodingNamespace(nshash);
 					if (iriEncoder == null) {
 						b.limit(b.position()).reset();
 						throw new IllegalStateException(String.format("Unknown IRI encoder hash: %s (%d)", Hashes.encode(b), nshash));
