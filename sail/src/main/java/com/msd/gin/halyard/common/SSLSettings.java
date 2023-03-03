@@ -16,8 +16,9 @@ import javax.net.ssl.TrustManagerFactory;
 import org.apache.hadoop.conf.Configuration;
 
 public final class SSLSettings {
+	/** type for all key stores */
+	private String keyStoreType;
 	public URL keyStoreLocation;
-	public String keyStoreType = "jks";
 	public char[] keyStorePassword;
 	public URL trustStoreLocation;
 	public char[] trustStorePassword;
@@ -29,8 +30,8 @@ public final class SSLSettings {
 		String trustLoc = conf.get("es.net.ssl.truststore.location");
 		String trustPass = conf.get("es.net.ssl.truststore.pass");
 		SSLSettings sslSettings = new SSLSettings();
+		sslSettings.keyStoreType = conf.get("es.net.ssl.keystore.type");
 		sslSettings.keyStoreLocation = (keyLoc != null && !keyLoc.isEmpty()) ? new URL(keyLoc) : null;
-		sslSettings.keyStoreType = conf.get("es.net.ssl.keystore.type", "jks");
 		sslSettings.keyStorePassword = (keyPass != null && !keyPass.isEmpty()) ? keyPass.toCharArray() : null;
 		sslSettings.trustStoreLocation = (trustLoc != null && !trustLoc.isEmpty()) ? new URL(trustLoc) : null;
 		sslSettings.trustStorePassword = (trustPass != null && !trustPass.isEmpty()) ? trustPass.toCharArray() : null;
@@ -38,10 +39,14 @@ public final class SSLSettings {
 		return sslSettings;
 	}
 
+	private static boolean isPKCS12(String loc) {
+		return loc != null && (loc.endsWith(".p12") || loc.endsWith(".pfx") || loc.endsWith(".pkcs12"));
+	}
+
 	public SSLContext createSSLContext() throws IOException, GeneralSecurityException {
 		KeyManager[] keyManagers = null;
 		if (keyStoreLocation != null) {
-			KeyStore keyStore = KeyStore.getInstance(keyStoreType);
+			KeyStore keyStore = KeyStore.getInstance(getKeyStoreType(keyStoreLocation.getPath()));
 			try (InputStream keyStoreIn = keyStoreLocation.openStream()) {
 				keyStore.load(keyStoreIn, (keyStorePassword != null && keyStorePassword.length > 0) ? keyStorePassword : null);
 			}
@@ -52,7 +57,7 @@ public final class SSLSettings {
 	
 		TrustManager[] trustManagers = null;
 		if (trustStoreLocation != null) {
-			KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+			KeyStore trustStore = KeyStore.getInstance(getKeyStoreType(trustStoreLocation.getPath()));
 			try (InputStream trustStoreIn = trustStoreLocation.openStream()) {
 				trustStore.load(trustStoreIn, (trustStorePassword != null && trustStorePassword.length > 0) ? trustStorePassword : null);
 			}
@@ -66,4 +71,7 @@ public final class SSLSettings {
 		return sslContext;
 	}
 
+	private String getKeyStoreType(String location) {
+		return (keyStoreType != null) ? keyStoreType : isPKCS12(location) ? "PKCS12" : "jks";
+	}
 }
