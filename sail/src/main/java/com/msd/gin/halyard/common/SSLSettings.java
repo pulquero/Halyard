@@ -30,12 +30,16 @@ public final class SSLSettings {
 		String trustPass = conf.get("es.net.ssl.truststore.pass");
 		SSLSettings sslSettings = new SSLSettings();
 		sslSettings.keyStoreLocation = (keyLoc != null && !keyLoc.isEmpty()) ? new URL(keyLoc) : null;
-		sslSettings.keyStoreType = conf.get("es.net.ssl.keystore.type", "jks");
+		sslSettings.keyStoreType = conf.get("es.net.ssl.keystore.type", isPKCS12(keyLoc) ? "PKCS12" : "jks");
 		sslSettings.keyStorePassword = (keyPass != null && !keyPass.isEmpty()) ? keyPass.toCharArray() : null;
 		sslSettings.trustStoreLocation = (trustLoc != null && !trustLoc.isEmpty()) ? new URL(trustLoc) : null;
 		sslSettings.trustStorePassword = (trustPass != null && !trustPass.isEmpty()) ? trustPass.toCharArray() : null;
 		sslSettings.sslProtocol = conf.get("es.net.ssl.protocol", "TLS");
 		return sslSettings;
+	}
+
+	private static boolean isPKCS12(String loc) {
+		return loc != null && (loc.endsWith(".p12") || loc.endsWith(".pfx") || loc.endsWith(".pkcs12"));
 	}
 
 	public SSLContext createSSLContext() throws IOException, GeneralSecurityException {
