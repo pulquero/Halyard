@@ -808,7 +808,6 @@ final class HalyardTupleExprEvaluation {
         	QueryRoot root = (QueryRoot) expr;
         	BindingSetPipeEvaluationStep step = precompileTupleExpr(root.getArg());
         	return (parent, bindings) -> {
-                parentStrategy.sharedValueOfNow = null;
         		step.evaluate(parentStrategy.track(parent, root), bindings);
         	};
         } else if (expr instanceof DescribeOperator) {

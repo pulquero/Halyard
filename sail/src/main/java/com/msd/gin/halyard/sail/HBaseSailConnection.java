@@ -39,6 +39,7 @@ import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
 import com.msd.gin.halyard.strategy.ExtendedEvaluationStrategy;
 import com.msd.gin.halyard.strategy.ExtendedQueryOptimizerPipeline;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
+import com.msd.gin.halyard.strategy.HalyardExecutionContext;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
@@ -188,7 +189,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		QueryContext queryContext = new QueryContext(queryPreparer);
 		queryContext.setAttribute(QUERY_CONTEXT_KEYSPACE_ATTRIBUTE, keyspaceConn);
 		queryContext.setAttribute(QUERY_CONTEXT_INDICES_ATTRIBUTE, sail.getStatementIndices());
-		queryContext.setAttribute(HalyardEvaluationStrategy.QUERY_CONTEXT_SOURCE_STRING_ATTRIBUTE, sourceString);
+		queryContext.setAttribute(HalyardExecutionContext.QUERY_CONTEXT_SOURCE_STRING_ATTRIBUTE, sourceString);
 		queryContext.setAttribute(QUERY_CONTEXT_SEARCH_ATTRIBUTE, searchClient);
 		return queryContext;
 	}
