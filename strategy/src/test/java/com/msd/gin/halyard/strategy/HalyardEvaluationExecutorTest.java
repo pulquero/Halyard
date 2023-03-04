@@ -10,6 +10,7 @@ import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.Var;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryContext;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 import org.junit.jupiter.api.Test;
 
@@ -32,12 +33,12 @@ public class HalyardEvaluationExecutorTest {
 		Join j2 = new Join(sp2, sp3);
 		Join j1 = new Join(sp1, j2);
 		QueryRoot root = new QueryRoot(j1);
-		HalyardEvaluationExecutor executor = new HalyardEvaluationExecutor(new Configuration());
-		assertEquals(1, executor.getPriorityForNode(j1));
-		assertEquals(2, executor.getPriorityForNode(sp1));
-		assertEquals(3, executor.getPriorityForNode(j2));
-		assertEquals(4, executor.getPriorityForNode(sp2));
-		assertEquals(5, executor.getPriorityForNode(sp3));
+		HalyardExecutionContext execContext = new HalyardExecutionContext(new QueryContext());
+		assertEquals(1, execContext.getPriorityForNode(j1));
+		assertEquals(2, execContext.getPriorityForNode(sp1));
+		assertEquals(3, execContext.getPriorityForNode(j2));
+		assertEquals(4, execContext.getPriorityForNode(sp2));
+		assertEquals(5, execContext.getPriorityForNode(sp3));
 	}
 
 	@Test
@@ -51,21 +52,21 @@ public class HalyardEvaluationExecutorTest {
 		Join j2 = new Join(sp2, service);
 		Join j1 = new Join(sp1, j2);
 		QueryRoot root = new QueryRoot(j1);
-		HalyardEvaluationExecutor executor = new HalyardEvaluationExecutor(new Configuration());
-		assertEquals(1, executor.getPriorityForNode(j1));
-		assertEquals(2, executor.getPriorityForNode(sp1));
-		assertEquals(3, executor.getPriorityForNode(j2));
-		assertEquals(4, executor.getPriorityForNode(sp2));
-		assertEquals(5, executor.getPriorityForNode(service));
-		assertEquals(6, executor.getPriorityForNode(j3));
-		assertEquals(7, executor.getPriorityForNode(sp3));
-		assertEquals(8, executor.getPriorityForNode(sp4));
+		HalyardExecutionContext execContext = new HalyardExecutionContext(new QueryContext());
+		assertEquals(1, execContext.getPriorityForNode(j1));
+		assertEquals(2, execContext.getPriorityForNode(sp1));
+		assertEquals(3, execContext.getPriorityForNode(j2));
+		assertEquals(4, execContext.getPriorityForNode(sp2));
+		assertEquals(5, execContext.getPriorityForNode(service));
+		assertEquals(6, execContext.getPriorityForNode(j3));
+		assertEquals(7, execContext.getPriorityForNode(sp3));
+		assertEquals(8, execContext.getPriorityForNode(sp4));
 
 		ServiceRoot serviceRoot = ServiceRoot.create(service);
 		Join serviceJoin = (Join) serviceRoot.getArg();
-		assertEquals(6, executor.getPriorityForNode(serviceJoin));
-		assertEquals(7, executor.getPriorityForNode(serviceJoin.getLeftArg()));
-		assertEquals(8, executor.getPriorityForNode(serviceJoin.getRightArg()));
+		assertEquals(6, execContext.getPriorityForNode(serviceJoin));
+		assertEquals(7, execContext.getPriorityForNode(serviceJoin.getLeftArg()));
+		assertEquals(8, execContext.getPriorityForNode(serviceJoin.getRightArg()));
 	}
 
 	@Test

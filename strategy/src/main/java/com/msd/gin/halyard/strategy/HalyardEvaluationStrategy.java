@@ -66,8 +66,6 @@ import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
  * @author Adam Sotona (MSD)
  */
 public class HalyardEvaluationStrategy implements EvaluationStrategy {
-	public static final String QUERY_CONTEXT_SOURCE_STRING_ATTRIBUTE = "SourceString";
-
 	private final Configuration conf;
     private final Dataset dataset;
 	/**
@@ -76,7 +74,6 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
     private final FederatedServiceResolver serviceResolver;
     private final Map<String,FederatedService> federatedServices = new HashMap<>();
     private final TripleSource tripleSource;
-    private final QueryContext queryContext;
 	final HalyardEvaluationExecutor executor;
     /**
      * Evaluates TupleExpressions and all implementations of that interface
@@ -98,12 +95,9 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	private QueryOptimizerPipeline pipeline;
 
-    /**
-     * Ensures 'now' is the same across all parts of the query evaluation chain.
-     */
-    Value sharedValueOfNow;
+	HalyardExecutionContext execContext;
 
-    /**
+	/**
 	 * Default constructor of HalyardEvaluationStrategy
 	 * 
 	 * @param tripleSource {@code TripleSource} to be queried for the existence of triples in a context
@@ -121,7 +115,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			HalyardEvaluationStatistics statistics, HalyardEvaluationExecutor executor) {
 		this.conf = conf;
 		this.tripleSource = tripleSource;
-		this.queryContext = queryContext;
+		this.execContext = new HalyardExecutionContext(queryContext);
 		this.dataset = dataset;
 		this.serviceResolver = serviceResolver;
 		this.executor = executor;
@@ -157,10 +151,6 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	TripleSource getTripleSource() {
 		return tripleSource;
-	}
-
-	String getSourceString() {
-		return queryContext.getAttribute(QUERY_CONTEXT_SOURCE_STRING_ATTRIBUTE);
 	}
 
 	protected JoinAlgorithmOptimizer getJoinAlgorithmOptimizer() {
@@ -310,7 +300,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	@Override
     public String toString() {
-        return super.toString() + "[sourceString = " + getSourceString() + ", tripleSource = " + tripleSource + "]";
+        return super.toString() + "[sourceString = " + execContext.getSourceString() + ", tripleSource = " + tripleSource + "]";
     }
 
 

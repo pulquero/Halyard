@@ -1028,11 +1028,9 @@ class HalyardValueExprEvaluation {
      * @throws QueryEvaluationException
      */
     private ValuePipeEvaluationStep precompileNow(Now node) throws ValueExprEvaluationException, QueryEvaluationException {
+    	Literal now = parentStrategy.execContext.getNow(valueFactory);
         return (parent, bindings)-> {
-            if (parentStrategy.sharedValueOfNow == null) {
-                parentStrategy.sharedValueOfNow = node.evaluate(valueFactory);
-            }
-        	parent.push(parentStrategy.sharedValueOfNow);
+        	parent.push(now);
         };
     }
 
