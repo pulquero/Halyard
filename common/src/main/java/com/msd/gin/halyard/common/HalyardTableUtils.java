@@ -99,8 +99,8 @@ public final class HalyardTableUtils {
 	 * @param conn Connection to the cluster running HBase
 	 * @param tableName String table name
 	 * @param create boolean option to create the table if does not exist
-	 * @param splitBits int number of bits used for calculation of Table region pre-splits (applies for new tables only). Must be between 0 and 16 (or -1 for no splits). Higher values generate more
-	 * splits.
+	 * @param splitBits int number of bits used for calculation of Table region pre-splits (applies for new tables only).
+	 * Must be between 0 and 16 (or -1 for no splits). Higher values generate more splits.
 	 * @throws IOException throws IOException in case of any HBase IO problems
 	 * @return the org.apache.hadoop.hbase.client.Table
 	 */
@@ -126,6 +126,14 @@ public final class HalyardTableUtils {
 		}
 	}
 
+	/**
+	 * Creates a HBase table for use with Halyard.
+	 * @param conn HBase server connection.
+	 * @param htableName name of table to create.
+	 * @param splitBits -1 for no splits.
+	 * @return the created table
+	 * @throws IOException
+	 */
 	public static Table createTable(Connection conn, TableName htableName, int splitBits) throws IOException {
 		Configuration conf = conn.getConfiguration();
 		RDFFactory rdfFactory = RDFFactory.create(conf);
@@ -133,7 +141,7 @@ public final class HalyardTableUtils {
         return createTable(conn, htableName, splitBits < 0 ? null : calculateSplits(splitBits, true, indices), DEFAULT_MAX_VERSIONS);
 	}
 
-	public static Table createTable(Connection conn, TableName htableName, byte[][] splits, int maxVersions) throws IOException {
+	public static Table createTable(Connection conn, TableName htableName, @Nullable byte[][] splits, int maxVersions) throws IOException {
 		try (Admin admin = conn.getAdmin()) {
 			TableDescriptor td = TableDescriptorBuilder.newBuilder(htableName)
 				.setColumnFamily(createColumnFamily(maxVersions))

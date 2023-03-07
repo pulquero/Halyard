@@ -687,7 +687,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         addOption("d", "verify-data-types", null, VERIFY_DATATYPE_VALUES_PROPERTY, "Optionally verify RDF data type values while parsing", false, false);
         addOption("k", "skip-invalid-lines", null, SKIP_INVALID_LINES_PROPERTY, "Optionally skip invalid lines", false, false);
         addOption("r", "truncate-target", null, TRUNCATE_PROPERTY, "Optionally truncate target table just before the loading the new data", false, false);
-        addOption("b", "pre-split-bits", "bits", SPLIT_BITS_PROPERTY, "Optionally specify bit depth of region pre-splits for a case when target table does not exist (default is 3)", false, true);
+        addOption("b", "pre-split-bits", "bits", SPLIT_BITS_PROPERTY, "Optionally specify bit depth of region pre-splits for a case when target table does not exist (default is 3, -1 for no splits)", false, true);
         addOption("g", "default-named-graph", "named_graph", DEFAULT_CONTEXT_PROPERTY, "Optionally specify default target named graph", false, true);
         addOption("o", "named-graph-override", null, OVERRIDE_CONTEXT_PROPERTY, "Optionally override named graph also for quads, named graph is stripped from quads if --default-named-graph option is not specified", false, false);
         addOption("e", "target-timestamp", "timestamp", TIMESTAMP_PROPERTY, "Optionally specify timestamp of all loaded records (default is actual time of the operation)", false, true);
