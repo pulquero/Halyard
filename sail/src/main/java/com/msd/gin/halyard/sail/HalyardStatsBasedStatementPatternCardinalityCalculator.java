@@ -53,7 +53,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	private final Cache<IRI, Long> stmtCountCache;
 
 	static Cache<IRI, Long> newStatementCountCache() {
-		return CacheBuilder.newBuilder().concurrencyLevel(1).build();
+		return CacheBuilder.newBuilder().concurrencyLevel(16).maximumSize(1000).build();
 	}
 
 	public HalyardStatsBasedStatementPatternCardinalityCalculator(TripleSource statsSource, RDFFactory rdfFactory, Cache<IRI, Long> stmtCountCache) {

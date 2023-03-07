@@ -758,7 +758,6 @@ public final class HalyardTableUtils {
         scan.addFamily(CF_NAME);
 		scan.readVersions(READ_VERSIONS);
         scan.setAllowPartialResults(true);
-        scan.setBatch(10);
         scan.setCaching(rowBatchSize);
         // dont cause the block cache to be flushed when doing an indiscriminate scan
         scan.setCacheBlocks(!indiscriminate);
