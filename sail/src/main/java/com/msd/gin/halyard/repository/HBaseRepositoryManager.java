@@ -65,7 +65,8 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 
 	public static Repository createSystemRepository(Configuration config) throws RepositoryException {
 		config.set(TableConfig.ID_HASH, "Murmur3-128");
-		SailRepository repo = new SailRepository(new HBaseSail(config, SYSTEM_TABLE, true, 0, true, 180, null, null));
+		// don't bother splitting such a small table
+		SailRepository repo = new SailRepository(new HBaseSail(config, SYSTEM_TABLE, true, -1, true, 180, null, null));
 		repo.init();
 		return repo;
 	}
