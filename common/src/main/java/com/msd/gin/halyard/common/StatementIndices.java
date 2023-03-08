@@ -2,8 +2,13 @@ package com.msd.gin.halyard.common;
 
 import static com.msd.gin.halyard.common.StatementIndex.*;
 
+import com.msd.gin.halyard.vocab.HALYARD;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -11,14 +16,23 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.Triple;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 
 public final class StatementIndices {
+	private static final int PREFIXES = 3;
+
 	private final int maxCaching;
 	private final RDFFactory rdfFactory;
 	private final StatementIndex<SPOC.S,SPOC.P,SPOC.O,SPOC.C> spo;
@@ -128,8 +142,8 @@ public final class StatementIndices {
 	}
 
 	public Scan scanAll() {
-		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
-        int rowBatchSize = Math.min(maxCaching, cardinality);
+		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*6; // all 6 indices
+        int rowBatchSize = HalyardTableUtils.rowBatchSize(maxCaching, cardinality);
 		return HalyardTableUtils.scan(
 			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.role3.startKey(), spo.role4.startKey()),
 			cosp.concat(true, cosp.role1.stopKey(), cosp.role2.stopKey(), cosp.role3.stopKey(), cosp.role4.stopKey()),
@@ -139,8 +153,8 @@ public final class StatementIndices {
 	}
 
 	public Scan scanDefaultIndices() {
-		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
-        int rowBatchSize = Math.min(maxCaching, cardinality);
+		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*3; // 3 indices
+        int rowBatchSize = HalyardTableUtils.rowBatchSize(maxCaching, cardinality);
 		return HalyardTableUtils.scan(
 			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.role3.startKey(), spo.role4.startKey()),
 			osp.concat(true, osp.role1.stopKey(), osp.role2.stopKey(), osp.role3.stopKey(), osp.role4.stopKey()),
@@ -246,7 +260,7 @@ public final class StatementIndices {
 	/**
 	 * Performs a scan using any suitable index.
 	 */
-	public Scan scan(@Nonnull RDFIdentifier s, @Nonnull RDFIdentifier p, @Nonnull RDFIdentifier o, @Nullable RDFIdentifier c) {
+	Scan scanAny(@Nonnull RDFIdentifier s, @Nonnull RDFIdentifier p, @Nonnull RDFIdentifier o, @Nullable RDFIdentifier c) {
 		Scan scan;
 		if (c == null) {
 			int h = Math.floorMod(Objects.hash(s, p, o), 3);
@@ -285,5 +299,347 @@ public final class StatementIndices {
 
 	public ValueIO.Reader createTableReader(ValueFactory vf, KeyspaceConnection conn) {
 		return rdfFactory.valueIO.createStreamReader(vf);
+	}
+
+	/**
+	 * Method constructing HBase Scan from a Statement pattern hashes, any of the arguments can be null
+	 * @param subj optional subject Resource
+	 * @param pred optional predicate IRI
+	 * @param obj optional object Value
+	 * @param ctx optional context Resource
+	 * @return HBase Scan instance to retrieve all data potentially matching the Statement pattern
+	 */
+	public Scan scan(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx) {
+		if (ctx == null) {
+			if (subj == null) {
+				if (pred == null) {
+					if (obj == null) {
+						return spo.scan();
+	                } else {
+						return osp.scan(obj);
+	                }
+	            } else {
+					if (obj == null) {
+						return pos.scan(pred);
+	                } else {
+						return pos.scan(pred, obj);
+	                }
+	            }
+	        } else {
+				if (pred == null) {
+					if (obj == null) {
+						return spo.scan(subj);
+	                } else {
+						return osp.scan(obj, subj);
+	                }
+	            } else {
+					if (obj == null) {
+						return spo.scan(subj, pred);
+	                } else {
+						return scanAny(subj, pred, obj, null);
+	                }
+	            }
+	        }
+	    } else {
+			if (subj == null) {
+				if (pred == null) {
+					if (obj == null) {
+						return cspo.scan(ctx);
+	                } else {
+						return cosp.scan(ctx, obj);
+	                }
+	            } else {
+					if (obj == null) {
+						return cpos.scan(ctx, pred);
+	                } else {
+						return cpos.scan(ctx, pred, obj);
+	                }
+	            }
+	        } else {
+				if (pred == null) {
+					if (obj == null) {
+						return cspo.scan(ctx, subj);
+	                } else {
+						return cosp.scan(ctx, obj, subj);
+	                }
+	            } else {
+					if (obj == null) {
+						return cspo.scan(ctx, subj, pred);
+	                } else {
+						return scanAny(subj, pred, obj, ctx);
+	                }
+	            }
+	        }
+	    }
+	}
+
+    public Scan scanWithConstraints(RDFSubject subj, ValueConstraint subjConstraint, RDFPredicate pred, RDFObject obj, ValueConstraint objConstraint, RDFContext ctx) {
+		if (subj == null && subjConstraint != null && (pred == null || objConstraint == null)) {
+			return scanWithSubjectConstraint(subjConstraint, pred, obj, ctx);
+		} else if (obj == null && objConstraint != null) {
+			return scanWithObjectConstraint(subj, pred, objConstraint, ctx);
+		} else {
+			return scan(subj, pred, obj, ctx);
+		}
+	}
+
+	private Scan scanWithSubjectConstraint(@Nonnull ValueConstraint subjConstraint, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx) {
+		if (ctx == null) {
+			if (pred == null) {
+				if (obj == null) {
+					return spo.scanWithConstraint(subjConstraint);
+                } else {
+					return osp.scanWithConstraint(obj, subjConstraint);
+                }
+            } else {
+				if (obj == null) {
+					return pos.scanWithConstraint(pred, null, subjConstraint);
+                } else {
+					return pos.scanWithConstraint(pred, obj, subjConstraint);
+                }
+            }
+        } else {
+			if (pred == null) {
+				if (obj == null) {
+					return cspo.scanWithConstraint(ctx, subjConstraint);
+                } else {
+					return cosp.scanWithConstraint(ctx, obj, subjConstraint);
+                }
+            } else {
+				if (obj == null) {
+					return cpos.scanWithConstraint(ctx, pred, null, subjConstraint);
+                } else {
+					return cpos.scanWithConstraint(ctx, pred, obj, subjConstraint);
+                }
+            }
+        }
+    }
+
+	private Scan scanWithObjectConstraint(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nonnull ValueConstraint objConstraint, @Nullable RDFContext ctx) {
+		if (ctx == null) {
+			if (subj == null) {
+				if (pred == null) {
+					return osp.scanWithConstraint(objConstraint);
+                } else {
+					return pos.scanWithConstraint(pred, objConstraint);
+                }
+            } else {
+				if (pred == null) {
+					return spo.scanWithConstraint(subj, null, objConstraint);
+                } else {
+					return spo.scanWithConstraint(subj, pred, objConstraint);
+                }
+            }
+        } else {
+			if (subj == null) {
+				if (pred == null) {
+					return cosp.scanWithConstraint(ctx, objConstraint);
+                } else {
+					return cpos.scanWithConstraint(ctx, pred, objConstraint);
+                }
+            } else {
+				if (pred == null) {
+					return cspo.scanWithConstraint(ctx, subj, null, objConstraint);
+                } else {
+					return cspo.scanWithConstraint(ctx, subj, pred, objConstraint);
+                }
+            }
+        }
+    }
+
+	/**
+	 * Parser method returning all Statements from a single HBase Scan Result
+	 * 
+	 * @param subj subject if known
+	 * @param pred predicate if known
+	 * @param obj object if known
+	 * @param ctx context if known
+	 * @param res HBase Scan Result
+	 * @param valueReader ValueIO.Reader
+	 * @return List of Statements
+	 */
+	public List<Statement> parseStatements(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, Result res, ValueIO.Reader valueReader) {
+		// multiple triples may have the same hash (i.e. row key)
+		List<Statement> st;
+		if (!res.isEmpty()) {
+			Cell[] cells = res.rawCells();
+			if (cells.length == 1) {
+				st = Collections.singletonList(parseStatement(subj, pred, obj, ctx, cells[0], valueReader));
+			} else {
+				st = new ArrayList<>(cells.length);
+				for (Cell c : cells) {
+					st.add(parseStatement(subj, pred, obj, ctx, c, valueReader));
+				}
+			}
+		} else {
+			st = Collections.emptyList();
+		}
+		return st;
+	}
+
+	/**
+	 * Parser method returning Statement from a single HBase Result Cell
+	 * 
+	 * @param subj subject if known
+	 * @param pred predicate if known
+	 * @param obj object if known
+	 * @param ctx context if known
+	 * @param cell HBase Result Cell
+	 * @param valueReader ValueIO.Reader
+	 * @return Statements
+	 */
+	public Statement parseStatement(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, Cell cell, ValueIO.Reader valueReader) {
+		ByteBuffer row = ByteBuffer.wrap(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
+	    ByteBuffer cq = ByteBuffer.wrap(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
+	    ByteBuffer cv = ByteBuffer.wrap(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
+		StatementIndex<?,?,?,?> index = toIndex(row.get());
+	    Statement stmt = index.parseStatement(subj, pred, obj, ctx, row, cq, cv, valueReader);
+	    assert !row.hasRemaining();
+	    assert !cq.hasRemaining();
+	    assert !cv.hasRemaining();
+		if (stmt instanceof Timestamped) {
+			((Timestamped) stmt).setTimestamp(HalyardTableUtils.fromHalyardTimestamp(cell.getTimestamp()));
+	    }
+		return stmt;
+	}
+
+
+	public List<? extends KeyValue> insertKeyValues(Resource subj, IRI pred, Value obj, Resource context, long timestamp) {
+		return toKeyValues(subj, pred, obj, context, false, timestamp, true);
+	}
+	public List<? extends KeyValue> deleteKeyValues(Resource subj, IRI pred, Value obj, Resource context, long timestamp) {
+		return toKeyValues(subj, pred, obj, context, true, timestamp, false);
+	}
+
+	public List<? extends KeyValue> insertSystemKeyValues(Resource subj, IRI pred, Value obj, Resource context, long timestamp) {
+		return toKeyValues(subj, pred, obj, context, false, timestamp, false, true);
+	}
+	public List<? extends KeyValue> deleteSystemKeyValues(Resource subj, IRI pred, Value obj, Resource context, long timestamp) {
+		return toKeyValues(subj, pred, obj, context, true, timestamp, false, false);
+	}
+
+	/**
+     * Conversion method from Subj, Pred, Obj and optional Context into an array of HBase keys
+     * @param subj subject Resource
+	 * @param pred predicate IRI
+	 * @param obj object Value
+	 * @param context optional context Resource
+	 * @param delete boolean switch to produce KeyValues for deletion instead of for insertion
+	 * @param timestamp long timestamp value for time-ordering purposes
+	 * @param includeTriples boolean switch to include KeyValues for triples 
+	 * @param rdfFactory RDFFactory
+     * @return List of KeyValues
+     */
+	List<? extends KeyValue> toKeyValues(Resource subj, IRI pred, Value obj, Resource context, boolean delete, long timestamp, boolean includeTriples) {
+		return toKeyValues(subj, pred, obj, context, delete, timestamp, true, includeTriples);
+	}
+
+	private List<? extends KeyValue> toKeyValues(Resource subj, IRI pred, Value obj, Resource context, boolean delete, long timestamp, boolean includeInDefaultGraph, boolean includeTriples) {
+		List<KeyValue> kvs =  new ArrayList<KeyValue>(context == null ? PREFIXES : 2 * PREFIXES);
+		KeyValue.Type type = delete ? KeyValue.Type.DeleteColumn : KeyValue.Type.Put;
+		timestamp = HalyardTableUtils.toHalyardTimestamp(timestamp, !delete);
+		appendKeyValues(subj, pred, obj, context, type, timestamp, includeInDefaultGraph, includeTriples, kvs);
+		return kvs;
+	}
+
+	private void appendKeyValues(Resource subj, IRI pred, Value obj, Resource context, KeyValue.Type type, long timestamp, boolean includeInDefaultGraph, boolean includeTriples, List<KeyValue> kvs) {
+		if(subj == null || pred == null || obj == null) {
+			throw new NullPointerException();
+		}
+	
+		RDFSubject sb = rdfFactory.createSubject(subj);
+		RDFPredicate pb = rdfFactory.createPredicate(pred);
+		RDFObject ob = rdfFactory.createObject(obj);
+		RDFContext cb = rdfFactory.createContext(context);
+
+		// generate HBase key value pairs from: row, family, qualifier, value. Permutations of SPO (and if needed CSPO) are all stored.
+	    if (includeInDefaultGraph) {
+			kvs.add(new KeyValue(spo.row(sb, pb, ob, cb), HalyardTableUtils.CF_NAME, spo.qualifier(sb, pb, ob, cb), timestamp, type, spo.value(sb, pb, ob, cb)));
+			kvs.add(new KeyValue(pos.row(pb, ob, sb, cb), HalyardTableUtils.CF_NAME, pos.qualifier(pb, ob, sb, cb), timestamp, type, pos.value(pb, ob, sb, cb)));
+			kvs.add(new KeyValue(osp.row(ob, sb, pb, cb), HalyardTableUtils.CF_NAME, osp.qualifier(ob, sb, pb, cb), timestamp, type, osp.value(ob, sb, pb, cb)));
+	    }
+	    if (context != null) {
+	    	kvs.add(new KeyValue(cspo.row(cb, sb, pb, ob), HalyardTableUtils.CF_NAME, cspo.qualifier(cb, sb, pb, ob), timestamp, type, cspo.value(cb, sb, pb, ob)));
+	    	kvs.add(new KeyValue(cpos.row(cb, pb, ob, sb), HalyardTableUtils.CF_NAME, cpos.qualifier(cb, pb, ob, sb), timestamp, type, cpos.value(cb, pb, ob, sb)));
+	    	kvs.add(new KeyValue(cosp.row(cb, ob, sb, pb), HalyardTableUtils.CF_NAME, cosp.qualifier(cb, ob, sb, pb), timestamp, type, cosp.value(cb, ob, sb, pb)));
+	    }
+	
+	    if (includeTriples) {
+			if (subj.isTriple()) {
+				Triple t = (Triple) subj;
+				appendKeyValues(t.getSubject(), t.getPredicate(), t.getObject(), HALYARD.TRIPLE_GRAPH_CONTEXT, type, timestamp, false, true, kvs);
+			}
+
+			if (obj.isTriple()) {
+				Triple t = (Triple) obj;
+				appendKeyValues(t.getSubject(), t.getPredicate(), t.getObject(), HALYARD.TRIPLE_GRAPH_CONTEXT, type, timestamp, false, true, kvs);
+			}
+	    }
+	}
+
+	public boolean isTripleReferenced(KeyspaceConnection kc, Triple t) throws IOException {
+		return hasSubject(kc, t)
+			|| hasObject(kc, t)
+			|| hasSubject(kc, t, HALYARD.TRIPLE_GRAPH_CONTEXT)
+			|| hasObject(kc, t, HALYARD.TRIPLE_GRAPH_CONTEXT);
+	}
+
+	public boolean hasSubject(KeyspaceConnection kc, Resource subj) throws IOException {
+		return HalyardTableUtils.exists(kc, spo.scan(rdfFactory.createSubject(subj)));
+	}
+	public boolean hasSubject(KeyspaceConnection kc, Resource subj, Resource ctx) throws IOException {
+		return HalyardTableUtils.exists(kc, cspo.scan(rdfFactory.createContext(ctx), rdfFactory.createSubject(subj)));
+	}
+
+	public boolean hasObject(KeyspaceConnection kc, Value obj) throws IOException {
+		return HalyardTableUtils.exists(kc, osp.scan(rdfFactory.createObject(obj)));
+	}
+	public boolean hasObject(KeyspaceConnection kc, Value obj, Resource ctx) throws IOException {
+		return HalyardTableUtils.exists(kc, cosp.scan(rdfFactory.createContext(ctx), rdfFactory.createObject(obj)));
+	}
+
+	public Resource getSubject(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
+		ValueIO.Reader valueReader = createTableReader(vf, kc);
+		Scan scan = HalyardTableUtils.scanSingle(spo.scan(id));
+		try (ResultScanner scanner = kc.getScanner(scan)) {
+			for (Result result : scanner) {
+				if(!result.isEmpty()) {
+					Cell[] cells = result.rawCells();
+					Statement stmt = parseStatement(null, null, null, null, cells[0], valueReader);
+					return stmt.getSubject();
+				}
+			}
+		}
+		return null;
+	}
+
+	public IRI getPredicate(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
+		ValueIO.Reader valueReader = createTableReader(vf, kc);
+		Scan scan = HalyardTableUtils.scanSingle(pos.scan(id));
+		try (ResultScanner scanner = kc.getScanner(scan)) {
+			for (Result result : scanner) {
+				if(!result.isEmpty()) {
+					Cell[] cells = result.rawCells();
+					Statement stmt = parseStatement(null, null, null, null, cells[0], valueReader);
+					return stmt.getPredicate();
+				}
+			}
+		}
+		return null;
+	}
+
+	public Value getObject(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
+		ValueIO.Reader valueReader = createTableReader(vf, kc);
+		Scan scan = HalyardTableUtils.scanSingle(osp.scan(id));
+		try (ResultScanner scanner = kc.getScanner(scan)) {
+			for (Result result : scanner) {
+				if(!result.isEmpty()) {
+					Cell[] cells = result.rawCells();
+					Statement stmt = parseStatement(null, null, null, null, cells[0], valueReader);
+					return stmt.getObject();
+				}
+			}
+		}
+		return null;
 	}
 }

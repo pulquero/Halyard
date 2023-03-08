@@ -9,7 +9,6 @@ import org.eclipse.rdf4j.common.iteration.AbstractCloseableIteration;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.ValueFactory;
 
-import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.RDFContext;
 import com.msd.gin.halyard.common.RDFObject;
 import com.msd.gin.halyard.common.RDFPredicate;
@@ -45,7 +44,7 @@ public abstract class AbstractStatementScanner extends AbstractCloseableIteratio
 					if (res == null) {
 						return false; // no more Results
 					}
-					iter = HalyardTableUtils.parseStatements(subj, pred, obj, ctx, res, reader, indices).iterator();
+					iter = indices.parseStatements(subj, pred, obj, ctx, res, reader).iterator();
 				}
 				if (iter.hasNext()) {
 					Statement s = iter.next();

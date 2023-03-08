@@ -86,7 +86,7 @@ public class HalyardTableUtilsKeyValueTest {
 		long ts = 0;
 		Resource ctx = c != null ? c.val : null;
 		Statement expected = vf.createStatement(s.val, p.val, o.val, ctx);
-		List<? extends Cell> kvs = HalyardTableUtils.insertKeyValues(s.val, p.val, o.val, ctx, ts, indices);
+		List<? extends Cell> kvs = indices.insertKeyValues(s.val, p.val, o.val, ctx, ts);
 		for(Cell kv : kvs) {
 			testParseStatement("spoc", expected, s, p, o, c != null ? c : null, kv, ts);
 			testParseStatement("_poc", expected, null, p, o, c != null ? c : null, kv, ts);
@@ -97,7 +97,7 @@ public class HalyardTableUtilsKeyValueTest {
 	}
 
 	private void testParseStatement(String msg, Statement expected, RDFSubject s, RDFPredicate p, RDFObject o, RDFContext c, Cell kv, long ts) {
-		Statement actual = HalyardTableUtils.parseStatement(s, p, o, c, kv, rdfFactory.createReader(vf), indices);
+		Statement actual = indices.parseStatement(s, p, o, c, kv, rdfFactory.createReader(vf));
 		assertEquals(msg, expected, actual);
 		assertEquals(ts, ((Timestamped)actual).getTimestamp());
 		if(s == null) {

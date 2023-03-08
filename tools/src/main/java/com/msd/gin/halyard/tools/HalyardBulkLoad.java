@@ -240,9 +240,9 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         	if (stmtDedup.add(stmt)) {
         		List<? extends KeyValue> kvs;
         		if (HALYARD.SYSTEM_GRAPH_CONTEXT.equals(stmt.getContext())) {
-        			kvs = HalyardTableUtils.insertSystemKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp, stmtIndices);
+        			kvs = stmtIndices.insertSystemKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
         		} else {
-        			kvs = HalyardTableUtils.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp, stmtIndices);
+        			kvs = stmtIndices.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
         		}
 	            for (KeyValue keyValue: kvs) {
 	                rowKey.set(keyValue.getRowArray(), keyValue.getRowOffset(), keyValue.getRowLength());

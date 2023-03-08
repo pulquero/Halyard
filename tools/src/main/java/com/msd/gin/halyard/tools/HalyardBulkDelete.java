@@ -137,7 +137,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         @Override
         protected void map(ImmutableBytesWritable key, Result value, Context output) throws IOException, InterruptedException {
             for (Cell c : value.rawCells()) {
-                Statement st = HalyardTableUtils.parseStatement(null, null, null, null, c, valueReader, stmtIndices);
+                Statement st = stmtIndices.parseStatement(null, null, null, null, c, valueReader);
                 if ((ctxs == null || ctxs.contains(st.getContext())) && (subj == null || subj.equals(st.getSubject())) && (pred == null || pred.equals(st.getPredicate())) && (obj == null || obj.equals(st.getObject()))) {
                     deleteCell(c, st, output);
                 } else if (HALYARD.TRIPLE_GRAPH_CONTEXT.equals(st.getContext())) {
@@ -169,7 +169,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 
         private void cleanupTriple(Cell c, Statement st, Context output) throws IOException, InterruptedException {
         	Triple t = vf.createTriple(st.getSubject(), st.getPredicate(), st.getObject());
-    		if (!HalyardTableUtils.isTripleReferenced(keyspaceConn, t, stmtIndices)) {
+    		if (!stmtIndices.isTripleReferenced(keyspaceConn, t)) {
     			// orphaned so safe to remove
     			deleteCell(c, st, output);
     		}

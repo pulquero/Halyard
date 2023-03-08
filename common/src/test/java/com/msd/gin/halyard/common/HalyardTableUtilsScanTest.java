@@ -173,7 +173,7 @@ public class HalyardTableUtilsScanTest {
         long timestamp = System.currentTimeMillis();
 		List<Put> puts = new ArrayList<>();
         for (Statement st : allStatements) {
-            for (Cell kv : HalyardTableUtils.insertKeyValues(st.getSubject(), st.getPredicate(), st.getObject(), st.getContext(), timestamp, stmtIndices)) {
+            for (Cell kv : stmtIndices.insertKeyValues(st.getSubject(), st.getPredicate(), st.getObject(), st.getContext(), timestamp)) {
 				puts.add(new Put(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength(), kv.getTimestamp()).add(kv));
             }
         }
@@ -206,11 +206,11 @@ public class HalyardTableUtilsScanTest {
         RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
         RDFObject obj = rdfFactory.createObject(o == null ? null : vf.createLiteral(o));
         RDFContext ctx = rdfFactory.createContext(c == null ? null : vf.createIRI(c));
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(subj, pred, obj, ctx, stmtIndices))) {
+        try (ResultScanner rs = table.getScanner(stmtIndices.scan(subj, pred, obj, ctx))) {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(HalyardTableUtils.parseStatements(subj, pred, obj, ctx, r, reader, stmtIndices));
+                res.addAll(stmtIndices.parseStatements(subj, pred, obj, ctx, r, reader));
             }
             assertTrue(allStatements.containsAll(res));
             assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
@@ -242,7 +242,7 @@ public class HalyardTableUtilsScanTest {
                     Set<Statement> res = new HashSet<>();
                     Result r;
                     while ((r = rs.next()) != null) {
-                        res.addAll(HalyardTableUtils.parseStatements(null, null, null, null, r, reader, stmtIndices));
+                        res.addAll(stmtIndices.parseStatements(null, null, null, null, r, reader));
                     }
                     assertTrue(allStatements.containsAll(res));
                     assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
@@ -260,11 +260,11 @@ public class HalyardTableUtilsScanTest {
         RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
         RDFObject obj = rdfFactory.createObject(o == null ? null : vf.createLiteral(o));
         RDFContext ctx = rdfFactory.createContext(c == null ? null : vf.createIRI(c));
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scanWithConstraints(subj, new ValueConstraint(ValueType.IRI), pred, obj, new LiteralConstraint(XSD.STRING), ctx, stmtIndices))) {
+        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraints(subj, new ValueConstraint(ValueType.IRI), pred, obj, new LiteralConstraint(XSD.STRING), ctx))) {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(HalyardTableUtils.parseStatements(subj, pred, null, ctx, r, reader, stmtIndices));
+                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader));
             }
             assertTrue(allStatements.containsAll(res));
             assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
@@ -280,11 +280,11 @@ public class HalyardTableUtilsScanTest {
         RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
         RDFObject obj = rdfFactory.createObject(o == null ? null : vf.createLiteral(o));
         RDFContext ctx = rdfFactory.createContext(c == null ? null : vf.createIRI(c));
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scanWithConstraints(subj, new ValueConstraint(ValueType.IRI), pred, obj, null, ctx, stmtIndices))) {
+        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraints(subj, new ValueConstraint(ValueType.IRI), pred, obj, null, ctx))) {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(HalyardTableUtils.parseStatements(subj, pred, null, ctx, r, reader, stmtIndices));
+                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader));
             }
             assertTrue(allStatements.containsAll(res));
             if (pred == null || obj != null) {
@@ -305,11 +305,11 @@ public class HalyardTableUtilsScanTest {
         RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
         RDFObject obj = rdfFactory.createObject(o == null ? null : vf.createLiteral(o));
         RDFContext ctx = rdfFactory.createContext(c == null ? null : vf.createIRI(c));
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scanWithConstraints(subj, null, pred, obj, new LiteralConstraint(XSD.STRING), ctx, stmtIndices))) {
+        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraints(subj, null, pred, obj, new LiteralConstraint(XSD.STRING), ctx))) {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(HalyardTableUtils.parseStatements(subj, pred, null, ctx, r, reader, stmtIndices));
+                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader));
             }
             assertTrue(allStatements.containsAll(res));
             if (subj == null || pred != null) {

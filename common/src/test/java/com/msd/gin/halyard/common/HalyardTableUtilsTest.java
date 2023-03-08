@@ -39,7 +39,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  *
@@ -94,7 +98,7 @@ public class HalyardTableUtilsTest {
         IRI pred = vf.createIRI("http://testBigLiteral/pred/");
         Value obj = vf.createLiteral(RandomStringUtils.random(100000));
 		List<Put> puts = new ArrayList<>();
-        for (Cell kv : HalyardTableUtils.insertKeyValues(subj, pred, obj, null, System.currentTimeMillis(), stmtIndices)) {
+        for (Cell kv : stmtIndices.insertKeyValues(subj, pred, obj, null, System.currentTimeMillis())) {
 			puts.add(new Put(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength(), kv.getTimestamp()).add(kv));
         }
 		table.put(puts);
@@ -102,11 +106,11 @@ public class HalyardTableUtilsTest {
         RDFSubject s = rdfFactory.createSubject(subj);
         RDFPredicate p = rdfFactory.createPredicate(pred);
         RDFObject o = rdfFactory.createObject(obj);
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p, o, null, stmtIndices))) {
-            assertEquals(obj, HalyardTableUtils.parseStatements(s, p, o, null, rs.next(), reader, stmtIndices).iterator().next().getObject());
+        try (ResultScanner rs = table.getScanner(stmtIndices.scan(s, p, o, null))) {
+            assertEquals(obj, stmtIndices.parseStatements(s, p, o, null, rs.next(), reader).iterator().next().getObject());
         }
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p, null, null, stmtIndices))) {
-            assertEquals(obj, HalyardTableUtils.parseStatements(s, p, null, null, rs.next(), reader, stmtIndices).iterator().next().getObject());
+        try (ResultScanner rs = table.getScanner(stmtIndices.scan(s, p, null, null))) {
+            assertEquals(obj, stmtIndices.parseStatements(s, p, null, null, rs.next(), reader).iterator().next().getObject());
         }
     }
 
@@ -116,12 +120,12 @@ public class HalyardTableUtilsTest {
         IRI res = vf.createIRI("http://testiri");
         Triple t1 = vf.createTriple(res, res, res);
         Triple t2 = vf.createTriple(t1, res, t1);
-        List<? extends Cell> kvs = HalyardTableUtils.insertKeyValues(t2, res, t2, res, 0, stmtIndices);
+        List<? extends Cell> kvs = stmtIndices.insertKeyValues(t2, res, t2, res, 0);
         for (Cell kv : kvs) {
 			table.put(new Put(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength(), kv.getTimestamp()).add(kv));
         }
-        assertTrue(HalyardTableUtils.isTripleReferenced(keyspaceConn, t1, stmtIndices));
-        assertTrue(HalyardTableUtils.isTripleReferenced(keyspaceConn, t2, stmtIndices));
+        assertTrue(stmtIndices.isTripleReferenced(keyspaceConn, t1));
+        assertTrue(stmtIndices.isTripleReferenced(keyspaceConn, t2));
     }
 
     @Test
@@ -135,8 +139,8 @@ public class HalyardTableUtilsTest {
         Value obj1 = vf.createLiteral("literal1");
         Value obj2 = vf.createLiteral("literal2");
         long timestamp = System.currentTimeMillis();
-        List<? extends Cell> kv1 = HalyardTableUtils.insertKeyValues(subj, pred1, obj1, null, timestamp, stmtIndices);
-        List<? extends Cell> kv2 = HalyardTableUtils.insertKeyValues(subj, pred2, obj2, null, timestamp, stmtIndices);
+        List<? extends Cell> kv1 = stmtIndices.insertKeyValues(subj, pred1, obj1, null, timestamp);
+        List<? extends Cell> kv2 = stmtIndices.insertKeyValues(subj, pred2, obj2, null, timestamp);
 		List<Put> puts = new ArrayList<>();
         for (int i=0; i<3; i++) {
         	Cell cell1 = kv1.get(i);
@@ -155,10 +159,10 @@ public class HalyardTableUtilsTest {
         RDFSubject s = rdfFactory.createSubject(subj);
         RDFPredicate p1 = rdfFactory.createPredicate(pred1);
         RDFObject o1 = rdfFactory.createObject(obj1);
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p1, o1, null, stmtIndices))) {
-            List<Statement> res = HalyardTableUtils.parseStatements(s, p1, o1, null, rs.next(), reader, stmtIndices);
+        try (ResultScanner rs = table.getScanner(stmtIndices.scan(s, p1, o1, null))) {
+            List<Statement> res = stmtIndices.parseStatements(s, p1, o1, null, rs.next(), reader);
             assertEquals(1, res.size());
-            assertTrue(res.contains(SimpleValueFactory.getInstance().createStatement(subj, pred1, obj1)));
+            assertTrue(res.contains(vf.createStatement(subj, pred1, obj1)));
         }
     }
 
@@ -169,18 +173,18 @@ public class HalyardTableUtilsTest {
         IRI pred = vf.createIRI("http://whatever/pred/");
         Value expl = vf.createLiteral("explicit");
 		List<Put> puts = new ArrayList<>();
-        for (Cell kv : HalyardTableUtils.insertKeyValues(subj, pred, expl, null, System.currentTimeMillis(), stmtIndices)) {
+        for (Cell kv : stmtIndices.insertKeyValues(subj, pred, expl, null, System.currentTimeMillis())) {
 			puts.add(new Put(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength(), kv.getTimestamp()).add(kv));
         }
 		table.put(puts);
         RDFSubject s = rdfFactory.createSubject(subj);
         RDFPredicate p = rdfFactory.createPredicate(pred);
         RDFObject o = rdfFactory.createObject(expl);
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p, o, null, stmtIndices))) {
+        try (ResultScanner rs = table.getScanner(stmtIndices.scan(s, p, o, null))) {
             assertNotNull(rs.next());
         }
 		HalyardTableUtils.clearStatements(conn, table.getName());
-        try (ResultScanner rs = table.getScanner(HalyardTableUtils.scan(s, p, o, null, stmtIndices))) {
+        try (ResultScanner rs = table.getScanner(stmtIndices.scan(s, p, o, null))) {
             assertNull(rs.next());
         }
     }
@@ -190,7 +194,7 @@ public class HalyardTableUtilsTest {
         ValueFactory vf = SimpleValueFactory.getInstance();
         ValueIO.Reader reader = rdfFactory.createReader(vf);
 
-        assertEquals(0, HalyardTableUtils.parseStatements(null, null, null, null, Result.EMPTY_RESULT, reader, stmtIndices).size());
+        assertEquals(0, stmtIndices.parseStatements(null, null, null, null, Result.EMPTY_RESULT, reader).size());
     }
 
     @Test
@@ -210,7 +214,7 @@ public class HalyardTableUtilsTest {
     @Test
     public void testToKeyValues() throws Exception {
         IRI res = SimpleValueFactory.getInstance().createIRI("http://testiri");
-        List<? extends Cell> kvs = HalyardTableUtils.toKeyValues(res, res, res, res, true, 0, true, stmtIndices);
+        List<? extends Cell> kvs = stmtIndices.toKeyValues(res, res, res, res, true, 0, true);
         assertEquals(6, kvs.size());
         for (Cell kv : kvs) {
             assertEquals(Cell.Type.DeleteColumn, kv.getType());
@@ -222,7 +226,7 @@ public class HalyardTableUtilsTest {
         ValueFactory vf = SimpleValueFactory.getInstance();
         IRI res = vf.createIRI("http://testiri");
         Triple t = vf.createTriple(res, res, res);
-        List<? extends Cell> kvs = HalyardTableUtils.toKeyValues(t, res, t, res, true, 0, true, stmtIndices);
+        List<? extends Cell> kvs = stmtIndices.toKeyValues(t, res, t, res, true, 0, true);
         // 6 for the statement, 3 for the subject triple, 3 for the object triple - no dedupping
         assertEquals(12, kvs.size());
         for (Cell kv : kvs) {

@@ -116,7 +116,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
 	       			nextStmtToSample = totalStmts + random.nextInt(decimationFactor);
 	        	}
 	        	if (totalStmts == nextStmtToSample) {
-	                List<? extends KeyValue> kvs = HalyardTableUtils.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), 0, stmtIndices);
+	                List<? extends KeyValue> kvs = stmtIndices.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), 0);
 	        		for (KeyValue keyValue: kvs) {
 	                    rowKey.set(keyValue.getRowArray(), keyValue.getRowOffset(), keyValue.getRowLength());
 	                    keyValueLength.set(keyValue.getLength());

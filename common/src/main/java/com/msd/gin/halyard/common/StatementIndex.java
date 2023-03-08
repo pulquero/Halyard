@@ -305,7 +305,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	}
 
 	Scan scan(ByteSequence k1Start, ByteSequence k2Start, ByteSequence k3Start, ByteSequence k4Start, ByteSequence k1Stop, ByteSequence k2Stop, ByteSequence k3Stop, ByteSequence k4Stop, int cardinality, boolean indiscriminate) {
-        int rowBatchSize = Math.min(maxCaching, cardinality);
+        int rowBatchSize = HalyardTableUtils.rowBatchSize(maxCaching, cardinality);
 		return HalyardTableUtils.scan(concat(false, k1Start, k2Start, k3Start, k4Start), concat(true, k1Stop, k2Stop, k3Stop, k4Stop), rowBatchSize, indiscriminate);
 	}
 

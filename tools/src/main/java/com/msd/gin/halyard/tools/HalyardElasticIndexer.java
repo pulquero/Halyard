@@ -133,7 +133,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
             	lastLiterals = new HashSet<>();
             }
 
-            List<Statement> stmts = HalyardTableUtils.parseStatements(null, null, null, null, value, valueReader, stmtIndices);
+            List<Statement> stmts = stmtIndices.parseStatements(null, null, null, null, value, valueReader);
             for (Statement st : stmts) {
                 statements++;
             	Literal l = (Literal) st.getObject();

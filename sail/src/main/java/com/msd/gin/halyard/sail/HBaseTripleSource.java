@@ -189,7 +189,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, StatementIndices indices) throws IOException {
-		Scan scan = HalyardTableUtils.scan(subj, pred, obj, ctx, indices);
+		Scan scan = indices.scan(subj, pred, obj, ctx);
 		if (settings != null) {
 			scan.setTimeRange(settings.minTimestamp, settings.maxTimestamp);
 			scan.readVersions(settings.maxVersions);
@@ -207,7 +207,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		return new HBaseTripleSource(keyspaceConn, valueReader, stmtIndices, timeoutSecs, settings, ticker) {
 			@Override
 			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, StatementIndices indices) {
-				return HalyardTableUtils.scanWithConstraints(subj, subjConstraint, pred, obj, objConstraints, ctx, indices);
+				return indices.scanWithConstraints(subj, subjConstraint, pred, obj, objConstraints, ctx);
 			}
 		};
 	}

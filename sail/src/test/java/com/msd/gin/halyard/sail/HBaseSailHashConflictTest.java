@@ -91,11 +91,10 @@ public class HBaseSailHashConflictTest {
 		try (Connection conn = HalyardTableUtils.getConnection(HBaseServerTestInstance.getInstanceConfig())) {
 			try (Table table = HalyardTableUtils.getTable(conn, "testConflictingHash", true, 0)) {
 				long timestamp = System.currentTimeMillis();
-				List<? extends Cell> triple = HalyardTableUtils.insertKeyValues(SUBJ, PRED, OBJ, null, timestamp, indices);
-				List<? extends Cell>[] conflicts = new List[] { HalyardTableUtils.insertKeyValues(SUBJ, PRED, CONF, null, timestamp, indices), HalyardTableUtils.insertKeyValues(SUBJ, CONF, OBJ, null, timestamp, indices),
-						HalyardTableUtils.insertKeyValues(SUBJ, CONF, CONF, null, timestamp, indices), HalyardTableUtils.insertKeyValues(CONF, PRED, OBJ, null, timestamp, indices),
-						HalyardTableUtils.insertKeyValues(CONF, PRED, CONF, null, timestamp, indices), HalyardTableUtils.insertKeyValues(CONF, CONF, OBJ, null, timestamp, indices),
-						HalyardTableUtils.insertKeyValues(CONF, CONF, CONF, null, timestamp, indices), };
+				List<? extends Cell> triple = indices.insertKeyValues(SUBJ, PRED, OBJ, null, timestamp);
+				List<? extends Cell>[] conflicts = new List[] { indices.insertKeyValues(SUBJ, PRED, CONF, null, timestamp), indices.insertKeyValues(SUBJ, CONF, OBJ, null, timestamp),
+						indices.insertKeyValues(SUBJ, CONF, CONF, null, timestamp), indices.insertKeyValues(CONF, PRED, OBJ, null, timestamp), indices.insertKeyValues(CONF, PRED, CONF, null, timestamp),
+						indices.insertKeyValues(CONF, CONF, OBJ, null, timestamp), indices.insertKeyValues(CONF, CONF, CONF, null, timestamp), };
 				List<Put> puts = new ArrayList<>();
 				for (int i = 0; i < triple.size(); i++) {
 					Cell kv = triple.get(i);
