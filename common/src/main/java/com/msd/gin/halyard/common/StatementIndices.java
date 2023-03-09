@@ -143,7 +143,7 @@ public final class StatementIndices {
 
 	public Scan scanAll() {
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*6; // all 6 indices
-        int rowBatchSize = HalyardTableUtils.rowBatchSize(maxCaching, cardinality);
+        int rowBatchSize = HalyardTableUtils.rowBatchSize(cardinality, maxCaching);
 		return HalyardTableUtils.scan(
 			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.role3.startKey(), spo.role4.startKey()),
 			cosp.concat(true, cosp.role1.stopKey(), cosp.role2.stopKey(), cosp.role3.stopKey(), cosp.role4.stopKey()),
@@ -154,7 +154,7 @@ public final class StatementIndices {
 
 	public Scan scanDefaultIndices() {
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*3; // 3 indices
-        int rowBatchSize = HalyardTableUtils.rowBatchSize(maxCaching, cardinality);
+        int rowBatchSize = HalyardTableUtils.rowBatchSize(cardinality, maxCaching);
 		return HalyardTableUtils.scan(
 			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.role3.startKey(), spo.role4.startKey()),
 			osp.concat(true, osp.role1.stopKey(), osp.role2.stopKey(), osp.role3.stopKey(), osp.role4.stopKey()),

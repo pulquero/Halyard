@@ -412,8 +412,14 @@ public final class HalyardTableUtils {
         return scan;
     }
 
-	static int rowBatchSize(int maxCachingLimit, int cardinality) {
-		return Math.min(maxCachingLimit, cardinality);
+	static int rowBatchSize(int cardinality, int maxCachingLimit) {
+		if (cardinality == 1) {
+			return 1;
+		} else if (cardinality > StatementIndex.VAR_CARDINALITY) {
+			return maxCachingLimit;
+		} else {
+			return 100;
+		}
 	}
 
 	private static ColumnFamilyDescriptor createColumnFamily(int maxVersions) {
