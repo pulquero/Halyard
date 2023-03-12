@@ -20,6 +20,7 @@ import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.QueueingBindingSetPipe;
+import com.msd.gin.halyard.util.BlockingMultiQueue;
 import com.msd.gin.halyard.util.RateTracker;
 
 import java.lang.management.ManagementFactory;
@@ -29,6 +30,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -68,8 +70,12 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 			thr.setDaemon(true);
 			return thr;
 		};
+		BlockingQueue<Runnable> queue = (BlockingQueue<Runnable>) (BlockingQueue<?>) new BlockingMultiQueue<PrioritizedTask>(r -> {
+			HalyardEvaluationStrategy strategy = r.strategyRef.get();
+			return (strategy != null) ? strategy.execContext : null;
+		}, o -> new PriorityBlockingQueue<>(64));
 		// fixed-size thread pool that can wind down when idle
-		TrackingThreadPoolExecutor executor = new TrackingThreadPoolExecutor(threads, threads, 60L, TimeUnit.SECONDS, new PriorityBlockingQueue<>(64), tf);
+		TrackingThreadPoolExecutor executor = new TrackingThreadPoolExecutor(threads, threads, 60L, TimeUnit.SECONDS, queue, tf);
 		executor.allowCoreThreadTimeOut(true);
 		return executor;
 	}
