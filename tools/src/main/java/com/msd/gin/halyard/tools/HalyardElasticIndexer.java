@@ -101,6 +101,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
     static final class IndexerMapper extends RdfTableMapper<NullWritable, Text>  {
 
         final Text outputJson = new Text();
+        boolean hasLabelField, hasGeometryField, hasDatatypeField, hasLangField;
         long counter = 0, exports = 0, statements = 0;
         StatementIndex<?,?,?,?> lastIndex;
         Set<Value> lastLiterals;
@@ -111,6 +112,10 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         @Override
         protected void setup(Context context) throws IOException {
             Configuration conf = context.getConfiguration();
+            hasLabelField = getFieldConfigProperty(conf, SearchDocument.LABEL_FIELD);
+            hasGeometryField = getFieldConfigProperty(conf, SearchDocument.GEOMETRY_FIELD);
+            hasDatatypeField = getFieldConfigProperty(conf, SearchDocument.DATATYPE_FIELD);
+            hasLangField = getFieldConfigProperty(conf, SearchDocument.LANG_FIELD);
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
         }
 
@@ -142,26 +147,33 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
 	                json.append("{\"").append(SearchDocument.ID_FIELD).append("\":");
 	                String id = rdfFactory.id(l).toString();
 	                JSONObject.quote(id, json);
-	                json.append(",\"").append(SearchDocument.LABEL_FIELD).append("\":");
 	                IRI datatype = l.getDatatype();
-	    			if (XMLDatatypeUtil.isNumericDatatype(datatype)) {
-	    				if (XMLDatatypeUtil.isIntegerDatatype(datatype)) {
-	    					json.append(Long.toString(l.longValue()));
-	    				} else {
-	    					json.append(Double.toString(l.doubleValue()));
-	    				}
-	    			} else {
-		                JSONObject.quote(l.getLabel(), json);
-	    			}
-	    			if (GEO.WKT_LITERAL.equals(datatype)) {
+	                if (hasLabelField) {
+		                json.append(",\"").append(SearchDocument.LABEL_FIELD).append("\":");
+		    			if (XMLDatatypeUtil.isNumericDatatype(datatype)) {
+		    				if (XMLDatatypeUtil.isIntegerDatatype(datatype)) {
+		    					json.append(Long.toString(l.longValue()));
+		    				} else {
+		    					json.append(Double.toString(l.doubleValue()));
+		    				}
+		    			} else {
+			                JSONObject.quote(l.getLabel(), json);
+		    			}
+	                }
+	    			if (hasGeometryField && GEO.WKT_LITERAL.equals(datatype)) {
 	    				json.append(",\"geometry\":");
 		                JSONObject.quote(l.getLabel(), json);
 	    			}
-	                json.append(",\"").append(SearchDocument.DATATYPE_FIELD).append("\":");
-	                JSONObject.quote(datatype.stringValue(), json);
-	                if(l.getLanguage().isPresent()) {
-		                json.append(",\"").append(SearchDocument.LANG_FIELD).append("\":");
-		                JSONObject.quote(l.getLanguage().get(), json);
+	    			if (hasDatatypeField) {
+		                json.append(",\"").append(SearchDocument.DATATYPE_FIELD).append("\":");
+		                JSONObject.quote(datatype.stringValue(), json);
+	    			}
+	    			if (hasLangField) {
+	    				String langTag = l.getLanguage().orElse(null);
+		                if(langTag != null) {
+			                json.append(",\"").append(SearchDocument.LANG_FIELD).append("\":");
+			                JSONObject.quote(langTag, json);
+		                }
 	                }
 	                json.append("}\n");
             		json.close();
@@ -236,7 +248,11 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
     @Override
     public int run(CommandLine cmd) throws Exception {
         configureString(cmd, 's', null);
-        configureString(cmd, 't', null);
+        configureString(cmd, 't', null, indexUrl -> {
+        	if (indexUrl.endsWith("/")) {
+        		throw new IllegalArgumentException("The index URL should end with the index name not a /");
+        	}
+        });
         configureString(cmd, 'u', null);
         configureBoolean(cmd, 'c');
         configureString(cmd, 'a', null);
@@ -245,6 +261,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         String source = getConf().get(SOURCE_NAME_PROPERTY);
         String target = getConf().get(INDEX_URL_PROPERTY);
         URL targetUrl = new URL(target);
+        String indexName = targetUrl.getPath().substring(1);
         boolean createIndex = getConf().getBoolean(CREATE_INDEX_PROPERTY, false);
         String snapshotPath = getConf().get(SNAPSHOT_PATH_PROPERTY);
         if (snapshotPath != null) {
@@ -257,70 +274,37 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         String namedGraph = getConf().get(NAMED_GRAPH_PROPERTY);
 
         getConf().set("es.nodes", targetUrl.getHost()+":"+targetUrl.getPort());
-        getConf().set("es.resource", targetUrl.getPath());
+        getConf().set("es.resource", indexName);
         getConf().set("es.mapping.id", "id");
         getConf().set("es.input.json", "yes");
         getConf().setIfUnset("es.batch.size.bytes", Integer.toString(5*1024*1024));
         getConf().setIfUnset("es.batch.size.entries", Integer.toString(10000));
 
+        if (createIndex) {
+        	createIndex(targetUrl);
+        }
+
+        // retrieve mapping config to use
+        JSONObject mapping = getIndexMapping(targetUrl);
+    	JSONObject fields = mapping.getJSONObject(indexName).getJSONObject("mappings").getJSONObject("properties");
+    	for (String field : (Set<String>) fields.keySet()) {
+    		getConf().setBoolean(confProperty(TOOL_NAME, "fields."+field), true);
+    	}
+
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
-               NTriplesUtil.class,
-               Rio.class,
-               AbstractRDFHandler.class,
-               RDFFormat.class,
-               RDFParser.class,
-               Table.class,
-               HBaseConfiguration.class,
-               AuthenticationProtos.class);
+                NTriplesUtil.class,
+                Rio.class,
+                AbstractRDFHandler.class,
+                RDFFormat.class,
+                RDFParser.class,
+                Table.class,
+                HBaseConfiguration.class,
+                AuthenticationProtos.class);
         if (System.getProperty("exclude.es-hadoop") == null) {
-        	TableMapReduceUtil.addDependencyJarsForClasses(getConf(), EsOutputFormat.class);
+         	TableMapReduceUtil.addDependencyJarsForClasses(getConf(), EsOutputFormat.class);
         }
         HBaseConfiguration.addHbaseResources(getConf());
         Job job = Job.getInstance(getConf(), "HalyardElasticIndexer " + source + " -> " + target);
-        if (createIndex) {
-            int shards;
-            int replicas = 1;
-            try (Connection conn = ConnectionFactory.createConnection(getConf())) {
-                try (Admin admin = conn.getAdmin()) {
-                    shards = 2 * admin.getRegionServers().size(); // 2 shards per node to allow for growth
-                }
-            }
-            HttpURLConnection http = (HttpURLConnection)targetUrl.openConnection();
-            configureAuth(http);
-            if (http instanceof HttpsURLConnection) {
-            	configureSSL((HttpsURLConnection) http);
-            }
-            http.setRequestMethod("PUT");
-            http.setDoOutput(true);
-            http.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-            String alias = getConf().get(ALIAS_PROPERTY);
-            byte b[] = Bytes.toBytes(getMappingConfig("", Integer.toString(shards), Integer.toString(replicas), alias));
-            http.setFixedLengthStreamingMode(b.length);
-            http.connect();
-            try {
-                try (OutputStream post = http.getOutputStream()) {
-                    post.write(b);
-                }
-                int response = http.getResponseCode();
-                String msg = http.getResponseMessage();
-                if (response == 200) {
-                    LOG.info("Elastic index succesfully configured.");
-                } else {
-                    InputStream errStream = http.getErrorStream();
-                    String resp = (errStream != null) ? IOUtils.toString(errStream, StandardCharsets.UTF_8) : "";
-                    LOG.warn("Elastic index responded with {}: {}", response, resp);
-                    boolean alreadyExist = false;
-                    if (response == 400) try {
-                        alreadyExist = new JSONObject(resp).getJSONObject("error").getString("type").contains("exists");
-                    } catch (Exception ex) {
-                        //ignore
-                    }
-                    if (!alreadyExist) throw new IOException(msg);
-                }
-            } finally {
-                http.disconnect();
-            }
-        }
         job.setJarByClass(HalyardElasticIndexer.class);
         TableMapReduceUtil.initCredentials(job);
 
@@ -349,12 +333,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         job.setSpeculativeExecution(false);
 	    try {
 	        if (job.waitForCompletion(true)) {
-	            HttpURLConnection http = (HttpURLConnection)new URL(target + "_refresh").openConnection();
-	            if (http instanceof HttpsURLConnection) {
-	            	configureSSL((HttpsURLConnection) http);
-	            }
-	            http.connect();
-	            http.disconnect();
+	            refreshIndex(targetUrl);
 	            LOG.info("Elastic indexing completed.");
 	            return 0;
 	        } else {
@@ -380,5 +359,105 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
 		SSLSettings sslSettings = SSLSettings.from(getConf());
 		SSLContext sslContext = sslSettings.createSSLContext();
 		https.setSSLSocketFactory(sslContext.getSocketFactory());
+	}
+
+	private HttpURLConnection open(URL url) throws IOException, GeneralSecurityException {
+        HttpURLConnection http = (HttpURLConnection)url.openConnection();
+        configureAuth(http);
+        if (http instanceof HttpsURLConnection) {
+        	HttpsURLConnection https = (HttpsURLConnection) http;
+        	configureSSL(https);
+        }
+        return http;
+	}
+
+	private void createIndex(URL indexUrl) throws IOException, GeneralSecurityException {
+        int shards;
+        int replicas = 1;
+        try (Connection conn = ConnectionFactory.createConnection(getConf())) {
+            try (Admin admin = conn.getAdmin()) {
+                shards = 2 * admin.getRegionServers().size(); // 2 shards per node to allow for growth
+            }
+        }
+        HttpURLConnection http = open(indexUrl);
+        http.setRequestMethod("PUT");
+        http.setDoOutput(true);
+        http.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        String alias = getConf().get(ALIAS_PROPERTY);
+        byte b[] = Bytes.toBytes(getMappingConfig("", Integer.toString(shards), Integer.toString(replicas), alias));
+        http.setFixedLengthStreamingMode(b.length);
+        http.connect();
+        try {
+            try (OutputStream post = http.getOutputStream()) {
+                post.write(b);
+            }
+            int response = http.getResponseCode();
+            if (response == HttpURLConnection.HTTP_OK) {
+                LOG.info("Elastic index succesfully configured.");
+            } else {
+                String msg = http.getResponseMessage();
+                String resp = getHttpError(http);
+                LOG.warn("Elastic index responded with {}: {}", response, resp);
+                boolean alreadyExist = false;
+                if (response == HttpURLConnection.HTTP_BAD_REQUEST) {
+                	try {
+                        alreadyExist = new JSONObject(resp).getJSONObject("error").getString("type").contains("exists");
+                    } catch (Exception ex) {
+                        //ignore
+                    }
+                }
+                if (!alreadyExist) {
+                	throw new IOException(msg);
+                }
+            }
+        } finally {
+            http.disconnect();
+        }
+	}
+
+	private JSONObject getIndexMapping(URL indexUrl) throws IOException, GeneralSecurityException {
+		JSONObject mapping;
+        HttpURLConnection http = open(new URL(indexUrl + "/_mapping"));
+        http.connect();
+        try {
+	        int response = http.getResponseCode();
+	        if (response != HttpURLConnection.HTTP_OK) {
+	            String msg = http.getResponseMessage();
+	            String resp = getHttpError(http);
+	            LOG.warn("Elastic index responded with {}: {}", response, resp);
+	            throw new IOException(msg);
+	        }
+	    	mapping = new JSONObject(IOUtils.toString(http.getInputStream(), StandardCharsets.UTF_8));
+        } finally {
+            http.disconnect();
+        }
+        return mapping;
+	}
+
+	private void refreshIndex(URL indexUrl) throws IOException, GeneralSecurityException {
+        HttpURLConnection http = open(new URL(indexUrl + "/_refresh"));
+        http.setRequestMethod("POST");
+        http.connect();
+        try {
+	        int response = http.getResponseCode();
+	        if (response != HttpURLConnection.HTTP_OK) {
+	            String msg = http.getResponseMessage();
+	            String resp = getHttpError(http);
+	            LOG.warn("Elastic index responded with {}: {}", response, resp);
+	            throw new IOException(msg);
+	        }
+        } finally {
+            http.disconnect();
+        }
+        LOG.info("Elastic index refreshed.");
+	}
+
+	private static String getHttpError(HttpURLConnection http) throws IOException {
+        InputStream errStream = http.getErrorStream();
+        return (errStream != null) ? IOUtils.toString(errStream, StandardCharsets.UTF_8) : "";
+	}
+
+	private static boolean getFieldConfigProperty(Configuration conf, String fieldName) {
+		return conf.getBoolean(confProperty(TOOL_NAME, "fields."+fieldName), false);
 	}
 }
