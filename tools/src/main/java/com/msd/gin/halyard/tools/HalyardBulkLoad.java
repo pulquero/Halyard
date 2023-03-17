@@ -18,6 +18,8 @@ package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
+import com.msd.gin.halyard.common.Keyspace;
+import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.rio.TriGStarParser;
@@ -97,6 +99,8 @@ import org.eclipse.rdf4j.rio.turtle.TurtleParser;
  */
 public final class HalyardBulkLoad extends AbstractHalyardTool {
 	private static final String TOOL_NAME = "bulkload";
+
+    public static final String TARGET_TABLE_PROPERTY = confProperty(TOOL_NAME, "table.name");
 
     /**
      * Property defining number of bits used for HBase region pre-splits calculation for new table
@@ -220,6 +224,9 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
 
         private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
         private final Set<Statement> stmtDedup = Collections.newSetFromMap(new LFUCache<>(2000, 0.1f));
+        private Keyspace keyspace;
+        private KeyspaceConnection keyspaceConn;
+        private RDFFactory rdfFactory;
         private StatementIndices stmtIndices;
         private long timestamp;
         private long addedKvs;
@@ -229,7 +236,9 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
-            RDFFactory rdfFactory = RDFFactory.create(conf);
+            keyspace = HalyardTableUtils.getKeyspace(conf, conf.get(TARGET_TABLE_PROPERTY), null);
+            keyspaceConn = keyspace.getConnection();
+            rdfFactory = RDFFactory.create(keyspaceConn);
             stmtIndices = new StatementIndices(conf, rdfFactory);
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
         }
@@ -256,6 +265,14 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
 
         @Override
         protected void cleanup(Context output) throws IOException {
+            if (keyspaceConn != null) {
+            	keyspaceConn.close();
+            	keyspaceConn = null;
+            }
+            if (keyspace != null) {
+                keyspace.close();
+                keyspace = null;
+            }
         	output.getCounter(Counters.ADDED_KVS).increment(addedKvs);
         	output.getCounter(Counters.ADDED_STATEMENTS).increment(addedStmts);
         	output.getCounter(Counters.TOTAL_STATEMENTS_READ).increment(totalStmtsRead);
@@ -682,7 +699,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         );
         addOption("s", "source", "source_paths", SOURCE_PATHS_PROPERTY, "Source path(s) with RDF files, more paths can be delimited by comma, the paths are recursively searched for the supported files", true, true);
         addOption("w", "work-dir", "shared_folder", "Unique non-existent folder within shared filesystem to server as a working directory for the temporary HBase files,  the files are moved to their final HBase locations during the last stage of the load process", true, true);
-        addOption("t", "target", "dataset_table", "Target HBase table with Halyard RDF store, target table is created if it does not exist, however optional HBase namespace of the target table must already exist", true, true);
+        addOption("t", "target", "dataset_table", TARGET_TABLE_PROPERTY, "Target HBase table with Halyard RDF store, target table is created if it does not exist, however optional HBase namespace of the target table must already exist", true, true);
         addOption("i", "allow-invalid-iris", null, ALLOW_INVALID_IRIS_PROPERTY, "Optionally allow invalid IRI values (less overhead)", false, false);
         addOption("d", "verify-data-types", null, VERIFY_DATATYPE_VALUES_PROPERTY, "Optionally verify RDF data type values while parsing", false, false);
         addOption("k", "skip-invalid-lines", null, SKIP_INVALID_LINES_PROPERTY, "Optionally skip invalid lines", false, false);
@@ -698,7 +715,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
     protected int run(CommandLine cmd) throws Exception {
     	configureString(cmd, 's', null);
         String workdir = cmd.getOptionValue('w');
-        String target = cmd.getOptionValue('t');
+        configureString(cmd, 't', null);
         configureBoolean(cmd, 'i');
         configureBoolean(cmd, 'd');
         configureBoolean(cmd, 'k');
@@ -709,6 +726,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         configureLong(cmd, 'e', System.currentTimeMillis());
         configureLong(cmd, 'm', DEFAULT_SPLIT_MAXSIZE);
         String sourcePaths = getConf().get(SOURCE_PATHS_PROPERTY);
+        String target = getConf().get(TARGET_TABLE_PROPERTY);
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
             NTriplesUtil.class,
             Rio.class,
@@ -737,7 +755,6 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             if (job.waitForCompletion(true)) {
                 if (getConf().getBoolean(TRUNCATE_PROPERTY, false)) {
 					HalyardTableUtils.clearStatements(conn, tableName);
-					hTable.close();
                 }
 				BulkLoadHFiles.create(getConf()).bulkLoad(tableName, outPath);
                 LOG.info("Bulk Load completed.");
