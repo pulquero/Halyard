@@ -51,12 +51,6 @@ public final class RDFRole<T extends SPOC<?>> {
 		return keyHashSize > 0 ? id.rotate(keyHashSize, shift, new byte[keyHashSize]) : new byte[0];
 	}
 
-	byte[] qualifierHash(ValueIdentifier id) {
-		byte[] b = new byte[qualifierHashSize()];
-		writeQualifierHashTo(id, ByteBuffer.wrap(b));
-		return b;
-	}
-
 	ByteBuffer writeQualifierHashTo(ValueIdentifier id, ByteBuffer bb) {
 		return id.writeSliceTo(keyHashSize(), qualifierHashSize(), bb);
 	}

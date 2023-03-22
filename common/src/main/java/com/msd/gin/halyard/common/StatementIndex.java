@@ -160,7 +160,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return spocRoles[name.ordinal()];
 	}
 
-	byte[] row(RDFIdentifier v1, RDFIdentifier v2, RDFIdentifier v3, @Nullable RDFIdentifier v4) {
+	byte[] row(RDFIdentifier<T1> v1, RDFIdentifier<T2> v2, RDFIdentifier<T3> v3, @Nullable RDFIdentifier<T4> v4) {
 		boolean hasQuad = (v4 != null);
 		if (name.isQuadIndex() && !hasQuad) {
 			throw new NullPointerException("Missing identifier from quad.");
@@ -177,7 +177,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return r;
 	}
 
-	byte[] qualifier(RDFIdentifier v1, @Nullable RDFIdentifier v2, @Nullable RDFIdentifier v3, @Nullable RDFIdentifier v4) {
+	byte[] qualifier(RDFIdentifier<T1> v1, @Nullable RDFIdentifier<T2> v2, @Nullable RDFIdentifier<T3> v3, @Nullable RDFIdentifier<T4> v4) {
 		byte[] cq = new byte[role1.qualifierHashSize() + (v2 != null ? role2.qualifierHashSize() : 0) + (v3 != null ? role3.qualifierHashSize() : 0) + (v4 != null ? role4.qualifierHashSize() : 0)];
 		ByteBuffer bb = ByteBuffer.wrap(cq);
 		role1.writeQualifierHashTo(v1.getId(), bb);
@@ -309,17 +309,6 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return HalyardTableUtils.scan(concat(false, k1Start, k2Start, k3Start, k4Start), concat(true, k1Stop, k2Stop, k3Stop, k4Stop), rowBatchSize, indiscriminate);
 	}
 
-	Scan scan(ValueIdentifier id) {
-		ByteSequence kb = new ByteArray(role1.keyHash(id));
-		byte[] cq = role1.qualifierHash(id);
-		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
-		return scan(
-			kb, role2.startKey(), role3.startKey(), role4.startKey(),
-			kb, role2.stopKey(), role3.stopKey(), role4.stopKey(),
-			cardinality,
-			false
-		).setFilter(new ColumnPrefixFilter(cq));
-	}
 	public Scan scan() {
 		return scanWithConstraint(null);
 	}
@@ -342,10 +331,10 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		return scan;
 	}
-	public Scan scan(RDFIdentifier k) {
+	public Scan scan(RDFIdentifier<T1> k) {
 		return scanWithConstraint(k, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier k1, ValueConstraint constraint) {
+	public Scan scanWithConstraint(RDFIdentifier<T1> k1, ValueConstraint constraint) {
 		ByteSequence kb = new ByteArray(role1.keyHash(k1.getId()));
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 		Scan scan = scan(
@@ -369,10 +358,10 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		return scan;
 	}
-	public Scan scan(RDFIdentifier k1, RDFIdentifier k2) {
+	public Scan scan(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2) {
 		return scanWithConstraint(k1, k2, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier k1, RDFIdentifier k2, ValueConstraint constraint) {
+	public Scan scanWithConstraint(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, ValueConstraint constraint) {
 		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId()));
 		ByteSequence k2b, stop2;
 		int cardinality;
@@ -405,10 +394,10 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		return scan;
 	}
-	public Scan scan(RDFIdentifier k1, RDFIdentifier k2, RDFIdentifier k3) {
+	public Scan scan(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, RDFIdentifier<T3> k3) {
 		return scanWithConstraint(k1, k2, k3, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier k1, RDFIdentifier k2, RDFIdentifier k3, ValueConstraint constraint) {
+	public Scan scanWithConstraint(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, RDFIdentifier<T3> k3, ValueConstraint constraint) {
 		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId()));
 		ByteSequence k2b = new ByteArray(role2.keyHash(k2.getId()));
 		ByteSequence k3b, stop3;
@@ -443,7 +432,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		return scan;
 	}
-	public Scan scan(RDFIdentifier k1, RDFIdentifier k2, RDFIdentifier k3, RDFIdentifier k4) {
+	public Scan scan(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, RDFIdentifier<T3> k3, RDFIdentifier<T4> k4) {
 		byte[] k1b = role1.keyHash(k1.getId());
 		byte[] k2b = role2.keyHash(k2.getId());
 		byte[] k3b = role3.keyHash(k3.getId());

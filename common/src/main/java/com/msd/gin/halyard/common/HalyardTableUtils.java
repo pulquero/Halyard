@@ -278,7 +278,7 @@ public final class HalyardTableUtils {
 	 * @param splitBits between 0 and 15, larger values generate smaller split steps
 	 * @param rdfFactory RDFFactory
 	 */
-	private static void addSplits(TreeSet<byte[]> splitKeys, byte prefix, final int splitBits, Map<? extends RDFIdentifier,Float> keyFractions, StatementIndices indices) {
+	private static void addSplits(TreeSet<byte[]> splitKeys, byte prefix, final int splitBits, Map<? extends RDFIdentifier<?>,Float> keyFractions, StatementIndices indices) {
         if (splitBits == 0) return;
 		if (splitBits < 0 || splitBits > 15) {
 			throw new IllegalArgumentException("Illegal nunmber of split bits");
@@ -305,9 +305,9 @@ public final class HalyardTableUtils {
 
 		fractionSum = 0.0f;
 		if (keyFractions != null && !keyFractions.isEmpty()) {
-			for (Map.Entry<? extends RDFIdentifier, Float> entry : keyFractions.entrySet()) {
+			for (Map.Entry<? extends RDFIdentifier<?>, Float> entry : keyFractions.entrySet()) {
 				StatementIndex<?,?,?,?> index = indices.toIndex(prefix);
-				RDFIdentifier id = entry.getKey();
+				RDFIdentifier<?> id = entry.getKey();
 				byte[] keyHash = index.getRole(id.getRoleName()).keyHash(id.getId());
 				byte[] keyPrefix = new byte[1+keyHash.length];
 				keyPrefix[0] = prefix;
@@ -361,7 +361,7 @@ public final class HalyardTableUtils {
 	}
 
 
-	static Scan scanSingle(Scan scanAll) {
+	static Scan scanFirst(Scan scanAll) {
 		scanAll.setCaching(1).setCacheBlocks(true).setOneRowLimit();
 		Filter filter = scanAll.getFilter();
 		if (filter != null) {
@@ -377,7 +377,7 @@ public final class HalyardTableUtils {
 	}
 
 	public static boolean exists(KeyspaceConnection kc, Scan scan) throws IOException {
-		try (ResultScanner scanner = kc.getScanner(scanSingle(scan))) {
+		try (ResultScanner scanner = kc.getScanner(scanFirst(scan))) {
 			for (Result result : scanner) {
 				if(!result.isEmpty()) {
 					return true;

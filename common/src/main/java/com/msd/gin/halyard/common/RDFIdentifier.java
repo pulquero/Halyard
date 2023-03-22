@@ -2,7 +2,7 @@ package com.msd.gin.halyard.common;
 
 import java.util.Objects;
 
-public class RDFIdentifier {
+public class RDFIdentifier<T extends SPOC<?>> {
 	private final RDFRole.Name roleName;
 	private ValueIdentifier id;
 

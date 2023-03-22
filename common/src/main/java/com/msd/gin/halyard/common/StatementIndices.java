@@ -260,7 +260,7 @@ public final class StatementIndices {
 	/**
 	 * Performs a scan using any suitable index.
 	 */
-	Scan scanAny(@Nonnull RDFIdentifier s, @Nonnull RDFIdentifier p, @Nonnull RDFIdentifier o, @Nullable RDFIdentifier c) {
+	Scan scanAny(@Nonnull RDFIdentifier<SPOC.S> s, @Nonnull RDFIdentifier<SPOC.P> p, @Nonnull RDFIdentifier<SPOC.O> o, @Nullable RDFIdentifier<SPOC.C> c) {
 		Scan scan;
 		if (c == null) {
 			int h = Math.floorMod(Objects.hash(s, p, o), 3);
@@ -292,7 +292,7 @@ public final class StatementIndices {
 				default:
 					throw new AssertionError();
 			}
-			scan = HalyardTableUtils.scanSingle(scan);
+			scan = HalyardTableUtils.scanFirst(scan);
 		}
 		return scan;
 	}
@@ -600,7 +600,7 @@ public final class StatementIndices {
 
 	public Resource getSubject(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
 		ValueIO.Reader valueReader = createTableReader(vf, kc);
-		Scan scan = HalyardTableUtils.scanSingle(spo.scan(id));
+		Scan scan = HalyardTableUtils.scanFirst(spo.scan(new RDFIdentifier<SPOC.S>(RDFRole.Name.SUBJECT, id)));
 		try (ResultScanner scanner = kc.getScanner(scan)) {
 			for (Result result : scanner) {
 				if(!result.isEmpty()) {
@@ -615,7 +615,7 @@ public final class StatementIndices {
 
 	public IRI getPredicate(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
 		ValueIO.Reader valueReader = createTableReader(vf, kc);
-		Scan scan = HalyardTableUtils.scanSingle(pos.scan(id));
+		Scan scan = HalyardTableUtils.scanFirst(pos.scan(new RDFIdentifier<SPOC.P>(RDFRole.Name.PREDICATE, id)));
 		try (ResultScanner scanner = kc.getScanner(scan)) {
 			for (Result result : scanner) {
 				if(!result.isEmpty()) {
@@ -630,7 +630,7 @@ public final class StatementIndices {
 
 	public Value getObject(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
 		ValueIO.Reader valueReader = createTableReader(vf, kc);
-		Scan scan = HalyardTableUtils.scanSingle(osp.scan(id));
+		Scan scan = HalyardTableUtils.scanFirst(osp.scan(new RDFIdentifier<SPOC.O>(RDFRole.Name.OBJECT, id)));
 		try (ResultScanner scanner = kc.getScanner(scan)) {
 			for (Result result : scanner) {
 				if(!result.isEmpty()) {

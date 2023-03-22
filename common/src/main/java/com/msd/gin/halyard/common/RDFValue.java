@@ -5,7 +5,7 @@ import java.util.Objects;
 
 import org.eclipse.rdf4j.model.Value;
 
-public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFIdentifier {
+public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFIdentifier<T> {
 	final V val;
 	private final RDFFactory rdfFactory;
 	private ByteBuffer ser;

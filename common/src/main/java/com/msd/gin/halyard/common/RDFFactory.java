@@ -394,18 +394,6 @@ public class RDFFactory {
 		return buf;
 	}
 
-	public RDFIdentifier createSubjectId(ValueIdentifier id) {
-		return new RDFIdentifier(RDFRole.Name.SUBJECT, id);
-	}
-
-	public RDFIdentifier createPredicateId(ValueIdentifier id) {
-		return new RDFIdentifier(RDFRole.Name.PREDICATE, id);
-	}
-
-	public RDFIdentifier createObjectId(ValueIdentifier id) {
-		return new RDFIdentifier(RDFRole.Name.OBJECT, id);
-	}
-
 	public RDFSubject createSubject(Resource val) {
 		return RDFSubject.create(val, this);
 	}
