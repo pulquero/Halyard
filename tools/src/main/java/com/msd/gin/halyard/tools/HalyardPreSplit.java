@@ -216,7 +216,8 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
 			    			}
 			    		}
 	            	}
-		            HalyardTableUtils.createTable(conn, tableName, splits.toArray(new byte[splits.size()][]), maxVersions).close();
+	            	RDFFactory rdfFactory = RDFFactory.create(conf);
+		            HalyardTableUtils.createTable(conn, tableName, splits.toArray(new byte[splits.size()][]), maxVersions, rdfFactory).close();
 	            }
             }
         }

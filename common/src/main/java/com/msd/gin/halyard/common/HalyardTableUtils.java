@@ -16,11 +16,14 @@
  */
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.common.StatementIndex.Name;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeSet;
@@ -54,6 +57,7 @@ import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import org.apache.hadoop.hbase.io.compress.Compression;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.regionserver.BloomType;
+import org.apache.hadoop.hbase.util.BloomFilterUtil;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.eclipse.rdf4j.model.IRI;
 
@@ -124,13 +128,13 @@ public final class HalyardTableUtils {
 		Configuration conf = conn.getConfiguration();
 		RDFFactory rdfFactory = RDFFactory.create(conf);
 		StatementIndices indices = new StatementIndices(conf, rdfFactory);
-        return createTable(conn, htableName, splitBits < 0 ? null : calculateSplits(splitBits, true, indices), DEFAULT_MAX_VERSIONS);
+        return createTable(conn, htableName, splitBits < 0 ? null : calculateSplits(splitBits, true, indices), DEFAULT_MAX_VERSIONS, rdfFactory);
 	}
 
-	public static Table createTable(Connection conn, TableName htableName, @Nullable byte[][] splits, int maxVersions) throws IOException {
+	public static Table createTable(Connection conn, TableName htableName, @Nullable byte[][] splits, int maxVersions, RDFFactory rdfFactory) throws IOException {
 		try (Admin admin = conn.getAdmin()) {
 			TableDescriptor td = TableDescriptorBuilder.newBuilder(htableName)
-				.setColumnFamily(createColumnFamily(maxVersions))
+				.setColumnFamily(createColumnFamily(maxVersions, rdfFactory))
 				.setMaxFileSize(REGION_MAX_FILESIZE)
 				.setRegionSplitPolicyClassName(REGION_SPLIT_POLICY)
 				.build();
@@ -422,17 +426,26 @@ public final class HalyardTableUtils {
 		}
 	}
 
-	private static ColumnFamilyDescriptor createColumnFamily(int maxVersions) {
+	private static ColumnFamilyDescriptor createColumnFamily(int maxVersions, RDFFactory rdfFactory) {
+		int bloomPrefixLength = 1 + Collections.min(Arrays.asList(
+				rdfFactory.getSubjectRole(Name.SPO).keyHashSize(),
+				rdfFactory.getPredicateRole(Name.POS).keyHashSize(),
+				rdfFactory.getObjectRole(Name.OSP).keyHashSize(),
+				rdfFactory.getContextRole(Name.CSPO).keyHashSize(),
+				rdfFactory.getContextRole(Name.CPOS).keyHashSize(),
+				rdfFactory.getContextRole(Name.COSP).keyHashSize()
+		));
 		return ColumnFamilyDescriptorBuilder.newBuilder(CF_NAME)
                 .setMaxVersions(maxVersions)
                 .setBlockCacheEnabled(true)
-                .setBloomFilterType(BloomType.ROW)
+                .setBloomFilterType(BloomType.ROWPREFIX_FIXED_LENGTH)
+                .setConfiguration(BloomFilterUtil.PREFIX_LENGTH_KEY, Integer.toString(bloomPrefixLength))
                 .setCompressionType(DEFAULT_COMPRESSION_ALGORITHM)
                 .setDataBlockEncoding(DEFAULT_DATABLOCK_ENCODING)
                 .setCacheBloomsOnWrite(true)
                 .setCacheDataOnWrite(true)
                 .setCacheIndexesOnWrite(true)
-                .setKeepDeletedCells(KeepDeletedCells.FALSE)
+                .setKeepDeletedCells(maxVersions > 1 ? KeepDeletedCells.TRUE : KeepDeletedCells.FALSE)
 				.build();
     }
 

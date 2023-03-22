@@ -187,7 +187,7 @@ public final class StatementIndices {
 
 	private Scan scanAllLiterals() {
 		StatementIndex<SPOC.O,SPOC.S,SPOC.P,SPOC.C> index = osp;
-		int typeSaltSize = rdfFactory.typeSaltSize;
+		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
 		if (typeSaltSize == 1) {
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
@@ -204,7 +204,7 @@ public final class StatementIndices {
 	private Scan scanGraphLiterals(Resource graph) {
 		RDFContext ctx = rdfFactory.createContext(graph);
 		StatementIndex<SPOC.C,SPOC.O,SPOC.S,SPOC.P> index = cosp;
-		int typeSaltSize = rdfFactory.typeSaltSize;
+		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
 		if (typeSaltSize == 1) {
 			ByteSequence ctxb = new ByteArray(index.role1.keyHash(ctx.getId()));
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
@@ -222,7 +222,7 @@ public final class StatementIndices {
 	private Scan scanPredicateLiterals(IRI predicate) {
 		RDFPredicate pred = rdfFactory.createPredicate(predicate);
 		StatementIndex<SPOC.P,SPOC.O,SPOC.S,SPOC.C> index = pos;
-		int typeSaltSize = rdfFactory.typeSaltSize;
+		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
 		if (typeSaltSize == 1) {
 			ByteSequence predb = new ByteArray(index.role1.keyHash(pred.getId()));
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
@@ -241,7 +241,7 @@ public final class StatementIndices {
 		RDFPredicate pred = rdfFactory.createPredicate(predicate);
 		RDFContext ctx = rdfFactory.createContext(graph);
 		StatementIndex<SPOC.C,SPOC.P,SPOC.O,SPOC.S> index = cpos;
-		int typeSaltSize = rdfFactory.typeSaltSize;
+		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
 		if (typeSaltSize == 1) {
 			ByteSequence ctxb = new ByteArray(index.role1.keyHash(ctx.getId()));
 			ByteSequence predb = new ByteArray(index.role2.keyHash(pred.getId()));

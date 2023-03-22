@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @ThreadSafe
-public class RDFFactory {
+public final class RDFFactory {
 	private static final Logger LOGGER = LoggerFactory.getLogger(RDFFactory.class);
 	private static final int MIN_KEY_SIZE = 1;
 	private static final Map<HalyardTableConfiguration,RDFFactory> FACTORIES = Collections.synchronizedMap(new HashMap<>());
@@ -38,13 +38,13 @@ public class RDFFactory {
 	private final BiMap<ValueIdentifier, IRI> wellKnownIriIds = HashBiMap.create(256);
 	final int version;
 	final ValueIdentifier.Format idFormat;
-	final int typeSaltSize;
-	final IndexKeySizes spoKeySizes;
-	final IndexKeySizes posKeySizes;
-	final IndexKeySizes ospKeySizes;
-	final IndexKeySizes cspoKeySizes;
-	final IndexKeySizes cposKeySizes;
-	final IndexKeySizes cospKeySizes;
+	private final int typeSaltSize;
+	private final IndexKeySizes spoKeySizes;
+	private final IndexKeySizes posKeySizes;
+	private final IndexKeySizes ospKeySizes;
+	private final IndexKeySizes cspoKeySizes;
+	private final IndexKeySizes cposKeySizes;
+	private final IndexKeySizes cospKeySizes;
 
 	final ValueIO valueIO;
 

@@ -453,7 +453,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			LiteralConstraint objConstraint = (LiteralConstraint) constraint;
 			dt = objConstraint.getDatatype();
 		}
-		int typeSaltSize = rdfFactory.typeSaltSize;
+		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
 		List<RowRange> ranges;
 		if (stopPrefix == null) {
 			ranges = new ArrayList<>(typeSaltSize);

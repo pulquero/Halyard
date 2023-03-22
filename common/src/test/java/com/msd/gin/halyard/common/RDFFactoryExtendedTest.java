@@ -114,7 +114,8 @@ public class RDFFactoryExtendedTest {
 	@Test
 	public void testWriteSaltAndTypeIRI() {
 		Set<ByteBuffer> salts = new LinkedHashSet<>();
-		for (int i=0; i<rdfFactory.typeSaltSize; i++) {
+		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
+		for (int i=0; i<typeSaltSize; i++) {
 			byte[] idBytes = new byte[rdfFactory.getIdSize()];
 			ByteBuffer bb = ByteBuffer.wrap(idBytes);
 			rdfFactory.writeSaltAndType(i, ValueType.IRI, null, new ByteFiller((byte)0xFF, rdfFactory.getIdSize())).writeTo(bb);
@@ -124,13 +125,14 @@ public class RDFFactoryExtendedTest {
 			ValueIdentifier id = rdfFactory.id(idBytes);
 			assertTrue(id.isIRI());
 		}
-		assertEquals(rdfFactory.typeSaltSize, salts.size());
+		assertEquals(typeSaltSize, salts.size());
 	}
 
 	@Test
 	public void testWriteSaltAndTypeStringLiteral() {
 		Set<ByteBuffer> salts = new LinkedHashSet<>();
-		for (int i=0; i<rdfFactory.typeSaltSize; i++) {
+		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
+		for (int i=0; i<typeSaltSize; i++) {
 			byte[] idBytes = new byte[rdfFactory.getIdSize()];
 			ByteBuffer bb = ByteBuffer.wrap(idBytes);
 			rdfFactory.writeSaltAndType(i, ValueType.LITERAL, XSD.STRING, new ByteFiller((byte)0xFF, rdfFactory.getIdSize())).writeTo(bb);
@@ -141,7 +143,7 @@ public class RDFFactoryExtendedTest {
 			assertTrue(id.isLiteral());
 			assertTrue(id.isString());
 		}
-		assertEquals(rdfFactory.typeSaltSize, salts.size());
+		assertEquals(typeSaltSize, salts.size());
 	}
 
 	@Test
