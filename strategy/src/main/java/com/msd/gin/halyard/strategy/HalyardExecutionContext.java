@@ -135,4 +135,9 @@ public final class HalyardExecutionContext {
             return priority;
         }
     }
+
+    @Override
+    public String toString() {
+        return super.toString() + "[sourceString = " + getSourceString() + "]";
+    }
 }

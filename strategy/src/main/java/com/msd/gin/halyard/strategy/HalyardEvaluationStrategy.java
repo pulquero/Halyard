@@ -299,9 +299,9 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	}
 
 	@Override
-    public String toString() {
-        return super.toString() + "[sourceString = " + execContext.getSourceString() + ", tripleSource = " + tripleSource + "]";
-    }
+	public String toString() {
+		return super.toString() + "[context = " + execContext + ", tripleSource = " + tripleSource + "]";
+	}
 
 
 	public static boolean isSearchStatement(Value obj) {

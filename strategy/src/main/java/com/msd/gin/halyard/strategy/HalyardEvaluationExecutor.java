@@ -23,6 +23,7 @@ import com.msd.gin.halyard.query.QueueingBindingSetPipe;
 import com.msd.gin.halyard.util.RateTracker;
 
 import java.lang.management.ManagementFactory;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
@@ -129,8 +130,8 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	    threads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREADS, 20);
 	    setMaxRetries(conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_RETRIES, 3));
 	    setRetryLimit(conf.getInt(StrategyConfig.HALYARD_EVALUATION_RETRY_LIMIT, 100));
-	    threadGain = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREAD_GAIN, 5);
-	    maxThreads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_THREADS, 100);
+	    threadGain = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREAD_GAIN, 50);
+	    maxThreads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_THREADS, 10000);
 	    minTaskRate = conf.getFloat(StrategyConfig.HALYARD_EVALUATION_MIN_TASK_RATE, 0.1f);
 		executor = createExecutor("Halyard Executors", "Halyard ", threads);
 
@@ -147,18 +148,27 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 		TIMER.schedule(new TimerTask() {
 			@Override
 			public void run() {
-    			synchronized (executor) {
-    				int corePoolSize = executor.getCorePoolSize();
-    				if (corePoolSize > threads) {
-    					corePoolSize--;
-    					executor.setCorePoolSize(corePoolSize);
-    				}
-    				int maxPoolSize = executor.getMaximumPoolSize();
-    				if (maxPoolSize > threads) {
-    					maxPoolSize--;
-    					executor.setMaximumPoolSize(Math.max(maxPoolSize, corePoolSize));
-    				}
-    			}
+        		final boolean overallProgress = taskRateTracker.getRatePerSecond() > minTaskRate;
+        		if (overallProgress) {
+        			int active = executor.getActiveCount();
+        			if (active > threads) {
+        				// we are making good progress and have excess threads
+        				if (active <= executor.getMaximumPoolSize()) { // no outstanding threads to be reclaimed
+			    			synchronized (executor) {
+			    				int corePoolSize = executor.getCorePoolSize();
+			    				if (corePoolSize > threads) {
+			    					corePoolSize--;
+			    					executor.setCorePoolSize(corePoolSize);
+			    				}
+			    				int maxPoolSize = executor.getMaximumPoolSize();
+			    				if (maxPoolSize > threads) {
+			    					maxPoolSize--;
+			    					executor.setMaximumPoolSize(Math.max(maxPoolSize, corePoolSize));
+			    				}
+			    			}
+        				}
+        			}
+        		}
 			}
 		}, 1000L, TimeUnit.SECONDS.toMillis(threadPoolCheckPeriodSecs));
 
@@ -282,23 +292,15 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
     	final TupleExpr queryNode;
     	final BindingSet bindingSet;
     	final int queryPriority;
-    	final HalyardEvaluationStrategy strategy;
+    	final WeakReference<HalyardEvaluationStrategy> strategyRef;
     	int taskPriority;
 
     	PrioritizedTask(TupleExpr queryNode, BindingSet bs, HalyardEvaluationStrategy strategy) {
     		this.queryNode = queryNode;
     		this.bindingSet = bs;
     		this.queryPriority = strategy.execContext.getPriorityForNode(queryNode);
-    		this.strategy = strategy;
+    		this.strategyRef = new WeakReference<>(strategy);
     		setSubPriority(MIN_SUB_PRIORITY);
-    	}
-
-    	public final TupleExpr getQueryNode() {
-    		return queryNode;
-    	}
-
-    	public final BindingSet getBindingSet() {
-    		return bindingSet;
     	}
 
     	/**
@@ -317,7 +319,9 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 
     	@Override
     	public String toString() {
-    		return super.toString() + "[queryNode = " + printQueryNode(queryNode, bindingSet) + ", priority = " + taskPriority + ", strategy = " + strategy + "]";
+    		HalyardEvaluationStrategy strategy = strategyRef.get();
+    		String strategyString = (strategy != null) ? strategy.toString() : "Terminated";
+    		return super.toString() + "[queryNode = " + printQueryNode(queryNode, bindingSet) + ", priority = " + taskPriority + ", strategy = " + strategyString + "]";
     	}
 	}
 
@@ -406,7 +410,13 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
         }
 
 		boolean pushNext() {
-        	try {
+			HalyardEvaluationStrategy strategy = strategyRef.get();
+			if (strategy == null) {
+				pipe.close();
+				return false;
+			}
+
+			try {
             	if (!pipe.isClosed()) {
             		if (iter == null) {
                         iter = strategy.track(evalStep.evaluate(bindingSet), queryNode);
@@ -508,10 +518,10 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	        			// then try adding some emergency threads
 	    				synchronized (executor) {
 	    					// check thread pool hasn't been modified already in the meantime and still blocked
-	    					if (maxPoolSize == executor.getMaximumPoolSize() && executor.getActiveCount() == maxPoolSize && taskRateTracker.getRatePerSecond() <= minTaskRate) {
+	    					if (maxPoolSize == executor.getMaximumPoolSize() && executor.getActiveCount() >= maxPoolSize && taskRateTracker.getRatePerSecond() <= minTaskRate) {
 	    						if (maxPoolSize < maxThreads) {
 	    							int newMaxPoolSize = Math.min(maxPoolSize + threadGain, maxThreads);
-	    							LOGGER.warn("Iteration {}: all {} threads seem to be blocked (taskRate {}) - adding {} more\n{}", Integer.toHexString(this.hashCode()), executor.getPoolSize(), taskRateTracker.getRatePerSecond(), newMaxPoolSize - maxPoolSize, executor.toString());
+	    							LOGGER.warn("Iteration {}: all {} threads seem to be blocked (taskRate {}) - adding {} more", Integer.toHexString(this.hashCode()), executor.getPoolSize(), taskRateTracker.getRatePerSecond(), newMaxPoolSize - maxPoolSize);
 	    							executor.setMaximumPoolSize(newMaxPoolSize);
 	    							executor.setCorePoolSize(Math.min(executor.getCorePoolSize()+threadGain, newMaxPoolSize));
 	    						} else {

@@ -347,8 +347,9 @@ final class HalyardTupleExprEvaluation {
 		}
 
 		try {
-			QueryEvaluationStep evalStep = evaluateStatementPattern(sp, bindings, ts);
-			if (evalStep != null) {
+	        QuadPattern nq = getQuadPattern(sp, bindings);
+	        if (nq != null) {
+		        QueryEvaluationStep evalStep = evaluateStatementPattern(sp, nq, ts);
 				parentStrategy.executor.pullAndPushAsync(parent, evalStep, sp, bindings, parentStrategy);
 			} else {
 				parent.close(); // nothing to push
@@ -443,7 +444,7 @@ final class HalyardTupleExprEvaluation {
 			}
         } else if (contextValue != null) {
             if (graphs.contains(contextValue)) {
-                contexts = new Resource[]{contextValue};
+                contexts = new Resource[] { contextValue };
             } else {
                 // Statement pattern specifies a context that is not part of
                 // the dataset
@@ -487,16 +488,11 @@ final class HalyardTupleExprEvaluation {
     	return stIter;
     }
 
-    private QueryEvaluationStep evaluateStatementPattern(final StatementPattern sp, final BindingSet bindings, TripleSource tripleSource) {
+    private QueryEvaluationStep evaluateStatementPattern(StatementPattern sp, QuadPattern nq, TripleSource tripleSource) {
         final Var subjVar = sp.getSubjectVar(); //subject
         final Var predVar = sp.getPredicateVar(); //predicate
         final Var objVar = sp.getObjectVar(); //object
         final Var conVar = sp.getContextVar(); //graph or target context
-
-        QuadPattern nq = getQuadPattern(sp, bindings);
-        if (nq == null) {
-        	return null;
-        }
 
         return bs -> {
 	        //get an iterator over all triple statements that match the s, p, o specification in the contexts
