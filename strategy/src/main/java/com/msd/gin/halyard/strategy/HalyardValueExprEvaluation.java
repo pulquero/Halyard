@@ -128,7 +128,7 @@ class HalyardValueExprEvaluation {
 	private int pollTimeoutMillis;
 
 	HalyardValueExprEvaluation(HalyardEvaluationStrategy parentStrategy, QueryContext queryContext, FunctionRegistry functionRegistry,
-			TripleSource tripleSource) {
+			TripleSource tripleSource, int pollTimeoutMillis) {
         this.parentStrategy = parentStrategy;
         this.queryContext = queryContext;
 		this.functionRegistry = functionRegistry;
@@ -138,7 +138,7 @@ class HalyardValueExprEvaluation {
         this.FALSE = valueFactory.createLiteral(false);
         this.OK_TRUE = ValueOrError.ok(TRUE);
         this.OK_FALSE = ValueOrError.ok(FALSE);
-        this.pollTimeoutMillis = parentStrategy.executor.getQueuePollTimeoutMillis();
+        this.pollTimeoutMillis = pollTimeoutMillis;
     }
 
     /**

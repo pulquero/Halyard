@@ -26,8 +26,9 @@ import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
 import com.msd.gin.halyard.common.ValueType;
-import com.msd.gin.halyard.federation.BindingSetPipeFederatedService;
+import com.msd.gin.halyard.federation.BindingSetCallbackFederatedService;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
+import com.msd.gin.halyard.query.AbortConsumerException;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.query.ValuePipe;
@@ -188,6 +189,7 @@ final class HalyardTupleExprEvaluation {
 	private final TripleSource tripleSource;
 	private final QueryContext queryContext;
     private final Dataset dataset;
+    private final HalyardEvaluationExecutor executor;
     private final QueryEvaluationContext evalContext = null;
     private final int hashJoinLimit;
     private final int collectionMemoryThreshold;
@@ -200,15 +202,16 @@ final class HalyardTupleExprEvaluation {
 	 * @param tupleFunctionRegistry
 	 * @param tripleSource
 	 * @param dataset
-	 * @param timeoutSecs seconds
+	 * @param executor
 	 */
 	HalyardTupleExprEvaluation(HalyardEvaluationStrategy parentStrategy, QueryContext queryContext,
-			TupleFunctionRegistry tupleFunctionRegistry, TripleSource tripleSource, Dataset dataset) {
+			TupleFunctionRegistry tupleFunctionRegistry, TripleSource tripleSource, Dataset dataset, HalyardEvaluationExecutor executor) {
         this.parentStrategy = parentStrategy;
 		this.queryContext = queryContext;
 		this.tupleFunctionRegistry = tupleFunctionRegistry;
 		this.tripleSource = tripleSource;
 		this.dataset = dataset;
+		this.executor = executor;
 		Configuration conf = parentStrategy.getConfiguration();
 		JoinAlgorithmOptimizer algoOpt = parentStrategy.getJoinAlgorithmOptimizer();
     	if (algoOpt != null) {
@@ -234,7 +237,7 @@ final class HalyardTupleExprEvaluation {
 
 			@Override
 			public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(BindingSet bindings) {
-				return parentStrategy.executor.pushAndPull(step, expr, bindings, parentStrategy);
+				return executor.pushAndPull(step, expr, bindings, parentStrategy);
 			}
     	};
     }
@@ -347,9 +350,10 @@ final class HalyardTupleExprEvaluation {
 		}
 
 		try {
-			QueryEvaluationStep evalStep = evaluateStatementPattern(sp, bindings, ts);
-			if (evalStep != null) {
-				parentStrategy.executor.pullAndPushAsync(parent, evalStep, sp, bindings, parentStrategy);
+	        QuadPattern nq = getQuadPattern(sp, bindings);
+	        if (nq != null) {
+		        QueryEvaluationStep evalStep = evaluateStatementPattern(sp, nq, ts);
+				executor.pullAndPushAsync(parent, evalStep, sp, bindings, parentStrategy);
 			} else {
 				parent.close(); // nothing to push
 			}
@@ -443,7 +447,7 @@ final class HalyardTupleExprEvaluation {
 			}
         } else if (contextValue != null) {
             if (graphs.contains(contextValue)) {
-                contexts = new Resource[]{contextValue};
+                contexts = new Resource[] { contextValue };
             } else {
                 // Statement pattern specifies a context that is not part of
                 // the dataset
@@ -487,16 +491,11 @@ final class HalyardTupleExprEvaluation {
     	return stIter;
     }
 
-    private QueryEvaluationStep evaluateStatementPattern(final StatementPattern sp, final BindingSet bindings, TripleSource tripleSource) {
+    private QueryEvaluationStep evaluateStatementPattern(StatementPattern sp, QuadPattern nq, TripleSource tripleSource) {
         final Var subjVar = sp.getSubjectVar(); //subject
         final Var predVar = sp.getPredicateVar(); //predicate
         final Var objVar = sp.getObjectVar(); //object
         final Var conVar = sp.getContextVar(); //graph or target context
-
-        QuadPattern nq = getQuadPattern(sp, bindings);
-        if (nq == null) {
-        	return null;
-        }
 
         return bs -> {
 	        //get an iterator over all triple statements that match the s, p, o specification in the contexts
@@ -676,7 +675,7 @@ final class HalyardTupleExprEvaluation {
 						}
 					};
 				};
-				parentStrategy.executor.pullAndPushAsync(parent, evalStep, ref, bindings, parentStrategy);
+				executor.pullAndPushAsync(parent, evalStep, ref, bindings, parentStrategy);
 			};
 		} else {
 			return (parent, bindings) -> {
@@ -775,7 +774,7 @@ final class HalyardTupleExprEvaluation {
 						}
 					};
 				};
-				parentStrategy.executor.pullAndPushAsync(parent, evalStep, ref, bindings, parentStrategy);
+				executor.pullAndPushAsync(parent, evalStep, ref, bindings, parentStrategy);
 			};
 		}
 	}
@@ -954,7 +953,7 @@ final class HalyardTupleExprEvaluation {
     private BindingSetPipeEvaluationStep precompileDescribeOperator(DescribeOperator operator) {
 		BindingSetPipeQueryEvaluationStep argStep = precompile(operator.getArg());
 		return (parent, bindings) -> {
-			parentStrategy.executor.pullAndPushAsync(parent, bs -> new DescribeIteration(argStep.evaluate(bs), parentStrategy,
+			executor.pullAndPushAsync(parent, bs -> new DescribeIteration(argStep.evaluate(bs), parentStrategy,
 				operator.getBindingNames(), bs), operator, bindings, parentStrategy);
         };
     }
@@ -1649,15 +1648,22 @@ final class HalyardTupleExprEvaluation {
             	topPipe.close();
 	        } else {
 		        // otherwise: perform a SELECT query
-		        if (fs instanceof BindingSetPipeFederatedService) {
+		        if (fs instanceof BindingSetCallbackFederatedService) {
+            		BindingSetPipe pipe = parentStrategy.track(topPipe, service);
 	            	try {
-	            		((BindingSetPipeFederatedService)fs).select(parentStrategy.track(topPipe, service), service, freeVars, fsBindings, baseUri);
+	            		((BindingSetCallbackFederatedService)fs).select(bs -> {
+	            			if(!pipe.push(bs)) {
+	            				AbortConsumerException.abort();
+	            			}
+	            		}, service, freeVars, fsBindings, baseUri);
+            		} catch (AbortConsumerException abort) {
+            			// ignore
 	            	} catch (RuntimeException e) {
-	            		if (service.isSilent()) {
-	            			topPipe.close();
-	            		} else {
-	            			topPipe.handleException(e);
+	            		if (!service.isSilent()) {
+	            			pipe.handleException(e);
 	            		}
+	            	} finally {
+	            		pipe.close();
 	            	}
 		        } else {
 		            QueryEvaluationStep evalStep = bs -> {
@@ -1671,7 +1677,7 @@ final class HalyardTupleExprEvaluation {
 		            		}
 		            	}
 	            	};
-		            parentStrategy.executor.pullAndPushAsync(topPipe, evalStep, service, fsBindings, parentStrategy);
+		            executor.pullAndPushAsync(topPipe, evalStep, service, fsBindings, parentStrategy);
 		        }
 	        }
 	    } catch (QueryEvaluationException e) {
@@ -2551,7 +2557,7 @@ final class HalyardTupleExprEvaluation {
 	        //temporary solution using copy of the original iterator
 	        //re-writing this to push model is a bit more complex task
 	        try {
-	        	parentStrategy.executor.pullAndPushAsync(parent, bs -> new PathIteration(new StrictEvaluationStrategy(null, null) {
+	        	executor.pullAndPushAsync(parent, bs -> new PathIteration(new StrictEvaluationStrategy(null, null) {
 	                @Override
 	                public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(ZeroLengthPath zlp, BindingSet bindings) throws QueryEvaluationException {
 	                    zlp.setParentNode(alp);
@@ -2808,11 +2814,11 @@ final class HalyardTupleExprEvaluation {
     		if (resultTracker != null) {
     			resultTracker.incrementResultSize();
     		}
-    		boolean more = parent.push(bs);
-    		if (!more) {
+    		boolean pushMore = parent.push(bs);
+    		if (!pushMore) {
     			finished.set(true);
     		}
-    		return more;
+    		return pushMore;
     	}
     	protected final void endSecondaryPipe() {
     		inProgress.decrementAndGet();

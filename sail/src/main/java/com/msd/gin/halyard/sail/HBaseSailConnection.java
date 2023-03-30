@@ -26,9 +26,9 @@ import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.Timestamped;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.TupleFunctionCallOptimizer;
-import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
-import com.msd.gin.halyard.query.TimeLimitBindingSetPipe;
+import com.msd.gin.halyard.query.QueueingBindingSetPipe;
+import com.msd.gin.halyard.query.TimeLimitConsumer;
 import com.msd.gin.halyard.sail.HBaseSail.SailConnectionFactory;
 import com.msd.gin.halyard.sail.connection.SailConnectionQueryPreparer;
 import com.msd.gin.halyard.sail.geosparql.WithinDistanceInterpreter;
@@ -38,6 +38,7 @@ import com.msd.gin.halyard.spin.SpinFunctionInterpreter;
 import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
 import com.msd.gin.halyard.strategy.ExtendedEvaluationStrategy;
 import com.msd.gin.halyard.strategy.ExtendedQueryOptimizerPipeline;
+import com.msd.gin.halyard.strategy.HalyardEvaluationExecutor;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 import com.msd.gin.halyard.strategy.HalyardExecutionContext;
 import com.msd.gin.halyard.vocab.HALYARD;
@@ -45,6 +46,7 @@ import com.msd.gin.halyard.vocab.HALYARD;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
@@ -99,7 +101,7 @@ import org.slf4j.LoggerFactory;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 
-public class HBaseSailConnection extends AbstractSailConnection implements BindingSetPipeSailConnection {
+public class HBaseSailConnection extends AbstractSailConnection implements BindingSetCallbackSailConnection {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HBaseSailConnection.class);
 
 	public static final String SOURCE_STRING_BINDING = "__source__";
@@ -117,6 +119,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private final SearchClient searchClient;
 	private KeyspaceConnection keyspaceConn;
 	private HalyardEvaluationStatistics statistics;
+	private HalyardEvaluationExecutor executor;
 	private BufferedMutator mutator;
 	private int pendingUpdateCount;
 	private long lastTimestamp = Long.MIN_VALUE;
@@ -141,7 +144,17 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
     }
 
-    private BufferedMutator getBufferedMutator() {
+	private HalyardEvaluationExecutor getExecutor() {
+		if (!isOpen()) {
+			throw new SailException("Connection is closed");
+		}
+		if (executor == null) {
+			executor = new HalyardEvaluationExecutor(sail.getConfiguration());
+		}
+		return executor;
+	}
+
+	private BufferedMutator getBufferedMutator() {
 		if (!isOpen()) {
 			throw new SailException("Connection is closed");
 		}
@@ -159,6 +172,10 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     @Override
     public void close() throws SailException {
     	flush();
+		if (executor != null) {
+			executor.shutdown();
+			executor = null;
+		}
 		if (mutator != null) {
 			try {
 				mutator.close();
@@ -198,7 +215,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		EvaluationStrategy strategy;
 		HalyardEvaluationStatistics stats = getStatistics();
 		if (usePush) {
-			strategy = new HalyardEvaluationStrategy(sail.getConfiguration(), source, queryContext, sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), dataset, sail.getFederatedServiceResolver(), stats, sail.executor);
+			strategy = new HalyardEvaluationStrategy(sail.getConfiguration(), source, queryContext, sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), dataset, sail.getFederatedServiceResolver(), stats, getExecutor());
 		} else {
 			strategy = new ExtendedEvaluationStrategy(source, dataset, sail.getFederatedServiceResolver(), sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), 0L, stats);
 			strategy.setOptimizerPipeline(new ExtendedQueryOptimizerPipeline(strategy, source.getValueFactory(), stats));
@@ -295,7 +312,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     }
 
 	@Override
-	public void evaluate(BindingSetPipe handler, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
+	public void evaluate(Consumer<BindingSet> handler, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
 		flush();
 
 		String sourceString = Literals.getLabel(bindings.getValue(SOURCE_STRING_BINDING), null);
@@ -311,7 +328,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			initQueryContext(queryContext);
 			TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);
 			sail.trackQuery(sourceString, tupleExpr, optimizedTree);
-			handler = TimeLimitBindingSetPipe.apply(handler, sail.evaluationTimeoutSecs);
+			handler = TimeLimitConsumer.apply(handler, sail.evaluationTimeoutSecs);
 			try {
 				evaluateInternal(handler, optimizedTree, strategy);
 			} catch (QueryEvaluationException ex) {
@@ -354,12 +371,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		return step.evaluate(EmptyBindingSet.getInstance());
 	}
 
-	protected void evaluateInternal(BindingSetPipe handler, TupleExpr tupleExpr, EvaluationStrategy strategy) throws QueryEvaluationException {
+	protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr tupleExpr, EvaluationStrategy strategy) throws QueryEvaluationException {
 		QueryEvaluationStep step = strategy.precompile(tupleExpr);
 		if (step instanceof BindingSetPipeQueryEvaluationStep) {
-			((BindingSetPipeQueryEvaluationStep) step).evaluate(handler, EmptyBindingSet.getInstance());
+			long timeout = sail.evaluationTimeoutSecs > 0 ? sail.evaluationTimeoutSecs : Integer.MAX_VALUE;
+			QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(getExecutor().getMaxQueueSize(), timeout, TimeUnit.SECONDS);
+			((BindingSetPipeQueryEvaluationStep) step).evaluate(pipe, EmptyBindingSet.getInstance());
+			pipe.collect(handler);
 		} else {
-			BindingSetPipeSailConnection.report(step.evaluate(EmptyBindingSet.getInstance()), handler);
+			BindingSetCallbackSailConnection.report(step.evaluate(EmptyBindingSet.getInstance()), handler);
 		}
 	}
 

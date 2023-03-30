@@ -74,7 +74,6 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
     private final FederatedServiceResolver serviceResolver;
     private final Map<String,FederatedService> federatedServices = new HashMap<>();
     private final TripleSource tripleSource;
-	final HalyardEvaluationExecutor executor;
     /**
      * Evaluates TupleExpressions and all implementations of that interface
      */
@@ -118,17 +117,16 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		this.execContext = new HalyardExecutionContext(queryContext);
 		this.dataset = dataset;
 		this.serviceResolver = serviceResolver;
-		this.executor = executor;
 		this.tupleEval = new HalyardTupleExprEvaluation(this, queryContext, tupleFunctionRegistry, tripleSource,
-				dataset);
-		this.valueEval = new HalyardValueExprEvaluation(this, queryContext, functionRegistry, tripleSource);
+				dataset, executor);
+		this.valueEval = new HalyardValueExprEvaluation(this, queryContext, functionRegistry, tripleSource, executor.getQueuePollTimeoutMillis());
 		this.pipeline = new HalyardQueryOptimizerPipeline(this, tripleSource.getValueFactory(), statistics);
 	}
 
 	HalyardEvaluationStrategy(Configuration conf, TripleSource tripleSource, Dataset dataset,
 			FederatedServiceResolver serviceResolver, HalyardEvaluationStatistics statistics) {
 		this(conf, tripleSource, new QueryContext(), TupleFunctionRegistry.getInstance(), FunctionRegistry.getInstance(),
-				dataset, serviceResolver, statistics, HalyardEvaluationExecutor.getInstance(conf));
+				dataset, serviceResolver, statistics, new HalyardEvaluationExecutor(conf));
 	}
 
 	@Override
@@ -299,9 +297,9 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	}
 
 	@Override
-    public String toString() {
-        return super.toString() + "[sourceString = " + execContext.getSourceString() + ", tripleSource = " + tripleSource + "]";
-    }
+	public String toString() {
+		return super.toString() + "[context = " + execContext + ", tripleSource = " + tripleSource + "]";
+	}
 
 
 	public static boolean isSearchStatement(Value obj) {

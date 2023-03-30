@@ -3,9 +3,9 @@ package com.msd.gin.halyard.sail;
 import com.google.common.cache.Cache;
 import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.federation.SailFederatedService;
-import com.msd.gin.halyard.query.BindingSetPipe;
 
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
@@ -41,7 +41,7 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 	}
 
 	@Override
-	public void select(BindingSetPipe handler, Service service, Set<String> projectionVars, BindingSet bs, String baseUri) throws QueryEvaluationException {
+	public void select(Consumer<BindingSet> handler, Service service, Set<String> projectionVars, BindingSet bs, String baseUri) throws QueryEvaluationException {
 		String queryString = service.getSelectQueryString(projectionVars);
 		QueryBindingSet bindings = new QueryBindingSet(bs);
 		sail.addQueryString(bindings, queryString);

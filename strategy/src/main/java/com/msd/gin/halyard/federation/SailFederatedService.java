@@ -1,14 +1,14 @@
 package com.msd.gin.halyard.federation;
 
 import com.msd.gin.halyard.algebra.ServiceRoot;
-import com.msd.gin.halyard.query.BindingSetPipe;
-import com.msd.gin.halyard.sail.BindingSetPipeSail;
-import com.msd.gin.halyard.sail.BindingSetPipeSailConnection;
+import com.msd.gin.halyard.sail.BindingSetCallbackSail;
+import com.msd.gin.halyard.sail.BindingSetCallbackSailConnection;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -24,7 +24,7 @@ import org.eclipse.rdf4j.repository.sparql.query.InsertBindingSetCursor;
 import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.SailConnection;
 
-public class SailFederatedService implements BindingSetPipeFederatedService {
+public class SailFederatedService implements BindingSetCallbackFederatedService {
 	private final Sail sail;
 	private boolean initialized;
 
@@ -81,18 +81,15 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 	}
 
 	@Override
-	public void select(BindingSetPipe handler, Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
-		if (sail instanceof BindingSetPipeSail) {
-			try (BindingSetPipeSailConnection conn = (BindingSetPipeSailConnection) getConnection()) {
-				handler = new CloseConnectionBindingSetPipe(new InsertBindingSetPipe(handler, bindings), conn);
-				if (service.isSilent()) {
-					handler = new SilentBindingSetPipe(handler);
-				}
+	public void select(Consumer<BindingSet> handler, Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
+		if (sail instanceof BindingSetCallbackSail) {
+			try (BindingSetCallbackSailConnection conn = (BindingSetCallbackSailConnection) getConnection()) {
+				handler = new InsertBindingSetCallback(handler, bindings);
 				conn.evaluate(handler, ServiceRoot.create(service), null, bindings, true);
 			}
 		} else {
 			try (CloseableIteration<BindingSet, QueryEvaluationException> result = select(service, projectionVars, bindings, baseUri)) {
-				BindingSetPipeSailConnection.report(result, handler);
+				BindingSetCallbackSailConnection.report(result, handler);
 			}
 		}
 	}
@@ -175,55 +172,24 @@ public class SailFederatedService implements BindingSetPipeFederatedService {
 	}
 
 
-	private static final class CloseConnectionBindingSetPipe extends BindingSetPipe {
-		private final SailConnection conn;
-
-		CloseConnectionBindingSetPipe(BindingSetPipe parent, SailConnection conn) {
-			super(parent);
-			this.conn = conn;
-		}
-
-		@Override
-		protected void doClose() {
-			try {
-				parent.close();
-			} finally {
-				conn.close();
-			}
-		}
-	}
-
-
-	private static final class InsertBindingSetPipe extends BindingSetPipe {
+	private static final class InsertBindingSetCallback implements Consumer<BindingSet> {
+		private final Consumer<BindingSet> delegate;
 		private final BindingSet bindingSet;
 
-		InsertBindingSetPipe(BindingSetPipe parent, BindingSet bs) {
-			super(parent);
+		InsertBindingSetCallback(Consumer<BindingSet> delegate, BindingSet bs) {
+			this.delegate = delegate;
 			this.bindingSet = bs;
 		}
 
 		@Override
-		protected boolean next(BindingSet bs) {
+		public void accept(BindingSet bs) {
 			int size = bindingSet.size() + bs.size();
 			QueryBindingSet combined = new QueryBindingSet(size);
 			combined.addAll(bindingSet);
 			for (Binding binding : bs) {
 				combined.setBinding(binding);
 			}
-			return super.next(combined);
-		}
-	}
-
-
-	private static final class SilentBindingSetPipe extends BindingSetPipe {
-		SilentBindingSetPipe(BindingSetPipe parent) {
-			super(parent);
-		}
-
-		@Override
-		public boolean handleException(Throwable thr) {
-			close();
-			return false;
+			delegate.accept(combined);
 		}
 	}
 }

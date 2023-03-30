@@ -4,8 +4,7 @@ import com.google.common.base.Stopwatch;
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.evaluation.EmptyTripleSource;
-import com.msd.gin.halyard.query.BindingSetPipe;
-import com.msd.gin.halyard.query.QueueingBindingSetPipe;
+import com.msd.gin.halyard.query.TimeLimitConsumer;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
 import com.msd.gin.halyard.sail.TimestampedUpdateContext;
@@ -20,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.model.IRI;
@@ -176,17 +176,15 @@ public class HBaseUpdate extends SailUpdate {
 					}
 				}
 				TimestampedUpdateContext tsUc = new TimestampedUpdateContext(uc.getUpdateExpr(), uc.getDataset(), uc.getBindingSet(), uc.isIncludeInferred());
-				long timeout = maxExecutionTime > 0 ? maxExecutionTime : Integer.MAX_VALUE;
-				QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(sail.getExecutor().getMaxQueueSize(), timeout, TimeUnit.SECONDS);
-				evaluateWhereClause(pipe, whereClause, uc);
-				pipe.collect(next -> {
+				Consumer<BindingSet> callback = TimeLimitConsumer.apply(next -> {
 					if (deleteInfo != null) {
 						deleteBoundTriples(next, deleteInfo, tsUc);
 					}
 					if (insertInfo != null) {
 						insertBoundTriples(next, insertInfo, tsUc);
 					}
-				});
+				}, maxExecutionTime);
+				evaluateWhereClause(callback, whereClause, uc);
 
 				if (con.isTrackResultSize()) {
 					// copy results back from cloned expressions
@@ -227,22 +225,23 @@ public class HBaseUpdate extends SailUpdate {
 			return tupleExpr;
 		}
 
-		private void evaluateWhereClause(BindingSetPipe handler, final TupleExpr whereClause, final UpdateContext uc) {
-			handler = new BindingSetPipe(handler) {
+		private void evaluateWhereClause(Consumer<BindingSet> handler, final TupleExpr whereClause, final UpdateContext uc) {
+			Consumer<BindingSet> ucHandler = new Consumer<BindingSet>() {
 				private final boolean isEmptyWhere = Algebra.isEmpty(whereClause);
 				private final BindingSet ucBinding = uc.getBindingSet();
 				@Override
-				protected boolean next(BindingSet sourceBinding) {
+				public void accept(BindingSet sourceBinding) {
+					final BindingSet bs;
 					if (isEmptyWhere && sourceBinding.isEmpty() && ucBinding != null) {
 						// in the case of an empty WHERE clause, we use the
 						// supplied
 						// bindings to produce triples to DELETE/INSERT
-						return super.next(ucBinding);
+						bs = ucBinding;
 					} else {
 						// check if any supplied bindings do not occur in the
 						// bindingset
 						// produced by the WHERE clause. If so, merge.
-						Set<String> uniqueBindings = new HashSet<String>(ucBinding.getBindingNames());
+						Set<String> uniqueBindings = new HashSet<>(ucBinding.getBindingNames());
 						uniqueBindings.removeAll(sourceBinding.getBindingNames());
 						if (!uniqueBindings.isEmpty()) {
 							MapBindingSet mergedSet = new MapBindingSet(sourceBinding.size() + uniqueBindings.size());
@@ -252,14 +251,15 @@ public class HBaseUpdate extends SailUpdate {
 							for (String bindingName : uniqueBindings) {
 								mergedSet.addBinding(ucBinding.getBinding(bindingName));
 							}
-							return super.next(mergedSet);
+							bs = mergedSet;
 						} else {
-							return super.next(sourceBinding);
+							bs = sourceBinding;
 						}
 					}
+					handler.accept(bs);
 				}
 			};
-			con.evaluate(handler, whereClause, uc.getDataset(), uc.getBindingSet(), uc.isIncludeInferred());
+			con.evaluate(ucHandler, whereClause, uc.getDataset(), uc.getBindingSet(), uc.isIncludeInferred());
 		}
 
 		private void deleteBoundTriples(BindingSet whereBinding, ModifyInfo deleteInfo, TimestampedUpdateContext uc) throws SailException {

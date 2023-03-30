@@ -29,6 +29,7 @@ public abstract class BindingSetPipe {
 
     protected final BindingSetPipe parent;
     private final AtomicBoolean closed = new AtomicBoolean();
+    private volatile boolean allowsMore = true;
 
     /**
      * Create a pipe
@@ -47,11 +48,15 @@ public abstract class BindingSetPipe {
      * Must be thread-safe.
      *
      * @param bs BindingSet
-     * @return boolean indicating if more data are expected from the caller
+     * @return boolean indicating if more data is expected from the caller
      */
     public final boolean push(BindingSet bs) {
-    	if (!closed.get()) {
-        	return next(bs);
+    	if (allowsMore) {
+    		boolean pushMore = closed.get() ? false : next(bs);
+    		if (!pushMore) {
+    			allowsMore = false;
+    		}
+    		return pushMore;
     	} else {
     		return false;
     	}
@@ -60,7 +65,7 @@ public abstract class BindingSetPipe {
     /**
      * 
      * @param bs BindingSet
-     * @return boolean indicating if more data are expected from the caller
+     * @return boolean indicating if more data is expected from the caller
      */
     protected boolean next(BindingSet bs) {
     	if (parent != null) {

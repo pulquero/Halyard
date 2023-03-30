@@ -8,7 +8,7 @@
 package com.msd.gin.halyard.sail.connection;
 
 import java.util.ArrayList;
-import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -24,15 +24,13 @@ import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 import org.eclipse.rdf4j.sail.SailConnection;
 import org.eclipse.rdf4j.sail.SailException;
 
-import com.msd.gin.halyard.query.QueueingBindingSetPipe;
-import com.msd.gin.halyard.sail.BindingSetPipeSailConnection;
+import com.msd.gin.halyard.query.TimeLimitConsumer;
+import com.msd.gin.halyard.sail.BindingSetCallbackSailConnection;
 
 /**
  * @author Arjohn Kampman
  */
 public class SailConnectionTupleQuery extends SailConnectionQuery implements TupleQuery {
-	private static final int MAX_QUEUE_SIZE = 64;
-
 	public SailConnectionTupleQuery(ParsedTupleQuery tupleQuery, SailConnection sailConnection) {
 		super(tupleQuery, sailConnection);
 	}
@@ -64,16 +62,12 @@ public class SailConnectionTupleQuery extends SailConnectionQuery implements Tup
 	public void evaluate(TupleQueryResultHandler handler)
 			throws QueryEvaluationException, TupleQueryResultHandlerException {
 		SailConnection sailCon = getSailConnection();
-		if (sailCon instanceof BindingSetPipeSailConnection) {
+		if (sailCon instanceof BindingSetCallbackSailConnection) {
 			TupleExpr tupleExpr = getParsedQuery().getTupleExpr();
 			int maxExecutionTime = getMaxExecutionTime();
-			long timeout = maxExecutionTime > 0 ? maxExecutionTime : Integer.MAX_VALUE;
-			QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(MAX_QUEUE_SIZE, timeout, TimeUnit.SECONDS);
-			((BindingSetPipeSailConnection) sailCon).evaluate(pipe, tupleExpr, getActiveDataset(), getBindings(), getIncludeInferred());
 			handler.startQueryResult(new ArrayList<>(tupleExpr.getBindingNames()));
-			pipe.collect(next -> {
-				handler.handleSolution(next);
-			});
+			Consumer<BindingSet> callback = TimeLimitConsumer.apply(handler::handleSolution, maxExecutionTime);
+			((BindingSetCallbackSailConnection) sailCon).evaluate(callback, tupleExpr, getActiveDataset(), getBindings(), getIncludeInferred());
 			handler.endQueryResult();
 		} else {
 			TupleQueryResult queryResult = evaluate();

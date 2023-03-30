@@ -17,10 +17,7 @@
 package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
-import com.msd.gin.halyard.query.BindingSetPipe;
-import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.repository.HBaseRepository;
-import com.msd.gin.halyard.sail.BindingSetPipeSailConnection;
 import com.msd.gin.halyard.sail.ElasticSettings;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
@@ -32,6 +29,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.hadoop.hbase.KeyValue;
@@ -49,8 +47,6 @@ import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
-import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.sail.SailException;
@@ -102,14 +98,13 @@ public final class HalyardProfile extends AbstractHalyardTool {
 		                return new EmptyIteration<>();
 		            }
 					@Override
-					public void evaluate(BindingSetPipe handler, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
+					public void evaluate(Consumer<BindingSet> handler, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
 		                System.out.println(toMessage("Original query:", tupleExpr));
 		                super.evaluate(handler, tupleExpr, dataset, bindings, includeInferred);
 					}
 					@Override
-					protected void evaluateInternal(BindingSetPipe handler, TupleExpr optimizedTupleExpr, EvaluationStrategy strategy) throws QueryEvaluationException {
+					protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr optimizedTupleExpr, EvaluationStrategy strategy) throws QueryEvaluationException {
 		                System.out.println(toMessage("Optimized query:", optimizedTupleExpr));
-		                handler.close();
 					}
 		            private String toMessage(String msg, TupleExpr expr) {
 		                final Map<TupleExpr, Double> cardMap = new HashMap<>();

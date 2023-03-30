@@ -1,10 +1,3 @@
-/**
- * Copyright (c) 2016 Eclipse RDF4J contributors.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Distribution License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/org/documents/edl-v10.php.
- */
 package com.msd.gin.halyard.query;
 
 import java.util.concurrent.BlockingQueue;
@@ -24,27 +17,32 @@ public final class QueueingBindingSetPipe extends BindingSetPipe {
 	private final BlockingQueue<Object> queue;
 	private final long timeout;
 	private final TimeUnit unit;
-	private final Thread consumerThread;
+	private volatile boolean sendMore = true;
 
 	public QueueingBindingSetPipe(int maxQueueSize, long timeout, TimeUnit unit) {
-    	super(null);
-    	this.queue = new LinkedBlockingQueue<>(maxQueueSize);
-    	this.timeout = timeout;
-    	this.unit = unit;
-    	this.consumerThread = Thread.currentThread();
-    }
+		super(null);
+		this.queue = new LinkedBlockingQueue<>(maxQueueSize);
+		this.timeout = timeout;
+		this.unit = unit;
+	}
 
     public void collect(Consumer<BindingSet> consumer) {
     	boolean isEnd = false;
 		while (!isEnd) {
-			Object next = poll(timeout, unit);
-			isEnd = isEndOfQueue(next);
-			if (!isEnd) {
-				if (next != null) {
-					consumer.accept((BindingSet) next);
-				} else {
-	    			throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for producer", timeout, toString(unit)));
+			try {
+				Object next = poll(timeout, unit);
+				isEnd = isEndOfQueue(next);
+				if (!isEnd) {
+					if (next != null) {
+						consumer.accept((BindingSet) next);
+					} else {
+		    			throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for producer", timeout, toString(unit)));
+					}
 				}
+			} catch (RuntimeException e) {
+				// can't receive any more binding sets due to exception
+				sendMore = false;
+				throw e;
 			}
 		}
     }
@@ -72,67 +70,71 @@ public final class QueueingBindingSetPipe extends BindingSetPipe {
 	}
 
 	private boolean addToQueue(Object bs) {
+		if (!sendMore) {
+			return false;
+		}
+
 		boolean added;
 		try {
 			added = queue.offer(bs, timeout, unit);
-	    } catch (InterruptedException ie) {
-			consumerThread.interrupt();
-			return false;
-	    }
+			if (!added) {
+				// timed-out
+				try {
+					// throw to generate a stack trace
+					throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for consumer", timeout, toString(unit)));
+				} catch (QueryInterruptedException e) {
+					added = handleException(e);
+				}
+			}
+		} catch (InterruptedException ie) {
+			added = false;
+		}
+		return added;
+	}
 
-		if (added) {
-    		return true;
-    	} else {
-    		// timed-out
-    		try {
-    			// throw to generate a stack trace
-    			throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for consumer", timeout, toString(unit)));
-    		} catch (QueryInterruptedException e) {
-    			return handleException(e);
-    		}
-    	}
-    }
-
-    @Override
-    protected boolean next(BindingSet bs) {
+	@Override
+	protected boolean next(BindingSet bs) {
 		return addToQueue(bs);
-    }
+	}
 
-    @Override
-    protected void doClose() {
+	@Override
+	protected void doClose() {
 		addToQueue(END_OF_QUEUE);
-    }
+	}
 
     @Override
     public boolean handleException(Throwable e) {
         queue.clear();
-        addToQueue(e);
+        if (!addToQueue(e)) {
+        	// report problem
+        	throw new RuntimeException(e);
+        }
         return false;
     }
 
-    @Override
-    public String toString() {
-    	return "Pipe "+Integer.toHexString(this.hashCode())+" for queue "+Integer.toHexString(queue.hashCode());
-    }
+	@Override
+	public String toString() {
+		return "Pipe "+Integer.toHexString(this.hashCode())+" for queue "+Integer.toHexString(queue.hashCode());
+	}
 
-    private static String toString(TimeUnit unit) {
-    	switch (unit) {
-    		case NANOSECONDS:
-    			return "ns";
-    		case MICROSECONDS:
-    			return "μs";
-    		case MILLISECONDS:
-    			return "ms";
-    		case SECONDS:
-    			return "s";
-    		case MINUTES:
-    			return "min";
-    		case HOURS:
-    			return "hr";
-    		case DAYS:
-    			return "d";
-    		default:
-    			throw new IllegalArgumentException(String.format("%s not yet supported", unit));
-    	}
-    }
+	private static String toString(TimeUnit unit) {
+		switch (unit) {
+			case NANOSECONDS:
+				return "ns";
+			case MICROSECONDS:
+				return "μs";
+			case MILLISECONDS:
+				return "ms";
+			case SECONDS:
+				return "s";
+			case MINUTES:
+				return "min";
+			case HOURS:
+				return "hr";
+			case DAYS:
+				return "d";
+			default:
+				throw new IllegalArgumentException(String.format("%s not yet supported", unit));
+		}
+	}
 }
