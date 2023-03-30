@@ -11,6 +11,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -49,11 +50,24 @@ public final class RDFLoadStager implements Callable<Void> {
 		Configuration.addDefaultResource("hdfs-default.xml");
 		Configuration.addDefaultResource("hdfs-site.xml");
 		Configuration conf = new Configuration();
-		if (args.length > 2) {
-			org.apache.hadoop.fs.Path confFile = new org.apache.hadoop.fs.Path(args[2]);
-			conf.addResource(confFile);
+		int maxPartitions = Integer.MAX_VALUE;
+		int i=2;
+		while (i+1<args.length) {
+			String argName = args[i++];
+			String argValue = args[i++];
+			if (argName.equals("-conf")) {
+				org.apache.hadoop.fs.Path confFile = new org.apache.hadoop.fs.Path(argValue);
+				conf.addResource(confFile);
+			} else if (argName.equals("--max-partitions")) {
+				maxPartitions = Integer.parseInt(argValue);
+			} else {
+				throw new Exception("Invalid command line arguments: "+argName+" "+argValue);
+			}
 		}
-		new RDFLoadStager(conf, rdfData, hdfsPath).call();
+		if (i < args.length) {
+			throw new Exception("Invalid command line arguments: "+String.join(" ", Arrays.asList(args).subList(i, args.length)));
+		}
+		new RDFLoadStager(conf, rdfData, hdfsPath, maxPartitions).call();
 	}
 
 	private final Configuration conf;
@@ -62,11 +76,13 @@ public final class RDFLoadStager implements Callable<Void> {
 	private final int bufferSize;
 	private final short replication;
 	private final long defaultBlockSize;
+	private final int maxPartitions;
 
-	RDFLoadStager(Configuration conf, Path rdfData, org.apache.hadoop.fs.Path hdfsPath) {
+	RDFLoadStager(Configuration conf, Path rdfData, org.apache.hadoop.fs.Path hdfsPath, int maxPartitions) {
 		this.conf = conf;
 		this.rdfData = rdfData;
 		this.hdfsPath = hdfsPath;
+		this.maxPartitions = maxPartitions;
 		this.bufferSize = Integer.getInteger(CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_KEY, conf.getInt(CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_KEY, CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_DEFAULT));
 		this.replication = Integer.getInteger(HdfsClientConfigKeys.DFS_REPLICATION_KEY, conf.getInt(HdfsClientConfigKeys.DFS_REPLICATION_KEY, HdfsClientConfigKeys.DFS_REPLICATION_DEFAULT)).shortValue();
 		this.defaultBlockSize = Long.getLong(HdfsClientConfigKeys.DFS_BLOCK_SIZE_KEY, conf.getLong(HdfsClientConfigKeys.DFS_BLOCK_SIZE_KEY, HdfsClientConfigKeys.DFS_BLOCK_SIZE_DEFAULT));
@@ -111,6 +127,7 @@ public final class RDFLoadStager implements Callable<Void> {
 
 				// don't create more partitions than files
 				numPartitions = Math.min(numPartitions, files.size());
+				numPartitions = Math.min(numPartitions, maxPartitions);
 				List<Partition> partitions = new ArrayList<>(numPartitions);
 				if (numPartitions > 1) {
 					for (int i=0; i<numPartitions; i++) {
