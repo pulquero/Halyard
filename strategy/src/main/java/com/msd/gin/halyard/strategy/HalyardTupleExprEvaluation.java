@@ -2556,21 +2556,25 @@ final class HalyardTupleExprEvaluation {
 	        final long minLength = alp.getMinLength();
 	        //temporary solution using copy of the original iterator
 	        //re-writing this to push model is a bit more complex task
+            EvaluationStrategy alpStrategy = new StrictEvaluationStrategy(tripleSource, dataset, null);
+//            // Currently causes too many blocked threads
+//            EvaluationStrategy alpStrategy = new StrictEvaluationStrategy(null, null) {
+//                @Override
+//                public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(ZeroLengthPath zlp, BindingSet bindings) throws QueryEvaluationException {
+//                    zlp.setParentNode(alp);
+//                    return parentStrategy.evaluate(zlp, bindings);
+//                }
+//
+//                @Override
+//                public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(TupleExpr expr, BindingSet bindings) throws QueryEvaluationException {
+//                    expr.setParentNode(alp);
+//                    return parentStrategy.evaluate(expr, bindings);
+//                }
+//            };
+            alpStrategy.setTrackResultSize(parentStrategy.isTrackResultSize());
+            alpStrategy.setTrackTime(parentStrategy.isTrackTime());
 	        try {
-	        	executor.pullAndPushAsync(parent, bs -> new PathIteration(new StrictEvaluationStrategy(null, null) {
-	                @Override
-	                public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(ZeroLengthPath zlp, BindingSet bindings) throws QueryEvaluationException {
-	                    zlp.setParentNode(alp);
-	                    return parentStrategy.evaluate(zlp, bindings);
-	                }
-	
-	                @Override
-	                public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(TupleExpr expr, BindingSet bindings) throws QueryEvaluationException {
-	                    expr.setParentNode(alp);
-	                    return parentStrategy.evaluate(expr, bindings);
-	                }
-	
-	            }, scope, subjectVar, pathExpression, objVar, contextVar, minLength, bs), alp, bindings, parentStrategy);
+	        	executor.pullAndPushAsync(parent, bs -> new PathIteration(alpStrategy, scope, subjectVar, pathExpression, objVar, contextVar, minLength, bs), alp, bindings, parentStrategy);
 	        } catch (QueryEvaluationException e) {
 	            parent.handleException(e);
 	        }
