@@ -31,10 +31,11 @@ import com.msd.gin.halyard.spin.SpinFunctionInterpreter;
 import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
 import com.msd.gin.halyard.spin.SpinParser;
 import com.msd.gin.halyard.spin.SpinParser.Input;
+import com.msd.gin.halyard.util.MBeanDetails;
+import com.msd.gin.halyard.util.MBeanManager;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.management.ManagementFactory;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -49,13 +50,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.management.InstanceAlreadyExistsException;
-import javax.management.InstanceNotFoundException;
-import javax.management.MBeanRegistrationException;
-import javax.management.MalformedObjectNameException;
-import javax.management.NotCompliantMBeanException;
-import javax.management.ObjectInstance;
-import javax.management.ObjectName;
 import javax.net.ssl.SSLContext;
 
 import org.apache.hadoop.conf.Configuration;
@@ -203,7 +197,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 	final boolean hConnectionIsShared; //whether a Connection is provided or we need to create our own
 	Keyspace keyspace;
 	String owner;
-	ObjectInstance mxInst;
+	private MBeanManager<HBaseSail> mbeanManager;
 	private final Queue<QueryInfo> queryHistory = new ArrayBlockingQueue<>(10, true);
 
 	/**
@@ -519,9 +513,20 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 			esTransport = new RestClientTransport(restClient, new JacksonJsonpMapper());
 		}
 
-		Hashtable<String, String> attrs = new Hashtable<>();
-		attrs.put("type", getClass().getName());
-		attrs.put("id", Integer.toString(hashCode()));
+		mbeanManager = new MBeanManager<>() {
+			@Override
+			protected List<MBeanDetails> mbeans(HBaseSail sail) {
+				Hashtable<String, String> attrs = new Hashtable<>();
+				attrs.putAll(getConnectionAttributes(owner));
+				attrs.put("federatedServiceResolver", MBeanManager.getId(federatedServiceResolver));
+				return Collections.singletonList(new MBeanDetails(sail, HBaseSailMXBean.class, attrs));
+			}
+		};
+		mbeanManager.register(this);
+	}
+
+	Map<String, String> getConnectionAttributes(String owner) {
+		Map<String, String> attrs = new HashMap<>();
 		if (tableName != null) {
 			attrs.put("table", tableName.getNameAsString());
 		} else {
@@ -530,12 +535,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 		if (owner != null) {
 			attrs.put("owner", owner);
 		}
-		attrs.put("federatedServiceResolver", HBaseFederatedServiceResolver.getName(federatedServiceResolver));
-		try {
-			mxInst = ManagementFactory.getPlatformMBeanServer().registerMBean(this, ObjectName.getInstance("com.msd.gin.halyard", attrs));
-		} catch (InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException | MalformedObjectNameException e) {
-			throw new AssertionError(e);
-		}
+		return attrs;
 	}
 
 	private boolean isInitialized() {
@@ -586,13 +586,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 
     @Override
 	public void shutDown() throws SailException {
-		if (mxInst != null) {
-			try {
-				ManagementFactory.getPlatformMBeanServer().unregisterMBean(mxInst.getObjectName());
-			} catch (MBeanRegistrationException | InstanceNotFoundException e) {
-			}
-			mxInst = null;
-		}
+		mbeanManager.unregister();
 
 		if (esTransport != null) {
 			try {

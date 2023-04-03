@@ -76,7 +76,7 @@ public class HalyardEvaluationExecutorTest {
 
 	@Test
 	public void testThreadPool() {
-		HalyardEvaluationExecutor executor = new HalyardEvaluationExecutor(new Configuration());
+		HalyardEvaluationExecutor executor = new HalyardEvaluationExecutor(new Configuration(), Collections.emptyMap());
 		int tasks = executor.getThreadPoolExecutor().getActiveCount();
 		assertEquals(0, tasks);
 		assertEquals(tasks, executor.getThreadPoolExecutor().getThreadDump().length);

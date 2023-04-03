@@ -20,23 +20,20 @@ import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.QueueingBindingSetPipe;
+import com.msd.gin.halyard.util.MBeanDetails;
+import com.msd.gin.halyard.util.MBeanManager;
 import com.msd.gin.halyard.util.RateTracker;
 
-import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.management.JMException;
-import javax.management.MBeanServer;
-import javax.management.ObjectInstance;
-import javax.management.ObjectName;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -72,7 +69,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
     private final RateTracker taskRateTracker;
-	private final Runnable shutdownAction;
+	private final MBeanManager<HalyardEvaluationExecutor> mbeanManager;
 
     private int threads;
     private int maxRetries;
@@ -87,24 +84,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	private int pollTimeoutMillis;
 	private int offerTimeoutMillis;
 
-	private static List<ObjectInstance> registerMBeans(MBeanServer mbs, HalyardEvaluationExecutor executor) throws JMException {
-		List<ObjectInstance> mbeanInsts = new ArrayList<>();
-		{
-			Hashtable<String,String> attrs = new Hashtable<>();
-			attrs.put("type", HalyardEvaluationExecutor.class.getName());
-			attrs.put("id", Integer.toString(executor.hashCode()));
-			mbeanInsts.add(mbs.registerMBean(executor, ObjectName.getInstance(StrategyConfig.JMX_DOMAIN, attrs)));
-		}
-		{
-			Hashtable<String,String> attrs = new Hashtable<>();
-			attrs.put("type", TrackingThreadPoolExecutor.class.getName());
-			attrs.put("id", Integer.toString(executor.executor.hashCode()));
-			mbeanInsts.add(mbs.registerMBean(executor.executor, ObjectName.getInstance(StrategyConfig.JMX_DOMAIN, attrs)));
-		}
-		return mbeanInsts;
-	}
-
-	public HalyardEvaluationExecutor(Configuration conf) {
+	public HalyardEvaluationExecutor(Configuration conf, Map<String,String> connAttrs) {
 	    threads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREADS, 10);
 	    setMaxRetries(conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_RETRIES, 3));
 	    setRetryLimit(conf.getInt(StrategyConfig.HALYARD_EVALUATION_RETRY_LIMIT, 100));
@@ -150,28 +130,29 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 			}
 		}, 1000L, TimeUnit.SECONDS.toMillis(threadPoolCheckPeriodSecs));
 
-		MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-		List<ObjectInstance> mbeanInsts;
-		try {
-			mbeanInsts = registerMBeans(mbs, this);
-		} catch (JMException e) {
-			throw new AssertionError(e);
-		}
-
-		this.shutdownAction = () -> {
-			for (ObjectInstance inst : mbeanInsts) {
-				try {
-					mbs.unregisterMBean(inst.getObjectName());
-				} catch (JMException e) {
-					// ignore
+		mbeanManager = new MBeanManager<>() {
+			@Override
+			protected List<MBeanDetails> mbeans(HalyardEvaluationExecutor executor) {
+				List<MBeanDetails> mbeanObjs = new ArrayList<>(2);
+				{
+					Hashtable<String,String> attrs = new Hashtable<>();
+					attrs.putAll(connAttrs);
+					mbeanObjs.add(new MBeanDetails(executor, HalyardEvaluationExecutorMXBean.class, attrs));
 				}
+				{
+					Hashtable<String,String> attrs = new Hashtable<>();
+					attrs.putAll(connAttrs);
+					mbeanObjs.add(new MBeanDetails(executor.executor, TrackingThreadPoolExecutorMXBean.class, attrs));
+				}
+				return mbeanObjs;
 			}
-			executor.shutdownNow();
 		};
+		mbeanManager.register(this);
 	}
 
 	public void shutdown() {
-		shutdownAction.run();
+		mbeanManager.unregister();
+		executor.shutdownNow();
 	}
 
 	@Override

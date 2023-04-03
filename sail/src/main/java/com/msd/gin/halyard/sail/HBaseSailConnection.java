@@ -41,6 +41,7 @@ import com.msd.gin.halyard.strategy.ExtendedQueryOptimizerPipeline;
 import com.msd.gin.halyard.strategy.HalyardEvaluationExecutor;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 import com.msd.gin.halyard.strategy.HalyardExecutionContext;
+import com.msd.gin.halyard.util.MBeanManager;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
@@ -149,7 +150,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			throw new SailException("Connection is closed");
 		}
 		if (executor == null) {
-			executor = new HalyardEvaluationExecutor(sail.getConfiguration());
+			executor = new HalyardEvaluationExecutor(sail.getConfiguration(), sail.getConnectionAttributes(MBeanManager.getId(sail)));
 		}
 		return executor;
 	}

@@ -4,6 +4,7 @@ import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.federation.SailFederatedService;
 import com.msd.gin.halyard.repository.HBaseRepositoryManager;
 import com.msd.gin.halyard.sail.HBaseSail.Ticker;
+import com.msd.gin.halyard.util.MBeanManager;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.net.MalformedURLException;
@@ -24,7 +25,6 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
-import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sparql.SPARQLRepository;
@@ -46,10 +46,6 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 	private final Ticker ticker;
 	private final Object systemRepoLock = new Object();
 	private volatile Repository systemRepo;
-
-	static String getName(FederatedServiceResolver federatedServiceResolver) {
-		return federatedServiceResolver.getClass().getSimpleName() + "@" + Integer.toHexString(federatedServiceResolver.hashCode());
-	}
 
 	/**
 	 * Federated service resolver that supports querying other HBase tables.
@@ -91,7 +87,7 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 			}
 
 			HBaseSail sail = new HBaseSail(hConnection, config, federatedTable, false, 0, usePush, evaluationTimeout, null, ticker);
-			sail.owner = getName(this);
+			sail.owner = MBeanManager.getId(this);
 			HBaseSail.ScanSettings scanSettings = sail.getScanSettings();
 			for (NameValuePair nvp : queryParams) {
 				switch (nvp.getName()) {
