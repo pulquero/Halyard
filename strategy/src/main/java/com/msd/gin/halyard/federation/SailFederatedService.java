@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -26,7 +27,7 @@ import org.eclipse.rdf4j.sail.SailConnection;
 
 public class SailFederatedService implements BindingSetCallbackFederatedService {
 	private final Sail sail;
-	private boolean initialized;
+	private final AtomicBoolean initialized = new AtomicBoolean();
 
 	public SailFederatedService(Sail sail) {
 		this.sail = sail;
@@ -38,15 +39,14 @@ public class SailFederatedService implements BindingSetCallbackFederatedService 
 
 	@Override
 	public void initialize() throws QueryEvaluationException {
-		if (!initialized) {
+		if (initialized.compareAndSet(false, true)) {
 			sail.init();
-			initialized = true;
 		}
 	}
 
 	@Override
 	public boolean isInitialized() {
-		return initialized;
+		return initialized.get();
 	}
 
 	@Override
