@@ -247,7 +247,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 
 	abstract class PrioritizedTask implements Comparable<PrioritizedTask>, Runnable {
     	static final int MIN_SUB_PRIORITY = 0;
-    	static final int MAX_SUB_PRIORITY = 999;
+    	static final int MAX_SUB_PRIORITY = 99999;
     	final TupleExpr queryNode;
     	final BindingSet bindingSet;
     	final int queryPriority;
@@ -265,7 +265,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
     	 * @param subPriority MIN_SUB_PRIORITY to MAX_SUB_PRIORITY inclusive
     	 */
     	protected final void setSubPriority(int subPriority) {
-    		taskPriority = 1000*queryPriority + subPriority;
+    		taskPriority = (MAX_SUB_PRIORITY+1)*queryPriority + subPriority;
     	}
 
     	@Override

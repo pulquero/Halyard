@@ -1,12 +1,14 @@
 package com.msd.gin.halyard.strategy;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -56,15 +58,19 @@ public final class TrackingThreadPoolExecutor extends ThreadPoolExecutor impleme
 	}
 
 	private QueueInfo[] getQueueDump(int n) {
-		// NB: the size is only approximate as the contents of the queue is under constant change!!!
-		BlockingQueue<Runnable> queue = getQueue();
-		List<QueueInfo> dump = new ArrayList<>(queue.size());
-		Iterator<Runnable> iter = queue.iterator();
-		for (int i = 0; i < n && iter.hasNext(); i++) {
-			dump.add(new QueueInfo(iter.next().toString()));
+		BlockingQueue<Runnable> taskQueue = getQueue();
+		Runnable[] tasks = taskQueue.toArray(new Runnable[0]);
+		if (taskQueue instanceof PriorityBlockingQueue<?>) {
+			Comparator<?> comparator = ((PriorityBlockingQueue<?>) taskQueue).comparator();
+			// need to sort as contents are in no particular order
+			Arrays.sort(tasks, (Comparator<Runnable>) comparator);
 		}
-
-		return dump.toArray(new QueueInfo[dump.size()]);
+		QueueInfo[] infos = new QueueInfo[tasks.length];
+		n = Math.min(n, tasks.length);
+		for (int i=0; i<n; i++) {
+			infos[i] = new QueueInfo(tasks[i].toString());
+		}
+		return infos;
 	}
 
 	@Override
