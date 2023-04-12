@@ -371,20 +371,18 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
             	if (!pipe.isClosed()) {
             		if (iter == null) {
                         iter = strategy.track(evalStep.evaluate(bindingSet), queryNode);
-                        return true;
-            		} else {
-	                	if(iter.hasNext()) {
-	                        BindingSet bs = iter.next();
-	                        if (pipe.push(bs)) { //true indicates more data is expected from this binding set, put it on the queue
-	                           	return true;
-	                        }
-	            		}
             		}
+                	if(iter.hasNext()) {
+                        BindingSet bs = iter.next();
+                        if (pipe.push(bs)) { //true indicates more data is expected from this binding set, put it on the queue
+                           	return true;
+                        }
+            		}
+                	pipe.close();
             	}
             	if (iter != null) {
             		iter.close();
             	}
-            	pipe.close();
             	return false;
             } catch (Throwable e) {
             	if (iter != null) {
