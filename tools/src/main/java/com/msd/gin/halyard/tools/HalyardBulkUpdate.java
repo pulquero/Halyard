@@ -212,8 +212,8 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                         rep.init();
                         try(SailRepositoryConnection con = rep.getConnection()) {
 	                        Update upd = new HBaseUpdate(singleUpdate, sail, con);
-	                        LOG.info("Execution of: {}", query);
 	                        context.setStatus(queryName);
+	                        LOG.info("Executing update:\n{}", query);
 	                        upd.execute();
                         }
                     } finally {

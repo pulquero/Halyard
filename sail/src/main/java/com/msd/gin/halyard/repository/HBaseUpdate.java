@@ -144,7 +144,7 @@ public class HBaseUpdate extends SailUpdate {
 		@Override
 		protected void executeModify(Modify modify, UpdateContext uc, int maxExecutionTime) throws SailException {
 			try {
-				ModifyInfo insertInfo;
+				final ModifyInfo insertInfo;
 				TupleExpr insertClause = modify.getInsertExpr();
 				if (insertClause != null) {
 					// for inserts, TupleFunctions are expected in the insert clause
@@ -155,7 +155,7 @@ public class HBaseUpdate extends SailUpdate {
 					insertInfo = null;
 				}
 
-				ModifyInfo deleteInfo;
+				final ModifyInfo deleteInfo;
 				TupleExpr deleteClause = modify.getDeleteExpr();
 				TupleExpr whereClause = new Reduced(modify.getWhereExpr());
 				whereClause = Algebra.ensureRooted(whereClause);
@@ -187,7 +187,7 @@ public class HBaseUpdate extends SailUpdate {
 				evaluateWhereClause(callback, whereClause, uc);
 
 				if (con.isTrackResultSize()) {
-					// copy results back from cloned expressions
+					// copy final results back to original expressions
 					if (deleteInfo != null) {
 						modify.getDeleteExpr().setResultSizeActual(deleteInfo.getClause().getResultSizeActual());
 					}

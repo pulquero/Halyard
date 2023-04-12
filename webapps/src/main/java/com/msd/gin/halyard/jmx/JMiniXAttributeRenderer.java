@@ -5,6 +5,7 @@ import java.util.Date;
 
 import javax.management.openmbean.CompositeData;
 
+import org.apache.commons.text.StringEscapeUtils;
 import org.jminix.type.AttributeFilter;
 import org.jminix.type.HtmlContent;
 
@@ -12,6 +13,10 @@ import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.strategy.TrackingThreadPoolExecutorMXBean;
 
 public class JMiniXAttributeRenderer implements AttributeFilter {
+
+	private static String escape(Object o) {
+		return (o != null) ? StringEscapeUtils.escapeHtml4((String) o) : "";
+	}
 
 	@Override
 	public Object filter(Object object) {
@@ -26,9 +31,9 @@ public class JMiniXAttributeRenderer implements AttributeFilter {
 					for (CompositeData cd : arr) {
 						s.append("<li>\n");
 						s.append("<p>timestamp: ").append(df.format(new Date((Long) cd.get("timestamp")))).append("</p>\n");
-						s.append("<p>queryString: <pre>").append(cd.get("queryString")).append("</pre></p>\n");
-						s.append("<p>queryTree: <pre>").append(cd.get("queryTree")).append("</pre></p>\n");
-						s.append("<p>optimizedQueryTree: <pre>").append(cd.get("optimizedQueryTree")).append("</pre></p>\n");
+						s.append("<p>queryString: <pre>").append(escape(cd.get("queryString"))).append("</pre></p>\n");
+						s.append("<p>queryTree: <pre>").append(escape(cd.get("queryTree"))).append("</pre></p>\n");
+						s.append("<p>optimizedQueryTree: <pre>").append(escape(cd.get("optimizedQueryTree"))).append("</pre></p>\n");
 						s.append("</li>\n");
 					}
 					s.append("</ol>\n");
@@ -50,7 +55,7 @@ public class JMiniXAttributeRenderer implements AttributeFilter {
 					s.append("<ol>\n");
 					for (CompositeData cd : arr) {
 						s.append("<li>\n");
-						s.append("<p>task: <pre>").append(cd.get("task")).append("</pre></p>\n");
+						s.append("<p>task: <pre>").append(escape(cd.get("task"))).append("</pre></p>\n");
 						s.append("</li>\n");
 					}
 					s.append("</ol>\n");

@@ -586,7 +586,10 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 
     @Override
 	public void shutDown() throws SailException {
-		mbeanManager.unregister();
+		if (mbeanManager != null) {
+			mbeanManager.unregister();
+			mbeanManager = null;
+		}
 
 		if (esTransport != null) {
 			try {

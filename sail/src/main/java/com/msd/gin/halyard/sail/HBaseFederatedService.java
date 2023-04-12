@@ -3,6 +3,7 @@ package com.msd.gin.halyard.sail;
 import com.google.common.cache.Cache;
 import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.federation.SailFederatedService;
+import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 
 import java.util.Set;
 import java.util.function.Consumer;
@@ -49,7 +50,7 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 	}
 
 	@Override
-	public FederatedService createPrivateInstance() {
+	public FederatedService createPrivateInstance(HalyardEvaluationStrategy strategy) {
 		return new HBaseFederatedService(sail) {
 			// NB: shared caches across all connections
 			private final QueryCache queryCache = new QueryCache(sail.getConfiguration());
@@ -57,7 +58,12 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 
 			@Override
 			protected SailConnection getConnection() {
-				return sail.getConnection(sail -> new HBaseSailConnection(sail, queryCache, stmtCountCache));
+				return sail.getConnection(sail -> {
+					HBaseSailConnection conn = new HBaseSailConnection(sail, queryCache, stmtCountCache);
+					conn.setTrackResultSize(strategy.isTrackResultSize());
+					conn.setTrackResultTime(strategy.isTrackTime());
+					return conn;
+				});
 			}
 		};
 	}

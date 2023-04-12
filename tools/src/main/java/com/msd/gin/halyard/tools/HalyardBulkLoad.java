@@ -401,6 +401,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
     	enum Counters {
     		PARSE_QUEUE_EMPTY,
     		PARSE_QUEUE_FULL,
+    		PARSE_ERRORS,
     		LRU_CACHE_HITS,
     		LRU_CACHE_MISSES,
     		LFU_CACHE_HITS,
@@ -581,6 +582,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         @Override
         public void error(String msg, long lineNo, long colNo) {
             LOG.error(msg);
+            context.getCounter(Counters.PARSE_ERRORS).increment(1);
         }
 
         @Override

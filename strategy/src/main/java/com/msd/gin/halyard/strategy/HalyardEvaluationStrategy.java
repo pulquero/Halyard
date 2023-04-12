@@ -180,7 +180,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
         return federatedServices.computeIfAbsent(serviceUrl, (endpoint) -> {
         	FederatedService fedService = serviceResolver.getService(serviceUrl);
         	if (fedService instanceof HalyardFederatedService) {
-        		fedService = ((HalyardFederatedService)fedService).createPrivateInstance();
+        		fedService = ((HalyardFederatedService)fedService).createPrivateInstance(this);
         	}
         	return fedService;
         });
