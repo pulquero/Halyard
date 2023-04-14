@@ -119,6 +119,7 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
 
     @Override
     public RecordReader<NullWritable, Void> createRecordReader(InputSplit split, TaskAttemptContext context) throws IOException, InterruptedException {
+        final QueryInputSplit qis = (QueryInputSplit) split;
         return new RecordReader<NullWritable, Void>() {
             @Override
             public void initialize(InputSplit split, TaskAttemptContext context) throws IOException, InterruptedException {
@@ -126,7 +127,7 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
 
             @Override
             public boolean nextKeyValue() throws IOException, InterruptedException {
-                return false;
+                return true;
             }
 
             @Override
@@ -141,7 +142,7 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
 
             @Override
             public float getProgress() throws IOException, InterruptedException {
-                return 0;
+                return qis.progress;
             }
 
             @Override
@@ -160,6 +161,7 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
 
         private String queryName, query;
         private int repeatIndex;
+        private float progress;
 
         public QueryInputSplit() {
         }
@@ -180,6 +182,10 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
 
         public int getRepeatIndex() {
             return repeatIndex;
+        }
+
+        public void setProgress(float p) {
+            this.progress = p;
         }
 
         @Override

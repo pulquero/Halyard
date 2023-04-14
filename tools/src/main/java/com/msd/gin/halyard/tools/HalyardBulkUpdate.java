@@ -19,6 +19,7 @@ package com.msd.gin.halyard.tools;
 import static com.msd.gin.halyard.tools.HalyardBulkLoad.*;
 
 import com.msd.gin.halyard.common.HalyardTableUtils;
+import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.repository.HBaseUpdate;
 import com.msd.gin.halyard.sail.ElasticSettings;
 import com.msd.gin.halyard.sail.HBaseSail;
@@ -27,6 +28,7 @@ import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.hadoop.conf.Configuration;
@@ -51,10 +53,14 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
+import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.Update;
+import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
+import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.parser.ParsedUpdate;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
@@ -122,7 +128,6 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                 context.setStatus("Nothing to execute in: " + queryName + " for stage #" + stage);
             } else {
                 UpdateExpr ue = parsedUpdate.getUpdateExprs().get(stage);
-                LOG.info(ue.toString());
                 ParsedUpdate singleUpdate = new ParsedUpdate(parsedUpdate.getSourceString(), parsedUpdate.getNamespaces());
                 singleUpdate.addUpdateExpr(ue);
                 Dataset d = parsedUpdate.getDatasetMapping().get(ue);
@@ -140,6 +145,24 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 					public HBaseSailConnection createConnection(HBaseSail sail) throws IOException {
 						return new HBaseSailConnection(sail) {
 							private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
+
+							@Override
+							protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr tupleExpr, EvaluationStrategy strategy) {
+								LOG.info("Optimised query tree:\n{}", tupleExpr);
+								HalyardEvaluationStatistics stats = getStatistics();
+								double estimate = stats.getCardinality(tupleExpr);
+								super.evaluateInternal(next -> {
+									qis.setProgress((float) ((double)tupleExpr.getResultSizeActual()/estimate));
+									// notify of progress
+									try {
+										context.nextKeyValue();
+									} catch (IOException | InterruptedException e) {
+										throw new QueryEvaluationException(e);
+									}
+									handler.accept(next);
+								}, tupleExpr, strategy);
+								LOG.info("Execution statistics:\n{}", tupleExpr);
+							}
 
 							@Override
 							protected int insertStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
@@ -204,6 +227,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 						};
 					}
 				});
+				sail.setTrackResultSize(true);
                 SailRepository rep = new SailRepository(sail);
                 Function fn = new ParallelSplitFunction(qis.getRepeatIndex());
                 sail.getFunctionRegistry().add(fn);
