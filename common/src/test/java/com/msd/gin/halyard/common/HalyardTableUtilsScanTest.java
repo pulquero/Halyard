@@ -200,7 +200,7 @@ public class HalyardTableUtilsScanTest {
     @Test
     public void testScan() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
-        ValueIO.Reader reader = rdfFactory.createReader(vf);
+        ValueIO.Reader reader = rdfFactory.valueReader;
 
         RDFSubject subj = rdfFactory.createSubject(s == null ? null : vf.createIRI(s));
         RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
@@ -210,7 +210,7 @@ public class HalyardTableUtilsScanTest {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(stmtIndices.parseStatements(subj, pred, obj, ctx, r, reader));
+                res.addAll(stmtIndices.parseStatements(subj, pred, obj, ctx, r, reader, vf));
             }
             assertTrue(allStatements.containsAll(res));
             assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
@@ -242,7 +242,7 @@ public class HalyardTableUtilsScanTest {
                     Set<Statement> res = new HashSet<>();
                     Result r;
                     while ((r = rs.next()) != null) {
-                        res.addAll(stmtIndices.parseStatements(null, null, null, null, r, reader));
+                        res.addAll(stmtIndices.parseStatements(null, null, null, null, r, reader, vf));
                     }
                     assertTrue(allStatements.containsAll(res));
                     assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
@@ -254,7 +254,7 @@ public class HalyardTableUtilsScanTest {
     @Test
     public void testScanWithSubjectAndObjectConstraint() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
-        ValueIO.Reader reader = rdfFactory.createReader(vf);
+        ValueIO.Reader reader = rdfFactory.valueReader;
 
         RDFSubject subj = rdfFactory.createSubject(s == null ? null : vf.createIRI(s));
         RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
@@ -264,7 +264,7 @@ public class HalyardTableUtilsScanTest {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader));
+                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader, vf));
             }
             assertTrue(allStatements.containsAll(res));
             assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
@@ -274,7 +274,7 @@ public class HalyardTableUtilsScanTest {
     @Test
     public void testScanWithSubjectConstraint() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
-        ValueIO.Reader reader = rdfFactory.createReader(vf);
+        ValueIO.Reader reader = rdfFactory.valueReader;
 
         RDFSubject subj = rdfFactory.createSubject(s == null ? null : vf.createIRI(s));
         RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
@@ -284,7 +284,7 @@ public class HalyardTableUtilsScanTest {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader));
+                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader, vf));
             }
             assertTrue(allStatements.containsAll(res));
             if (pred == null || obj != null) {
@@ -299,7 +299,7 @@ public class HalyardTableUtilsScanTest {
     @Test
     public void testScanWithObjectConstraint() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
-        ValueIO.Reader reader = rdfFactory.createReader(vf);
+        ValueIO.Reader reader = rdfFactory.valueReader;
 
         RDFSubject subj = rdfFactory.createSubject(s == null ? null : vf.createIRI(s));
         RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
@@ -309,7 +309,7 @@ public class HalyardTableUtilsScanTest {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader));
+                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader, vf));
             }
             assertTrue(allStatements.containsAll(res));
             if (subj == null || pred != null) {

@@ -33,6 +33,7 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
@@ -66,8 +67,14 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	public double getCardinality(StatementPattern sp, Collection<String> boundVars) { // get the cardinality of the Statement form VOID statistics
 		final double card;
         final Var contextVar = sp.getContextVar();
-        final IRI graphNode = contextVar == null || !contextVar.hasValue() ? HALYARD.STATS_ROOT_NODE : (IRI) contextVar.getValue();
-        final long triples = getTriplesCount(graphNode, -1l);
+		final Value contextValue = (contextVar != null) ? contextVar.getValue() : null;
+        final IRI graphNode;
+		if (contextValue == null) {
+			graphNode = HALYARD.STATS_ROOT_NODE;
+		} else {
+			graphNode = contextValue.isIRI() ? (IRI) contextVar.getValue() : null;
+		}
+		final long triples = (graphNode != null) ? getTriplesCount(graphNode, -1l) : -1l;
         if (triples > 0) { //stats are present
             boolean sv = hasValue(sp.getSubjectVar(), boundVars);
             boolean pv = hasValue(sp.getPredicateVar(), boundVars);
@@ -137,7 +144,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
         if (partitionVar == null || !partitionVar.hasValue()) {
             return defaultCardinality;
         }
-		return getTriplesCount(statsSource.getValueFactory().createIRI(graph.stringValue() + "_" + partitionType.getLocalName() + "_" + rdfFactory.id(partitionVar.getValue())), defaultCardinality);
+		return getTriplesCount(createPartitionIRI(graph, partitionType, partitionVar.getValue(), rdfFactory, statsSource.getValueFactory()), defaultCardinality);
     }
 
 	@Override
@@ -145,5 +152,9 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		if (statsSource instanceof Closeable) {
 			((Closeable) statsSource).close();
 		}
+	}
+
+	public static IRI createPartitionIRI(IRI graph, IRI partitionType, Value partitionId, RDFFactory rdfFactory, ValueFactory vf) {
+		return vf.createIRI(graph.stringValue() + "_" + partitionType.getLocalName() + "_" + rdfFactory.id(partitionId).toString());
 	}
 }

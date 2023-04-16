@@ -54,7 +54,7 @@ public final class HRDFWriter extends AbstractRDFWriter {
 
 
 	private final DataOutputStream out;
-	private static final ValueIO.Writer valueWriter = ValueIO.getDefault().createStreamWriter();
+	private static final ValueIO.Writer valueWriter = ValueIO.getDefault().createWriter();
 
 	public HRDFWriter(OutputStream out) {
 		this.out = new DataOutputStream(out);
@@ -91,17 +91,17 @@ public final class HRDFWriter extends AbstractRDFWriter {
 		buf.put((byte) type);
 		boolean skip = (c == null) || c.equals(prevContext);
 		if (!skip) {
-			buf = ValueIO.writeValue(c, valueWriter, buf, Short.BYTES);
+			buf = valueWriter.writeValueWithSizeHeader(c, buf, Short.BYTES);
 		}
 		skip = subj.equals(prevSubject) && skip;
 		if (!skip) {
-			buf = ValueIO.writeValue(subj, valueWriter, buf, Short.BYTES);
+			buf = valueWriter.writeValueWithSizeHeader(subj, buf, Short.BYTES);
 		}
 		skip = pred.equals(prevPredicate) && skip;
 		if (!skip) {
-			buf = ValueIO.writeValue(pred, valueWriter, buf, Short.BYTES);
+			buf = valueWriter.writeValueWithSizeHeader(pred, buf, Short.BYTES);
 		}
-		buf = ValueIO.writeValue(st.getObject(), valueWriter, buf, Integer.BYTES);
+		buf = valueWriter.writeValueWithSizeHeader(st.getObject(), buf, Integer.BYTES);
 		try {
 			out.write(buf.array(), buf.arrayOffset(), buf.position());
 		} catch(IOException e) {

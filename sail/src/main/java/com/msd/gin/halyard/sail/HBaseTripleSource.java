@@ -69,6 +69,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	private static final Logger LOG = LoggerFactory.getLogger(HBaseTripleSource.class);
 
 	protected final KeyspaceConnection keyspaceConn;
+	protected final ValueFactory vf;
 	protected final StatementIndices stmtIndices;
 	protected final RDFFactory rdfFactory;
 	private final ValueIO.Reader valueReader;
@@ -80,15 +81,12 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		this(table, vf, stmtIndices, timeoutSecs, null, null);
 	}
 
-	HBaseTripleSource(KeyspaceConnection table, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, HBaseSail.ScanSettings settings, HBaseSail.Ticker ticker) {
-		this(table, stmtIndices.createTableReader(vf, table), stmtIndices, timeoutSecs, settings, ticker);
-	}
-
-	private HBaseTripleSource(KeyspaceConnection table, ValueIO.Reader valueReader, StatementIndices stmtIndices, long timeoutSecs, HBaseSail.ScanSettings settings, HBaseSail.Ticker ticker) {
+	protected HBaseTripleSource(KeyspaceConnection table, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, HBaseSail.ScanSettings settings, HBaseSail.Ticker ticker) {
 		this.keyspaceConn = table;
+		this.vf = vf;
 		this.stmtIndices = stmtIndices;
 		this.rdfFactory = stmtIndices.getRDFFactory();
-		this.valueReader = valueReader;
+		this.valueReader = stmtIndices.getRDFFactory().valueReader;
 		this.timeoutSecs = timeoutSecs;
 		this.settings = settings;
 		this.ticker = ticker;
@@ -198,13 +196,12 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	public TripleSource getTimestampedTripleSource() {
-		ValueIO.Reader tsValueReader = stmtIndices.createTableReader(TimestampedValueFactory.INSTANCE, keyspaceConn);
-		return new HBaseTripleSource(keyspaceConn, tsValueReader, stmtIndices, timeoutSecs, settings, ticker);
+		return new HBaseTripleSource(keyspaceConn, TimestampedValueFactory.INSTANCE, stmtIndices, timeoutSecs, settings, ticker);
 	}
 
 	@Override
 	public TripleSource getTripleSource(ValueConstraint subjConstraint, ValueConstraint objConstraints) {
-		return new HBaseTripleSource(keyspaceConn, valueReader, stmtIndices, timeoutSecs, settings, ticker) {
+		return new HBaseTripleSource(keyspaceConn, vf, stmtIndices, timeoutSecs, settings, ticker) {
 			@Override
 			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, StatementIndices indices) {
 				return indices.scanWithConstraints(subj, subjConstraint, pred, obj, objConstraints, ctx);
@@ -214,7 +211,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 
 	@Override
 	public final ValueFactory getValueFactory() {
-		return valueReader.getValueFactory();
+		return vf;
 	}
 
 	@Override
@@ -234,7 +231,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		private ResultScanner rs = null;
 
 		public StatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contextsList, ValueIO.Reader reader) {
-			super(reader, HBaseTripleSource.this.stmtIndices);
+			super(reader, HBaseTripleSource.this.stmtIndices, HBaseTripleSource.this.vf);
 			this.subj = rdfFactory.createSubject(subj);
 			this.pred = rdfFactory.createPredicate(pred);
 			this.obj = rdfFactory.createObject(obj);
@@ -287,7 +284,6 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 					return new QueryEvaluationException(e);
 				}
 			}) {
-			final ValueFactory vf = valueReader.getValueFactory();
 
 			@Override
 			protected Triple convert(Statement stmt) {

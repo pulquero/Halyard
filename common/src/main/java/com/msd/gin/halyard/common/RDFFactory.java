@@ -22,7 +22,6 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.ValueFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,8 +32,8 @@ public final class RDFFactory {
 	private static final Map<HalyardTableConfiguration,RDFFactory> FACTORIES = Collections.synchronizedMap(new HashMap<>());
 
 	private final HalyardTableConfiguration halyardConfig;
-	public final ValueIO.Writer streamWriter;
-	public final ValueIO.Reader streamReader;
+	public final ValueIO.Writer valueWriter;
+	public final ValueIO.Reader valueReader;
 	private final BiMap<ValueIdentifier, IRI> wellKnownIriIds = HashBiMap.create(256);
 	final int version;
 	final ValueIdentifier.Format idFormat;
@@ -170,8 +169,8 @@ public final class RDFFactory {
 		cospKeySizes = new IndexKeySizes(subjectKeySize, predicateEndKeySize, objectKeySize, contextKeySize);
 		cospKeySizes.readFrom(halyardConfig, "halyard.key.cosp");
 
-		streamWriter = valueIO.createStreamWriter();
-		streamReader = valueIO.createStreamReader(IdValueFactory.INSTANCE);
+		valueWriter = valueIO.createWriter();
+		valueReader = valueIO.createReader();
 
 		for (IdentifiableIRI iri : halyardConfig.getWellKnownIRIs()) {
 			ValueIdentifier id = iri.getId(this);
@@ -348,7 +347,7 @@ public final class RDFFactory {
 				id = idv.getId(this);
 			} else {
 				ByteBuffer ser = ByteBuffer.allocate(ValueIO.DEFAULT_BUFFER_SIZE);
-				ser = streamWriter.writeTo(v, ser);
+				ser = valueWriter.writeTo(v, ser);
 				ser.flip();
 				id = id(v, ser);
 			}
@@ -360,7 +359,7 @@ public final class RDFFactory {
 		if (idBytes.length != idFormat.size) {
 			throw new IllegalArgumentException("Byte array has incorrect length");
 		}
-		return new ValueIdentifier(idBytes, idFormat);
+		return new ValueIdentifier(idBytes);
 	}
 
 	ValueIdentifier id(Value v, ByteBuffer ser) {
@@ -369,11 +368,11 @@ public final class RDFFactory {
 	}
 
 	public ValueIdentifier idFromString(String s) {
-		return new ValueIdentifier(Hashes.decode(s), idFormat);
+		return id(Hashes.decode(s));
 	}
 
 	ByteBuffer getSerializedForm(Value v) {
-		byte[] b = streamWriter.toBytes(v);
+		byte[] b = valueWriter.toBytes(v);
 		return ByteBuffer.wrap(b).asReadOnlyBuffer();
 	}
 
@@ -408,19 +407,5 @@ public final class RDFFactory {
 
 	public RDFContext createContext(Resource val) {
 		return RDFContext.create(val, this);
-	}
-
-	/**
-	 * Used for testing.
-	 */
-	ValueIO.Writer createWriter() {
-		return valueIO.createWriter(null);
-	}
-
-	/**
-	 * Used for testing.
-	 */
-	ValueIO.Reader createReader(ValueFactory vf) {
-		return valueIO.createReader(vf, null);
 	}
 }

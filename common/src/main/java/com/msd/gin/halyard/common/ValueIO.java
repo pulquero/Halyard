@@ -334,53 +334,31 @@ public class ValueIO {
 		}
 	}
 
-	public static ByteBuffer writeValue(Value v, ValueIO.Writer writer, ByteBuffer buf, int sizeBytes) {
-		buf = ValueIO.ensureCapacity(buf, sizeBytes);
-		int sizePos = buf.position();
-		int startPos = buf.position() + sizeBytes;
-		buf.position(startPos);
-		buf = writer.writeTo(v, buf);
-		int endPos = buf.position();
-		int len = endPos - startPos;
-		buf.position(sizePos);
-		if (sizeBytes == Short.BYTES) {
-			buf.putShort((short) len);
-		} else if (sizeBytes == Integer.BYTES) {
-			buf.putInt(len);
-		} else {
-			throw new AssertionError();
-		}
-		buf.position(endPos);
-		return buf;
-	}
-
-	public static Value readValue(ByteBuffer buf, ValueIO.Reader reader, int sizeBytes) {
-		int len;
-		if (sizeBytes == Short.BYTES) {
-			len = buf.getShort();
-		} else if (sizeBytes == Integer.BYTES) {
-			len = buf.getInt();
-		} else {
-			throw new AssertionError();
-		}
-		int originalLimit = buf.limit();
-		buf.limit(buf.position() + len);
-		Value v = reader.readValue(buf);
-		buf.limit(originalLimit);
-		return v;
-	}
-
 	private static volatile ValueIO defaultValueIO;
+	private static volatile ValueIO.Writer defaultWriter;
+	private static volatile ValueIO.Reader defaultReader;
 
 	public static ValueIO getDefault() {
 		if (defaultValueIO == null) {
 			synchronized (ValueIO.class) {
 				if (defaultValueIO == null) {
 					defaultValueIO = new ValueIO(new HalyardTableConfiguration((Iterable<Map.Entry<String, String>>) (Iterable<?>) System.getProperties().entrySet()));
+					defaultWriter = getDefault().createWriter();
+					defaultReader = getDefault().createReader();
 				}
 			}
 		}
 		return defaultValueIO;
+	}
+
+	public static ValueIO.Writer getDefaultWriter() {
+		getDefault();
+		return defaultWriter;
+	}
+
+	public static ValueIO.Reader getDefaultReader() {
+		getDefault();
+		return defaultReader;
 	}
 
 	private final HalyardTableConfiguration config;
@@ -822,37 +800,53 @@ public class ValueIO {
 		return b;
 	}
 
-	public Writer createStreamWriter() {
-		return createWriter(new StreamTripleWriter());
+	public Writer createWriter() {
+		return new Writer();
 	}
 
-	public Writer createWriter(TripleWriter tw) {
-		return new Writer(tw);
+	public Reader createReader() {
+		return createReader((id,valueFactory) -> valueFactory.createBNode(id));
 	}
 
-	public Reader createStreamReader(ValueFactory vf) {
-		return createReader(vf, new StreamTripleReader());
-	}
-
-	public Reader createReader(ValueFactory vf, TripleReader tf) {
-		return createReader(vf, tf, (id,valueFactory) -> valueFactory.createBNode(id));
-	}
-
-	public Reader createReader(ValueFactory vf, TripleReader tf, BiFunction<String,ValueFactory,Resource> bnodeTransformer) {
-		return new Reader(vf, tf, bnodeTransformer);
+	public Reader createReader(BiFunction<String,ValueFactory,Resource> bnodeTransformer) {
+		return new Reader(bnodeTransformer);
 	}
 
 
 	@ThreadSafe
 	public final class Writer {
-		private final TripleWriter tw;
-
-		private Writer(TripleWriter tw) {
-			this.tw = tw;
+		private Writer() {
 		}
 
 		public ValueIO getValueIO() {
 			return ValueIO.this;
+		}
+
+		private ByteBuffer writeTriple(Resource subj, IRI pred, Value obj, ByteBuffer buf) {
+			buf = writeValueWithSizeHeader(subj, buf, Short.BYTES);
+			buf = writeValueWithSizeHeader(pred, buf, Short.BYTES);
+			buf = writeValueWithSizeHeader(obj, buf, Integer.BYTES);
+			return buf;
+		}
+
+		public ByteBuffer writeValueWithSizeHeader(Value v, ByteBuffer buf, int sizeHeaderBytes) {
+			buf = ValueIO.ensureCapacity(buf, sizeHeaderBytes);
+			int sizePos = buf.position();
+			int startPos = buf.position() + sizeHeaderBytes;
+			buf.position(startPos);
+			buf = writeTo(v, buf);
+			int endPos = buf.position();
+			int len = endPos - startPos;
+			buf.position(sizePos);
+			if (sizeHeaderBytes == Short.BYTES) {
+				buf.putShort((short) len);
+			} else if (sizeHeaderBytes == Integer.BYTES) {
+				buf.putInt(len);
+			} else {
+				throw new AssertionError();
+			}
+			buf.position(endPos);
+			return buf;
 		}
 
 		public byte[] toBytes(Value v) {
@@ -875,7 +869,7 @@ public class ValueIO {
 				Triple t = (Triple) v;
 				b = ensureCapacity(b, 1);
 				b.put(TRIPLE_TYPE);
-				b = tw.writeTriple(t.getSubject(), t.getPredicate(), t.getObject(), this, b);
+				b = writeTriple(t.getSubject(), t.getPredicate(), t.getObject(), b);
 				return b;
 			} else {
 				throw new AssertionError(String.format("Unexpected RDF value: %s (%s)", v, v.getClass().getName()));
@@ -1020,13 +1014,9 @@ public class ValueIO {
 
 	@ThreadSafe
 	public class Reader {
-		private final ValueFactory vf;
-		private final TripleReader tf;
 		private final BiFunction<String,ValueFactory,Resource> bnodeTransformer;
 
-		private Reader(ValueFactory vf, TripleReader tf, BiFunction<String,ValueFactory,Resource> bnodeTransformer) {
-			this.vf = vf;
-			this.tf = tf;
+		private Reader(BiFunction<String,ValueFactory,Resource> bnodeTransformer) {
 			this.bnodeTransformer = bnodeTransformer;
 		}
 
@@ -1034,11 +1024,30 @@ public class ValueIO {
 			return ValueIO.this;
 		}
 
-		public ValueFactory getValueFactory() {
-			return vf;
+		private Triple readTriple(ByteBuffer b, ValueFactory vf) {
+			Resource s = (Resource) readValueWithSizeHeader(b, vf, Short.BYTES);
+			IRI p = (IRI) readValueWithSizeHeader(b, vf, Short.BYTES);
+			Value o = readValueWithSizeHeader(b, vf, Integer.BYTES);
+			return vf.createTriple(s, p, o);
 		}
 
-		public Value readValue(ByteBuffer b) {
+		public Value readValueWithSizeHeader(ByteBuffer buf, ValueFactory vf, int sizeHeaderBytes) {
+			int len;
+			if (sizeHeaderBytes == Short.BYTES) {
+				len = buf.getShort();
+			} else if (sizeHeaderBytes == Integer.BYTES) {
+				len = buf.getInt();
+			} else {
+				throw new AssertionError();
+			}
+			int originalLimit = buf.limit();
+			buf.limit(buf.position() + len);
+			Value v = readValue(buf, vf);
+			buf.limit(originalLimit);
+			return v;
+		}
+
+		public Value readValue(ByteBuffer b, ValueFactory vf) {
 			int type = b.get();
 			switch(type) {
 				case IRI_TYPE:
@@ -1107,15 +1116,12 @@ public class ValueIO {
 					int originalLimit = b.limit();
 					int dtSize = b.getShort();
 					b.limit(b.position()+dtSize);
-					IRI datatype = (IRI) readValue(b);
+					IRI datatype = (IRI) readValue(b, vf);
 					b.limit(originalLimit);
 					String label = readUncompressedString(b);
 					return vf.createLiteral(label, datatype);
 				case TRIPLE_TYPE:
-					if (tf == null) {
-						throw new IllegalStateException("Unexpected triple value or missing TripleFactory");
-					}
-					return tf.readTriple(b, this);
+					return readTriple(b, vf);
 				default:
 					ByteReader reader = byteReaders.get(type);
 					if (reader == null) {
@@ -1123,28 +1129,6 @@ public class ValueIO {
 					}
 					return reader.readBytes(b, vf);
 			}
-		}
-	}
-
-
-	public static final class StreamTripleWriter implements TripleWriter {
-		@Override
-		public ByteBuffer writeTriple(Resource subj, IRI pred, Value obj, ValueIO.Writer writer, ByteBuffer buf) {
-			buf = writeValue(subj, writer, buf, Short.BYTES);
-			buf = writeValue(pred, writer, buf, Short.BYTES);
-			buf = writeValue(obj, writer, buf, Integer.BYTES);
-			return buf;
-		}
-	}
-
-
-	public static final class StreamTripleReader implements TripleReader {
-		@Override
-		public Triple readTriple(ByteBuffer b, ValueIO.Reader reader) {
-			Resource s = (Resource) readValue(b, reader, Short.BYTES);
-			IRI p = (IRI) readValue(b, reader, Short.BYTES);
-			Value o = readValue(b, reader, Integer.BYTES);
-			return reader.getValueFactory().createTriple(s, p, o);
 		}
 	}
 }

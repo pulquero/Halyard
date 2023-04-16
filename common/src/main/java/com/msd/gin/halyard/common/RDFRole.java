@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.common.ValueIdentifier.Format;
+
 import java.nio.ByteBuffer;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -45,10 +47,10 @@ public final class RDFRole<T extends SPOC<?>> {
 		return sizeLength;
 	}
 
-	byte[] keyHash(ValueIdentifier id) {
+	byte[] keyHash(ValueIdentifier id, Format format) {
 		// rotate key so ordering is different for different prefixes
 		// this gives better load distribution when traversing between prefixes
-		return keyHashSize > 0 ? id.rotate(keyHashSize, shift, new byte[keyHashSize]) : new byte[0];
+		return keyHashSize > 0 ? id.rotate(keyHashSize, shift, new byte[keyHashSize], format) : new byte[0];
 	}
 
 	ByteBuffer writeQualifierHashTo(ValueIdentifier id, ByteBuffer bb) {

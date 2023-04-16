@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.common.Hashes;
+import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.ValueIO;
 import com.msd.gin.halyard.tools.HalyardBulkLoad.RioFileInputFormat;
@@ -26,6 +27,7 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
@@ -94,7 +96,7 @@ public final class HalyardHash extends AbstractHalyardTool {
 			kbb.flip();
 
 			vbb.clear();
-			vbb = rdfFactory.streamWriter.writeTo(v, vbb);
+			vbb = rdfFactory.valueWriter.writeTo(v, vbb);
 			vbb.flip();
 
 			outputKey.set(kbb.array(), kbb.arrayOffset(), kbb.limit());
@@ -105,18 +107,20 @@ public final class HalyardHash extends AbstractHalyardTool {
 
 	static abstract class AbstractHashReducer<OUTK,OUTV> extends Reducer<ImmutableBytesWritable, ImmutableBytesWritable, OUTK, OUTV> {
 		protected RDFFactory rdfFactory;
+		private ValueFactory vf;
 
 		@Override
 		protected void setup(Context context) throws IOException {
 			Configuration conf = context.getConfiguration();
 			rdfFactory = RDFFactory.create(conf);
+			vf = IdValueFactory.INSTANCE;
 		}
 
 		@Override
 		protected void reduce(ImmutableBytesWritable key, Iterable<ImmutableBytesWritable> values, Context context) throws IOException, InterruptedException {
 			Set<Value> rdfTerms = new HashSet<>();
 			for (ImmutableBytesWritable value : values) {
-				Value v = rdfFactory.streamReader.readValue(ByteBuffer.wrap(value.get(), value.getOffset(), value.getLength()));
+				Value v = rdfFactory.valueReader.readValue(ByteBuffer.wrap(value.get(), value.getOffset(), value.getLength()), vf);
 				rdfTerms.add(v);
 			}
 
@@ -139,7 +143,7 @@ public final class HalyardHash extends AbstractHalyardTool {
 		@Override
 		protected void report(Context context, ImmutableBytesWritable key, Value rdfTerm) throws IOException, InterruptedException {
 			ByteBuffer vbb = ByteBuffer.allocate(ValueIO.DEFAULT_BUFFER_SIZE);
-			vbb = rdfFactory.streamWriter.writeTo(rdfTerm, vbb);
+			vbb = rdfFactory.valueWriter.writeTo(rdfTerm, vbb);
 			vbb.flip();
 			outputValue.set(vbb.array(), vbb.arrayOffset(), vbb.limit());
 			context.write(key, outputValue);

@@ -18,7 +18,6 @@ import org.eclipse.rdf4j.rio.RDFParserFactory;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFParser;
 
 import com.msd.gin.halyard.common.ValueIO;
-import com.msd.gin.halyard.common.ValueIO.StreamTripleReader;
 
 public final class HRDFParser extends AbstractRDFParser {
 
@@ -50,7 +49,7 @@ public final class HRDFParser extends AbstractRDFParser {
 		RDFHandlerException
 	{
 		clear();
-		ValueIO.Reader valueReader = valueIO.createReader(valueFactory, new StreamTripleReader(), (id,vf) -> createNode(id));
+		ValueIO.Reader valueReader = valueIO.createReader((id,vf) -> createNode(id));
 		try {
 			byte[] buffer = new byte[1024];
 			DataInputStream dataIn = new DataInputStream(in);
@@ -68,7 +67,7 @@ public final class HRDFParser extends AbstractRDFParser {
 					int len = dataIn.readShort();
 					buffer = ensureCapacity(buffer, len);
 					dataIn.readFully(buffer, 0, len);
-					c = (Resource) valueReader.readValue(ByteBuffer.wrap(buffer, 0, len));
+					c = (Resource) valueReader.readValue(ByteBuffer.wrap(buffer, 0, len), valueFactory);
 				} else if (type > HRDF.QUADS) {
 					c = prevContext;
 				} else {
@@ -79,7 +78,7 @@ public final class HRDFParser extends AbstractRDFParser {
 					int len = dataIn.readShort();
 					buffer = ensureCapacity(buffer, len);
 					dataIn.readFully(buffer, 0, len);
-					s = (Resource) valueReader.readValue(ByteBuffer.wrap(buffer, 0, len));
+					s = (Resource) valueReader.readValue(ByteBuffer.wrap(buffer, 0, len), valueFactory);
 				} else {
 					s = prevSubject;
 				}
@@ -88,14 +87,14 @@ public final class HRDFParser extends AbstractRDFParser {
 					int len = dataIn.readShort();
 					buffer = ensureCapacity(buffer, len);
 					dataIn.readFully(buffer, 0, len);
-					p = (IRI) valueReader.readValue(ByteBuffer.wrap(buffer, 0, len));
+					p = (IRI) valueReader.readValue(ByteBuffer.wrap(buffer, 0, len), valueFactory);
 				} else {
 					p = prevPredicate;
 				}
 				int len = dataIn.readInt();
 				buffer = ensureCapacity(buffer, len);
 				dataIn.readFully(buffer, 0, len);
-				Value o = valueReader.readValue(ByteBuffer.wrap(buffer, 0, len));
+				Value o = valueReader.readValue(ByteBuffer.wrap(buffer, 0, len), valueFactory);
 
 				Statement stmt;
 				if (c != null) {

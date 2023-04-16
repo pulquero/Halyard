@@ -95,7 +95,6 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 
         final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
         long totalKvs = 0L, deletedKvs = 0L, deletedTripledKvs = 0L;
-        ValueFactory vf;
         long htimestamp;
         boolean tripleCleanupOnly;
         Resource subj;
@@ -107,7 +106,6 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE), conf.get(SNAPSHOT_PATH));
-            vf = IdValueFactory.INSTANCE;
             htimestamp = HalyardTableUtils.toHalyardTimestamp(conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis()), false);
             String s = conf.get(SUBJECT);
             if (s != null) {
@@ -137,7 +135,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         @Override
         protected void map(ImmutableBytesWritable key, Result value, Context output) throws IOException, InterruptedException {
             for (Cell c : value.rawCells()) {
-                Statement st = stmtIndices.parseStatement(null, null, null, null, c, valueReader);
+                Statement st = stmtIndices.parseStatement(null, null, null, null, c, valueReader, vf);
                 if ((ctxs == null || ctxs.contains(st.getContext())) && (subj == null || subj.equals(st.getSubject())) && (pred == null || pred.equals(st.getPredicate())) && (obj == null || obj.equals(st.getObject()))) {
                     deleteCell(c, st, output);
                 } else if (HALYARD.TRIPLE_GRAPH_CONTEXT.equals(st.getContext())) {
@@ -250,6 +248,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 		} finally {
 			keyspace.close();
 		}
+        ValueFactory vf = IdValueFactory.INSTANCE;
         String[] namedGraphs = cmd.getOptionValues('g');
         StatementIndices indices = new StatementIndices(getConf(), rdfFactory);
         List<Scan> scans;
@@ -258,7 +257,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         	scans.add(indices.scanDefaultIndices());
         	for (String graph : namedGraphs) {
         		if (!DEFAULT_GRAPH_KEYWORD.equals(graph)) {
-        			Resource ctx = IdValueFactory.INSTANCE.createIRI(graph);
+        			Resource ctx = vf.createIRI(graph);
             		scans.addAll(indices.scanContextIndices(ctx));
         		}
         	}

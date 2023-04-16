@@ -121,7 +121,7 @@ public final class ValueIdentifier implements ByteSequence, Serializable {
 		ValueIdentifier id(ValueType type, IRI datatype, ByteBuffer ser) {
 			byte[] hash = hashFuncProvider.get().apply(ser);
 			writeType(type, datatype, hash, 0);
-			return new ValueIdentifier(hash, this);
+			return new ValueIdentifier(hash);
 		}
 
 		@Override
@@ -230,15 +230,9 @@ public final class ValueIdentifier implements ByteSequence, Serializable {
 	}
 
 	private final byte[] idBytes;
-	private final Format format;
 
-	ValueIdentifier(byte[] idBytes, Format format) {
+	ValueIdentifier(byte[] idBytes) {
 		this.idBytes = idBytes;
-		this.format = format;
-	}
-
-	public Format getFormat() {
-		return format;
 	}
 
 	@Override
@@ -246,24 +240,24 @@ public final class ValueIdentifier implements ByteSequence, Serializable {
 		return idBytes.length;
 	}
 
-	public boolean isIRI() {
+	public boolean isIRI(Format format) {
 		return format.getTypeBits(idBytes) == format.typeNibble.iriTypeBits;
 	}
 
-	public boolean isLiteral() {
+	public boolean isLiteral(Format format) {
 		return format.getTypeBits(idBytes) == format.typeNibble.literalTypeBits;
 	}
 
-	public boolean isBNode() {
+	public boolean isBNode(Format format) {
 		return format.getTypeBits(idBytes) == format.typeNibble.bnodeTypeBits;
 	}
 
-	public boolean isTriple() {
+	public boolean isTriple(Format format) {
 		return format.getTypeBits(idBytes) == format.typeNibble.tripleTypeBits;
 	}
 
-	public boolean isString() {
-		return isLiteral() && (format.getDatatypeBits(idBytes) == format.typeNibble.stringDatatypeBits);
+	public boolean isString(Format format) {
+		return isLiteral(format) && (format.getDatatypeBits(idBytes) == format.typeNibble.stringDatatypeBits);
 	}
 
 	@Override
@@ -275,7 +269,7 @@ public final class ValueIdentifier implements ByteSequence, Serializable {
 		return bb.put(idBytes, offset, len);
 	}
 
-	byte[] rotate(int len, int shift, byte[] dest) {
+	byte[] rotate(int len, int shift, byte[] dest, Format format) {
 		byte[] rotated = Format.rotateRight(idBytes, 0, len, shift, dest);
 		if (shift != 0) {
 			// preserve position of type byte

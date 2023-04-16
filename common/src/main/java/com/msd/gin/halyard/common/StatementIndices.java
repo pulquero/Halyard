@@ -206,7 +206,8 @@ public final class StatementIndices {
 		StatementIndex<SPOC.C,SPOC.O,SPOC.S,SPOC.P> index = cosp;
 		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
 		if (typeSaltSize == 1) {
-			ByteSequence ctxb = new ByteArray(index.role1.keyHash(ctx.getId()));
+			ValueIdentifier.Format idFormat = rdfFactory.idFormat;
+			ByteSequence ctxb = new ByteArray(index.role1.keyHash(ctx.getId(), idFormat));
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
 				ctxb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.startKey()), index.role3.startKey(), index.role4.startKey(),
@@ -224,7 +225,8 @@ public final class StatementIndices {
 		StatementIndex<SPOC.P,SPOC.O,SPOC.S,SPOC.C> index = pos;
 		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
 		if (typeSaltSize == 1) {
-			ByteSequence predb = new ByteArray(index.role1.keyHash(pred.getId()));
+			ValueIdentifier.Format idFormat = rdfFactory.idFormat;
+			ByteSequence predb = new ByteArray(index.role1.keyHash(pred.getId(), idFormat));
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
 				predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.startKey()), index.role3.startKey(), index.role4.startKey(),
@@ -243,8 +245,9 @@ public final class StatementIndices {
 		StatementIndex<SPOC.C,SPOC.P,SPOC.O,SPOC.S> index = cpos;
 		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
 		if (typeSaltSize == 1) {
-			ByteSequence ctxb = new ByteArray(index.role1.keyHash(ctx.getId()));
-			ByteSequence predb = new ByteArray(index.role2.keyHash(pred.getId()));
+			ValueIdentifier.Format idFormat = rdfFactory.idFormat;
+			ByteSequence ctxb = new ByteArray(index.role1.keyHash(ctx.getId(), idFormat));
+			ByteSequence predb = new ByteArray(index.role2.keyHash(pred.getId(), idFormat));
 			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
 				ctxb, predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role3.startKey()), index.role4.startKey(),
@@ -295,10 +298,6 @@ public final class StatementIndices {
 			scan = HalyardTableUtils.scanFirst(scan);
 		}
 		return scan;
-	}
-
-	public ValueIO.Reader createTableReader(ValueFactory vf, KeyspaceConnection conn) {
-		return rdfFactory.valueIO.createStreamReader(vf);
 	}
 
 	/**
@@ -456,19 +455,20 @@ public final class StatementIndices {
 	 * @param ctx context if known
 	 * @param res HBase Scan Result
 	 * @param valueReader ValueIO.Reader
+	 * @param vf ValueFactory
 	 * @return List of Statements
 	 */
-	public List<Statement> parseStatements(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, Result res, ValueIO.Reader valueReader) {
+	public List<Statement> parseStatements(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, Result res, ValueIO.Reader valueReader, ValueFactory vf) {
 		// multiple triples may have the same hash (i.e. row key)
 		List<Statement> st;
 		if (!res.isEmpty()) {
 			Cell[] cells = res.rawCells();
 			if (cells.length == 1) {
-				st = Collections.singletonList(parseStatement(subj, pred, obj, ctx, cells[0], valueReader));
+				st = Collections.singletonList(parseStatement(subj, pred, obj, ctx, cells[0], valueReader, vf));
 			} else {
 				st = new ArrayList<>(cells.length);
 				for (Cell c : cells) {
-					st.add(parseStatement(subj, pred, obj, ctx, c, valueReader));
+					st.add(parseStatement(subj, pred, obj, ctx, c, valueReader, vf));
 				}
 			}
 		} else {
@@ -486,14 +486,15 @@ public final class StatementIndices {
 	 * @param ctx context if known
 	 * @param cell HBase Result Cell
 	 * @param valueReader ValueIO.Reader
+	 * @param vf ValueFactory
 	 * @return Statements
 	 */
-	public Statement parseStatement(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, Cell cell, ValueIO.Reader valueReader) {
+	public Statement parseStatement(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, Cell cell, ValueIO.Reader valueReader, ValueFactory vf) {
 		ByteBuffer row = ByteBuffer.wrap(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
 	    ByteBuffer cq = ByteBuffer.wrap(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
 	    ByteBuffer cv = ByteBuffer.wrap(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
 		StatementIndex<?,?,?,?> index = toIndex(row.get());
-	    Statement stmt = index.parseStatement(subj, pred, obj, ctx, row, cq, cv, valueReader);
+	    Statement stmt = index.parseStatement(subj, pred, obj, ctx, row, cq, cv, valueReader, vf);
 	    assert !row.hasRemaining();
 	    assert !cq.hasRemaining();
 	    assert !cv.hasRemaining();
@@ -599,13 +600,13 @@ public final class StatementIndices {
 	}
 
 	public Resource getSubject(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
-		ValueIO.Reader valueReader = createTableReader(vf, kc);
+		ValueIO.Reader valueReader = rdfFactory.valueReader;
 		Scan scan = HalyardTableUtils.scanFirst(spo.scan(new RDFIdentifier<SPOC.S>(RDFRole.Name.SUBJECT, id)));
 		try (ResultScanner scanner = kc.getScanner(scan)) {
 			for (Result result : scanner) {
 				if(!result.isEmpty()) {
 					Cell[] cells = result.rawCells();
-					Statement stmt = parseStatement(null, null, null, null, cells[0], valueReader);
+					Statement stmt = parseStatement(null, null, null, null, cells[0], valueReader, vf);
 					return stmt.getSubject();
 				}
 			}
@@ -614,13 +615,13 @@ public final class StatementIndices {
 	}
 
 	public IRI getPredicate(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
-		ValueIO.Reader valueReader = createTableReader(vf, kc);
+		ValueIO.Reader valueReader = rdfFactory.valueReader;
 		Scan scan = HalyardTableUtils.scanFirst(pos.scan(new RDFIdentifier<SPOC.P>(RDFRole.Name.PREDICATE, id)));
 		try (ResultScanner scanner = kc.getScanner(scan)) {
 			for (Result result : scanner) {
 				if(!result.isEmpty()) {
 					Cell[] cells = result.rawCells();
-					Statement stmt = parseStatement(null, null, null, null, cells[0], valueReader);
+					Statement stmt = parseStatement(null, null, null, null, cells[0], valueReader, vf);
 					return stmt.getPredicate();
 				}
 			}
@@ -629,13 +630,13 @@ public final class StatementIndices {
 	}
 
 	public Value getObject(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
-		ValueIO.Reader valueReader = createTableReader(vf, kc);
+		ValueIO.Reader valueReader = rdfFactory.valueReader;
 		Scan scan = HalyardTableUtils.scanFirst(osp.scan(new RDFIdentifier<SPOC.O>(RDFRole.Name.OBJECT, id)));
 		try (ResultScanner scanner = kc.getScanner(scan)) {
 			for (Result result : scanner) {
 				if(!result.isEmpty()) {
 					Cell[] cells = result.rawCells();
-					Statement stmt = parseStatement(null, null, null, null, cells[0], valueReader);
+					Statement stmt = parseStatement(null, null, null, null, cells[0], valueReader, vf);
 					return stmt.getObject();
 				}
 			}

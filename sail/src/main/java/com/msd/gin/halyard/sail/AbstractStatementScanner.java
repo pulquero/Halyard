@@ -1,5 +1,12 @@
 package com.msd.gin.halyard.sail;
 
+import com.msd.gin.halyard.common.RDFContext;
+import com.msd.gin.halyard.common.RDFObject;
+import com.msd.gin.halyard.common.RDFPredicate;
+import com.msd.gin.halyard.common.RDFSubject;
+import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.common.ValueIO;
+
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -8,13 +15,6 @@ import org.apache.hadoop.hbase.client.Result;
 import org.eclipse.rdf4j.common.iteration.AbstractCloseableIteration;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.ValueFactory;
-
-import com.msd.gin.halyard.common.RDFContext;
-import com.msd.gin.halyard.common.RDFObject;
-import com.msd.gin.halyard.common.RDFPredicate;
-import com.msd.gin.halyard.common.RDFSubject;
-import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.common.ValueIO;
 
 public abstract class AbstractStatementScanner extends AbstractCloseableIteration<Statement, IOException> {
 	private final ValueIO.Reader reader;
@@ -27,10 +27,10 @@ public abstract class AbstractStatementScanner extends AbstractCloseableIteratio
 	private Statement next = null;
 	private Iterator<Statement> iter = null;
 
-	protected AbstractStatementScanner(ValueIO.Reader reader, StatementIndices indices) {
+	protected AbstractStatementScanner(ValueIO.Reader reader, StatementIndices indices, ValueFactory vf) {
 		this.reader = reader;
 		this.indices = indices;
-		this.vf = reader.getValueFactory();
+		this.vf = vf;
 	}
 
 	protected abstract Result nextResult() throws IOException;
@@ -44,7 +44,7 @@ public abstract class AbstractStatementScanner extends AbstractCloseableIteratio
 					if (res == null) {
 						return false; // no more Results
 					}
-					iter = indices.parseStatements(subj, pred, obj, ctx, res, reader).iterator();
+					iter = indices.parseStatements(subj, pred, obj, ctx, res, reader, vf).iterator();
 				}
 				if (iter.hasNext()) {
 					Statement s = iter.next();

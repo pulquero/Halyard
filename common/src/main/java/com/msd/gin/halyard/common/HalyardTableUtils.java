@@ -309,10 +309,11 @@ public final class HalyardTableUtils {
 
 		fractionSum = 0.0f;
 		if (keyFractions != null && !keyFractions.isEmpty()) {
+			ValueIdentifier.Format idFormat = indices.getRDFFactory().idFormat;
 			for (Map.Entry<? extends RDFIdentifier<?>, Float> entry : keyFractions.entrySet()) {
 				StatementIndex<?,?,?,?> index = indices.toIndex(prefix);
 				RDFIdentifier<?> id = entry.getKey();
-				byte[] keyHash = index.getRole(id.getRoleName()).keyHash(id.getId());
+				byte[] keyHash = index.getRole(id.getRoleName()).keyHash(id.getId(), idFormat);
 				byte[] keyPrefix = new byte[1+keyHash.length];
 				keyPrefix[0] = prefix;
 				System.arraycopy(keyHash, 0, keyPrefix, 1, keyHash.length);

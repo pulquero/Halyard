@@ -28,6 +28,7 @@ import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueIO;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
+import com.msd.gin.halyard.sail.HalyardStatsBasedStatementPatternCardinalityCalculator;
 import com.msd.gin.halyard.vocab.HALYARD;
 import com.msd.gin.halyard.vocab.VOID_EXT;
 
@@ -139,7 +140,6 @@ public final class HalyardStats extends AbstractHalyardTool {
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
             setThreshold = conf.getLong(GRAPH_THRESHOLD, DEFAULT_THRESHOLD);
             subsetThreshold = conf.getLong(PARTITION_THRESHOLD, DEFAULT_THRESHOLD);
-            ValueFactory vf = IdValueFactory.INSTANCE;
             statsContext = vf.createIRI(conf.get(STATS_GRAPH));
             String namedGraph = conf.get(NAMED_GRAPH_PROPERTY);
             if (namedGraph != null) {
@@ -208,7 +208,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             	lastSubsetIds = new HashSet<>();
             }
 
-            List<Statement> stmts = stmtIndices.parseStatements(null, null, null, null, value, valueReader);
+            List<Statement> stmts = stmtIndices.parseStatements(null, null, null, null, value, valueReader, vf);
             for (Statement stmt : stmts) {
             	Resource ctx = index.getName().isQuadIndex() ? stmt.getContext() : DEFAULT_GRAPH_NODE;
             	if (!ctx.equals(lastGraph)) {
@@ -298,10 +298,10 @@ public final class HalyardStats extends AbstractHalyardTool {
 
         private void report(Context output, IRI property, Value partitionId, long count) throws IOException, InterruptedException {
             if (count > 0 && (namedGraphContext == null || namedGraphContext.equals(graph))) {
-            	ValueIO.Writer writer = rdfFactory.streamWriter;
+            	ValueIO.Writer writer = rdfFactory.valueWriter;
             	bb.clear();
-            	bb = ValueIO.writeValue(graph, writer, bb, Short.BYTES);
-            	bb = ValueIO.writeValue(property, writer, bb, Short.BYTES);
+            	bb = writer.writeValueWithSizeHeader(graph, bb, Short.BYTES);
+            	bb = writer.writeValueWithSizeHeader(property, bb, Short.BYTES);
                 if (partitionId != null) {
 					bb = writer.writeTo(partitionId, bb);
                 }
@@ -388,7 +388,6 @@ public final class HalyardStats extends AbstractHalyardTool {
         RDFWriter writer;
         Map<Resource, Boolean> graphs;
         IRI statsGraphContext;
-        ValueFactory vf;
         long timestamp;
         HBaseSail sail;
 		HBaseSailConnection conn;
@@ -398,7 +397,6 @@ public final class HalyardStats extends AbstractHalyardTool {
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
-            vf = IdValueFactory.INSTANCE;
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
             statsGraphContext = vf.createIRI(conf.get(STATS_GRAPH));
             String targetUrl = conf.get(TARGET);
@@ -451,11 +449,11 @@ public final class HalyardStats extends AbstractHalyardTool {
                 count += val.get();
             }
 
-        	ValueIO.Reader reader = rdfFactory.streamReader;
+        	ValueIO.Reader reader = rdfFactory.valueReader;
         	ByteBuffer bb = ByteBuffer.wrap(key.get(), key.getOffset(), key.getLength());
-        	Resource graph = (Resource) ValueIO.readValue(bb, reader, Short.BYTES);
-        	IRI predicate = (IRI) ValueIO.readValue(bb, reader, Short.BYTES);
-            Value partitionId = bb.hasRemaining() ? reader.readValue(bb) : null;
+        	IRI graph = (IRI) reader.readValueWithSizeHeader(bb, vf, Short.BYTES);
+        	IRI predicate = (IRI) reader.readValueWithSizeHeader(bb, vf, Short.BYTES);
+            Value partitionId = bb.hasRemaining() ? reader.readValue(bb, vf) : null;
 
             if (SD.NAMED_GRAPH_PROPERTY.equals(predicate)) { //workaround to at least count all small named graph that are below the threshold
                 writeStatement(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, graph);
@@ -476,7 +474,7 @@ public final class HalyardStats extends AbstractHalyardTool {
                 }
                 Literal countLiteral = vf.createLiteral(count);
                 if (partitionId != null) {
-					IRI subset = vf.createIRI(graph + "_" + predicate.getLocalName() + "_" + rdfFactory.id(partitionId));
+					IRI subset = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIRI(graph, predicate, partitionId, rdfFactory, vf);
                     writeStatement(statsNode, vf.createIRI(predicate + "Partition"), subset);
                     writeStatement(subset, RDF.TYPE, VOID.DATASET);
 					writeStatement(subset, predicate, partitionId);

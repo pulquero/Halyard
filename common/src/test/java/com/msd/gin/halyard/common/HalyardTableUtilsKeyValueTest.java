@@ -97,7 +97,7 @@ public class HalyardTableUtilsKeyValueTest {
 	}
 
 	private void testParseStatement(String msg, Statement expected, RDFSubject s, RDFPredicate p, RDFObject o, RDFContext c, Cell kv, long ts) {
-		Statement actual = indices.parseStatement(s, p, o, c, kv, rdfFactory.createReader(vf));
+		Statement actual = indices.parseStatement(s, p, o, c, kv, rdfFactory.valueReader, vf);
 		assertEquals(msg, expected, actual);
 		assertEquals(ts, ((Timestamped)actual).getTimestamp());
 		if(s == null) {

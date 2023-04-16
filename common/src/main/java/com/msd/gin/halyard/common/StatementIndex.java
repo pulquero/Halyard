@@ -127,6 +127,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	private final int[] spocIndices;
 	private final RDFRole<?>[] spocRoles;
 	private final RDFFactory rdfFactory;
+	private final ValueIdentifier.Format idFormat;
 	private final int maxCaching;
 
 	StatementIndex(Name name, int prefix, RDFRole<T1> role1, RDFRole<T2> role2, RDFRole<T3> role3, RDFRole<T4> role4, RDFFactory rdfFactory, Configuration conf) {
@@ -137,7 +138,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		this.role3 = role3;
 		this.role4 = role4;
 		this.rdfFactory = rdfFactory;
-        this.maxCaching = conf.getInt(HConstants.HBASE_CLIENT_SCANNER_CACHING, HConstants.DEFAULT_HBASE_CLIENT_SCANNER_CACHING);
+		this.idFormat = rdfFactory.idFormat;
+		this.maxCaching = conf.getInt(HConstants.HBASE_CLIENT_SCANNER_CACHING, HConstants.DEFAULT_HBASE_CLIENT_SCANNER_CACHING);
 
 		this.argIndices = new int[4];
 		this.spocIndices = new int[4];
@@ -168,11 +170,11 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		byte[] r = new byte[1 + role1.keyHashSize() + role2.keyHashSize() + role3.keyHashSize() + (hasQuad ? role4.keyHashSize() : 0)];
 		ByteBuffer bb = ByteBuffer.wrap(r);
 		bb.put(prefix);
-		bb.put(role1.keyHash(v1.getId()));
-		bb.put(role2.keyHash(v2.getId()));
-		bb.put(role3.keyHash(v3.getId()));
+		bb.put(role1.keyHash(v1.getId(), idFormat));
+		bb.put(role2.keyHash(v2.getId(), idFormat));
+		bb.put(role3.keyHash(v3.getId(), idFormat));
 		if(hasQuad) {
-			bb.put(role4.keyHash(v4.getId()));
+			bb.put(role4.keyHash(v4.getId(), idFormat));
 		}
 		return r;
 	}
@@ -212,13 +214,13 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return cv;
 	}
 
-	Statement parseStatement(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, ByteBuffer key, ByteBuffer cn, ByteBuffer cv, ValueIO.Reader reader) {
+	Statement parseStatement(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, ByteBuffer key, ByteBuffer cn, ByteBuffer cv, ValueIO.Reader reader, ValueFactory vf) {
 		RDFValue<?,?>[] args = new RDFValue<?,?>[] {subj, pred, obj, ctx};
-		Value v1 = parseRDFValue(role1, args[argIndices[0]], key, cn, cv, role1.keyHashSize(), reader);
-		Value v2 = parseRDFValue(role2, args[argIndices[1]], key, cn, cv, role2.keyHashSize(), reader);
-		Value v3 = parseRDFValue(role3, args[argIndices[2]], key, cn, cv, role3.keyHashSize(), reader);
-		Value v4 = parseLastRDFValue(role4, args[argIndices[3]], key, cn, cv, role4.keyHashSize(), reader);
-		return createStatement(new Value[] {v1, v2, v3, v4}, reader.getValueFactory());
+		Value v1 = parseRDFValue(role1, args[argIndices[0]], key, cn, cv, role1.keyHashSize(), reader, vf);
+		Value v2 = parseRDFValue(role2, args[argIndices[1]], key, cn, cv, role2.keyHashSize(), reader, vf);
+		Value v3 = parseRDFValue(role3, args[argIndices[2]], key, cn, cv, role3.keyHashSize(), reader, vf);
+		Value v4 = parseLastRDFValue(role4, args[argIndices[3]], key, cn, cv, role4.keyHashSize(), reader, vf);
+		return createStatement(new Value[] {v1, v2, v3, v4}, vf);
 	}
 
     private Statement createStatement(Value[] vArray, ValueFactory vf) {
@@ -233,7 +235,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
     }
 
-    private Value parseRDFValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, ValueIO.Reader reader) {
+    private Value parseRDFValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, ValueIO.Reader reader, ValueFactory vf) {
     	byte marker = cv.get(cv.position()); // peek
     	int len;
     	if (marker == WELL_KNOWN_IRI_MARKER) {
@@ -250,10 +252,10 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 					throw new AssertionError(String.format("Unsupported size length: %d", role.sizeLength()));
 			}
     	}
-   		return parseValue(role, pattern, key, cq, cv, keySize, len, reader);
+   		return parseValue(role, pattern, key, cq, cv, keySize, len, reader, vf);
     }
 
-    private Value parseLastRDFValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, ValueIO.Reader reader) {
+    private Value parseLastRDFValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, ValueIO.Reader reader, ValueFactory vf) {
     	byte marker = cv.hasRemaining() ? cv.get(cv.position()) : 0;  // peek
     	int len;
     	if (marker == WELL_KNOWN_IRI_MARKER) {
@@ -261,10 +263,10 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
     	} else {
     		len = cv.remaining();
     	}
-   		return parseValue(role, pattern, key, cq, cv, keySize, len, reader);
+   		return parseValue(role, pattern, key, cq, cv, keySize, len, reader, vf);
     }
 
-	private Value parseValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, int len, ValueIO.Reader reader) {
+	private Value parseValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, int len, ValueIO.Reader reader, ValueFactory vf) {
     	if(pattern != null) {
     		// if we have been given the value then don't bother to read it and skip to the next
     		skipId(key, cq, keySize, rdfFactory.getIdSize());
@@ -283,7 +285,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			ValueIdentifier id = parseId(role, key, cq, keySize);
 			int limit = cv.limit();
 			cv.limit(cv.position() + len);
-			Value value = reader.readValue(cv);
+			Value value = reader.readValue(cv, vf);
 			cv.limit(limit);
 			if (value instanceof IdentifiableValue) {
 				((IdentifiableValue)value).setId(rdfFactory, id);
@@ -335,7 +337,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return scanWithConstraint(k, null);
 	}
 	public Scan scanWithConstraint(RDFIdentifier<T1> k1, ValueConstraint constraint) {
-		ByteSequence kb = new ByteArray(role1.keyHash(k1.getId()));
+		ByteSequence kb = new ByteArray(role1.keyHash(k1.getId(), idFormat));
 		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 		Scan scan = scan(
 			kb, role2.startKey(), role3.startKey(), role4.startKey(),
@@ -362,11 +364,11 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return scanWithConstraint(k1, k2, null);
 	}
 	public Scan scanWithConstraint(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, ValueConstraint constraint) {
-		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId()));
+		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId(), idFormat));
 		ByteSequence k2b, stop2;
 		int cardinality;
 		if (k2 != null) {
-			k2b = new ByteArray(role2.keyHash(k2.getId()));
+			k2b = new ByteArray(role2.keyHash(k2.getId(), idFormat));
 			stop2 = k2b;
 			cardinality = VAR_CARDINALITY*VAR_CARDINALITY;
 		} else {
@@ -398,12 +400,12 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return scanWithConstraint(k1, k2, k3, null);
 	}
 	public Scan scanWithConstraint(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, RDFIdentifier<T3> k3, ValueConstraint constraint) {
-		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId()));
-		ByteSequence k2b = new ByteArray(role2.keyHash(k2.getId()));
+		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId(), idFormat));
+		ByteSequence k2b = new ByteArray(role2.keyHash(k2.getId(), idFormat));
 		ByteSequence k3b, stop3;
 		int cardinality;
 		if (k3 != null) {
-			k3b = new ByteArray(role3.keyHash(k3.getId()));
+			k3b = new ByteArray(role3.keyHash(k3.getId(), idFormat));
 			stop3 = k3b;
 			cardinality = VAR_CARDINALITY;
 		} else {
@@ -433,10 +435,10 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return scan;
 	}
 	public Scan scan(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, RDFIdentifier<T3> k3, RDFIdentifier<T4> k4) {
-		byte[] k1b = role1.keyHash(k1.getId());
-		byte[] k2b = role2.keyHash(k2.getId());
-		byte[] k3b = role3.keyHash(k3.getId());
-		byte[] k4b = role4.keyHash(k4.getId());
+		byte[] k1b = role1.keyHash(k1.getId(), idFormat);
+		byte[] k2b = role2.keyHash(k2.getId(), idFormat);
+		byte[] k3b = role3.keyHash(k3.getId(), idFormat);
+		byte[] k4b = role4.keyHash(k4.getId(), idFormat);
 		int cardinality = 1;
 		return scan(
 			new ByteArray(k1b), new ByteArray(k2b), new ByteArray(k3b), new ByteArray(k4b),

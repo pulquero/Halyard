@@ -63,7 +63,7 @@ public class StatementIndexScanTest {
         keyspaceConn = new TableKeyspace.TableKeyspaceConnection(table);
 		rdfFactory = RDFFactory.create(keyspaceConn);
 		stmtIndices = new StatementIndices(conf, rdfFactory);
-		reader = stmtIndices.createTableReader(vf, keyspaceConn);
+		reader = rdfFactory.valueReader;
 
         stringLiterals = new HashSet<>();
         nonstringLiterals = new HashSet<>();
@@ -118,6 +118,14 @@ public class StatementIndexScanTest {
         keyspaceConn.close();
     }
 
+    private static List<Statement> parseStatements(Result r) {
+        return parseStatements(null, null, null, null, r);
+    }
+
+    private static List<Statement> parseStatements(RDFSubject s, RDFPredicate p, RDFObject o, RDFContext c, Result r) {
+        return stmtIndices.parseStatements(s, p, o, c, r, reader, vf);
+    }
+
     @Test
     public void testScanAll() throws Exception {
         Set<Statement> actual = new HashSet<>();
@@ -125,7 +133,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, null, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(r)) {
                     actual.add(stmt);
                 }
             }
@@ -140,7 +148,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, null, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(r)) {
                     actual.add(stmt);
                 }
             }
@@ -156,7 +164,7 @@ public class StatementIndexScanTest {
 	        try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
 	            Result r;
 	            while ((r = rs.next()) != null) {
-	                for (Statement stmt : stmtIndices.parseStatements(null, null, null, null, r, reader)) {
+	                for (Statement stmt : parseStatements(r)) {
 	                    actual.add(stmt);
 	                }
 	            }
@@ -172,7 +180,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, null, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(r)) {
                     assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
@@ -188,7 +196,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, null, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(r)) {
                     assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
@@ -204,7 +212,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, null, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(r)) {
                     assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
@@ -220,7 +228,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, null, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(r)) {
                     assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
@@ -240,7 +248,7 @@ public class StatementIndexScanTest {
     			);
             try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
                 Result r = rs.next();
-                List<Statement> stmts = stmtIndices.parseStatements(null, null, null, null, r, reader);
+                List<Statement> stmts = parseStatements(r);
                 assertEquals(Collections.singletonList(stmt), stmts);
             }
     	}
@@ -257,7 +265,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(rdfSubj, rdfPred, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(rdfSubj, rdfPred, null, null, r)) {
                     assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
@@ -279,7 +287,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(rdfSubj, rdfPred, null, rdfCtx, r, reader)) {
+                for (Statement stmt : parseStatements(rdfSubj, rdfPred, null, rdfCtx, r)) {
                     assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
@@ -299,7 +307,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(rdfSubj, rdfPred, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(rdfSubj, rdfPred, null, null, r)) {
                     assertTrue("Not a triple: "+stmt.getObject(), stmt.getObject().isTriple());
                     actual.add((Triple) stmt.getObject());
                 }
@@ -317,7 +325,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, rdfPred, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(null, rdfPred, null, null, r)) {
                     assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
@@ -337,7 +345,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, rdfPred, null, rdfCtx, r, reader)) {
+                for (Statement stmt : parseStatements(null, rdfPred, null, rdfCtx, r)) {
                     assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
@@ -355,7 +363,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, rdfPred, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(null, rdfPred, null, null, r)) {
                     assertTrue("Not a triple: "+stmt.getObject(), stmt.getObject().isTriple());
                     actual.add((Triple) stmt.getObject());
                 }
@@ -371,7 +379,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, null, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(r)) {
                     assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                     actual.add((Literal) stmt.getObject());
                 }
@@ -390,7 +398,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, null, null, rdfCtx, r, reader)) {
+                for (Statement stmt : parseStatements(null, null, null, rdfCtx, r)) {
                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
                    actual.add((Literal) stmt.getObject());
                 }
@@ -406,7 +414,7 @@ public class StatementIndexScanTest {
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
-                for (Statement stmt : stmtIndices.parseStatements(null, null, null, null, r, reader)) {
+                for (Statement stmt : parseStatements(r)) {
                     assertTrue("Not a triple: "+stmt.getObject(), stmt.getObject().isTriple());
                     actual.add((Triple) stmt.getObject());
                 }

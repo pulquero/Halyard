@@ -166,4 +166,13 @@ public class IdValueFactoryExtendedTest {
 		RDFFactory rdfFactory2 = RDFFactory.create(conf2);
 		assertEquals(rdfFactory2.getSerializedForm(expected), ((SerializableValue)actual).getSerializedForm(rdfFactory2));
 	}
+
+	@Test
+	public void testSerializedFormWithIdSet() {
+		Configuration conf = new Configuration(false);
+		conf.setInt(TableConfig.ID_SIZE, 8);
+		RDFFactory rdfFactory = RDFFactory.create(conf);
+		actual.setId(rdfFactory, rdfFactory.id(actual));
+		assertEquals(rdfFactory.getSerializedForm(expected), ((SerializableValue)actual).getSerializedForm(rdfFactory));
+	}
 }

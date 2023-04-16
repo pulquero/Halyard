@@ -119,8 +119,9 @@ public class RDFFactoryTest {
 	}
 
 	private void testToAndFromBytes(int bufferSize) {
-        ValueIO.Writer writer = rdfFactory.createWriter();
-        ValueIO.Reader reader = rdfFactory.createReader(IdValueFactory.INSTANCE);
+        ValueIO.Writer writer = rdfFactory.valueWriter;
+        ValueIO.Reader reader = rdfFactory.valueReader;
+        ValueFactory vf = IdValueFactory.INSTANCE;
 
         ByteBuffer buf = ByteBuffer.allocate(bufferSize);
 		buf = writer.writeTo(expectedValue, buf);
@@ -128,7 +129,7 @@ public class RDFFactoryTest {
 		byte actualEncodingType = buf.get(0);
 		assertEquals("Incorrect encoding type for "+expectedValue.toString(), expectedEncodingType, actualEncodingType);
 		int size = buf.limit();
-		Value actual = reader.readValue(buf);
+		Value actual = reader.readValue(buf, vf);
 		assertEquals(expectedValue, actual);
 		assertEquals(actual, expectedValue);
 		assertEquals(expectedValue.hashCode(), actual.hashCode());
@@ -144,7 +145,7 @@ public class RDFFactoryTest {
 		extbuf.put(buf);
 		extbuf.limit(extbuf.position());
 		extbuf.reset();
-		actual = reader.readValue(extbuf);
+		actual = reader.readValue(extbuf, vf);
 		assertEquals("Buffer position", beforeLen + size, extbuf.position());
 		assertEquals("Buffer state", extbuf.limit(), extbuf.position());
 		assertEquals(expectedValue, actual);
@@ -157,14 +158,15 @@ public class RDFFactoryTest {
 			assertEquals(id, ((IdentifiableValue)expectedValue).getId(rdfFactory));
 		}
 
-		assertEquals("isIRI", expectedValue.isIRI(), id.isIRI());
-		assertEquals("isLiteral", expectedValue.isLiteral(), id.isLiteral());
-		assertEquals("isBNode", expectedValue.isBNode(), id.isBNode());
-		assertEquals("isTriple", expectedValue.isTriple(), id.isTriple());
+		ValueIdentifier.Format idFormat = rdfFactory.idFormat;
+		assertEquals("isIRI", expectedValue.isIRI(), id.isIRI(idFormat));
+		assertEquals("isLiteral", expectedValue.isLiteral(), id.isLiteral(idFormat));
+		assertEquals("isBNode", expectedValue.isBNode(), id.isBNode(idFormat));
+		assertEquals("isTriple", expectedValue.isTriple(), id.isTriple(idFormat));
 
 		if (expectedValue instanceof Literal) {
 			IRI dt = ((Literal)expectedValue).getDatatype();
-			assertEquals("isString", XSD.STRING.equals(dt) || RDF.LANGSTRING.equals(dt), id.isString());
+			assertEquals("isString", XSD.STRING.equals(dt) || RDF.LANGSTRING.equals(dt), id.isString(idFormat));
 			RDFObject obj = rdfFactory.createObject(expectedValue);
 			assertRDFValueHashes(id, obj);
 		} else if (expectedValue instanceof IRI) {
@@ -196,15 +198,16 @@ public class RDFFactoryTest {
         StatementIndex<SPOC.C,SPOC.P,SPOC.O,SPOC.S> cpos = stmtIndices.getCPOSIndex();
         StatementIndex<SPOC.C,SPOC.O,SPOC.S,SPOC.P> cosp = stmtIndices.getCOSPIndex();
         RDFFactory rdfFactory = stmtIndices.getRDFFactory();
+		ValueIdentifier.Format idFormat = rdfFactory.idFormat;
 		for(StatementIndex<?,?,?,?> idx : new StatementIndex[] {spo, pos, osp, cspo, cpos, cosp}) {
 			String testName = v.toString() + " for " + idx.toString();
 			RDFRole<?> role = idx.getRole(v.getRoleName());
-			byte[] keyHash = role.keyHash(v.getId());
+			byte[] keyHash = role.keyHash(v.getId(), idFormat);
 			int keyHashSize = role.keyHashSize();
 			assertEquals(testName, keyHashSize, keyHash.length);
 
 			byte[] idxIdBytes = new byte[rdfFactory.getIdSize()];
-			id.getFormat().unrotate(keyHash, 0, keyHashSize, role.getByteShift(), idxIdBytes);
+			idFormat.unrotate(keyHash, 0, keyHashSize, role.getByteShift(), idxIdBytes);
 			role.writeQualifierHashTo(v.getId(), ByteBuffer.wrap(idxIdBytes, keyHashSize, idxIdBytes.length-keyHashSize));
 			assertEquals(testName, id, rdfFactory.id(idxIdBytes));
 		}
