@@ -82,6 +82,7 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDF4J;
@@ -187,6 +188,7 @@ final class HalyardTupleExprEvaluation {
 	private final TupleFunctionRegistry tupleFunctionRegistry;
 	private final CustomAggregateFunctionRegistry aggregateFunctionRegistry = CustomAggregateFunctionRegistry.getInstance();
 	private final TripleSource tripleSource;
+	private final ValueFactory valueFactory;
 	private final QueryContext queryContext;
     private final Dataset dataset;
     private final HalyardEvaluationExecutor executor;
@@ -210,6 +212,7 @@ final class HalyardTupleExprEvaluation {
 		this.queryContext = queryContext;
 		this.tupleFunctionRegistry = tupleFunctionRegistry;
 		this.tripleSource = tripleSource;
+		this.valueFactory = tripleSource.getValueFactory();
 		this.dataset = dataset;
 		this.executor = executor;
 		Configuration conf = parentStrategy.getConfiguration();
@@ -1234,10 +1237,10 @@ final class HalyardTupleExprEvaluation {
 			if (count.getArg() != null) {
 				QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
 				Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-				return Aggregator.create(new CountAggregateFunction(eval), distinct, new LongCollector(tripleSource.getValueFactory()));
+				return Aggregator.create(new CountAggregateFunction(eval), distinct, new LongCollector(valueFactory));
 			} else {
 				Predicate<BindingSet> distinct = isDistinct ? createDistinctBindingSets() : (Predicate<BindingSet>) ALWAYS_TRUE;
-				return Aggregator.create(new WildcardCountAggregateFunction(), distinct, new LongCollector(tripleSource.getValueFactory()));
+				return Aggregator.create(new WildcardCountAggregateFunction(), distinct, new LongCollector(valueFactory));
 			}
 		} else if (operator instanceof Min) {
 			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
@@ -1254,7 +1257,7 @@ final class HalyardTupleExprEvaluation {
 		} else if (operator instanceof Avg) {
 			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
 			Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-			return Aggregator.create(new AvgAggregateFunction(eval), distinct, new AvgCollector(tripleSource.getValueFactory()));
+			return Aggregator.create(new AvgAggregateFunction(eval), distinct, new AvgCollector(valueFactory));
 		} else if (operator instanceof Sample) {
 			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
 			Predicate<Value> distinct = (Predicate<Value>) ALWAYS_TRUE;
@@ -1270,7 +1273,7 @@ final class HalyardTupleExprEvaluation {
 			} else {
 				sep = " ";
 			}
-			return Aggregator.create(new ConcatAggregateFunction(eval), distinct, new CSVCollector(sep, tripleSource.getValueFactory()));
+			return Aggregator.create(new ConcatAggregateFunction(eval), distinct, new CSVCollector(sep, valueFactory));
 		} else if (operator instanceof AggregateFunctionCall) {
 			AggregateFunctionCall aggFuncCall = (AggregateFunctionCall) operator;
 			AggregateFunctionFactory aggFuncFactory = aggregateFunctionRegistry.get(aggFuncCall.getIRI())
@@ -1651,8 +1654,14 @@ final class HalyardTupleExprEvaluation {
 		        if (fs instanceof BindingSetCallbackFederatedService) {
             		BindingSetPipe pipe = parentStrategy.track(topPipe, service);
 	            	try {
-	            		((BindingSetCallbackFederatedService)fs).select(bs -> {
-	            			if(!pipe.push(bs)) {
+	            		((BindingSetCallbackFederatedService)fs).select(theirBs -> {
+	            			// in same VM so need to explicitly convert Values
+	            			Set<String> bindingNames = theirBs.getBindingNames();
+	            			QueryBindingSet ourBs = new QueryBindingSet(theirBs.size());
+	            			for (String bn : bindingNames) {
+	            				ourBs.setBinding(bn, convertIV(theirBs.getValue(bn)));
+	            			}
+	            			if(!pipe.push(ourBs)) {
 	            				AbortConsumerException.abort();
 	            			}
 	            		}, service, freeVars, fsBindings, baseUri);
@@ -1697,6 +1706,25 @@ final class HalyardTupleExprEvaluation {
 	            topPipe.handleException(e);
 	        }
 	    }
+    }
+
+    private Value convertIV(Value v) {
+    	if (v == null) {
+    		return null;
+    	}
+    	if  (v.isIRI()) {
+    		return valueFactory.createIRI(v.stringValue());
+    	} else if (v.isLiteral()) {
+    		Literal l = (Literal) v;
+    		return valueFactory.createLiteral(l.getLabel(), l.getDatatype(), l.getCoreDatatype());
+    	} else if (v.isBNode()) {
+    		return valueFactory.createBNode(v.stringValue());
+    	} else if (v.isTriple()) {
+    		Triple t = (Triple) v;
+    		return valueFactory.createTriple((Resource) convertIV(t.getSubject()), (IRI) convertIV(t.getPredicate()), convertIV(t.getObject()));
+    	} else {
+    		throw new AssertionError();
+    	}
     }
 
     /**
@@ -2672,7 +2700,7 @@ final class HalyardTupleExprEvaluation {
 						CloseableIteration<BindingSet, QueryEvaluationException> iter;
 						queryContext.begin();
 						try {
-							iter = TupleFunctionEvaluationStrategy.evaluate(func, tfc.getResultVars(), bs, tripleSource.getValueFactory(), argValues);
+							iter = TupleFunctionEvaluationStrategy.evaluate(func, tfc.getResultVars(), bs, valueFactory, argValues);
 						} finally {
 							queryContext.end();
 						}
