@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -32,6 +31,7 @@ import org.eclipse.rdf4j.model.ValueFactory;
 
 public final class StatementIndices {
 	private static final int PREFIXES = 3;
+	private static final Statement[] EMPTY_STATEMENTS = new Statement[0];
 
 	private final int maxCaching;
 	private final RDFFactory rdfFactory;
@@ -456,25 +456,26 @@ public final class StatementIndices {
 	 * @param res HBase Scan Result
 	 * @param valueReader ValueIO.Reader
 	 * @param vf ValueFactory
-	 * @return List of Statements
+	 * @return array of Statements
 	 */
-	public List<Statement> parseStatements(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, Result res, ValueIO.Reader valueReader, ValueFactory vf) {
+	public Statement[] parseStatements(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, Result res, ValueIO.Reader valueReader, ValueFactory vf) {
 		// multiple triples may have the same hash (i.e. row key)
-		List<Statement> st;
+		Statement[] stmts;
 		if (!res.isEmpty()) {
 			Cell[] cells = res.rawCells();
 			if (cells.length == 1) {
-				st = Collections.singletonList(parseStatement(subj, pred, obj, ctx, cells[0], valueReader, vf));
+				stmts = new Statement[] {parseStatement(subj, pred, obj, ctx, cells[0], valueReader, vf)};
 			} else {
-				st = new ArrayList<>(cells.length);
-				for (Cell c : cells) {
-					st.add(parseStatement(subj, pred, obj, ctx, c, valueReader, vf));
+				int cellCount = cells.length;
+				stmts = new Statement[cellCount];
+				for (int i=0; i<cellCount; i++) {
+					stmts[i] = parseStatement(subj, pred, obj, ctx, cells[i], valueReader, vf);
 				}
 			}
 		} else {
-			st = Collections.emptyList();
+			stmts = EMPTY_STATEMENTS;
 		}
-		return st;
+		return stmts;
 	}
 
 	/**

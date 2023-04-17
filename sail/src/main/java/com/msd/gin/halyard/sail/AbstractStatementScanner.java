@@ -8,7 +8,6 @@ import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueIO;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import org.apache.hadoop.hbase.client.Result;
@@ -25,7 +24,9 @@ public abstract class AbstractStatementScanner extends AbstractCloseableIteratio
 	protected RDFObject obj;
 	protected RDFContext ctx;
 	private Statement next = null;
-	private Iterator<Statement> iter = null;
+	private Statement[] stmts = null;
+	private int stmtIndex = 0;
+	private int stmtLength = 0;
 
 	protected AbstractStatementScanner(ValueIO.Reader reader, StatementIndices indices, ValueFactory vf) {
 		this.reader = reader;
@@ -39,19 +40,20 @@ public abstract class AbstractStatementScanner extends AbstractCloseableIteratio
 	public final synchronized boolean hasNext() throws IOException {
 		if (next == null) {
 			while (true) {
-				if (iter == null) {
+				if (stmts == null) {
 					Result res = nextResult();
 					if (res == null) {
 						return false; // no more Results
 					}
-					iter = indices.parseStatements(subj, pred, obj, ctx, res, reader, vf).iterator();
+					stmts = indices.parseStatements(subj, pred, obj, ctx, res, reader, vf);
+					stmtIndex = 0;
+					stmtLength = stmts.length;
 				}
-				if (iter.hasNext()) {
-					Statement s = iter.next();
-					next = s; // cache the next statement which will be returned with a call to next().
+				if (stmtIndex < stmtLength) {
+					next = stmts[stmtIndex++]; // cache the next statement which will be returned with a call to next().
 					return true; // there is another statement
 				}
-				iter = null;
+				stmts = null;
 			}
 		} else {
 			return true;

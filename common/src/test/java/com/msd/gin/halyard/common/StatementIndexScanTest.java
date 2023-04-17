@@ -3,7 +3,6 @@ package com.msd.gin.halyard.common;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -118,11 +117,11 @@ public class StatementIndexScanTest {
         keyspaceConn.close();
     }
 
-    private static List<Statement> parseStatements(Result r) {
+    private static Statement[] parseStatements(Result r) {
         return parseStatements(null, null, null, null, r);
     }
 
-    private static List<Statement> parseStatements(RDFSubject s, RDFPredicate p, RDFObject o, RDFContext c, Result r) {
+    private static Statement[] parseStatements(RDFSubject s, RDFPredicate p, RDFObject o, RDFContext c, Result r) {
         return stmtIndices.parseStatements(s, p, o, c, r, reader, vf);
     }
 
@@ -248,8 +247,8 @@ public class StatementIndexScanTest {
     			);
             try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
                 Result r = rs.next();
-                List<Statement> stmts = parseStatements(r);
-                assertEquals(Collections.singletonList(stmt), stmts);
+                Statement[] actualStmts = parseStatements(r);
+                assertArrayEquals(new Statement[] {stmt}, actualStmts);
             }
     	}
     }

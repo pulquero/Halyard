@@ -208,7 +208,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             	lastSubsetIds = new HashSet<>();
             }
 
-            List<Statement> stmts = stmtIndices.parseStatements(null, null, null, null, value, valueReader, vf);
+            Statement[] stmts = stmtIndices.parseStatements(null, null, null, null, value, valueReader, vf);
             for (Statement stmt : stmts) {
             	Resource ctx = index.getName().isQuadIndex() ? stmt.getContext() : DEFAULT_GRAPH_NODE;
             	if (!ctx.equals(lastGraph)) {

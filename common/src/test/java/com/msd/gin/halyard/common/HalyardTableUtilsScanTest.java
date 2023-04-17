@@ -19,6 +19,7 @@ package com.msd.gin.halyard.common;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -210,7 +211,7 @@ public class HalyardTableUtilsScanTest {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(stmtIndices.parseStatements(subj, pred, obj, ctx, r, reader, vf));
+                Collections.addAll(res, stmtIndices.parseStatements(subj, pred, obj, ctx, r, reader, vf));
             }
             assertTrue(allStatements.containsAll(res));
             assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
@@ -242,7 +243,7 @@ public class HalyardTableUtilsScanTest {
                     Set<Statement> res = new HashSet<>();
                     Result r;
                     while ((r = rs.next()) != null) {
-                        res.addAll(stmtIndices.parseStatements(null, null, null, null, r, reader, vf));
+                        Collections.addAll(res, stmtIndices.parseStatements(null, null, null, null, r, reader, vf));
                     }
                     assertTrue(allStatements.containsAll(res));
                     assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
@@ -264,7 +265,7 @@ public class HalyardTableUtilsScanTest {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader, vf));
+                Collections.addAll(res, stmtIndices.parseStatements(subj, pred, null, ctx, r, reader, vf));
             }
             assertTrue(allStatements.containsAll(res));
             assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
@@ -284,7 +285,7 @@ public class HalyardTableUtilsScanTest {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader, vf));
+                Collections.addAll(res, stmtIndices.parseStatements(subj, pred, null, ctx, r, reader, vf));
             }
             assertTrue(allStatements.containsAll(res));
             if (pred == null || obj != null) {
@@ -309,7 +310,7 @@ public class HalyardTableUtilsScanTest {
             Set<Statement> res = new HashSet<>();
             Result r;
             while ((r = rs.next()) != null) {
-                res.addAll(stmtIndices.parseStatements(subj, pred, null, ctx, r, reader, vf));
+                Collections.addAll(res, stmtIndices.parseStatements(subj, pred, null, ctx, r, reader, vf));
             }
             assertTrue(allStatements.containsAll(res));
             if (subj == null || pred != null) {
