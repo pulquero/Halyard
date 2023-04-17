@@ -142,12 +142,15 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
      */
     public static final String DEFAULT_CONTEXT_PROPERTY = confProperty("parser", "context.default");
 
+    public static final String PARSER_QUEUE_SIZE_PROPERTY = confProperty("parser", "queue.size");
+
     /**
      * Multiplier limiting maximum single file size in relation to the maximum split size, before it is processed in parallel (10x maximum split size)
      */
     private static final long MAX_SINGLE_FILE_MULTIPLIER = 10;
     private static final int DEFAULT_SPLIT_BITS = 3;
     private static final long DEFAULT_SPLIT_MAXSIZE = 200000000l;
+    private static final int DEFAULT_PARSER_QUEUE_SIZE = 5000;
 
     enum Counters {
 		ADDED_KVS,
@@ -410,7 +413,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
     		BOTH_CACHE_MISSES
     	}
 
-        private final BlockingQueue<Statement> queue = new LinkedBlockingQueue<>(500);
+        private final BlockingQueue<Statement> queue;
         private final CachingIdValueFactory valueFactory = new CachingIdValueFactory();
         private final TaskAttemptContext context;
         private final Path paths[];
@@ -435,6 +438,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             this.offsets = split.getStartOffsets();
             this.size = split.getLength();
             Configuration conf = context.getConfiguration();
+            this.queue = new LinkedBlockingQueue<>(conf.getInt(PARSER_QUEUE_SIZE_PROPERTY, DEFAULT_PARSER_QUEUE_SIZE));
             this.allowInvalidIris = conf.getBoolean(ALLOW_INVALID_IRIS_PROPERTY, false);
             this.skipInvalidLines = conf.getBoolean(SKIP_INVALID_LINES_PROPERTY, false);
             this.verifyDataTypeValues = conf.getBoolean(VERIFY_DATATYPE_VALUES_PROPERTY, false);
