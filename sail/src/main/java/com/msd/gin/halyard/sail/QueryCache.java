@@ -13,7 +13,6 @@ import java.util.concurrent.ExecutionException;
 
 import javax.annotation.Nonnull;
 
-import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
@@ -24,8 +23,8 @@ import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 final class QueryCache {
 	private final Cache<PreparedQueryKey, PreparedQuery> cache;
 
-	QueryCache(Configuration conf) {
-		int queryCacheMaxSize = conf.getInt(EvaluationConfig.QUERY_CACHE_MAX_SIZE, 100);
+	QueryCache(int queryCacheMaxSize) {
+		// NB: use concurrency of 1 else waste time optimizing the same query concurrently
 		cache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumSize(queryCacheMaxSize).build();
 	}
 

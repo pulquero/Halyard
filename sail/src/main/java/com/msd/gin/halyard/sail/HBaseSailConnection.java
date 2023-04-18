@@ -127,7 +127,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private boolean lastUpdateWasDelete;
 
 	public HBaseSailConnection(HBaseSail sail) throws IOException {
-		this(sail, new QueryCache(sail.getConfiguration()), HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache());
+		this(sail, new QueryCache(sail.queryCacheSize), HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache());
 	}
 
 	HBaseSailConnection(HBaseSail sail, QueryCache cache, Cache<IRI, Long> stmtCountCache) throws IOException {

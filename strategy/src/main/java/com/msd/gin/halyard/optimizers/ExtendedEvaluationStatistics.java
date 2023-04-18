@@ -12,6 +12,7 @@ import javax.annotation.Nonnull;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
+import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.TupleFunctionCall;
 import org.eclipse.rdf4j.query.algebra.ValueConstant;
@@ -65,6 +66,11 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 		@Override
 		protected double getCardinality(StatementPattern sp) {
 			return spcalc.getCardinality(sp, boundVars);
+		}
+
+		@Override
+		protected double getCardinality(TripleRef tripleRef) {
+			return spcalc.getCardinality(tripleRef, boundVars);
 		}
 
 		@Override

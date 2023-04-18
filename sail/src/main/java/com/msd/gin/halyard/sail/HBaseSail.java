@@ -180,6 +180,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 	final ElasticSettings esSettings;
 	ElasticsearchTransport esTransport;
 	boolean includeNamespaces = false;
+	int queryCacheSize;
 	private boolean trackResultSize;
 	private boolean trackResultTime;
     final Ticker ticker;
@@ -320,6 +321,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
     }
 
 	private void initSettings(Configuration config) {
+		queryCacheSize = config.getInt(EvaluationConfig.QUERY_CACHE_MAX_SIZE, 100);
 		trackResultSize = config.getBoolean(EvaluationConfig.TRACK_RESULT_SIZE, false);
 		trackResultTime = config.getBoolean(EvaluationConfig.TRACK_RESULT_TIME, false);
 	}

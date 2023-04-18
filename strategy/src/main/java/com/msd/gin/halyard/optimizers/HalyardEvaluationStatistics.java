@@ -17,7 +17,7 @@
 package com.msd.gin.halyard.optimizers;
 
 import com.msd.gin.halyard.algebra.StarJoin;
-import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -28,7 +28,6 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.ArbitraryLengthPath;
 import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
@@ -40,6 +39,7 @@ import org.eclipse.rdf4j.query.algebra.LeftJoin;
 import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.SingletonSet;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
+import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.TupleFunctionCall;
 import org.eclipse.rdf4j.query.algebra.UnaryTupleOperator;
@@ -107,11 +107,23 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
         protected double getCardinality(StatementPattern sp) {
             //always prefer HALYARD.SEARCH_TYPE object literals to move such statements higher in the joins tree
             Var objectVar = sp.getObjectVar();
-            if (objectVar.hasValue() && (objectVar.getValue() instanceof Literal) && HALYARD.SEARCH.equals(((Literal) objectVar.getValue()).getDatatype())) {
+            if (HalyardEvaluationStrategy.isSearchStatement(objectVar.getValue())) {
                 return 0.0001;
             }
             double card = super.getCardinality(sp);
             for (Var v : sp.getVarList()) {
+                //decrease cardinality for each priority variable present
+                if (v != null && priorityVariables.contains(v.getName())) {
+                	card /= PRIORITY_VAR_FACTOR;
+                }
+            }
+            return card;
+        }
+
+        @Override
+        protected double getCardinality(TripleRef tripleRef) {
+            double card = super.getCardinality(tripleRef);
+            for (Var v : tripleRef.getVarList()) {
                 //decrease cardinality for each priority variable present
                 if (v != null && priorityVariables.contains(v.getName())) {
                 	card /= PRIORITY_VAR_FACTOR;

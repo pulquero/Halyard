@@ -53,7 +53,7 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 	public FederatedService createPrivateInstance(HalyardEvaluationStrategy strategy) {
 		return new HBaseFederatedService(sail) {
 			// NB: shared caches across all connections
-			private final QueryCache queryCache = new QueryCache(sail.getConfiguration());
+			private final QueryCache queryCache = new QueryCache(sail.queryCacheSize);
 			private final Cache<IRI, Long> stmtCountCache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache();
 
 			@Override

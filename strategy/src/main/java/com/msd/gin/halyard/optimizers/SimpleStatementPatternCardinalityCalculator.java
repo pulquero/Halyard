@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Collection;
 
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
+import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.Var;
 
 public class SimpleStatementPatternCardinalityCalculator implements StatementPatternCardinalityCalculator {
@@ -17,6 +18,11 @@ public class SimpleStatementPatternCardinalityCalculator implements StatementPat
 	@Override
 	public double getCardinality(StatementPattern sp, Collection<String> boundVars) {
 		return getSubjectCardinality(sp.getSubjectVar(), boundVars) * getPredicateCardinality(sp.getPredicateVar(), boundVars) * getObjectCardinality(sp.getObjectVar(), boundVars) * getContextCardinality(sp.getContextVar(), boundVars);
+	}
+
+	@Override
+	public double getCardinality(TripleRef tripleRef, Collection<String> boundVars) {
+		return getSubjectCardinality(tripleRef.getSubjectVar(), boundVars) * getPredicateCardinality(tripleRef.getPredicateVar(), boundVars) * getObjectCardinality(tripleRef.getObjectVar(), boundVars);
 	}
 
 	private double getSubjectCardinality(Var var, Collection<String> boundVars) {
