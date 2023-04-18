@@ -33,6 +33,7 @@ import static org.junit.Assert.*;
 @RunWith(Parameterized.class)
 public class RDFFactoryTest {
     private static final StatementIndices stmtIndices = StatementIndices.create();
+	private static final RDFFactory rdfFactory = stmtIndices.getRDFFactory();
 	private static final Date NOW = new Date();
 
 	private static String longString(String s) {
@@ -94,16 +95,14 @@ public class RDFFactoryTest {
 	public static Collection<Object[]> data() {
 		List<Object[]> testValues = new ArrayList<>();
 		testValues.addAll(createData(SimpleValueFactory.getInstance()));
-		testValues.addAll(createData(IdValueFactory.INSTANCE));
+		testValues.addAll(createData(new IdValueFactory(rdfFactory)));
 		return testValues;
 	}
 
-	private final RDFFactory rdfFactory;
 	private Value expectedValue;
 	private byte expectedEncodingType;
 
 	public RDFFactoryTest(Value v, byte encodingType) {
-		this.rdfFactory = stmtIndices.getRDFFactory();
 		this.expectedValue = v;
 		this.expectedEncodingType = encodingType;
 	}
@@ -121,7 +120,7 @@ public class RDFFactoryTest {
 	private void testToAndFromBytes(int bufferSize) {
         ValueIO.Writer writer = rdfFactory.valueWriter;
         ValueIO.Reader reader = rdfFactory.valueReader;
-        ValueFactory vf = IdValueFactory.INSTANCE;
+        ValueFactory vf = new IdValueFactory(rdfFactory);
 
         ByteBuffer buf = ByteBuffer.allocate(bufferSize);
 		buf = writer.writeTo(expectedValue, buf);

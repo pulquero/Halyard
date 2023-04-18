@@ -196,7 +196,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	public TripleSource getTimestampedTripleSource() {
-		return new HBaseTripleSource(keyspaceConn, TimestampedValueFactory.INSTANCE, stmtIndices, timeoutSecs, settings, ticker);
+		return new HBaseTripleSource(keyspaceConn, new TimestampedValueFactory(rdfFactory), stmtIndices, timeoutSecs, settings, ticker);
 	}
 
 	@Override

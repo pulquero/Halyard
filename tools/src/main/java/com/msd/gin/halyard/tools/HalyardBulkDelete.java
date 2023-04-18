@@ -21,7 +21,6 @@ import static com.msd.gin.halyard.tools.HalyardBulkLoad.*;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
-import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFContext;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
@@ -228,6 +227,8 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         if (cmd.hasOption('g')) {
         	getConf().setStrings(CONTEXTS, validateContexts(cmd.getOptionValues('g')));
         }
+        String snapshotPath = getConf().get(SNAPSHOT_PATH);
+
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
             NTriplesUtil.class,
             Rio.class,
@@ -240,15 +241,13 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         HBaseConfiguration.addHbaseResources(getConf());
 
         RDFFactory rdfFactory;
-        Keyspace keyspace = HalyardTableUtils.getKeyspace(getConf(), source, cmd.getOptionValue('u'));
+        Keyspace keyspace = getKeyspace(source, snapshotPath);
         try {
-        	try (KeyspaceConnection kc = keyspace.getConnection()) {
-        		rdfFactory = RDFFactory.create(kc);
-        	}
+       		rdfFactory = loadRDFFactory(keyspace);
 		} finally {
 			keyspace.close();
 		}
-        ValueFactory vf = IdValueFactory.INSTANCE;
+        ValueFactory vf = new IdValueFactory(rdfFactory);
         String[] namedGraphs = cmd.getOptionValues('g');
         StatementIndices indices = new StatementIndices(getConf(), rdfFactory);
         List<Scan> scans;
@@ -305,7 +304,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 		                	getConf().set(SOURCE, target);
 		                	getConf().unset(SNAPSHOT_PATH);
 		                	keyspace.destroy();
-		                	keyspace = HalyardTableUtils.getKeyspace(getConf(), target, null);
+		                	keyspace = getKeyspace(target, null);
 		                }
 	                } else {
 	                	scans = Collections.emptyList();

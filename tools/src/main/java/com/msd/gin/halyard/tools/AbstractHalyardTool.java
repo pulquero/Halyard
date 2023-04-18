@@ -272,6 +272,15 @@ public abstract class AbstractHalyardTool implements Tool {
         }
     }
 
+    final Keyspace getKeyspace(String source, String restorePath) throws IOException {
+        return HalyardTableUtils.getKeyspace(getConf(), source, restorePath);
+    }
+
+    final RDFFactory loadRDFFactory(Keyspace keyspace) throws IOException {
+    	try (KeyspaceConnection kc = keyspace.getConnection()) {
+    		return RDFFactory.create(kc);
+    	}
+    }
 
     static class RdfTableMapper<K,V> extends TableMapper<K,V> {
         protected Keyspace keyspace;
@@ -285,7 +294,7 @@ public abstract class AbstractHalyardTool implements Tool {
             keyspace = HalyardTableUtils.getKeyspace(conf, source, restorePath);
             keyspaceConn = keyspace.getConnection();
             rdfFactory = RDFFactory.create(keyspaceConn);
-            vf = IdValueFactory.INSTANCE;
+            vf = new IdValueFactory(rdfFactory);
             stmtIndices = new StatementIndices(conf, rdfFactory);
             valueReader = rdfFactory.valueReader;
         }
@@ -315,7 +324,7 @@ public abstract class AbstractHalyardTool implements Tool {
             keyspace = HalyardTableUtils.getKeyspace(conf, source, restorePath);
             keyspaceConn = keyspace.getConnection();
             rdfFactory = RDFFactory.create(keyspaceConn);
-            vf = IdValueFactory.INSTANCE;
+            vf = new IdValueFactory(rdfFactory);
             stmtIndices = new StatementIndices(conf, rdfFactory);
             valueReader = rdfFactory.valueReader;
         }

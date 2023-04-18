@@ -437,7 +437,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             this.size = split.getLength();
             Configuration conf = context.getConfiguration();
             this.queue = new LinkedBlockingQueue<>(conf.getInt(PARSER_QUEUE_SIZE_PROPERTY, DEFAULT_PARSER_QUEUE_SIZE));
-            this.valueFactory = new CachingValueFactory(IdValueFactory.INSTANCE, conf.getInt(VALUE_CACHE_SIZE_PROPERTY, DEFAULT_VALUE_CACHE_SIZE));
+            this.valueFactory = new CachingValueFactory(new IdValueFactory(RDFFactory.create(conf)), conf.getInt(VALUE_CACHE_SIZE_PROPERTY, DEFAULT_VALUE_CACHE_SIZE));
             this.allowInvalidIris = conf.getBoolean(ALLOW_INVALID_IRIS_PROPERTY, false);
             this.skipInvalidLines = conf.getBoolean(SKIP_INVALID_LINES_PROPERTY, false);
             this.verifyDataTypeValues = conf.getBoolean(VERIFY_DATATYPE_VALUES_PROPERTY, false);

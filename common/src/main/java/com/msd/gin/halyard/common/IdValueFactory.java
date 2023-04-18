@@ -7,6 +7,7 @@ import java.time.temporal.TemporalAmount;
 import java.util.Date;
 import java.util.UUID;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.xml.datatype.XMLGregorianCalendar;
 
@@ -26,9 +27,8 @@ public class IdValueFactory implements ValueFactory {
 	private static final ValueFactory DELEGATE = new AbstractValueFactory() {};
 	private final Literal TRUE;
 	private final Literal FALSE;
-	public static final ValueFactory INSTANCE = new IdValueFactory();
 
-	protected IdValueFactory() {
+	public IdValueFactory(@Nullable RDFFactory rdfFactory) {
 		this.TRUE = new IdentifiableLiteral(DELEGATE.createLiteral(true));
 		this.FALSE = new IdentifiableLiteral(DELEGATE.createLiteral(false));
 	}

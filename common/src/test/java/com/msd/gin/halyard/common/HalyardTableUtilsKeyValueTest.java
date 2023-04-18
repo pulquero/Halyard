@@ -24,7 +24,7 @@ import static org.junit.Assert.*;
 @RunWith(Parameterized.class)
 public class HalyardTableUtilsKeyValueTest {
     private static final StatementIndices indices = StatementIndices.create();
-	private static final ValueFactory vf = TimestampedValueFactory.INSTANCE;
+	private static final ValueFactory vf = new TimestampedValueFactory(indices.getRDFFactory());
 
     private static final IRI SUBJ1 = vf.createIRI("http://whatever/subj1");
     private static final IRI SUBJ2 = RDF.NIL;

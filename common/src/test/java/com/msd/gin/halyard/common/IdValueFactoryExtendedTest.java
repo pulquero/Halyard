@@ -86,7 +86,7 @@ public class IdValueFactoryExtendedTest {
 	@Parameterized.Parameters(name = "{0}")
 	public static Collection<Object[]> data() {
 		List<Value> expected = createData(SimpleValueFactory.getInstance());
-		List<Value> actual = createData(IdValueFactory.INSTANCE);
+		List<Value> actual = createData(new IdValueFactory(StatementIndices.create().getRDFFactory()));
 		List<Object[]> testValues = new ArrayList<>();
 		for (int i=0; i<expected.size(); i++) {
 			testValues.add(new Object[] {expected.get(i), actual.get(i)});

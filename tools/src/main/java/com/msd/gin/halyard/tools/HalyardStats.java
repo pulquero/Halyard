@@ -16,10 +16,8 @@
  */
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
-import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFContext;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.RDFRole;
@@ -574,11 +572,9 @@ public final class HalyardStats extends AbstractHalyardTool {
         TableMapReduceUtil.initCredentials(job);
 
         RDFFactory rdfFactory;
-        Keyspace keyspace = HalyardTableUtils.getKeyspace(getConf(), source, snapshotPath);
+        Keyspace keyspace = getKeyspace(source, snapshotPath);
         try {
-        	try (KeyspaceConnection kc = keyspace.getConnection()) {
-        		rdfFactory = RDFFactory.create(kc);
-        	}
+       		rdfFactory = loadRDFFactory(keyspace);
 		} finally {
 			keyspace.close();
 		}
@@ -586,7 +582,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         List<Scan> scans;
         if (namedGraph != null) {  //restricting stats to scan given graph context only
             scans = new ArrayList<>(4);
-            ValueFactory vf = IdValueFactory.INSTANCE;
+            ValueFactory vf = new IdValueFactory(rdfFactory);
             RDFContext rdfGraphCtx = rdfFactory.createContext(vf.createIRI(namedGraph));
             scans.add(indices.getCSPOIndex().scan(rdfGraphCtx));
             scans.add(indices.getCPOSIndex().scan(rdfGraphCtx));

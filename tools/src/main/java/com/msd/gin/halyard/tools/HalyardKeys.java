@@ -2,7 +2,6 @@ package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.Keyspace;
-import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
@@ -212,11 +211,9 @@ public final class HalyardKeys extends AbstractHalyardTool {
 		TableMapReduceUtil.initCredentials(job);
 
         RDFFactory rdfFactory;
-        Keyspace keyspace = HalyardTableUtils.getKeyspace(getConf(), source, snapshotPath);
+        Keyspace keyspace = getKeyspace(source, snapshotPath);
         try {
-        	try (KeyspaceConnection kc = keyspace.getConnection()) {
-        		rdfFactory = RDFFactory.create(kc);
-        	}
+       		rdfFactory = loadRDFFactory(keyspace);
 		} finally {
 			keyspace.close();
 		}

@@ -466,7 +466,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 			throw new SailException(e);
 		}
 		stmtIndices = new StatementIndices(config, rdfFactory);
-		valueFactory = IdValueFactory.INSTANCE;
+		valueFactory = new IdValueFactory(rdfFactory);
 
 		if (includeNamespaces) {
 			try (HBaseSailConnection conn = getConnection()) {

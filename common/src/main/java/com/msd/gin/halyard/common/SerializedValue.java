@@ -19,7 +19,7 @@ final class SerializedValue implements Externalizable {
 	}
 
 	private Object readResolve() throws ObjectStreamException {
-		return ValueIO.getDefaultReader().readValue(ByteBuffer.wrap(ser), IdValueFactory.INSTANCE);
+		return ValueIO.getDefaultReader().readValue(ByteBuffer.wrap(ser), new IdValueFactory(null));
 	}
 
 	@Override

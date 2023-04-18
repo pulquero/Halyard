@@ -7,7 +7,7 @@ public class IdValueFactoryTest extends ValueFactoryTest {
 
 	@Override
 	protected ValueFactory factory() {
-		return IdValueFactory.INSTANCE;
+		return new IdValueFactory(StatementIndices.create().getRDFFactory());
 	}
 
 }

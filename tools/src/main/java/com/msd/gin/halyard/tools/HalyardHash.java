@@ -113,7 +113,7 @@ public final class HalyardHash extends AbstractHalyardTool {
 		protected void setup(Context context) throws IOException {
 			Configuration conf = context.getConfiguration();
 			rdfFactory = RDFFactory.create(conf);
-			vf = IdValueFactory.INSTANCE;
+			vf = new IdValueFactory(rdfFactory);
 		}
 
 		@Override

@@ -1,15 +1,18 @@
 package com.msd.gin.halyard.common;
 
+import javax.annotation.Nullable;
+
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.ContextStatement;
 import org.eclipse.rdf4j.model.impl.SimpleStatement;
 
 public class TimestampedValueFactory extends IdValueFactory {
-	public static final ValueFactory INSTANCE = new TimestampedValueFactory();
+	public TimestampedValueFactory(@Nullable RDFFactory rdfFactory) {
+		super(rdfFactory);
+	}
 
 	@Override
 	public Statement createStatement(Resource subject, IRI predicate, Value object) {

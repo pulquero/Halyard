@@ -84,6 +84,7 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDF4J;
@@ -1720,7 +1721,14 @@ final class HalyardTupleExprEvaluation {
     		return vf.createIRI(v.stringValue());
     	} else if (v.isLiteral()) {
     		Literal l = (Literal) v;
-    		return vf.createLiteral(l.getLabel(), l.getDatatype(), l.getCoreDatatype());
+    		CoreDatatype cdt = l.getCoreDatatype();
+    		if (cdt == CoreDatatype.XSD.STRING) {
+    			return vf.createLiteral(l.getLabel());
+    		} else if (cdt == CoreDatatype.RDF.LANGSTRING) {
+				return vf.createLiteral(l.getLabel(), l.getLanguage().get());
+			} else {
+				return vf.createLiteral(l.getLabel(), l.getDatatype(), l.getCoreDatatype());
+			}
     	} else if (v.isBNode()) {
     		return vf.createBNode(v.stringValue());
     	} else if (v.isTriple()) {

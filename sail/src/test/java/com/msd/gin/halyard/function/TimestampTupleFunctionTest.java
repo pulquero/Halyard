@@ -1,6 +1,5 @@
 package com.msd.gin.halyard.function;
 
-import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.Timestamped;
 import com.msd.gin.halyard.common.TimestampedValueFactory;
@@ -32,6 +31,8 @@ public class TimestampTupleFunctionTest {
 			@Override
 			public TripleSource getTimestampedTripleSource() {
 				return new TripleSource() {
+					private final TimestampedValueFactory tsvf = new TimestampedValueFactory(stmtIndices.getRDFFactory());
+
 					@Override
 					public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
 						Statement stmt = getValueFactory().createStatement(subj, pred, obj);
@@ -41,7 +42,7 @@ public class TimestampTupleFunctionTest {
 
 					@Override
 					public ValueFactory getValueFactory() {
-						return TimestampedValueFactory.INSTANCE;
+						return tsvf;
 					}
 				};
 			}

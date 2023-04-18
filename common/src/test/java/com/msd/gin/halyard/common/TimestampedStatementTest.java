@@ -8,6 +8,8 @@ import org.eclipse.rdf4j.model.Value;
 
 public class TimestampedStatementTest extends StatementTest {
 
+	private TimestampedValueFactory vf = new TimestampedValueFactory(StatementIndices.create().getRDFFactory());
+
 	@Override
 	protected IRI iri(String iri) {
 		return new IdentifiableIRI(iri);
@@ -16,9 +18,9 @@ public class TimestampedStatementTest extends StatementTest {
 	@Override
 	protected Statement statement(Resource s, IRI p, Value o, Resource c) {
 		if (c != null) {
-			return TimestampedValueFactory.INSTANCE.createStatement(s, p, o, c);
+			return vf.createStatement(s, p, o, c);
 		} else {
-			return TimestampedValueFactory.INSTANCE.createStatement(s, p, o);
+			return vf.createStatement(s, p, o);
 		}
 	}
 
