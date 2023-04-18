@@ -16,6 +16,7 @@
  */
 package com.msd.gin.halyard.tools;
 
+import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
@@ -23,7 +24,6 @@ import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.rio.TriGStarParser;
-import com.msd.gin.halyard.util.LFUCache;
 import com.msd.gin.halyard.util.LRUCache;
 import com.msd.gin.halyard.vocab.HALYARD;
 
@@ -73,9 +73,7 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
-import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.rio.ParseErrorListener;
@@ -117,6 +115,9 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
      */
     public static final String TIMESTAMP_PROPERTY = confProperty(TOOL_NAME, "timestamp");
 
+    public static final String STATEMENT_DEDUP_CACHE_SIZE_PROPERTY = confProperty(TOOL_NAME, "statement-dedup-cache.size");
+    public static final String VALUE_CACHE_SIZE_PROPERTY = confProperty(TOOL_NAME, "value-cache.size");
+
     /**
      * Boolean property ignoring RDF parsing errors
      */
@@ -151,6 +152,8 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
     private static final int DEFAULT_SPLIT_BITS = 3;
     private static final long DEFAULT_SPLIT_MAXSIZE = 200000000l;
     private static final int DEFAULT_PARSER_QUEUE_SIZE = 5000;
+    static final int DEFAULT_STATEMENT_DEDUP_CACHE_SIZE = 2000;
+    private static final int DEFAULT_VALUE_CACHE_SIZE = 2000;
 
     enum Counters {
 		ADDED_KVS,
@@ -226,7 +229,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
     public static final class RDFMapper extends Mapper<LongWritable, Statement, ImmutableBytesWritable, KeyValue> {
 
         private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
-        private final Set<Statement> stmtDedup = Collections.newSetFromMap(new LFUCache<>(2000, 0.1f));
+        private Set<Statement> stmtDedup;
         private Keyspace keyspace;
         private KeyspaceConnection keyspaceConn;
         private RDFFactory rdfFactory;
@@ -239,6 +242,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
+            stmtDedup = Collections.newSetFromMap(new LRUCache<>(conf.getInt(STATEMENT_DEDUP_CACHE_SIZE_PROPERTY, DEFAULT_STATEMENT_DEDUP_CACHE_SIZE)));
             keyspace = HalyardTableUtils.getKeyspace(conf, conf.get(TARGET_TABLE_PROPERTY), null);
             keyspaceConn = keyspace.getConnection();
             rdfFactory = RDFFactory.create(keyspaceConn);
@@ -404,17 +408,11 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
     	enum Counters {
     		PARSE_QUEUE_EMPTY,
     		PARSE_QUEUE_FULL,
-    		PARSE_ERRORS,
-    		LRU_CACHE_HITS,
-    		LRU_CACHE_MISSES,
-    		LFU_CACHE_HITS,
-    		LFU_CACHE_MISSES,
-    		BOTH_CACHE_HITS,
-    		BOTH_CACHE_MISSES
+    		PARSE_ERRORS
     	}
 
         private final BlockingQueue<Statement> queue;
-        private final CachingIdValueFactory valueFactory = new CachingIdValueFactory();
+        private final CachingValueFactory valueFactory;
         private final TaskAttemptContext context;
         private final Path paths[];
         private final long[] sizes, offsets;
@@ -439,6 +437,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             this.size = split.getLength();
             Configuration conf = context.getConfiguration();
             this.queue = new LinkedBlockingQueue<>(conf.getInt(PARSER_QUEUE_SIZE_PROPERTY, DEFAULT_PARSER_QUEUE_SIZE));
+            this.valueFactory = new CachingValueFactory(IdValueFactory.INSTANCE, conf.getInt(VALUE_CACHE_SIZE_PROPERTY, DEFAULT_VALUE_CACHE_SIZE));
             this.allowInvalidIris = conf.getBoolean(ALLOW_INVALID_IRIS_PROPERTY, false);
             this.skipInvalidLines = conf.getBoolean(SKIP_INVALID_LINES_PROPERTY, false);
             this.verifyDataTypeValues = conf.getBoolean(VERIFY_DATATYPE_VALUES_PROPERTY, false);
@@ -570,12 +569,6 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
                 in.close();
                 in = null;
             }
-            context.getCounter(Counters.LRU_CACHE_HITS).setValue(valueFactory.lruHits);
-            context.getCounter(Counters.LRU_CACHE_MISSES).setValue(valueFactory.lruMisses);
-            context.getCounter(Counters.LFU_CACHE_HITS).setValue(valueFactory.lfuHits);
-            context.getCounter(Counters.LFU_CACHE_MISSES).setValue(valueFactory.lfuMisses);
-            context.getCounter(Counters.BOTH_CACHE_HITS).setValue(valueFactory.bothHits);
-            context.getCounter(Counters.BOTH_CACHE_MISSES).setValue(valueFactory.bothMisses);
         }
 
         @Override
@@ -592,83 +585,6 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         @Override
         public void fatalError(String msg, long lineNo, long colNo) {
             LOG.error(msg);
-        }
-    }
-
-    static final class CachingIdValueFactory extends IdValueFactory {
-        // LRU cache as formats like Turtle tend to favour recently used identifiers as subjects
-        private final LRUCache<String,IRI> lruIriCache = new LRUCache<>(200);
-        // LFU cache as predicates tend to have a more global distribution
-        private final LFUCache<String,IRI> lfuIriCache = new LFUCache<>(600, 0.2f);
-        long lruHits;
-        long lruMisses;
-        long lfuHits;
-        long lfuMisses;
-        long bothHits;
-        long bothMisses;
-    	private IRI defaultContext;
-    	private boolean overrideContext;
-
-    	void setDefaultContext(IRI defaultContext, boolean overrideContext) {
-			this.defaultContext = defaultContext;
-			this.overrideContext = overrideContext;
-		}
-
-    	private IRI getOrCreateIRI(String v) {
-    		// check both caches
-    		IRI lruIri = lruIriCache.get(v);
-    		boolean inLru = (lruIri != null);
-    		IRI lfuIri = lfuIriCache.get(v);
-    		boolean inLfu = (lfuIri != null);
-    		// ascertain a value
-    		IRI iri = inLru ? lruIri : (inLfu ? lfuIri : super.createIRI(v));
-    		// update caches
-    		if (inLru) {
-    			lruHits++;
-    		} else {
-    			lruIriCache.put(v, iri);
-    			lruMisses++;
-    		}
-    		if (inLfu) {
-    			lfuHits++;
-    		} else {
-    			lfuIriCache.put(v, iri);
-    			lfuMisses++;
-    		}
-    		if (inLru && inLfu) {
-    			bothHits++;
-    		} else if (!inLru && !inLfu) {
-    			bothMisses++;
-    		}
-    		return iri;
-    	}
-
-    	@Override
-    	public IRI createIRI(String iri) {
-    		return getOrCreateIRI(iri);
-    	}
-
-    	@Override
-    	public IRI createIRI(String namespace, String localName) {
-    		return getOrCreateIRI(namespace+localName);
-    	}
-
-		@Override
-        public Statement createStatement(Resource subject, IRI predicate, Value object) {
-			return createStatementInternal(subject, predicate, object, defaultContext);
-        }
-
-        @Override
-        public Statement createStatement(Resource subject, IRI predicate, Value object, Resource context) {
-            return createStatementInternal(subject, predicate, object, overrideContext || context == null ? defaultContext : context);
-        }
-
-        private Statement createStatementInternal(Resource subject, IRI predicate, Value object, Resource context) {
-			if (context != null) {
-				return super.createStatement(subject, predicate, object, context);
-			} else {
-				return super.createStatement(subject, predicate, object);
-			}
         }
     }
 

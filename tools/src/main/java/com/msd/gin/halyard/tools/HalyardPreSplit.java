@@ -22,7 +22,7 @@ import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.tools.HalyardBulkLoad.RioFileInputFormat;
-import com.msd.gin.halyard.util.LFUCache;
+import com.msd.gin.halyard.util.LRUCache;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -91,7 +91,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
         private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
         private final LongWritable keyValueLength = new LongWritable();
         private final SplittableRandom random = new SplittableRandom();
-        private final Set<Statement> stmtDedup = Collections.newSetFromMap(new LFUCache<>(2000, 0.1f));
+        private Set<Statement> stmtDedup;
         private StatementIndices stmtIndices;
         private int decimationFactor;
         private long sampledStmts = 0L;
@@ -103,6 +103,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             RDFFactory rdfFactory = RDFFactory.create(conf);
+            stmtDedup = Collections.newSetFromMap(new LRUCache<>(conf.getInt(STATEMENT_DEDUP_CACHE_SIZE_PROPERTY, DEFAULT_STATEMENT_DEDUP_CACHE_SIZE)));
             stmtIndices = new StatementIndices(conf, rdfFactory);
             decimationFactor = conf.getInt(DECIMATION_FACTOR_PROPERTY, DEFAULT_DECIMATION_FACTOR);
         }

@@ -23,6 +23,7 @@ import com.msd.gin.halyard.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.algebra.StarJoin;
 import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
+import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
 import com.msd.gin.halyard.common.ValueType;
@@ -195,6 +196,7 @@ final class HalyardTupleExprEvaluation {
     private final QueryEvaluationContext evalContext = null;
     private final int hashJoinLimit;
     private final int collectionMemoryThreshold;
+    private final int valueCacheSize;
 
     /**
 	 * Constructor used by {@link HalyardEvaluationStrategy} to create this helper class
@@ -220,9 +222,10 @@ final class HalyardTupleExprEvaluation {
     	if (algoOpt != null) {
     		hashJoinLimit = algoOpt.getHashJoinLimit();
     	} else {
-    		hashJoinLimit = conf.getInt(StrategyConfig.HASH_JOIN_LIMIT, StrategyConfig.DEFAULT_HASH_JOIN_LIMIT);
+    		hashJoinLimit = conf.getInt(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_LIMIT, StrategyConfig.DEFAULT_HASH_JOIN_LIMIT);
     	}
-    	collectionMemoryThreshold = conf.getInt(StrategyConfig.MEMORY_THRESHOLD, StrategyConfig.DEFAULT_MEMORY_THRESHOLD);
+    	collectionMemoryThreshold = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MEMORY_THRESHOLD, StrategyConfig.DEFAULT_MEMORY_THRESHOLD);
+    	valueCacheSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_VALUE_CACHE_SIZE, StrategyConfig.DEFAULT_VALUE_CACHE_SIZE);
     }
 
     /**
@@ -1653,13 +1656,14 @@ final class HalyardTupleExprEvaluation {
 		        // otherwise: perform a SELECT query
 		        if (fs instanceof BindingSetCallbackFederatedService) {
             		BindingSetPipe pipe = parentStrategy.track(topPipe, service);
+            		ValueFactory cachingVF = new CachingValueFactory(valueFactory, valueCacheSize);
 	            	try {
 	            		((BindingSetCallbackFederatedService)fs).select(theirBs -> {
 	            			// in same VM so need to explicitly convert Values
 	            			Set<String> bindingNames = theirBs.getBindingNames();
 	            			QueryBindingSet ourBs = new QueryBindingSet(theirBs.size());
 	            			for (String bn : bindingNames) {
-	            				ourBs.setBinding(bn, convertIV(theirBs.getValue(bn)));
+	            				ourBs.setBinding(bn, convertIV(theirBs.getValue(bn), cachingVF));
 	            			}
 	            			if(!pipe.push(ourBs)) {
 	            				AbortConsumerException.abort();
@@ -1708,20 +1712,20 @@ final class HalyardTupleExprEvaluation {
 	    }
     }
 
-    private Value convertIV(Value v) {
+    private static Value convertIV(Value v, ValueFactory vf) {
     	if (v == null) {
     		return null;
     	}
     	if  (v.isIRI()) {
-    		return valueFactory.createIRI(v.stringValue());
+    		return vf.createIRI(v.stringValue());
     	} else if (v.isLiteral()) {
     		Literal l = (Literal) v;
-    		return valueFactory.createLiteral(l.getLabel(), l.getDatatype(), l.getCoreDatatype());
+    		return vf.createLiteral(l.getLabel(), l.getDatatype(), l.getCoreDatatype());
     	} else if (v.isBNode()) {
-    		return valueFactory.createBNode(v.stringValue());
+    		return vf.createBNode(v.stringValue());
     	} else if (v.isTriple()) {
     		Triple t = (Triple) v;
-    		return valueFactory.createTriple((Resource) convertIV(t.getSubject()), (IRI) convertIV(t.getPredicate()), convertIV(t.getObject()));
+    		return vf.createTriple((Resource) convertIV(t.getSubject(), vf), (IRI) convertIV(t.getPredicate(), vf), convertIV(t.getObject(), vf));
     	} else {
     		throw new AssertionError();
     	}

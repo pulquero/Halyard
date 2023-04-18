@@ -87,8 +87,8 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
         protected EvaluationStrategy getEvaluationStrategy(Dataset dataset, final TripleSource tripleSource) {
         	HalyardEvaluationStatistics stats = new HalyardEvaluationStatistics(SimpleStatementPatternCardinalityCalculator.FACTORY, null);
         	Configuration conf = new Configuration();
-        	conf.setInt(StrategyConfig.HASH_JOIN_LIMIT, optHashJoinLimit);
-        	conf.setFloat(StrategyConfig.HASH_JOIN_COST_RATIO, cardinalityRatio);
+        	conf.setInt(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_LIMIT, optHashJoinLimit);
+        	conf.setFloat(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_COST_RATIO, cardinalityRatio);
         	HalyardEvaluationStrategy evalStrat = new HalyardEvaluationStrategy(conf, new MockTripleSource(tripleSource), dataset, getFederatedServiceResolver(), stats) {
         		@Override
         		public BindingSetPipeQueryEvaluationStep precompile(TupleExpr expr) {
