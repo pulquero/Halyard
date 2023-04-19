@@ -9,12 +9,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.Arrays;
-import java.util.Optional;
 
-import javax.xml.datatype.XMLGregorianCalendar;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -37,7 +33,7 @@ import org.xml.sax.SAXException;
 /**
  * Compact fast-infoset representation of XML literals.
  */
-public class XMLLiteral implements ObjectLiteral<Document> {
+public class XMLLiteral extends AbstractDataLiteral implements ObjectLiteral<Document> {
 	private static final long serialVersionUID = 7055125328013989394L;
 	private final byte[] fiBytes;
 
@@ -74,11 +70,6 @@ public class XMLLiteral implements ObjectLiteral<Document> {
 	}
 
 	@Override
-	public String stringValue() {
-		return getLabel();
-	}
-
-	@Override
 	public String getLabel() {
 		try {
 			InputStream in = new ByteArrayInputStream(fiBytes);
@@ -88,11 +79,6 @@ public class XMLLiteral implements ObjectLiteral<Document> {
 		} catch(TransformerException e) {
 			throw new AssertionError(e);
 		}
-	}
-
-	@Override
-	public Optional<String> getLanguage() {
-		return Optional.empty();
 	}
 
 	@Override
@@ -120,56 +106,6 @@ public class XMLLiteral implements ObjectLiteral<Document> {
 	}
 
 	@Override
-	public byte byteValue() {
-		throw new NumberFormatException("XML content");
-	}
-
-	@Override
-	public short shortValue() {
-		throw new NumberFormatException("XML content");
-	}
-
-	@Override
-	public int intValue() {
-		throw new NumberFormatException("XML content");
-	}
-
-	@Override
-	public long longValue() {
-		throw new NumberFormatException("XML content");
-	}
-
-	@Override
-	public BigInteger integerValue() {
-		throw new NumberFormatException("XML content");
-	}
-
-	@Override
-	public BigDecimal decimalValue() {
-		throw new NumberFormatException("XML content");
-	}
-
-	@Override
-	public float floatValue() {
-		throw new NumberFormatException("XML content");
-	}
-
-	@Override
-	public double doubleValue() {
-		throw new NumberFormatException("XML content");
-	}
-
-	@Override
-	public boolean booleanValue() {
-		throw new IllegalArgumentException("XML content");
-	}
-
-	@Override
-	public XMLGregorianCalendar calendarValue() {
-		throw new IllegalArgumentException("XML content");
-	}
-
-	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
 			return true;
@@ -193,20 +129,5 @@ public class XMLLiteral implements ObjectLiteral<Document> {
 			return true;
 		}
 		return false;
-	}
-
-	@Override
-	public int hashCode() {
-		return getLabel().hashCode();
-	}
-
-	@Override
-	public String toString() {
-		String label = getLabel();
-		IRI datatype = getDatatype();
-		StringBuilder sb = new StringBuilder(label.length() + datatype.stringValue().length() + 6);
-		sb.append("\"").append(label).append("\"");
-		sb.append("^^<").append(datatype.stringValue()).append(">");
-		return sb.toString();
 	}
 }

@@ -46,6 +46,7 @@ import com.msd.gin.halyard.strategy.aggregators.NumberCollector;
 import com.msd.gin.halyard.strategy.aggregators.SampleAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.SampleCollector;
 import com.msd.gin.halyard.strategy.aggregators.SumAggregateFunction;
+import com.msd.gin.halyard.strategy.aggregators.ThreadSafeAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.ValueCollector;
 import com.msd.gin.halyard.strategy.aggregators.WildcardCountAggregateFunction;
 import com.msd.gin.halyard.strategy.collections.BigHashSet;
@@ -68,8 +69,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Predicate;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -1249,11 +1248,11 @@ final class HalyardTupleExprEvaluation {
 		} else if (operator instanceof Min) {
 			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
 			Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-			return Aggregator.create(new MinAggregateFunction(eval), distinct, new ValueCollector(parentStrategy.isStrict()));
+			return Aggregator.create(new MinAggregateFunction(eval), distinct, ValueCollector.create(parentStrategy.isStrict()));
 		} else if (operator instanceof Max) {
 			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
 			Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-			return Aggregator.create(new MaxAggregateFunction(eval), distinct, new ValueCollector(parentStrategy.isStrict()));
+			return Aggregator.create(new MaxAggregateFunction(eval), distinct, ValueCollector.create(parentStrategy.isStrict()));
 		} else if (operator instanceof Sum) {
 			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
 			Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
@@ -1285,8 +1284,8 @@ final class HalyardTupleExprEvaluation {
 			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
 			AggregateFunction aggFunc = aggFuncFactory.buildFunction(eval);
 			Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-			if (aggFunc.getClass().getAnnotation(ThreadSafe.class) != null) {
-				return Aggregator.create(aggFunc, distinct, aggFuncFactory.getCollector());
+			if (aggFunc instanceof ThreadSafeAggregateFunction) {
+				return Aggregator.create((ThreadSafeAggregateFunction) aggFunc, distinct, aggFuncFactory.getCollector());
 			} else {
 				return SynchronizedAggregator.create(aggFunc, distinct, aggFuncFactory.getCollector());
 			}
@@ -1308,7 +1307,7 @@ final class HalyardTupleExprEvaluation {
     	private final AggregateFunction<T, D> aggFunc;
     	private final T valueCollector;
 
-    	static <T extends AggregateCollector,D> Aggregator<T,D> create(AggregateFunction<T,D> aggFunc, Predicate<D> distinctPredicate, T valueCollector) {
+    	static <T extends AggregateCollector,D> Aggregator<T,D> create(ThreadSafeAggregateFunction<T,D> aggFunc, Predicate<D> distinctPredicate, T valueCollector) {
     		return new Aggregator<T,D>(aggFunc, distinctPredicate, valueCollector);
     	}
 

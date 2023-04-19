@@ -1,12 +1,7 @@
 package com.msd.gin.halyard.common;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.Arrays;
-import java.util.Optional;
-
-import javax.xml.datatype.XMLGregorianCalendar;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -22,7 +17,7 @@ import org.locationtech.jts.io.WKTWriter;
 /**
  * Compact WKB representation of WKT literals.
  */
-public class WKTLiteral implements ObjectLiteral<Geometry> {
+public class WKTLiteral extends AbstractDataLiteral implements ObjectLiteral<Geometry> {
 	private static final long serialVersionUID = 2499060372102054647L;
 	private final byte[] wkbBytes;
 
@@ -62,19 +57,9 @@ public class WKTLiteral implements ObjectLiteral<Geometry> {
 	}
 
 	@Override
-	public String stringValue() {
-		return getLabel();
-	}
-
-	@Override
 	public String getLabel() {
 		Geometry g = objectValue();
 		return new WKTWriter().write(g);
-	}
-
-	@Override
-	public Optional<String> getLanguage() {
-		return Optional.empty();
 	}
 
 	@Override
@@ -93,56 +78,6 @@ public class WKTLiteral implements ObjectLiteral<Geometry> {
 		} catch (ParseException e) {
 			throw new IllegalArgumentException("Invalid WKT content", e);
 		}
-	}
-
-	@Override
-	public byte byteValue() {
-		throw new NumberFormatException("WKT content");
-	}
-
-	@Override
-	public short shortValue() {
-		throw new NumberFormatException("WKT content");
-	}
-
-	@Override
-	public int intValue() {
-		throw new NumberFormatException("WKT content");
-	}
-
-	@Override
-	public long longValue() {
-		throw new NumberFormatException("WKT content");
-	}
-
-	@Override
-	public BigInteger integerValue() {
-		throw new NumberFormatException("WKT content");
-	}
-
-	@Override
-	public BigDecimal decimalValue() {
-		throw new NumberFormatException("WKT content");
-	}
-
-	@Override
-	public float floatValue() {
-		throw new NumberFormatException("WKT content");
-	}
-
-	@Override
-	public double doubleValue() {
-		throw new NumberFormatException("WKT content");
-	}
-
-	@Override
-	public boolean booleanValue() {
-		throw new IllegalArgumentException("WKT content");
-	}
-
-	@Override
-	public XMLGregorianCalendar calendarValue() {
-		throw new IllegalArgumentException("WKT content");
 	}
 
 	@Override
@@ -169,20 +104,5 @@ public class WKTLiteral implements ObjectLiteral<Geometry> {
 			return true;
 		}
 		return false;
-	}
-
-	@Override
-	public int hashCode() {
-		return getLabel().hashCode();
-	}
-
-	@Override
-	public String toString() {
-		String label = getLabel();
-		IRI datatype = getDatatype();
-		StringBuilder sb = new StringBuilder(label.length() + datatype.stringValue().length() + 6);
-		sb.append("\"").append(label).append("\"");
-		sb.append("^^<").append(datatype.stringValue()).append(">");
-		return sb.toString();
 	}
 }

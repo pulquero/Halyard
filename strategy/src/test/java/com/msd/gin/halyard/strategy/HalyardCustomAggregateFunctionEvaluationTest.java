@@ -2,6 +2,12 @@ package com.msd.gin.halyard.strategy;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.msd.gin.halyard.common.TupleLiteral;
+import com.msd.gin.halyard.strategy.aggregators.MaxWithAggregateFactory;
+import com.msd.gin.halyard.strategy.aggregators.MinWithAggregateFactory;
+import com.msd.gin.halyard.strategy.aggregators.ModeAggregateFactory;
+import com.msd.gin.halyard.vocab.HALYARD;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.function.Function;
@@ -211,6 +217,55 @@ public class HalyardCustomAggregateFunctionEvaluationTest {
 				var bs = result.next();
 				assertThat(bs.getValue("m").stringValue()).isEqualTo("0.002500019073522708");
 				assertThat(bs.getValue("n").stringValue()).isEqualTo("0.057735247160611895");
+				assertThat(bs.getValue("s").stringValue()).isEqualTo("http://example/book1");
+				assertThat(result.hasNext()).isFalse();
+			}
+		}
+	}
+
+	@Test
+	public void testCustomFunction_MaxWith() {
+		String query = "prefix halyard: <"+HALYARD.NAMESPACE+"> \n"
+				+ "select (<" + new MaxWithAggregateFactory().getIri() + ">(distinct halyard:tuple(?o,?p)) as ?m) "
+				+ " ?s where { \n"
+				+ "\t ?s ?p ?o . } group by ?s order by ?s limit 1";
+		try (RepositoryConnection conn = rep.getConnection()) {
+			try (TupleQueryResult result = conn.prepareTupleQuery(query).evaluate()) {
+				var bs = result.next();
+				assertThat(((TupleLiteral)bs.getValue("m")).objectValue()[0].stringValue()).isEqualTo("12.6");
+				assertThat(((TupleLiteral)bs.getValue("m")).objectValue()[1].stringValue()).isEqualTo("urn:n1");
+				assertThat(bs.getValue("s").stringValue()).isEqualTo("http://example/book1");
+				assertThat(result.hasNext()).isFalse();
+			}
+		}
+	}
+
+	@Test
+	public void testCustomFunction_MinWith() {
+		String query = "prefix halyard: <"+HALYARD.NAMESPACE+"> \n"
+				+ "select (<" + new MinWithAggregateFactory().getIri() + ">(distinct halyard:tuple(?o,?p)) as ?m) "
+				+ " ?s where { \n"
+				+ "\t ?s ?p ?o . } group by ?s order by ?s limit 1";
+		try (RepositoryConnection conn = rep.getConnection()) {
+			try (TupleQueryResult result = conn.prepareTupleQuery(query).evaluate()) {
+				var bs = result.next();
+				assertThat(((TupleLiteral)bs.getValue("m")).objectValue()[0].stringValue()).isEqualTo("12.5");
+				assertThat(bs.getValue("s").stringValue()).isEqualTo("http://example/book1");
+				assertThat(result.hasNext()).isFalse();
+			}
+		}
+	}
+
+	@Test
+	public void testCustomFunction_Mode() {
+		String query = "prefix halyard: <"+HALYARD.NAMESPACE+"> \n"
+				+ "select (<" + new ModeAggregateFactory().getIri() + ">(?o) as ?m) "
+				+ " ?s where { \n"
+				+ "\t ?s ?p ?o . } group by ?s order by ?s limit 1";
+		try (RepositoryConnection conn = rep.getConnection()) {
+			try (TupleQueryResult result = conn.prepareTupleQuery(query).evaluate()) {
+				var bs = result.next();
+				assertThat(bs.getValue("m").stringValue()).isEqualTo("12.5");
 				assertThat(bs.getValue("s").stringValue()).isEqualTo("http://example/book1");
 				assertThat(result.hasNext()).isFalse();
 			}
