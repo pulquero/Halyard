@@ -99,6 +99,7 @@ public final class HALYARD implements Vocabulary {
 
     public final static IRI TUPLE_FUNCTION = SVF.createIRI(NAMESPACE, "tuple");
     public final static IRI GET_FUNCTION = SVF.createIRI(NAMESPACE, "get");
+
     public final static IRI MAX_WITH_FUNCTION = SVF.createIRI(NAMESPACE, "maxWith");
     public final static IRI MIN_WITH_FUNCTION = SVF.createIRI(NAMESPACE, "minWith");
     public final static IRI MODE_FUNCTION = SVF.createIRI(NAMESPACE, "mode");
@@ -116,6 +117,8 @@ public final class HALYARD implements Vocabulary {
 	public final static IRI ANY_NUMERIC_TYPE = SVF.createIRI(NAMESPACE, "anyNumeric");
 
 	public final static IRI TUPLE_TYPE = SVF.createIRI(NAMESPACE, "tuple");
+	public final static IRI ARRAY_TYPE = SVF.createIRI(NAMESPACE, "array");
+	public final static IRI MAP_TYPE = SVF.createIRI(NAMESPACE, "map");
 	public final static IRI JAVA_TYPE = SVF.createIRI(NAMESPACE, "javaObject");
 
     public static final Namespace VALUE_ID_NS = new Base64Namespace("idv", "halyard:id:value:");

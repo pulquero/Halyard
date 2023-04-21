@@ -1,5 +1,9 @@
 package com.msd.gin.halyard.function;
 
+import com.msd.gin.halyard.common.ArrayLiteral;
+import com.msd.gin.halyard.common.MapLiteral;
+import com.msd.gin.halyard.common.ObjectLiteral;
+
 import java.math.BigInteger;
 import java.net.URI;
 import java.time.Duration;
@@ -29,15 +33,23 @@ import net.sf.saxon.expr.Expression;
 import net.sf.saxon.expr.JPConverter;
 import net.sf.saxon.expr.PJConverter;
 import net.sf.saxon.expr.StaticContext;
+import net.sf.saxon.expr.StaticProperty;
 import net.sf.saxon.expr.XPathContext;
 import net.sf.saxon.functions.FunctionLibrary;
 import net.sf.saxon.functions.FunctionLibraryList;
 import net.sf.saxon.functions.registry.ConstructorFunctionLibrary;
+import net.sf.saxon.ma.arrays.ArrayItem;
+import net.sf.saxon.ma.arrays.SimpleArrayItem;
+import net.sf.saxon.ma.map.DictionaryMap;
+import net.sf.saxon.ma.map.KeyValuePair;
+import net.sf.saxon.ma.map.MapItem;
 import net.sf.saxon.om.GroundedValue;
 import net.sf.saxon.om.StructuredQName;
 import net.sf.saxon.sxpath.IndependentContext;
 import net.sf.saxon.trans.SymbolicName;
 import net.sf.saxon.trans.XPathException;
+import net.sf.saxon.type.AtomicType;
+import net.sf.saxon.value.AtomicValue;
 import net.sf.saxon.value.BigIntegerValue;
 import net.sf.saxon.value.DayTimeDurationValue;
 import net.sf.saxon.value.DurationValue;
@@ -96,9 +108,16 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 		}
 	}
 
+
 	static final class XPathSparqlFunction implements Function {
 		private static final Map<IRI, java.util.function.Function<Literal, Object>> LITERAL_CONVERTERS = new HashMap<>(63);
-		private static final java.util.function.Function<Literal, Object> DEFAULT_CONVERTER = Literal::stringValue;
+		private static final java.util.function.Function<Literal, Object> DEFAULT_CONVERTER = l -> {
+			if (l instanceof ObjectLiteral) {
+				return ((ObjectLiteral<?>)l).objectValue();
+			} else {
+				return l.getLabel();
+			}
+		};
 		private final String name;
 		private final Map<Integer, XPathFunction> arityMap;
 
@@ -149,6 +168,7 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 
 			List<Object> xargs = new ArrayList<>(args.length);
 			for (Value arg : args) {
+				// convert from Value to Java object
 				Object xarg;
 				if (arg instanceof Literal) {
 					Literal l = (Literal) arg;
@@ -162,12 +182,23 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 				xargs.add(xarg);
 			}
 			try {
-				return Values.literal(vf, f.evaluate(xargs), true);
-			} catch (XPathFunctionException ex) {
+				return toValue(vf, f.evaluate(xargs));
+			} catch (XPathFunctionException | XPathException ex) {
 				throw new ValueExprEvaluationException(ex);
 			}
 		}
 	}
+
+	private static Value toValue(ValueFactory vf, Object v) throws XPathException {
+		if (v instanceof Object[]) {
+			return new ArrayLiteral((Object[]) v);
+		} else if (v instanceof Map<?,?>) {
+			return new MapLiteral((Map<String,Object>)v);
+		} else {
+			return org.eclipse.rdf4j.model.util.Values.literal(vf, v, true);
+		}
+	}
+
 
 	static final class SaxonXPathFunctionResolver implements XPathFunctionResolver {
 		private final FunctionLibrary lib;
@@ -191,10 +222,13 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 		}
 	}
 
+
 	static final class SaxonXPathFunction implements XPathFunction {
 		private final SymbolicName.F name;
 		private final FunctionLibrary lib;
 		private final StaticContext ctx;
+		private final Map<Class<?>,JPConverter> jpConverters = new HashMap<>();
+		private final Map<AtomicType,PJConverter> pjConverters = new HashMap<>();
 
 		SaxonXPathFunction(SymbolicName.F name, FunctionLibrary lib, StaticContext ctx) {
 			this.name = name;
@@ -209,17 +243,10 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 			for (int i = 0; i < args.size(); i++) {
 				Object arg = args.get(i);
 				GroundedValue<?> v;
-				if (arg instanceof Period) {
-					v = YearMonthDurationValue.fromMonths((int) ((Period) arg).toTotalMonths());
-				} else if (arg instanceof Duration) {
-					v = DayTimeDurationValue.fromJavaDuration((Duration) arg);
-				} else {
-					JPConverter converter = JPConverter.allocate(arg.getClass(), null, ctx.getConfiguration());
-					try {
-						v = converter.convert(arg, xctx).materialize();
-					} catch (XPathException ex) {
-						throw new XPathFunctionException(ex);
-					}
+				try {
+					v = toGroundedValue(arg, xctx);
+				} catch (XPathException ex) {
+					throw new XPathFunctionException(ex);
 				}
 				staticArgs[i] = net.sf.saxon.expr.Literal.makeLiteral(v);
 			}
@@ -231,10 +258,75 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 			try {
 				GroundedValue<?> result = expr.iterate(xctx).materialize();
 				PJConverter converter = PJConverter.allocate(ctx.getConfiguration(), expr.getItemType(), expr.getCardinality(), Object.class);
-				return converter.convert(result, Object.class, xctx);
+				return toObject(converter.convert(result, Object.class, xctx), xctx);
 			} catch (XPathException ex) {
 				throw new XPathFunctionException(ex);
 			}
+		}
+
+		/**
+		 * Convert from Java object to Saxon value.
+		 */
+		private GroundedValue<?> toGroundedValue(Object o, XPathContext xctx) throws XPathException {
+			GroundedValue<?> v;
+			if (o instanceof Period) {
+				v = YearMonthDurationValue.fromMonths((int) ((Period) o).toTotalMonths());
+			} else if (o instanceof Duration) {
+				v = DayTimeDurationValue.fromJavaDuration((Duration) o);
+			} else if (o instanceof Object[]) {
+				Object[] arr = (Object[]) o;
+				List<GroundedValue<?>> gvs = new ArrayList<>(arr.length);
+				for (Object e : arr) {
+					gvs.add(toGroundedValue(e, xctx));
+				}
+				v = new SimpleArrayItem(gvs);
+			} else if (o instanceof Map<?,?>) {
+				Map<String,Object> map = (Map<String,Object>) o;
+				DictionaryMap mv = new DictionaryMap();
+				for (Map.Entry<String,Object> entry : map.entrySet()) {
+					mv.initialPut(entry.getKey(), toGroundedValue(entry.getValue(), xctx));
+				}
+				v = mv;
+			} else {
+				JPConverter converter = jpConverters.computeIfAbsent(o.getClass(), cls -> JPConverter.allocate(cls, null, ctx.getConfiguration()));
+				v = converter.convert(o, xctx).materialize();
+			}
+			return v;
+		}
+
+		private Object toObject(Object v, XPathContext xctx) throws XPathException {
+			if (v instanceof ArrayItem) {
+				ArrayItem ai = (ArrayItem) v;
+				Object[] arr = new Object[ai.arrayLength()];
+				for (int i=0; i<arr.length; i++) {
+					arr[i] = fromGroundedValue(ai.get(i), xctx);
+				}
+				return arr;
+			} else if (v instanceof MapItem) {
+				MapItem mi = (MapItem) v;
+				Map<String,Object> map = new HashMap<>(mi.size()+1);
+				for (KeyValuePair kv : mi.keyValuePairs()) {
+					map.put((String) fromGroundedValue(kv.key, xctx), fromGroundedValue(kv.value, xctx));
+				}
+				return map;
+			} else {
+				return v;
+			}
+		}
+
+		private Object fromGroundedValue(GroundedValue<?> v, XPathContext xctx) throws XPathException {
+			if (!(v instanceof AtomicValue)) {
+				throw new XPathException("Unsupported type: "+v.getClass());
+			}
+			PJConverter converter = pjConverters.computeIfAbsent(((AtomicValue)v).getItemType(),
+					t -> {
+						try {
+							return PJConverter.allocate(ctx.getConfiguration(), t, StaticProperty.EXACTLY_ONE, Object.class);
+						} catch (XPathException e) {
+							throw new RuntimeException(e);
+						}
+					});
+			return converter.convert(v, Object.class, xctx);
 		}
 	}
 }

@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.vocab.HALYARD;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.temporal.TemporalAccessor;
@@ -64,8 +66,14 @@ public class IdValueFactory implements ValueFactory {
 	}
 
 	@Override
-	public Literal createLiteral(String value, IRI datatype) {
-		return new IdentifiableLiteral(DELEGATE.createLiteral(value, datatype));
+	public Literal createLiteral(String label, IRI datatype) {
+		if (HALYARD.ARRAY_TYPE.equals(datatype)) {
+			return new ArrayLiteral(label);
+		} else if (HALYARD.MAP_TYPE.equals(datatype)) {
+			return new MapLiteral(label);
+		} else {
+			return new IdentifiableLiteral(DELEGATE.createLiteral(label, datatype));
+		}
 	}
 
 	@Override
@@ -75,6 +83,13 @@ public class IdValueFactory implements ValueFactory {
 
 	@Override
 	public Literal createLiteral(String label, IRI datatype, CoreDatatype coreDatatype) {
+		if (CoreDatatype.NONE == coreDatatype) {
+			if (HALYARD.ARRAY_TYPE.equals(datatype)) {
+				return new ArrayLiteral(label);
+			} else if (HALYARD.MAP_TYPE.equals(datatype)) {
+				return new MapLiteral(label);
+			}
+		}
 		return new IdentifiableLiteral(DELEGATE.createLiteral(label, datatype, coreDatatype));
 	}
 

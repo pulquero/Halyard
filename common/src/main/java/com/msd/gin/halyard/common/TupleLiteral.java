@@ -16,7 +16,7 @@ import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 
-public class TupleLiteral extends AbstractDataLiteral implements ObjectLiteral<Value[]> {
+public final class TupleLiteral extends AbstractDataLiteral implements ObjectLiteral<Value[]> {
 	private static final long serialVersionUID = 1465080710600525119L;
 
 	private static Value[] parse(CharSequence s, ValueFactory vf) {
