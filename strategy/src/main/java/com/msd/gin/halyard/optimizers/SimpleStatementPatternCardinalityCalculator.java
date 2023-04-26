@@ -25,19 +25,19 @@ public class SimpleStatementPatternCardinalityCalculator implements StatementPat
 		return getSubjectCardinality(tripleRef.getSubjectVar(), boundVars) * getPredicateCardinality(tripleRef.getPredicateVar(), boundVars) * getObjectCardinality(tripleRef.getObjectVar(), boundVars);
 	}
 
-	private double getSubjectCardinality(Var var, Collection<String> boundVars) {
+	protected double getSubjectCardinality(Var var, Collection<String> boundVars) {
 		return getCardinality(var, boundVars, SUBJECT_VAR_CARDINALITY);
 	}
 
-	private double getPredicateCardinality(Var var, Collection<String> boundVars) {
+	protected double getPredicateCardinality(Var var, Collection<String> boundVars) {
 		return getCardinality(var, boundVars, PREDICATE_VAR_CARDINALITY);
 	}
 
-	private double getObjectCardinality(Var var, Collection<String> boundVars) {
+	protected double getObjectCardinality(Var var, Collection<String> boundVars) {
 		return getCardinality(var, boundVars, OBJECT_VAR_CARDINALITY);
 	}
 
-	private double getContextCardinality(Var var, Collection<String> boundVars) {
+	protected double getContextCardinality(Var var, Collection<String> boundVars) {
 		return getCardinality(var, boundVars, CONTEXT_VAR_CARDINALITY);
 	}
 

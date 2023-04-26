@@ -48,7 +48,7 @@ public class HalyardEvaluationExecutorTest {
 		StatementPattern sp3 = createStatementPattern(3);
 		StatementPattern sp4 = createStatementPattern(3);
 		Join j3 = new Join(sp3, sp4);
-		Service service = new Service(new Var("url"), j3, "?s ?p ?o", Collections.emptyMap(), null, false);
+		Service service = new Service(new Var("url"), j3, "# query string not used by test", Collections.emptyMap(), null, false);
 		Join j2 = new Join(sp2, service);
 		Join j1 = new Join(sp1, j2);
 		QueryRoot root = new QueryRoot(j1);

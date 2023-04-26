@@ -69,8 +69,8 @@ public class HalyardQueryJoinOptimizerTest {
         expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
             @Override
             public void meet(Join node) {
-                assertTrue(expr.toString(), ((StatementPattern)node.getLeftArg()).getObjectVar().hasValue());
-                assertEquals(expr.toString(), "d", ((StatementPattern)node.getRightArg()).getObjectVar().getName());
+                assertEquals(expr.toString(), "d", ((StatementPattern)node.getLeftArg()).getObjectVar().getName());
+                assertTrue(expr.toString(), ((StatementPattern)node.getRightArg()).getObjectVar().hasValue());
             }
         });
     }
@@ -144,7 +144,7 @@ public class HalyardQueryJoinOptimizerTest {
                 super.meet(node);
             }
         });
-        assertEquals(expr.toString(), Arrays.asList(preda, pred2, pred1, predb), joinOrder);
+        assertEquals(expr.toString(), Arrays.asList(preda, pred1, pred2, predb), joinOrder);
     }
 
     @Test
@@ -180,8 +180,16 @@ public class HalyardQueryJoinOptimizerTest {
 	
 		@Override
 		public double getCardinality(StatementPattern sp, Collection<String> boundVars) {
+			boolean sv = hasValue(sp.getSubjectVar(), boundVars);
+			boolean ov = hasValue(sp.getObjectVar(), boundVars);
 			IRI predicate = (IRI) sp.getPredicateVar().getValue();
-			return predicateStats.getOrDefault(predicate, super.getCardinality(sp, boundVars));
+			double card = predicateStats.get(predicate);
+			if (sv && ov) {
+				card = 1.0;
+			} else if (sv || ov) {
+				card = Math.sqrt(card);
+			}
+			return card;
 		}
 	}
 }

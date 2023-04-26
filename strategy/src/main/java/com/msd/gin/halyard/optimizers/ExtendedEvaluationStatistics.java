@@ -64,6 +64,16 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 		}
 
 		@Override
+		public void meet(StatementPattern sp) {
+			cardinality = getCardinality(sp);
+		}
+
+		@Override
+		public void meet(TripleRef tripleRef) {
+			cardinality = getCardinality(tripleRef);
+		}
+
+		@Override
 		protected double getCardinality(StatementPattern sp) {
 			return spcalc.getCardinality(sp, boundVars);
 		}
