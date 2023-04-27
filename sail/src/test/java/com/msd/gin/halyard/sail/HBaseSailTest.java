@@ -16,6 +16,7 @@
  */
 package com.msd.gin.halyard.sail;
 
+import com.google.common.collect.Sets;
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.RDFFactory;
@@ -44,6 +45,7 @@ import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -55,6 +57,7 @@ import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.model.vocabulary.SD;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
+import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.BooleanQuery;
 import org.eclipse.rdf4j.query.GraphQuery;
 import org.eclipse.rdf4j.query.GraphQueryResult;
@@ -593,11 +596,11 @@ public class HBaseSailTest {
 	@Test
 	public void testEvaluateSelectService_differentHashes() throws Exception {
 		ValueFactory vf = SimpleValueFactory.getInstance();
-		Configuration conf = hconn.getConfiguration();
-		conf.set(TableConfig.ID_HASH, "Murmur3-128");
-		conf.setInt(TableConfig.ID_SIZE, 6);
-		conf.setInt(TableConfig.ID_TYPE_INDEX, 0);
-		HBaseSail sail = new HBaseSail(hconn, useTable("whateverservice"), true, 0, usePushStrategy, 10, null, null);
+		Configuration confService = HBaseServerTestInstance.getInstanceConfig();
+		confService.set(TableConfig.ID_HASH, "Murmur3-128");
+		confService.setInt(TableConfig.ID_SIZE, 6);
+		confService.setInt(TableConfig.ID_TYPE_INDEX, 0);
+		HBaseSail sail = new HBaseSail(hconn, confService, useTable("whateverservice"), true, 0, usePushStrategy, 10, null, null);
 		SailRepository rep = new SailRepository(sail);
 		rep.init();
 		Random r = new Random(333);
@@ -618,10 +621,11 @@ public class HBaseSailTest {
 		}
 		rep.shutDown();
 
-		conf.set(TableConfig.ID_HASH, "SHA-1");
-		conf.setInt(TableConfig.ID_SIZE, 8);
-		conf.setInt(TableConfig.ID_TYPE_INDEX, 1);
-		sail = new HBaseSail(hconn, useTable("whateverparent"), true, 0, usePushStrategy, 10, null, null);
+		Configuration confParent = HBaseServerTestInstance.getInstanceConfig();
+		confParent.set(TableConfig.ID_HASH, "SHA-1");
+		confParent.setInt(TableConfig.ID_SIZE, 8);
+		confParent.setInt(TableConfig.ID_TYPE_INDEX, 1);
+		sail = new HBaseSail(hconn, confParent, useTable("whateverparent"), true, 0, usePushStrategy, 10, null, null);
 		rep = new SailRepository(sail);
 		rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -637,6 +641,57 @@ public class HBaseSailTest {
 				}
 			}
 			assertEquals(2000, count);
+		}
+		rep.shutDown();
+	}
+
+	@Test
+	public void testEvaluateSelectService_differentHashes_withValues() throws Exception {
+		ValueFactory vf = SimpleValueFactory.getInstance();
+		Configuration confService = HBaseServerTestInstance.getInstanceConfig();
+		confService.set(TableConfig.ID_HASH, "Murmur3-128");
+		confService.setInt(TableConfig.ID_SIZE, 6);
+		confService.setInt(TableConfig.ID_TYPE_INDEX, 0);
+		HBaseSail sail = new HBaseSail(hconn, confService, useTable("whateverservice"), true, 0, usePushStrategy, 10, null, null);
+		SailRepository rep = new SailRepository(sail);
+		rep.init();
+		IRI labelPred = vf.createIRI("http://whatever/label");
+		try (RepositoryConnection conn = rep.getConnection()) {
+			for (int i = 0; i < 10; i++) {
+				IRI subj = vf.createIRI("http://whatever/thing#" + i);
+				Literal obj = vf.createLiteral(i);
+				conn.add(subj, labelPred, obj);
+			}
+		}
+		rep.shutDown();
+
+		Configuration confParent = HBaseServerTestInstance.getInstanceConfig();
+		confParent.set(TableConfig.ID_HASH, "SHA-1");
+		confParent.setInt(TableConfig.ID_SIZE, 8);
+		confParent.setInt(TableConfig.ID_TYPE_INDEX, 1);
+		sail = new HBaseSail(hconn, confParent, useTable("whateverparent"), true, 0, usePushStrategy, 10, null, null);
+		rep = new SailRepository(sail);
+		rep.init();
+		IRI pred = vf.createIRI("http://whatever/pred");
+		try (RepositoryConnection conn = rep.getConnection()) {
+			for (int i = 0; i < 100; i++) {
+				IRI subj = vf.createIRI("http://whatever/subj#" + i);
+				IRI obj = vf.createIRI("http://whatever/thing#" + (i % 10));
+				conn.add(subj, pred, obj);
+			}
+			TupleQuery q = conn.prepareTupleQuery(QueryLanguage.SPARQL,
+					"select * where {" + " VALUES ?s {<http://whatever/subj#4> <http://whatever/subj#25>} " + " ?s <http://whatever/pred> ?o. SERVICE <" + HALYARD.NAMESPACE + "whateverservice> { ?o <http://whatever/label> ?l } }");
+			Set<String> labels = new HashSet<>();
+			int count = 0;
+			try (TupleQueryResult res = q.evaluate()) {
+				while (res.hasNext()) {
+					count++;
+					BindingSet bs = res.next();
+					labels.add(bs.getValue("l").stringValue());
+				}
+			}
+			assertEquals(2, count);
+			assertEquals(Sets.newHashSet("4", "5"), labels);
 		}
 		rep.shutDown();
 	}
