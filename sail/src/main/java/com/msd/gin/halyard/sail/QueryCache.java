@@ -7,6 +7,8 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -14,6 +16,8 @@ import java.util.concurrent.ExecutionException;
 import javax.annotation.Nonnull;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
@@ -57,7 +61,7 @@ final class QueryCache {
 		final Set<IRI> datasetNamedGraphs;
 		final IRI datasetInsertGraph;
 		final Set<IRI> datasetRemoveGraphs;
-		final Set<String> bindingNames;
+		final Map<String, Value> bindings;
 		final boolean includeInferred;
 
 		static <E> Set<E> copy(Set<E> set) {
@@ -71,6 +75,23 @@ final class QueryCache {
 			}
 		}
 
+		static Map<String, Value> toMap(BindingSet bs) {
+			switch (bs.size()) {
+				case 0:
+					return Collections.emptyMap();
+				case 1:
+					Binding onlyBinding = bs.iterator().next();
+					return Collections.singletonMap(onlyBinding.getName(), onlyBinding.getValue());
+				default:
+					// use LinkedHashMap as will do a lot of iterating over entries
+					Map<String, Value> map = new LinkedHashMap<>(bs.size() + 1);
+					for (Binding b : bs) {
+						map.put(b.getName(), b.getValue());
+					}
+					return map;
+			}
+		}
+
 		PreparedQueryKey(@Nonnull String sourceString, int updatePart, Dataset dataset, BindingSet bindings, boolean includeInferred) {
 			this.sourceString = sourceString;
 			this.updatePart = Integer.valueOf(updatePart);
@@ -78,12 +99,12 @@ final class QueryCache {
 			this.datasetNamedGraphs = dataset != null ? copy(dataset.getNamedGraphs()) : null;
 			this.datasetInsertGraph = dataset != null ? dataset.getDefaultInsertGraph() : null;
 			this.datasetRemoveGraphs = dataset != null ? copy(dataset.getDefaultRemoveGraphs()) : null;
-			this.bindingNames = copy(bindings.getBindingNames());
+			this.bindings = toMap(bindings);
 			this.includeInferred = includeInferred;
 		}
 
 		private Object[] toArray() {
-			return new Object[] { sourceString, updatePart, bindingNames, includeInferred, datasetGraphs, datasetNamedGraphs, datasetInsertGraph, datasetRemoveGraphs };
+			return new Object[] { sourceString, updatePart, bindings, includeInferred, datasetGraphs, datasetNamedGraphs, datasetInsertGraph, datasetRemoveGraphs };
 		}
 
 		@Override
