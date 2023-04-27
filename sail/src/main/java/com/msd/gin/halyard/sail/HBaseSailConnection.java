@@ -40,7 +40,7 @@ import com.msd.gin.halyard.strategy.ExtendedEvaluationStrategy;
 import com.msd.gin.halyard.strategy.ExtendedQueryOptimizerPipeline;
 import com.msd.gin.halyard.strategy.HalyardEvaluationExecutor;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
-import com.msd.gin.halyard.strategy.HalyardExecutionContext;
+import com.msd.gin.halyard.strategy.HalyardEvaluationContext;
 import com.msd.gin.halyard.util.MBeanManager;
 import com.msd.gin.halyard.vocab.HALYARD;
 
@@ -122,20 +122,23 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private KeyspaceConnection keyspaceConn;
 	private HalyardEvaluationStatistics statistics;
 	private HalyardEvaluationExecutor executor;
+	private boolean executorIsShared;
 	private BufferedMutator mutator;
 	private int pendingUpdateCount;
 	private long lastTimestamp = Long.MIN_VALUE;
 	private boolean lastUpdateWasDelete;
 
 	public HBaseSailConnection(HBaseSail sail) throws IOException {
-		this(sail, new QueryCache(sail.queryCacheSize), HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache());
+		this(sail, new QueryCache(sail.queryCacheSize), HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache(), null);
 	}
 
-	HBaseSailConnection(HBaseSail sail, QueryCache cache, Cache<IRI, Long> stmtCountCache) throws IOException {
+	HBaseSailConnection(HBaseSail sail, QueryCache cache, Cache<IRI, Long> stmtCountCache, HalyardEvaluationExecutor executor) throws IOException {
 		this.sail = sail;
 		this.usePush = sail.pushStrategy;
 		this.queryCache = cache;
 		this.stmtCountCache = stmtCountCache;
+		this.executor = executor;
+		this.executorIsShared = (executor != null);
 		// tables are lightweight but not thread-safe so get a new instance per sail
 		// connection
 		this.keyspaceConn = sail.keyspace.getConnection();
@@ -176,7 +179,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     public void close() throws SailException {
 		try {
 			flush();
-			if (executor != null) {
+			if (!executorIsShared && executor != null) {
 				executor.shutdown();
 				executor = null;
 			}
@@ -213,7 +216,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		QueryContext queryContext = new QueryContext(queryPreparer);
 		queryContext.setAttribute(QUERY_CONTEXT_KEYSPACE_ATTRIBUTE, keyspaceConn);
 		queryContext.setAttribute(QUERY_CONTEXT_INDICES_ATTRIBUTE, sail.getStatementIndices());
-		queryContext.setAttribute(HalyardExecutionContext.QUERY_CONTEXT_SOURCE_STRING_ATTRIBUTE, sourceString);
+		queryContext.setAttribute(HalyardEvaluationContext.QUERY_CONTEXT_SOURCE_STRING_ATTRIBUTE, sourceString);
 		queryContext.setAttribute(QUERY_CONTEXT_SEARCH_ATTRIBUTE, searchClient);
 		return queryContext;
 	}

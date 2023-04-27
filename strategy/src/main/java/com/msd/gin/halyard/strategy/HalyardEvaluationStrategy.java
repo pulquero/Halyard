@@ -68,13 +68,14 @@ import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
  */
 public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	private final Configuration conf;
-    private final Dataset dataset;
 	/**
 	 * Used to allow queries across more than one Halyard datasets
 	 */
     private final FederatedServiceResolver serviceResolver;
     private final Map<String,FederatedService> federatedServices = new HashMap<>();
     private final TripleSource tripleSource;
+    private final HalyardEvaluationExecutor executor;
+    private final HalyardEvaluationContext evalContext;
     /**
      * Evaluates TupleExpressions and all implementations of that interface
      */
@@ -95,8 +96,6 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	private QueryOptimizerPipeline pipeline;
 
-	HalyardExecutionContext execContext;
-
 	/**
 	 * Default constructor of HalyardEvaluationStrategy
 	 * 
@@ -115,12 +114,12 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			HalyardEvaluationStatistics statistics, HalyardEvaluationExecutor executor) {
 		this.conf = conf;
 		this.tripleSource = tripleSource;
-		this.execContext = new HalyardExecutionContext(queryContext);
-		this.dataset = dataset;
 		this.serviceResolver = serviceResolver;
-		this.tupleEval = new HalyardTupleExprEvaluation(this, queryContext, tupleFunctionRegistry, tripleSource,
-				dataset, executor);
-		this.valueEval = new HalyardValueExprEvaluation(this, queryContext, functionRegistry, tripleSource, executor.getQueuePollTimeoutMillis());
+		this.executor = executor;
+		this.evalContext = new HalyardEvaluationContext(queryContext, dataset, tripleSource.getValueFactory());
+		this.tupleEval = new HalyardTupleExprEvaluation(this, evalContext, tupleFunctionRegistry, tripleSource,
+				executor);
+		this.valueEval = new HalyardValueExprEvaluation(this, evalContext, functionRegistry, tripleSource, executor.getQueuePollTimeoutMillis());
 		this.pipeline = new HalyardQueryOptimizerPipeline(this, tripleSource.getValueFactory(), statistics);
 	}
 
@@ -161,6 +160,10 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		return tripleSource;
 	}
 
+	public HalyardEvaluationExecutor getExecutor() {
+		return executor;
+	}
+
 	protected JoinAlgorithmOptimizer getJoinAlgorithmOptimizer() {
     	if (pipeline instanceof HalyardQueryOptimizerPipeline) {
     		return ((HalyardQueryOptimizerPipeline)pipeline).getJoinAlgorithmOptimizer();
@@ -194,6 +197,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	@Override
 	public TupleExpr optimize(TupleExpr expr, EvaluationStatistics evaluationStatistics, BindingSet bindings) {
+		Dataset dataset = evalContext.getDataset();
 		TupleExpr optimizedExpr = expr;
 		for (QueryOptimizer optimizer : pipeline.getOptimizers()) {
 			optimizer.optimize(optimizedExpr, dataset, bindings);
@@ -308,7 +312,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	@Override
 	public String toString() {
-		return super.toString() + "[context = " + execContext + ", tripleSource = " + tripleSource + "]";
+		return super.toString() + "[context = " + evalContext + ", tripleSource = " + tripleSource + "]";
 	}
 
 

@@ -155,7 +155,6 @@ import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.StrictEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.TupleFunctionEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.DescribeIteration;
@@ -189,11 +188,8 @@ final class HalyardTupleExprEvaluation {
 	private final TupleFunctionRegistry tupleFunctionRegistry;
 	private final CustomAggregateFunctionRegistry aggregateFunctionRegistry = CustomAggregateFunctionRegistry.getInstance();
 	private final TripleSource tripleSource;
-	private final ValueFactory valueFactory;
-	private final QueryContext queryContext;
-    private final Dataset dataset;
     private final HalyardEvaluationExecutor executor;
-    private final QueryEvaluationContext evalContext = null;
+    private final HalyardEvaluationContext evalContext;
     private final int hashJoinLimit;
     private final int collectionMemoryThreshold;
     private final int valueCacheSize;
@@ -208,14 +204,12 @@ final class HalyardTupleExprEvaluation {
 	 * @param dataset
 	 * @param executor
 	 */
-	HalyardTupleExprEvaluation(HalyardEvaluationStrategy parentStrategy, QueryContext queryContext,
-			TupleFunctionRegistry tupleFunctionRegistry, TripleSource tripleSource, Dataset dataset, HalyardEvaluationExecutor executor) {
+	HalyardTupleExprEvaluation(HalyardEvaluationStrategy parentStrategy, HalyardEvaluationContext evalContext,
+			TupleFunctionRegistry tupleFunctionRegistry, TripleSource tripleSource, HalyardEvaluationExecutor executor) {
         this.parentStrategy = parentStrategy;
-		this.queryContext = queryContext;
+		this.evalContext = evalContext;
 		this.tupleFunctionRegistry = tupleFunctionRegistry;
 		this.tripleSource = tripleSource;
-		this.valueFactory = tripleSource.getValueFactory();
-		this.dataset = dataset;
 		this.executor = executor;
 		Configuration conf = parentStrategy.getConfiguration();
 		JoinAlgorithmOptimizer algoOpt = parentStrategy.getJoinAlgorithmOptimizer();
@@ -243,7 +237,7 @@ final class HalyardTupleExprEvaluation {
 
 			@Override
 			public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(BindingSet bindings) {
-				return executor.pushAndPull(step, expr, bindings, parentStrategy);
+				return executor.pushAndPull(step, expr, bindings);
 			}
     	};
     }
@@ -417,6 +411,7 @@ final class HalyardTupleExprEvaluation {
 
         final Set<IRI> graphs;
         final boolean emptyGraph;
+        Dataset dataset = evalContext.getDataset();
         if (dataset != null) {
             if (scope == StatementPattern.Scope.DEFAULT_CONTEXTS) { //evaluate against the default graph(s)
                 graphs = dataset.getDefaultGraphs();
@@ -1234,7 +1229,8 @@ final class HalyardTupleExprEvaluation {
 	private static final Predicate<?> ALWAYS_TRUE = (v) -> true;
 
 	private Aggregator<?,?> createAggregator(AggregateOperator operator, ValuePipeQueryValueEvaluationStep opArgStep, BindingSet parentBindings) {
-    	boolean isDistinct = operator.isDistinct();
+		ValueFactory valueFactory = tripleSource.getValueFactory();
+		boolean isDistinct = operator.isDistinct();
 		if (operator instanceof Count) {
 			Count count = (Count) operator;
 			if (count.getArg() != null) {
@@ -1656,7 +1652,7 @@ final class HalyardTupleExprEvaluation {
 		        // otherwise: perform a SELECT query
 		        if (fs instanceof BindingSetCallbackFederatedService) {
             		BindingSetPipe pipe = parentStrategy.track(topPipe, service);
-            		ValueFactory cachingVF = new CachingValueFactory(valueFactory, valueCacheSize);
+            		ValueFactory cachingVF = new CachingValueFactory(tripleSource.getValueFactory(), valueCacheSize);
 	            	try {
 	            		((BindingSetCallbackFederatedService)fs).select(theirBs -> {
 	            			// in same VM so need to explicitly convert Values
@@ -2556,6 +2552,7 @@ final class HalyardTupleExprEvaluation {
      * @param alp
      */
     private BindingSetPipeEvaluationStep precompileArbitraryLengthPath(ArbitraryLengthPath alp) {
+    	Dataset dataset = evalContext.getDataset();
     	return (parent, bindings) -> {
 	        final StatementPattern.Scope scope = alp.getScope();
 	        final Var subjectVar = alp.getSubjectVar();
@@ -2668,6 +2665,8 @@ final class HalyardTupleExprEvaluation {
 			argSteps[i] = parentStrategy.precompile(args.get(i), evalContext);
 		}
 
+		QueryContext queryContext = evalContext.getQueryContext();
+		ValueFactory valueFactory = tripleSource.getValueFactory();
 		Function<BindingSetPipe,BindingSetPipe> pipeBuilder = parent -> {
 			return new BindingSetPipe(parent) {
 				@Override

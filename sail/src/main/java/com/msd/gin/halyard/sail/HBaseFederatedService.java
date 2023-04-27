@@ -59,7 +59,7 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 			@Override
 			protected SailConnection getConnection() {
 				return sail.getConnection(sail -> {
-					HBaseSailConnection conn = new HBaseSailConnection(sail, queryCache, stmtCountCache);
+					HBaseSailConnection conn = new HBaseSailConnection(sail, queryCache, stmtCountCache, strategy.getExecutor());
 					conn.setTrackResultSize(strategy.isTrackResultSize());
 					conn.setTrackResultTime(strategy.isTrackTime());
 					return conn;

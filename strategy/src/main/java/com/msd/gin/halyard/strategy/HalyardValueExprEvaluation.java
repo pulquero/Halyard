@@ -119,7 +119,7 @@ class HalyardValueExprEvaluation {
     private final HalyardEvaluationStrategy parentStrategy;
 	private final FunctionRegistry functionRegistry;
     private final TripleSource tripleSource;
-    private final QueryContext queryContext;
+    private final HalyardEvaluationContext evalContext;
     private final ValueFactory valueFactory;
     private final Literal TRUE;
     private final Literal FALSE;
@@ -127,10 +127,10 @@ class HalyardValueExprEvaluation {
     private final ValueOrError OK_FALSE;
 	private int pollTimeoutMillis;
 
-	HalyardValueExprEvaluation(HalyardEvaluationStrategy parentStrategy, QueryContext queryContext, FunctionRegistry functionRegistry,
+	HalyardValueExprEvaluation(HalyardEvaluationStrategy parentStrategy, HalyardEvaluationContext evalContext, FunctionRegistry functionRegistry,
 			TripleSource tripleSource, int pollTimeoutMillis) {
         this.parentStrategy = parentStrategy;
-        this.queryContext = queryContext;
+        this.evalContext = evalContext;
 		this.functionRegistry = functionRegistry;
         this.tripleSource = tripleSource;
         this.valueFactory = tripleSource.getValueFactory();
@@ -862,6 +862,7 @@ class HalyardValueExprEvaluation {
         for (int i = 0; i < args.size(); i++) {
             argSteps[i] = precompileValueExpr(args.get(i));
         }
+        QueryContext queryContext = evalContext.getQueryContext();
         return (parent, bs) -> {
         	if (argSteps.length > 0) {
 	        	AtomicInteger argsRemaining = new AtomicInteger(argSteps.length);
@@ -1028,7 +1029,7 @@ class HalyardValueExprEvaluation {
      * @throws QueryEvaluationException
      */
     private ValuePipeEvaluationStep precompileNow(Now node) throws ValueExprEvaluationException, QueryEvaluationException {
-    	Literal now = parentStrategy.execContext.getNow(valueFactory);
+    	Literal now = evalContext.getNow();
         return (parent, bindings)-> {
         	parent.push(now);
         };
