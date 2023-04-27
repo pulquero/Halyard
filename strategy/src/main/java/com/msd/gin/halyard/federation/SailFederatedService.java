@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.federation;
 
 import com.msd.gin.halyard.algebra.ServiceRoot;
+import com.msd.gin.halyard.common.ValueFactories;
 import com.msd.gin.halyard.sail.BindingSetCallbackSail;
 import com.msd.gin.halyard.sail.BindingSetCallbackSailConnection;
 
@@ -61,7 +62,7 @@ public class SailFederatedService implements BindingSetCallbackFederatedService 
 	@Override
 	public boolean ask(Service service, BindingSet bindings, String baseUri) throws QueryEvaluationException {
 		try (SailConnection conn = getConnection()) {
-			try (CloseableIteration<? extends BindingSet, QueryEvaluationException> res = conn.evaluate(ServiceRoot.create(service), null, bindings, true)) {
+			try (CloseableIteration<? extends BindingSet, QueryEvaluationException> res = conn.evaluate(ServiceRoot.create(service), null, ValueFactories.convertValues(bindings, sail.getValueFactory()), true)) {
 				return res.hasNext();
 			}
 		}
@@ -71,7 +72,7 @@ public class SailFederatedService implements BindingSetCallbackFederatedService 
 	public CloseableIteration<BindingSet, QueryEvaluationException> select(Service service, Set<String> projectionVars,
 			BindingSet bindings, String baseUri) throws QueryEvaluationException {
 		SailConnection conn = getConnection();
-		CloseableIteration<? extends BindingSet, QueryEvaluationException> iter = conn.evaluate(ServiceRoot.create(service), null, bindings, true);
+		CloseableIteration<? extends BindingSet, QueryEvaluationException> iter = conn.evaluate(ServiceRoot.create(service), null, ValueFactories.convertValues(bindings, sail.getValueFactory()), true);
 		CloseableIteration<BindingSet, QueryEvaluationException> result = new InsertBindingSetCursor((CloseableIteration<BindingSet, QueryEvaluationException>) iter, bindings);
 		result = new CloseConnectionIteration(result, conn);
 		if (service.isSilent()) {
@@ -85,7 +86,7 @@ public class SailFederatedService implements BindingSetCallbackFederatedService 
 		if (sail instanceof BindingSetCallbackSail) {
 			try (BindingSetCallbackSailConnection conn = (BindingSetCallbackSailConnection) getConnection()) {
 				handler = new InsertBindingSetCallback(handler, bindings);
-				conn.evaluate(handler, ServiceRoot.create(service), null, bindings, true);
+				conn.evaluate(handler, ServiceRoot.create(service), null, ValueFactories.convertValues(bindings, sail.getValueFactory()), true);
 			}
 		} else {
 			try (CloseableIteration<BindingSet, QueryEvaluationException> result = select(service, projectionVars, bindings, baseUri)) {
@@ -116,7 +117,7 @@ public class SailFederatedService implements BindingSetCallbackFederatedService 
 	}
 
 
-	private static final class SimpleServiceIteration extends JoinExecutorBase<BindingSet> {
+	private static class SimpleServiceIteration extends JoinExecutorBase<BindingSet> {
 
 		private final List<BindingSet> allBindings;
 		private final Function<BindingSet,CloseableIteration<BindingSet, QueryEvaluationException>> selectEvaluator;
@@ -137,7 +138,7 @@ public class SailFederatedService implements BindingSetCallbackFederatedService 
 	}
 
 
-	private static final class CloseConnectionIteration implements CloseableIteration<BindingSet, QueryEvaluationException> {
+	private static class CloseConnectionIteration implements CloseableIteration<BindingSet, QueryEvaluationException> {
 		private final CloseableIteration<BindingSet, QueryEvaluationException> delegate;
 		private final SailConnection conn;
 
@@ -172,7 +173,7 @@ public class SailFederatedService implements BindingSetCallbackFederatedService 
 	}
 
 
-	private static final class InsertBindingSetCallback implements Consumer<BindingSet> {
+	private static class InsertBindingSetCallback implements Consumer<BindingSet> {
 		private final Consumer<BindingSet> delegate;
 		private final BindingSet bindingSet;
 

@@ -26,6 +26,7 @@ import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
 import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
+import com.msd.gin.halyard.common.ValueFactories;
 import com.msd.gin.halyard.common.ValueType;
 import com.msd.gin.halyard.federation.BindingSetCallbackFederatedService;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
@@ -83,7 +84,6 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDF4J;
@@ -1660,11 +1660,7 @@ final class HalyardTupleExprEvaluation {
 	            	try {
 	            		((BindingSetCallbackFederatedService)fs).select(theirBs -> {
 	            			// in same VM so need to explicitly convert Values
-	            			Set<String> bindingNames = theirBs.getBindingNames();
-	            			QueryBindingSet ourBs = new QueryBindingSet(theirBs.size());
-	            			for (String bn : bindingNames) {
-	            				ourBs.setBinding(bn, convertIV(theirBs.getValue(bn), cachingVF));
-	            			}
+	            			BindingSet ourBs = ValueFactories.convertValues(theirBs, cachingVF);
 	            			if(!pipe.push(ourBs)) {
 	            				AbortConsumerException.abort();
 	            			}
@@ -1710,32 +1706,6 @@ final class HalyardTupleExprEvaluation {
 	            topPipe.handleException(e);
 	        }
 	    }
-    }
-
-    private static Value convertIV(Value v, ValueFactory vf) {
-    	if (v == null) {
-    		return null;
-    	}
-    	if  (v.isIRI()) {
-    		return vf.createIRI(v.stringValue());
-    	} else if (v.isLiteral()) {
-    		Literal l = (Literal) v;
-    		CoreDatatype cdt = l.getCoreDatatype();
-    		if (cdt == CoreDatatype.XSD.STRING) {
-    			return vf.createLiteral(l.getLabel());
-    		} else if (cdt == CoreDatatype.RDF.LANGSTRING) {
-				return vf.createLiteral(l.getLabel(), l.getLanguage().get());
-			} else {
-				return vf.createLiteral(l.getLabel(), l.getDatatype(), l.getCoreDatatype());
-			}
-    	} else if (v.isBNode()) {
-    		return vf.createBNode(v.stringValue());
-    	} else if (v.isTriple()) {
-    		Triple t = (Triple) v;
-    		return vf.createTriple((Resource) convertIV(t.getSubject(), vf), (IRI) convertIV(t.getPredicate(), vf), convertIV(t.getObject(), vf));
-    	} else {
-    		throw new AssertionError();
-    	}
     }
 
     /**
