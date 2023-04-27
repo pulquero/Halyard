@@ -30,7 +30,12 @@ public class JMiniXAttributeRenderer implements AttributeFilter {
 					s.append("<ol>\n");
 					for (CompositeData cd : arr) {
 						s.append("<li>\n");
-						s.append("<p>timestamp: ").append(df.format(new Date((Long) cd.get("timestamp")))).append("</p>\n");
+						s.append("<p>running: ").append(cd.get("running")).append("</p>\n");
+						s.append("<p>startTimestamp: ").append(df.format(new Date((Long) cd.get("startTimestamp")))).append("</p>\n");
+						Long endTimestamp = (Long) cd.get("endTimestamp");
+						if (endTimestamp != null) {
+							s.append("<p>endTimestamp: ").append(df.format(new Date(endTimestamp))).append("</p>\n");
+						}
 						s.append("<p>queryString: <pre>").append(escape(cd.get("queryString"))).append("</pre></p>\n");
 						s.append("<p>queryTree: <pre>").append(escape(cd.get("queryTree"))).append("</pre></p>\n");
 						s.append("<p>optimizedQueryTree: <pre>").append(escape(cd.get("optimizedQueryTree"))).append("</pre></p>\n");

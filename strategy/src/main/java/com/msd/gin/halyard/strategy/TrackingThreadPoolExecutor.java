@@ -65,8 +65,8 @@ public final class TrackingThreadPoolExecutor extends ThreadPoolExecutor impleme
 			// need to sort as contents are in no particular order
 			Arrays.sort(tasks, (Comparator<Runnable>) comparator);
 		}
-		QueueInfo[] infos = new QueueInfo[tasks.length];
 		n = Math.min(n, tasks.length);
+		QueueInfo[] infos = new QueueInfo[n];
 		for (int i=0; i<n; i++) {
 			infos[i] = new QueueInfo(tasks[i].toString());
 		}

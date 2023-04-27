@@ -61,6 +61,7 @@ import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.ConvertingIteration;
 import org.eclipse.rdf4j.common.iteration.EmptyIteration;
 import org.eclipse.rdf4j.common.iteration.ExceptionConvertingIteration;
+import org.eclipse.rdf4j.common.iteration.IterationWrapper;
 import org.eclipse.rdf4j.common.iteration.ReducedIteration;
 import org.eclipse.rdf4j.common.iteration.TimeLimitIteration;
 import org.eclipse.rdf4j.common.transaction.IsolationLevel;
@@ -143,6 +144,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		} else {
 			searchClient = null;
 		}
+		sail.connInfos.put(this, this);
     }
 
 	private HalyardEvaluationExecutor getExecutor() {
@@ -172,29 +174,33 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
     @Override
     public void close() throws SailException {
-    	flush();
-		if (executor != null) {
-			executor.shutdown();
-			executor = null;
-		}
-		if (mutator != null) {
-			try {
-				mutator.close();
-			} catch (IOException e) {
-				throw new SailException(e);
-			} finally {
-				mutator = null;
+		try {
+			flush();
+			if (executor != null) {
+				executor.shutdown();
+				executor = null;
 			}
-		}
+			if (mutator != null) {
+				try {
+					mutator.close();
+				} catch (IOException e) {
+					throw new SailException(e);
+				} finally {
+					mutator = null;
+				}
+			}
 
-		if (keyspaceConn != null) {
-			try {
-				keyspaceConn.close();
-			} catch (IOException e) {
-				throw new SailException(e);
-			} finally {
-				keyspaceConn = null;
+			if (keyspaceConn != null) {
+				try {
+					keyspaceConn.close();
+				} catch (IOException e) {
+					throw new SailException(e);
+				} finally {
+					keyspaceConn = null;
+				}
 			}
+		} finally {
+			sail.connInfos.invalidate(this);
 		}
     }
 
@@ -285,9 +291,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		try {
 			initQueryContext(queryContext);
 			TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);
-			sail.trackQuery(sourceString, tupleExpr, optimizedTree);
+			HBaseSail.QueryInfo queryInfo = sail.trackQuery(sourceString, tupleExpr, optimizedTree);
 			try {
 				CloseableIteration<BindingSet, QueryEvaluationException> iter = evaluateInternal(optimizedTree, strategy);
+				iter = new IterationWrapper<BindingSet, QueryEvaluationException>(iter) {
+					@Override
+					protected void handleClose() throws QueryEvaluationException {
+						queryInfo.end();
+					}
+				};
 				if (!usePush) {
 					// NB: Iteration methods may do on-demand evaluation hence need to wrap these too
 					iter = new QueryContextIteration(iter, queryContext);
@@ -328,12 +340,14 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		try {
 			initQueryContext(queryContext);
 			TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);
-			sail.trackQuery(sourceString, tupleExpr, optimizedTree);
 			handler = TimeLimitConsumer.apply(handler, sail.evaluationTimeoutSecs);
+			HBaseSail.QueryInfo queryInfo = sail.trackQuery(sourceString, tupleExpr, optimizedTree);
 			try {
 				evaluateInternal(handler, optimizedTree, strategy);
 			} catch (QueryEvaluationException ex) {
 				throw new SailException(ex);
+			} finally {
+				queryInfo.end();
 			}
 		} finally {
 			try {

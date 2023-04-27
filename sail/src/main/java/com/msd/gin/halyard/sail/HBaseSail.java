@@ -17,6 +17,7 @@
 package com.msd.gin.halyard.sail;
 
 import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
@@ -132,7 +133,8 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 	}
 
 	public static final class QueryInfo {
-		private final long timestamp = System.currentTimeMillis();
+		private final long startTimestamp = System.currentTimeMillis();
+		private Long endTimestamp;
 		private final String queryString;
 		private final TupleExpr queryExpr;
 		private final TupleExpr optimizedExpr;
@@ -143,8 +145,12 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 			this.optimizedExpr = optimizedExpr;
 		}
 
-		public long getTimestamp() {
-			return timestamp;
+		public long getStartTimestamp() {
+			return startTimestamp;
+		}
+
+		public Long getEndTimestamp() {
+			return endTimestamp;
 		}
 
 		public String getQueryString() {
@@ -157,6 +163,14 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 
 		public String getOptimizedQueryTree() {
 			return optimizedExpr.toString();
+		}
+
+		public boolean isRunning() {
+			return endTimestamp == null;
+		}
+
+		void end() {
+			endTimestamp = System.currentTimeMillis();
 		}
 
 		@Override
@@ -199,6 +213,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 	Keyspace keyspace;
 	String owner;
 	private MBeanManager<HBaseSail> mbeanManager;
+	final Cache<HBaseSailConnection, Object> connInfos = CacheBuilder.newBuilder().weakKeys().build();
 	private final Queue<QueryInfo> queryHistory = new ArrayBlockingQueue<>(10, true);
 
 	/**
@@ -357,6 +372,11 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 	}
 
 	@Override
+	public int getConnectionCount() {
+		return (int) connInfos.size();
+	}
+
+	@Override
 	public boolean isTrackResultSize() {
 		return trackResultSize;
 	}
@@ -392,7 +412,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 		}
 	}
 
-	void trackQuery(String sourceString, TupleExpr rawExpr, TupleExpr optimizedExpr) {
+	QueryInfo trackQuery(String sourceString, TupleExpr rawExpr, TupleExpr optimizedExpr) {
 		QueryInfo query = new QueryInfo(sourceString, rawExpr, optimizedExpr);
 		synchronized (queryHistory) {
 			if (!queryHistory.offer(query)) {
@@ -401,6 +421,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 				queryHistory.add(query);
 			}
 		}
+		return query;
 	}
 
 	/**

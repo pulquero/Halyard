@@ -18,4 +18,6 @@ public interface HBaseSailMXBean {
 	void setTrackResultTime(boolean f);
 
 	QueryInfo[] getRecentQueries();
+
+	int getConnectionCount();
 }

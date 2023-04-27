@@ -69,7 +69,8 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
     private final RateTracker taskRateTracker;
-	private final MBeanManager<HalyardEvaluationExecutor> mbeanManager;
+	private MBeanManager<HalyardEvaluationExecutor> mbeanManager;
+	private final TimerTask registerMBeanTask;
 
     private int threads;
     private int maxRetries;
@@ -130,28 +131,38 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 			}
 		}, 1000L, TimeUnit.SECONDS.toMillis(threadPoolCheckPeriodSecs));
 
-		mbeanManager = new MBeanManager<>() {
+		// don't both registering MBeans for short-lived queries
+		registerMBeanTask = new TimerTask() {
 			@Override
-			protected List<MBeanDetails> mbeans(HalyardEvaluationExecutor executor) {
-				List<MBeanDetails> mbeanObjs = new ArrayList<>(2);
-				{
-					Hashtable<String,String> attrs = new Hashtable<>();
-					attrs.putAll(connAttrs);
-					mbeanObjs.add(new MBeanDetails(executor, HalyardEvaluationExecutorMXBean.class, attrs));
-				}
-				{
-					Hashtable<String,String> attrs = new Hashtable<>();
-					attrs.putAll(connAttrs);
-					mbeanObjs.add(new MBeanDetails(executor.executor, TrackingThreadPoolExecutorMXBean.class, attrs));
-				}
-				return mbeanObjs;
+			public void run() {
+				mbeanManager = new MBeanManager<>() {
+					@Override
+					protected List<MBeanDetails> mbeans(HalyardEvaluationExecutor executor) {
+						List<MBeanDetails> mbeanObjs = new ArrayList<>(2);
+						{
+							Hashtable<String,String> attrs = new Hashtable<>();
+							attrs.putAll(connAttrs);
+							mbeanObjs.add(new MBeanDetails(executor, HalyardEvaluationExecutorMXBean.class, attrs));
+						}
+						{
+							Hashtable<String,String> attrs = new Hashtable<>();
+							attrs.putAll(connAttrs);
+							mbeanObjs.add(new MBeanDetails(executor.executor, TrackingThreadPoolExecutorMXBean.class, attrs));
+						}
+						return mbeanObjs;
+					}
+				};
+				mbeanManager.register(HalyardEvaluationExecutor.this);
 			}
 		};
-		mbeanManager.register(this);
+		TIMER.schedule(registerMBeanTask, TimeUnit.MINUTES.toMillis(1l));
 	}
 
 	public void shutdown() {
-		mbeanManager.unregister();
+		registerMBeanTask.cancel();
+		if (mbeanManager != null) {
+			mbeanManager.unregister();
+		}
 		executor.shutdownNow();
 	}
 
