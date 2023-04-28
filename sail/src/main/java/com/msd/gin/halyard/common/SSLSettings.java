@@ -6,6 +6,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
+import java.util.Objects;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -16,27 +17,40 @@ import javax.net.ssl.TrustManagerFactory;
 import org.apache.hadoop.conf.Configuration;
 
 public final class SSLSettings {
+	private static final String DEFAULT_SSL_PROTOCOL = "TLS";
 	/** type for all key stores */
 	private String keyStoreType;
 	public URL keyStoreLocation;
 	public char[] keyStorePassword;
 	public URL trustStoreLocation;
 	public char[] trustStorePassword;
-	public String sslProtocol = "TLS";
+	public String sslProtocol = DEFAULT_SSL_PROTOCOL;
 
-	public static SSLSettings from(Configuration conf) throws MalformedURLException {
-		String keyLoc = conf.get("es.net.ssl.keystore.location");
-		String keyPass = conf.get("es.net.ssl.keystore.pass");
-		String trustLoc = conf.get("es.net.ssl.truststore.location");
-		String trustPass = conf.get("es.net.ssl.truststore.pass");
-		SSLSettings sslSettings = new SSLSettings();
-		sslSettings.keyStoreType = conf.get("es.net.ssl.keystore.type");
-		sslSettings.keyStoreLocation = (keyLoc != null && !keyLoc.isEmpty()) ? new URL(keyLoc) : null;
-		sslSettings.keyStorePassword = (keyPass != null && !keyPass.isEmpty()) ? keyPass.toCharArray() : null;
-		sslSettings.trustStoreLocation = (trustLoc != null && !trustLoc.isEmpty()) ? new URL(trustLoc) : null;
-		sslSettings.trustStorePassword = (trustPass != null && !trustPass.isEmpty()) ? trustPass.toCharArray() : null;
-		sslSettings.sslProtocol = conf.get("es.net.ssl.protocol", "TLS");
-		return sslSettings;
+	public static SSLSettings from(Configuration conf) {
+		return merge(conf, null);
+	}
+
+	public static SSLSettings merge(Configuration conf, SSLSettings defaults) {
+		String keyLoc = conf.get("es.net.ssl.keystore.location", defaults != null && defaults.keyStoreLocation != null ? defaults.keyStoreLocation.toString() : null);
+		String keyPass = conf.get("es.net.ssl.keystore.pass", defaults != null && defaults.keyStorePassword != null ? new String(defaults.keyStorePassword) : null);
+		String trustLoc = conf.get("es.net.ssl.truststore.location", defaults != null && defaults.trustStoreLocation != null ? defaults.trustStoreLocation.toString() : null);
+		String trustPass = conf.get("es.net.ssl.truststore.pass", defaults != null && defaults.trustStorePassword != null ? new String(defaults.trustStorePassword) : null);
+		SSLSettings merged = new SSLSettings();
+		merged.keyStoreType = conf.get("es.net.ssl.keystore.type", defaults != null ? defaults.keyStoreType : null);
+		try {
+			merged.keyStoreLocation = (keyLoc != null && !keyLoc.isEmpty()) ? new URL(keyLoc) : null;
+		} catch (MalformedURLException e) {
+			throw new IllegalArgumentException(e);
+		}
+		merged.keyStorePassword = (keyPass != null && !keyPass.isEmpty()) ? keyPass.toCharArray() : null;
+		try {
+			merged.trustStoreLocation = (trustLoc != null && !trustLoc.isEmpty()) ? new URL(trustLoc) : null;
+		} catch (MalformedURLException e) {
+			throw new IllegalArgumentException(e);
+		}
+		merged.trustStorePassword = (trustPass != null && !trustPass.isEmpty()) ? trustPass.toCharArray() : null;
+		merged.sslProtocol = conf.get("es.net.ssl.protocol", defaults != null ? Objects.toString(defaults.sslProtocol, DEFAULT_SSL_PROTOCOL) : DEFAULT_SSL_PROTOCOL);
+		return merged;
 	}
 
 	private static boolean isPKCS12(String loc) {

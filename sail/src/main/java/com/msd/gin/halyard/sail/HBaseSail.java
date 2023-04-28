@@ -266,7 +266,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 		this.snapshotRestorePath = null;
 		this.pushStrategy = pushStrategy;
 		this.evaluationTimeoutSecs = evaluationTimeout;
-		this.esSettings = elasticSettings;
+		this.esSettings = ElasticSettings.merge(config, elasticSettings);
 		this.ticker = ticker;
 		this.connFactory = connFactory;
 		this.federatedServiceResolver = fsr;
@@ -305,7 +305,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 		this.snapshotRestorePath = new Path(snapshotRestorePath);
 		this.pushStrategy = pushStrategy;
 		this.evaluationTimeoutSecs = evaluationTimeout;
-		this.esSettings = elasticSettings;
+		this.esSettings = ElasticSettings.merge(config, elasticSettings);
 		this.ticker = ticker;
 		this.connFactory = connFactory;
 		this.federatedServiceResolver = fsr;

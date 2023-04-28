@@ -68,7 +68,7 @@ public class HBaseSailFactoryTest {
 		hbsc.setSplitBits(3);
 		hbsc.setEvaluationTimeout(480);
 		hbsc.setTableName("testtable");
-        hbsc.setElasticIndexURL(new URL("http://whatever/index"));
+		hbsc.setElasticIndexURL(new URL("https://whatever/index"));
 		hbsc.setElasticKeystoreLocation(new URL("file:/home/keystore"));
         Sail sail = new HBaseSailFactory().getSail(hbsc);
         assertTrue(sail instanceof HBaseSail);
@@ -78,7 +78,7 @@ public class HBaseSailFactoryTest {
         assertEquals(3, hbs.splitBits);
 		assertEquals("testtable", hbs.tableName.getNameAsString());
         assertEquals(480, hbs.evaluationTimeoutSecs);
-        assertEquals("http", hbs.esSettings.protocol);
+		assertEquals("https", hbs.esSettings.protocol);
         assertEquals("whatever", hbs.esSettings.host);
         assertEquals("index", hbs.esSettings.indexName);
 		assertEquals("file:/home/keystore", hbs.esSettings.sslSettings.keyStoreLocation.toString());
@@ -111,7 +111,7 @@ public class HBaseSailFactoryTest {
 		hbsc.setEvaluationTimeout(480);
 		hbsc.setSnapshotName("snapshot");
 		hbsc.setSnapshotRestorePath("/path");
-		hbsc.setElasticIndexURL(new URL("http://whatever/index"));
+		hbsc.setElasticIndexURL(new URL("https://whatever/index"));
 		hbsc.setElasticKeystoreLocation(new URL("file:/home/keystore"));
 		Sail sail = new HBaseSailFactory().getSail(hbsc);
 		assertTrue(sail instanceof HBaseSail);
@@ -122,7 +122,7 @@ public class HBaseSailFactoryTest {
 		assertEquals("snapshot", hbs.snapshotName);
 		assertEquals("/path", hbs.snapshotRestorePath.toString());
 		assertEquals(480, hbs.evaluationTimeoutSecs);
-        assertEquals("http", hbs.esSettings.protocol);
+		assertEquals("https", hbs.esSettings.protocol);
         assertEquals("whatever", hbs.esSettings.host);
         assertEquals("index", hbs.esSettings.indexName);
 		assertEquals("file:/home/keystore", hbs.esSettings.sslSettings.keyStoreLocation.toString());

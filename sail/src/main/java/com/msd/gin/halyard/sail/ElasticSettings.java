@@ -60,17 +60,33 @@ public final class ElasticSettings {
 		return settings;
 	}
 
-	public static ElasticSettings from(Configuration conf) throws MalformedURLException {
+	public static ElasticSettings from(Configuration conf) {
+		return merge(conf, null);
+	}
+
+	public static ElasticSettings merge(Configuration conf, ElasticSettings defaults) {
+		ElasticSettings merged = new ElasticSettings();
 		String esIndexUrl = conf.get(HBaseSail.ELASTIC_INDEX_URL);
-		if (esIndexUrl == null) {
+		if (esIndexUrl != null) {
+			try {
+				merged = from(new URL(esIndexUrl));
+			} catch (MalformedURLException e) {
+				throw new IllegalArgumentException(e);
+			}
+		} else if (defaults != null) {
+			merged = new ElasticSettings();
+			merged.protocol = defaults.protocol;
+			merged.host = defaults.host;
+			merged.port = defaults.port;
+			merged.indexName = defaults.indexName;
+		} else {
 			return null;
 		}
-		ElasticSettings settings = from(new URL(esIndexUrl));
-		settings.username = conf.get("es.net.http.auth.user");
-		settings.password = conf.get("es.net.http.auth.pass");
-		if ("https".equals(settings.protocol)) {
-			settings.sslSettings = SSLSettings.from(conf);
+		merged.username = conf.get("es.net.http.auth.user", defaults != null ? defaults.username : null);
+		merged.password = conf.get("es.net.http.auth.pass", defaults != null ? defaults.password : null);
+		if ("https".equals(merged.protocol)) {
+			merged.sslSettings = SSLSettings.merge(conf, defaults != null ? defaults.sslSettings : null);
 		}
-		return settings;
+		return merged;
 	}
 }

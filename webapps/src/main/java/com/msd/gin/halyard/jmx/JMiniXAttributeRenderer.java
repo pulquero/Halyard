@@ -50,7 +50,7 @@ public class JMiniXAttributeRenderer implements AttributeFilter {
 						s.append("<li>\n");
 						s.append("<p>name: ").append(cd.get("name")).append("</p>\n");
 						s.append("<p>state: ").append(cd.get("state")).append("</p>\n");
-						s.append("<p>task: <pre>").append(cd.get("task")).append("</pre></p>\n");
+						s.append("<p>task: <pre>").append(escape(cd.get("task"))).append("</pre></p>\n");
 						s.append("</li>\n");
 					}
 					s.append("</ol>\n");
