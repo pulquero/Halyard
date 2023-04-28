@@ -38,9 +38,9 @@ import com.msd.gin.halyard.spin.SpinFunctionInterpreter;
 import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
 import com.msd.gin.halyard.strategy.ExtendedEvaluationStrategy;
 import com.msd.gin.halyard.strategy.ExtendedQueryOptimizerPipeline;
+import com.msd.gin.halyard.strategy.HalyardEvaluationContext;
 import com.msd.gin.halyard.strategy.HalyardEvaluationExecutor;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
-import com.msd.gin.halyard.strategy.HalyardEvaluationContext;
 import com.msd.gin.halyard.util.MBeanManager;
 import com.msd.gin.halyard.vocab.HALYARD;
 
@@ -147,7 +147,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		} else {
 			searchClient = null;
 		}
-		sail.connInfos.put(this, this);
+		sail.connectionOpened(this);
     }
 
 	private HalyardEvaluationExecutor getExecutor() {
@@ -203,7 +203,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 				}
 			}
 		} finally {
-			sail.connInfos.invalidate(this);
+			sail.connectionClosed(this);
 		}
     }
 
@@ -870,6 +870,10 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
         }
     }
 
+	@Override
+	public String toString() {
+		return super.toString() + "[keyspace = " + keyspaceConn.toString() + "]";
+	}
 
 	static final class Factory implements SailConnectionFactory {
 		static final SailConnectionFactory INSTANCE = new Factory();

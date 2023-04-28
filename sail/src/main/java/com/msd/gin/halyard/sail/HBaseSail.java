@@ -18,6 +18,7 @@ package com.msd.gin.halyard.sail;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.RemovalNotification;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
@@ -82,6 +83,8 @@ import org.eclipse.rdf4j.sail.SailException;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
@@ -94,6 +97,7 @@ import co.elastic.clients.transport.rest_client.RestClientTransport;
  * @author Adam Sotona (MSD)
  */
 public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
+	private static final Logger LOGGER = LoggerFactory.getLogger(HBaseSail.class);
 
     /**
      * Ticker is a simple service interface that is notified when some data are processed.
@@ -213,7 +217,16 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 	Keyspace keyspace;
 	String owner;
 	private MBeanManager<HBaseSail> mbeanManager;
-	final Cache<HBaseSailConnection, Object> connInfos = CacheBuilder.newBuilder().weakKeys().build();
+	private final Cache<HBaseSailConnection, Object> connInfos = CacheBuilder.newBuilder().weakKeys().removalListener((RemovalNotification<HBaseSailConnection, Object> notif) -> {
+		HBaseSailConnection conn = notif.getKey();
+		if (notif.wasEvicted()) {
+			LOGGER.warn("Closing unreferenced connection {}", conn);
+			conn.close();
+		} else if (conn.isOpen()) {
+			LOGGER.warn("Closing active connection {}", conn);
+			conn.close();
+		}
+	}).build();
 	private final Queue<QueryInfo> queryHistory = new ArrayBlockingQueue<>(10, true);
 
 	/**
@@ -609,6 +622,8 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 
     @Override
 	public void shutDown() throws SailException {
+		connInfos.invalidateAll();
+
 		if (mbeanManager != null) {
 			mbeanManager.unregister();
 			mbeanManager = null;
@@ -677,6 +692,14 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 		conn.setTrackResultSize(trackResultSize);
 		conn.setTrackResultTime(trackResultTime);
 		return conn;
+	}
+
+	void connectionOpened(HBaseSailConnection conn) {
+		connInfos.put(conn, conn);
+	}
+
+	void connectionClosed(HBaseSailConnection conn) {
+		connInfos.invalidate(conn);
 	}
 
 	@Override
