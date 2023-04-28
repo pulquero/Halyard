@@ -49,37 +49,43 @@ import org.eclipse.rdf4j.query.algebra.helpers.collectors.VarNameCollector;
  * @author Adam Sotona (MSD)
  */
 public final class HalyardFilterOptimizer implements QueryOptimizer {
-	public static final QueryOptimizer PRE = new QueryOptimizer() {
+	public static final QueryOptimizer DECOMPOSE = new QueryOptimizer() {
 	    @Override
 	    public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-	    	decomposeFilters(tupleExpr);
-	    	pushDownFilters(tupleExpr);
+	    	decompose(tupleExpr, dataset, bindings);
 	    }
 	};
 
-	public static final QueryOptimizer POST = new QueryOptimizer() {
+	public static final QueryOptimizer PUSH_DOWN = new QueryOptimizer() {
 	    @Override
 	    public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-	    	mergeFilters(tupleExpr);
+	    	pushDown(tupleExpr, dataset, bindings);
+	    }
+	};
+
+	public static final QueryOptimizer MERGE = new QueryOptimizer() {
+	    @Override
+	    public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
+	    	merge(tupleExpr, dataset, bindings);
 	    }
 	};
 
 	@Override
     public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-    	decomposeFilters(tupleExpr);
-    	pushDownFilters(tupleExpr);
-    	mergeFilters(tupleExpr);
+    	decompose(tupleExpr, dataset, bindings);
+    	pushDown(tupleExpr, dataset, bindings);
+    	merge(tupleExpr, dataset, bindings);
     }
 
-    private static void decomposeFilters(TupleExpr tupleExpr) {
+    public static void decompose(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
 		tupleExpr.visit(new FilterUnMerger());
     }
 
-    private static void pushDownFilters(TupleExpr tupleExpr) {
+    public static void pushDown(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
 		tupleExpr.visit(new FilterOrganizer());
     }
 
-    private static void mergeFilters(TupleExpr tupleExpr) {
+    public static void merge(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
 		tupleExpr.visit(new FilterMerger());
     }
 

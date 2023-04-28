@@ -41,11 +41,13 @@ public class ExtendedQueryOptimizerPipeline implements QueryOptimizerPipeline {
 			StandardQueryOptimizerPipeline.UNION_SCOPE_CHANGE_OPTIMIZER,
 			StandardQueryOptimizerPipeline.QUERY_MODEL_NORMALIZER,
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
+			HalyardFilterOptimizer.DECOMPOSE,
+			HalyardFilterOptimizer.PUSH_DOWN,
+			new ConstrainedValueOptimizer(),
 			new QueryJoinOptimizer(statistics),
 			StandardQueryOptimizerPipeline.ITERATIVE_EVALUATION_OPTIMIZER,
-			HalyardFilterOptimizer.PRE,
-			new ConstrainedValueOptimizer(),
-			HalyardFilterOptimizer.POST,
+			HalyardFilterOptimizer.PUSH_DOWN,
+			HalyardFilterOptimizer.MERGE,
 			StandardQueryOptimizerPipeline.ORDER_LIMIT_OPTIMIZER,
 			new ParentReferenceCleaner()
 		);

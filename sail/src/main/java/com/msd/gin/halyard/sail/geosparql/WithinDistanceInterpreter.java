@@ -38,9 +38,10 @@ public class WithinDistanceInterpreter implements QueryOptimizer {
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-		HalyardFilterOptimizer.PRE.optimize(tupleExpr, dataset, bindings);
+		HalyardFilterOptimizer.decompose(tupleExpr, dataset, bindings);
+		HalyardFilterOptimizer.pushDown(tupleExpr, dataset, bindings);
 		rewrite(tupleExpr);
-		HalyardFilterOptimizer.POST.optimize(tupleExpr, dataset, bindings);
+		HalyardFilterOptimizer.merge(tupleExpr, dataset, bindings);
 	}
 
 	private void rewrite(TupleExpr tupleExpr) {
