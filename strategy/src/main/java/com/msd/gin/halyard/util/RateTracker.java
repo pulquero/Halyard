@@ -65,5 +65,10 @@ public final class RateTracker {
 		public Sample(long count) {
 			this.count = count;
 		}
+
+		@Override
+		public String toString() {
+			return count+"@"+timestamp;
+		}
 	}
 }

@@ -26,26 +26,28 @@ public final class QueueingBindingSetPipe extends BindingSetPipe {
 		this.unit = unit;
 	}
 
-    public void collect(Consumer<BindingSet> consumer) {
-    	boolean isEnd = false;
-		while (!isEnd) {
-			try {
-				Object next = poll(timeout, unit);
-				isEnd = isEndOfQueue(next);
-				if (!isEnd) {
-					if (next != null) {
-						consumer.accept((BindingSet) next);
-					} else {
-		    			throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for producer", timeout, toString(unit)));
+	public void collect(Consumer<BindingSet> consumer) {
+		boolean isEnd = false;
+		try {
+			while (!isEnd) {
+				try {
+					Object next = poll(timeout, unit);
+					isEnd = isEndOfQueue(next);
+					if (!isEnd) {
+						if (next != null) {
+							consumer.accept((BindingSet) next);
+						} else {
+			    			throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for producer", timeout, toString(unit)));
+						}
 					}
+				} catch (RuntimeException e) {
+					throw e;
 				}
-			} catch (RuntimeException e) {
-				// can't receive any more binding sets due to exception
-				sendMore = false;
-				throw e;
 			}
+		} finally {
+			stoppedPolling();
 		}
-    }
+	}
 
     public Object poll(long pollTimeout, TimeUnit unit) {
     	Object o;
@@ -64,6 +66,10 @@ public final class QueueingBindingSetPipe extends BindingSetPipe {
     	}
    		return o;
     }
+
+	public void stoppedPolling() {
+		sendMore = false;
+	}
 
     public boolean isEndOfQueue(Object o) {
 		return o == END_OF_QUEUE;

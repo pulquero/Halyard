@@ -27,7 +27,6 @@ import com.msd.gin.halyard.query.ValuePipeQueryValueEvaluationStep;
 import com.msd.gin.halyard.strategy.HalyardTupleExprEvaluation.QuadPattern;
 import com.msd.gin.halyard.vocab.HALYARD;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -126,7 +125,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	HalyardEvaluationStrategy(Configuration conf, TripleSource tripleSource, Dataset dataset,
 			FederatedServiceResolver serviceResolver, HalyardEvaluationStatistics statistics) {
 		this(conf, tripleSource, new QueryContext(), TupleFunctionRegistry.getInstance(), FunctionRegistry.getInstance(),
-				dataset, serviceResolver, statistics, new HalyardEvaluationExecutor(conf, Collections.emptyMap()));
+				dataset, serviceResolver, statistics, new HalyardEvaluationExecutor(conf));
 	}
 
 	@Override

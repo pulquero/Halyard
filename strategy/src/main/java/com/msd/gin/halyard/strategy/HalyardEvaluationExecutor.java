@@ -28,6 +28,7 @@ import com.msd.gin.halyard.util.MBeanManager;
 import com.msd.gin.halyard.util.RateTracker;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
@@ -61,12 +62,12 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
     // high default priority for dynamically created query nodes
     private static final int DEFAULT_PRIORITY = 65535;
 
-    private static TrackingThreadPoolExecutor createExecutor(String groupName, String namePrefix, int threads) {
-		ThreadGroup tg = new ThreadGroup(groupName);
+	private static TrackingThreadPoolExecutor createExecutor(String namePrefix, int threads) {
 		AtomicInteger threadSeq = new AtomicInteger();
 		ThreadFactory tf = (r) -> {
-			Thread thr = new Thread(tg, r, namePrefix+threadSeq.incrementAndGet());
+			Thread thr = new Thread(r, namePrefix+threadSeq.incrementAndGet());
 			thr.setDaemon(true);
+			thr.setUncaughtExceptionHandler((t,e) -> LOGGER.warn("Thread {} exited due to an uncaught exception", t.getName(), e));
 			return thr;
 		};
 		// fixed-size thread pool that can wind down when idle
@@ -77,8 +78,10 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 
     // a map of query model nodes and their priority
     private final Cache<TupleExpr, Integer> priorityMapCache = CacheBuilder.newBuilder().weakKeys().build();
+    private final Configuration conf;
 
-    private final RateTracker taskRateTracker;
+    private volatile RateTracker taskRateTracker;
+	private volatile ThreadPoolReducer threadPoolReducerTask;
 	private MBeanManager<HalyardEvaluationExecutor> mbeanManager;
 	private final TimerTask registerMBeanTask;
 
@@ -95,51 +98,19 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	private int pollTimeoutMillis;
 	private int offerTimeoutMillis;
 
-	public HalyardEvaluationExecutor(Configuration conf, Map<String,String> connAttrs) {
+	public HalyardEvaluationExecutor(String name, Configuration conf, Map<String,String> connAttrs) {
+		this.conf = conf;
 	    threads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREADS, 10);
 	    setMaxRetries(conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_RETRIES, 3));
 	    setRetryLimit(conf.getInt(StrategyConfig.HALYARD_EVALUATION_RETRY_LIMIT, 100));
 	    threadGain = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREAD_GAIN, 5);
 	    maxThreads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_THREADS, 100);
 	    minTaskRate = conf.getFloat(StrategyConfig.HALYARD_EVALUATION_MIN_TASK_RATE, 0.1f);
-		executor = createExecutor("Halyard Executors", "Halyard ", threads);
+		executor = createExecutor(name + " ", threads);
 
 	    maxQueueSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_QUEUE_SIZE, 5000);
 		pollTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_POLL_TIMEOUT_MILLIS, 1000);
 		offerTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_OFFER_TIMEOUT_MILLIS, conf.getInt("hbase.client.scanner.timeout.period", 60000));
-
-		int taskRateUpdateMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_TASK_RATE_UPDATE_MILLIS, 100);
-		int taskRateWindowSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_TASK_RATE_WINDOW_SIZE, 10);
-		taskRateTracker = new RateTracker(TIMER, taskRateUpdateMillis, taskRateWindowSize, () -> executor.getCompletedTaskCount());
-		taskRateTracker.start();
-
-		long threadPoolCheckPeriodSecs = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREAD_POOL_CHECK_PERIOD_SECS, 5);
-		TIMER.schedule(new TimerTask() {
-			@Override
-			public void run() {
-        		final boolean overallProgress = taskRateTracker.getRatePerSecond() > minTaskRate;
-        		if (overallProgress) {
-        			int active = executor.getActiveCount();
-        			if (active > threads) {
-        				// we are making good progress and have excess threads
-        				if (active <= executor.getMaximumPoolSize()) { // no outstanding threads to be reclaimed
-			    			synchronized (executor) {
-			    				int corePoolSize = executor.getCorePoolSize();
-			    				if (corePoolSize > threads) {
-			    					corePoolSize--;
-			    					executor.setCorePoolSize(corePoolSize);
-			    				}
-			    				int maxPoolSize = executor.getMaximumPoolSize();
-			    				if (maxPoolSize > threads) {
-			    					maxPoolSize--;
-			    					executor.setMaximumPoolSize(Math.max(maxPoolSize, corePoolSize));
-			    				}
-			    			}
-        				}
-        			}
-        		}
-			}
-		}, 1000L, TimeUnit.SECONDS.toMillis(threadPoolCheckPeriodSecs));
 
 		// don't both registering MBeans for short-lived queries
 		registerMBeanTask = new TimerTask() {
@@ -168,7 +139,17 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 		TIMER.schedule(registerMBeanTask, TimeUnit.MINUTES.toMillis(1l));
 	}
 
+	HalyardEvaluationExecutor(Configuration conf) {
+		this("Halyard", conf, Collections.emptyMap());
+	}
+
 	public void shutdown() {
+		if (threadPoolReducerTask != null) {
+			threadPoolReducerTask.cancel();
+		}
+		if (taskRateTracker != null) {
+			taskRateTracker.stop();
+		}
 		registerMBeanTask.cancel();
 		if (mbeanManager != null) {
 			mbeanManager.unregister();
@@ -228,12 +209,45 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 
 	@Override
 	public float getTaskRatePerSecond() {
-		return taskRateTracker.getRatePerSecond();
+		return (taskRateTracker != null) ? taskRateTracker.getRatePerSecond() : Float.NaN;
 	}
 
 	@Override
 	public TrackingThreadPoolExecutorMXBean getThreadPoolExecutor() {
 		return executor;
+	}
+
+	private RateTracker getTaskRateTracker() {
+		RateTracker localRef = taskRateTracker;
+		if (localRef == null) {
+			synchronized (this) {
+				localRef = taskRateTracker;
+				if (localRef == null) {
+					int taskRateUpdateMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_TASK_RATE_UPDATE_MILLIS, 100);
+					int taskRateWindowSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_TASK_RATE_WINDOW_SIZE, 10);
+					localRef = new RateTracker(TIMER, taskRateUpdateMillis, taskRateWindowSize, () -> executor.getCompletedTaskCount());
+					localRef.start();
+					taskRateTracker = localRef;
+				}
+			}
+		}
+		return localRef;
+	}
+
+	private ThreadPoolReducer getThreadPoolReducer() {
+		ThreadPoolReducer localRef = threadPoolReducerTask;
+		if (localRef == null) {
+			synchronized (this) {
+				localRef = threadPoolReducerTask;
+				if (localRef == null) {
+					long threadPoolCheckPeriodSecs = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREAD_POOL_CHECK_PERIOD_SECS, 5);
+					localRef = new ThreadPoolReducer();
+					TIMER.schedule(localRef, 1000L, TimeUnit.SECONDS.toMillis(threadPoolCheckPeriodSecs));
+					threadPoolReducerTask = localRef;
+				}
+			}
+		}
+		return localRef;
 	}
 
 	/**
@@ -259,9 +273,11 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
      * @return iteration of binding sets to pull from.
      */
 	CloseableIteration<BindingSet, QueryEvaluationException> pushAndPull(BindingSetPipeEvaluationStep evalStep, TupleExpr node, BindingSet bs) {
-        BindingSetPipeQueue queue = new BindingSetPipeQueue();
-        executor.execute(new PipeAndQueueTask(queue.pipe, evalStep, node, bs));
-        return queue.iteration;
+        QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(maxQueueSize, offerTimeoutMillis, TimeUnit.MILLISECONDS);
+        Thread thr = new Thread(new PipeAndQueueTask(pipe, evalStep, node, bs));
+        thr.setDaemon(true);
+        thr.start();
+        return new BindingSetPipeIteration(pipe);
 	}
 
 	/**
@@ -349,7 +365,6 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
             return priority;
         }
     }
-
 
 
 	abstract class PrioritizedTask implements Comparable<PrioritizedTask>, Runnable {
@@ -535,76 +550,108 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 		}
     }
 
-    final class BindingSetPipeQueue {
 
-        final BindingSetPipeIteration iteration = new BindingSetPipeIteration();
-        final QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(maxQueueSize, offerTimeoutMillis, TimeUnit.MILLISECONDS);
+    /**
+     * Used by client to pull data.
+     */
+    final class BindingSetPipeIteration extends LookAheadIteration<BindingSet, QueryEvaluationException> {
+    	final QueueingBindingSetPipe pipe;
+
+    	BindingSetPipeIteration(QueueingBindingSetPipe pipe) {
+    		this.pipe = pipe;
+    	}
+
+    	@Override
+        protected BindingSet getNextElement() throws QueryEvaluationException {
+			Object bs = null;
+            for (int retries = 0; bs == null && !isClosed(); retries++) {
+        		bs = pipe.poll(pollTimeoutMillis, TimeUnit.MILLISECONDS);
+				if (bs == null) {
+					// no data available - see if we can improve things
+					if (checkThreads(retries)) {
+						retries = 0;
+					}
+				}
+            }
+            return pipe.isEndOfQueue(bs) ? null : (BindingSet) bs;
+        }
+
+    	private boolean checkThreads(int retries) {
+    		if (minTaskRate == 0.0f) {
+    			return true;
+    		}
+
+    		final RateTracker taskRateTracker = getTaskRateTracker();
+    		final boolean overallProgress = taskRateTracker.getRatePerSecond() >= minTaskRate;
+    		// if not making any progress overall
+    		if (!overallProgress) {
+        		final int maxPoolSize = executor.getMaximumPoolSize();
+        		// if we've been consistently blocked and are at full capacity and there are still more tasks queued
+        		if (retries > maxRetries && executor.getActiveCount() >= maxPoolSize && executor.getQueueSize() > 0) {
+        			// then try adding some emergency threads
+    				synchronized (executor) {
+    					// check thread pool hasn't been modified already in the meantime and still blocked
+    					if (maxPoolSize == executor.getMaximumPoolSize() && executor.getActiveCount() >= maxPoolSize && executor.getQueueSize() > 0 && taskRateTracker.getRatePerSecond() < minTaskRate) {
+    						if (maxPoolSize < maxThreads) {
+    							int newMaxPoolSize = Math.min(maxPoolSize + threadGain, maxThreads);
+    							LOGGER.warn("Iteration {}: all {} threads seem to be blocked (taskRate {}) - adding {} more", Integer.toHexString(this.hashCode()), executor.getPoolSize(), taskRateTracker.getRatePerSecond(), newMaxPoolSize - maxPoolSize);
+    							executor.setMaximumPoolSize(newMaxPoolSize);
+    							executor.setCorePoolSize(Math.min(executor.getCorePoolSize()+threadGain, newMaxPoolSize));
+    							// ensure ThreadPoolReducer is running
+    							getThreadPoolReducer();
+    						} else {
+    							// out of options
+    							throw new QueryEvaluationException(String.format("Maximum thread limit reached (%d)", maxThreads));
+    						}
+    					}
+    				}
+					return true;
+        		} else if (retries > retryLimit) {
+        			// something else is wrong
+        			throw new QueryEvaluationException(String.format("Retry limit exceeded: %d (active threads %d, queue size %d, task rate %f)", retries, executor.getActiveCount(), executor.getQueueSize(), taskRateTracker.getRatePerSecond()));
+        		}
+    		}
+    		return overallProgress;
+        }
+
+        @Override
+        protected void handleClose() throws QueryEvaluationException {
+            super.handleClose();
+            pipe.stoppedPolling();
+        }
 
         @Override
         public String toString() {
-        	return "Pipe "+Integer.toHexString(pipe.hashCode())+" for iteration "+Integer.toHexString(iteration.hashCode());
-        }
-
-        /**
-         * Used by client to pull data.
-         */
-        final class BindingSetPipeIteration extends LookAheadIteration<BindingSet, QueryEvaluationException> {
-        	@Override
-            protected BindingSet getNextElement() throws QueryEvaluationException {
-    			Object bs = null;
-                for (int retries = 0; bs == null && !isClosed(); retries++) {
-            		bs = pipe.poll(pollTimeoutMillis, TimeUnit.MILLISECONDS);
-					if (bs == null) {
-						// no data available - see if we can improve things
-						if (checkThreads(retries)) {
-							retries = 0;
-						}
-					}
-                }
-                return pipe.isEndOfQueue(bs) ? null : (BindingSet) bs;
-            }
-
-        	private boolean checkThreads(int retries) {
-        		final boolean overallProgress = taskRateTracker.getRatePerSecond() > minTaskRate;
-        		// if not making any progress overall
-        		if (!overallProgress) {
-            		final int maxPoolSize = executor.getMaximumPoolSize();
-	        		// if we've been consistently blocked and are at full capacity
-	        		if (retries > maxRetries && executor.getActiveCount() >= maxPoolSize) {
-	        			// then try adding some emergency threads
-	    				synchronized (executor) {
-	    					// check thread pool hasn't been modified already in the meantime and still blocked
-	    					if (maxPoolSize == executor.getMaximumPoolSize() && executor.getActiveCount() >= maxPoolSize && taskRateTracker.getRatePerSecond() <= minTaskRate) {
-	    						if (maxPoolSize < maxThreads) {
-	    							int newMaxPoolSize = Math.min(maxPoolSize + threadGain, maxThreads);
-	    							LOGGER.warn("Iteration {}: all {} threads seem to be blocked (taskRate {}) - adding {} more", Integer.toHexString(this.hashCode()), executor.getPoolSize(), taskRateTracker.getRatePerSecond(), newMaxPoolSize - maxPoolSize);
-	    							executor.setMaximumPoolSize(newMaxPoolSize);
-	    							executor.setCorePoolSize(Math.min(executor.getCorePoolSize()+threadGain, newMaxPoolSize));
-	    						} else {
-	    							// out of options
-	    							throw new QueryEvaluationException(String.format("Maximum thread limit reached (%d)", maxThreads));
-	    						}
-	    					}
-	    				}
-						return true;
-	        		} else if (retries > retryLimit) {
-	        			// something else is wrong
-	        			throw new QueryEvaluationException(String.format("Retry limit exceeded: %d (active threads %d, task rate %f)", retries, executor.getActiveCount(), taskRateTracker.getRatePerSecond()));
-	        		}
-        		}
-        		return overallProgress;
-            }
-
-            @Override
-            protected void handleClose() throws QueryEvaluationException {
-                super.handleClose();
-               	pipe.close();
-            }
-
-            @Override
-            public String toString() {
-            	return "Iteration "+Integer.toHexString(this.hashCode())+" for pipe "+Integer.toHexString(pipe.hashCode());
-            }
+        	return "Iteration "+Integer.toHexString(this.hashCode())+" for pipe "+Integer.toHexString(pipe.hashCode());
         }
     }
+
+
+	final class ThreadPoolReducer extends TimerTask {
+		@Override
+		public void run() {
+    		RateTracker taskRateTracker = getTaskRateTracker();
+    		final boolean overallProgress = taskRateTracker.getRatePerSecond() > minTaskRate;
+    		if (overallProgress) {
+    			int active = executor.getActiveCount();
+    			if (active > threads) {
+    				// we are making good progress and have excess threads
+    				if (active <= executor.getMaximumPoolSize()) { // no outstanding threads to be reclaimed
+		    			synchronized (executor) {
+		    				int corePoolSize = executor.getCorePoolSize();
+		    				if (corePoolSize > threads) {
+		    					corePoolSize--;
+		    					executor.setCorePoolSize(corePoolSize);
+		    				}
+		    				int maxPoolSize = executor.getMaximumPoolSize();
+		    				if (maxPoolSize > threads) {
+		    					maxPoolSize--;
+		    					executor.setMaximumPoolSize(Math.max(maxPoolSize, corePoolSize));
+		    				}
+		    			}
+    				}
+    			}
+    		}
+		}
+	}
 }

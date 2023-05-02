@@ -30,7 +30,7 @@ public class HalyardEvaluationExecutorTest {
 
 	@BeforeEach
 	public void setUp() {
-		executor = new HalyardEvaluationExecutor(new Configuration(), Collections.emptyMap());
+		executor = new HalyardEvaluationExecutor(new Configuration());
 	}
 
 	@AfterEach

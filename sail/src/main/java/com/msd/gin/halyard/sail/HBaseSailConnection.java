@@ -155,7 +155,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			throw new SailException("Connection is closed");
 		}
 		if (executor == null) {
-			executor = new HalyardEvaluationExecutor(sail.getConfiguration(), sail.getConnectionAttributes(MBeanManager.getId(sail)));
+			executor = new HalyardEvaluationExecutor(sail.tableName.getNameAsString(), sail.getConfiguration(), sail.getConnectionAttributes(MBeanManager.getId(sail)));
 		}
 		return executor;
 	}
