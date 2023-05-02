@@ -625,58 +625,57 @@ final class HalyardTupleExprEvaluation {
 				// NOTE: if the tripleSource is extended to allow for lookup over asserted Triple values in the underlying sail
 				// the evaluation of the TripleRef should be suitably forwarded down the sail and filter/construct
 				// the correct solution out of the results of that call
-				if (extValue != null && !(extValue instanceof Resource)) {
+				if (extValue != null && !(extValue instanceof Triple)) {
 					parent.close(); // nothing to push
 					return;
 				}
 
-				final QueryEvaluationStep evalStep;
-				evalStep = bs -> {
-					CloseableIteration<? extends Triple, QueryEvaluationException> sourceIter = ((RDFStarTripleSource) tripleSource)
-							.getRdfStarTriples((Resource) subjValue, (IRI) predValue, objValue);
-		
-					FilterIteration<Triple, QueryEvaluationException> filterIter = new FilterIteration<Triple, QueryEvaluationException>(
-							sourceIter) {
-						@Override
-						protected boolean accept(Triple triple) throws QueryEvaluationException {
-							if (subjValue != null && !subjValue.equals(triple.getSubject())) {
-								return false;
-							}
-							if (predValue != null && !predValue.equals(triple.getPredicate())) {
-								return false;
-							}
-							if (objValue != null && !objValue.equals(triple.getObject())) {
-								return false;
-							}
-							if (extValue != null && !extValue.equals(triple)) {
-								return false;
-							}
-							return true;
-						}
-					};
-		
-					return new ConvertingIteration<Triple, BindingSet, QueryEvaluationException>(filterIter) {
-						@Override
-						protected BindingSet convert(Triple triple) {
-							QueryBindingSet result = new QueryBindingSet(bs);
-							if (subjValue == null) {
-								result.addBinding(subjVar.getName(), triple.getSubject());
-							}
-							if (predValue == null) {
-								result.addBinding(predVar.getName(), triple.getPredicate());
-							}
-							if (objValue == null) {
-								result.addBinding(objVar.getName(), triple.getObject());
-							}
-							// add the extVar binding if we do not have a value bound.
-							if (extValue == null) {
+				if (extValue != null) {
+					Triple extTriple = (Triple) extValue;
+					QueryBindingSet result = new QueryBindingSet(bindings);
+					if (subjValue == null) {
+						result.addBinding(subjVar.getName(), extTriple.getSubject());
+					} else if (!subjValue.equals(extTriple.getSubject())) {
+						parent.close(); // nothing to push
+						return;
+					}
+					if (predValue == null) {
+						result.addBinding(predVar.getName(), extTriple.getPredicate());
+					} else if (!predValue.equals(extTriple.getPredicate())) {
+						parent.close(); // nothing to push
+						return;
+					}
+					if (objValue == null) {
+						result.addBinding(objVar.getName(), extTriple.getObject());
+					} else if (!objValue.equals(extTriple.getObject())) {
+						parent.close(); // nothing to push
+						return;
+					}
+					parent.pushLast(result);
+				} else {
+					final QueryEvaluationStep evalStep = bs -> {
+						CloseableIteration<? extends Triple, QueryEvaluationException> sourceIter = ((RDFStarTripleSource) tripleSource)
+								.getRdfStarTriples((Resource) subjValue, (IRI) predValue, objValue);
+						return new ConvertingIteration<Triple, BindingSet, QueryEvaluationException>(sourceIter) {
+							@Override
+							protected BindingSet convert(Triple triple) {
+								QueryBindingSet result = new QueryBindingSet(bs);
+								if (subjValue == null) {
+									result.addBinding(subjVar.getName(), triple.getSubject());
+								}
+								if (predValue == null) {
+									result.addBinding(predVar.getName(), triple.getPredicate());
+								}
+								if (objValue == null) {
+									result.addBinding(objVar.getName(), triple.getObject());
+								}
 								result.addBinding(extVar.getName(), triple);
+								return result;
 							}
-							return result;
-						}
+						};
 					};
-				};
-				executor.pullAndPushAsync(parent, evalStep, ref, bindings, parentStrategy);
+					executor.pullAndPushAsync(parent, evalStep, ref, bindings, parentStrategy);
+				}
 			};
 		} else {
 			return (parent, bindings) -> {
@@ -696,7 +695,7 @@ final class HalyardTupleExprEvaluation {
 				// NOTE: if the tripleSource is extended to allow for lookup over asserted Triple values in the underlying sail
 				// the evaluation of the TripleRef should be suitably forwarded down the sail and filter/construct
 				// the correct solution out of the results of that call
-				if (extValue != null && !(extValue instanceof Resource)) {
+				if (extValue != null && !(extValue instanceof Triple)) {
 					parent.close(); // nothing to push
 					return;
 				}
