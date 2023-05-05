@@ -18,7 +18,7 @@ package com.msd.gin.halyard.repository;
 
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
 
-import java.net.MalformedURLException;
+import java.io.File;
 import java.util.Collection;
 
 import org.apache.http.client.HttpClient;
@@ -28,24 +28,39 @@ import org.eclipse.rdf4j.repository.config.RepositoryConfig;
 import org.eclipse.rdf4j.repository.manager.RepositoryInfo;
 import org.eclipse.rdf4j.repository.sail.config.SailRepositoryConfig;
 import org.eclipse.rdf4j.sail.memory.config.MemoryStoreConfig;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
 public class HBaseRepositoryManagerTest {
+	private HBaseRepositoryManager rm;
 
-    @Test (expected = MalformedURLException.class)
+	@BeforeEach
+	public void setup() throws Exception {
+		File f = File.createTempFile("HBaseRepositoryManagerTest", "");
+		f.delete();
+		f.deleteOnExit();
+		rm = new HBaseRepositoryManager(f, HBaseServerTestInstance.getInstanceConfig());
+	}
+
+	@AfterEach
+	public void teardown() {
+		rm.shutDown();
+	}
+
+	@Test
     public void testGetLocation() throws Exception {
-        new HBaseRepositoryManager().getLocation();
+		rm.getLocation();
     }
 
     @Test
     public void testHttpClient() {
-        HBaseRepositoryManager rm = new HBaseRepositoryManager();
         assertNull(rm.getHttpClient());
 		HttpClient cl = HttpClientBuilder.create().build();
         rm.setHttpClient(cl);
@@ -54,24 +69,18 @@ public class HBaseRepositoryManagerTest {
 
     @Test
     public void testAddRepositoryPersists() throws Exception {
-        HBaseRepositoryManager rm = new HBaseRepositoryManager();
-        rm.overrideConfiguration(HBaseServerTestInstance.getInstanceConfig());
         rm.init();
 		rm.addRepositoryConfig(new RepositoryConfig("repoTest", "Test repository", new SailRepositoryConfig(new MemoryStoreConfig(false))));
         assertTrue(rm.getAllRepositories().contains(rm.getRepository("repoTest")));
-        rm.shutDown();
+		teardown();
         //test persistence
-        rm = new HBaseRepositoryManager();
-        rm.overrideConfiguration(HBaseServerTestInstance.getInstanceConfig());
+		setup();
         rm.init();
         assertTrue(rm.getAllRepositories().contains(rm.getRepository("repoTest")));
-        rm.shutDown();
     }
 
 	@Test
 	public void testGets() throws Exception {
-		HBaseRepositoryManager rm = new HBaseRepositoryManager();
-		rm.overrideConfiguration(HBaseServerTestInstance.getInstanceConfig());
 		rm.init();
 		Collection<String> ids = rm.getRepositoryIDs();
 		Collection<RepositoryInfo> infos = rm.getAllRepositoryInfos();

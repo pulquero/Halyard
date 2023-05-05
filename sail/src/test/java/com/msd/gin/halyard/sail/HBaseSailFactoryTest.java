@@ -16,15 +16,21 @@
  */
 package com.msd.gin.halyard.sail;
 
+import com.msd.gin.halyard.common.HBaseServerTestInstance;
+
+import java.io.IOException;
+import java.net.URL;
+
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.config.SailConfigException;
 import org.eclipse.rdf4j.sail.config.SailImplConfig;
 import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 
-import java.net.URL;
+import static org.junit.Assert.*;
 
 /**
  *
@@ -32,7 +38,17 @@ import java.net.URL;
  */
 public class HBaseSailFactoryTest {
 
-    @Test
+	@BeforeClass
+	public static void initConnection() throws Exception {
+		HBaseSailFactory.initSharedConnection(HBaseServerTestInstance.getInstanceConfig());
+	}
+
+	@AfterClass
+	public static void closeConnection() throws IOException {
+		HBaseSailFactory.closeSharedConnection();
+	}
+
+	@Test
     public void testGetSailType() {
         assertEquals("openrdf:HBaseStore", new HBaseSailFactory().getSailType());
     }
@@ -43,13 +59,14 @@ public class HBaseSailFactoryTest {
     }
 
     @Test
-	public void testGetSail_table() throws Exception {
+	public void testGetSail_table() {
         HBaseSailConfig hbsc = new HBaseSailConfig();
         hbsc.setCreate(false);
         hbsc.setPush(false);
         hbsc.setSplitBits(3);
         hbsc.setEvaluationTimeout(480);
         hbsc.setTableName("testtable");
+
 		Sail sail = new HBaseSailFactory().getSail(hbsc);
 		assertTrue(sail instanceof HBaseSail);
 		HBaseSail hbs = (HBaseSail) sail;
@@ -70,7 +87,8 @@ public class HBaseSailFactoryTest {
 		hbsc.setTableName("testtable");
 		hbsc.setElasticIndexURL(new URL("https://whatever/index"));
 		hbsc.setElasticKeystoreLocation(new URL("file:/home/keystore"));
-        Sail sail = new HBaseSailFactory().getSail(hbsc);
+
+		Sail sail = new HBaseSailFactory().getSail(hbsc);
         assertTrue(sail instanceof HBaseSail);
         HBaseSail hbs = (HBaseSail)sail;
         assertFalse(hbs.create);
@@ -85,13 +103,14 @@ public class HBaseSailFactoryTest {
     }
 
 	@Test
-	public void testGetSail_snapshot() throws Exception {
+	public void testGetSail_snapshot() {
 		HBaseSailConfig hbsc = new HBaseSailConfig();
 		hbsc.setCreate(false);
 		hbsc.setPush(false);
 		hbsc.setEvaluationTimeout(480);
 		hbsc.setSnapshotName("snapshot");
 		hbsc.setSnapshotRestorePath("/path");
+
 		Sail sail = new HBaseSailFactory().getSail(hbsc);
 		assertTrue(sail instanceof HBaseSail);
 		HBaseSail hbs = (HBaseSail) sail;
@@ -113,6 +132,7 @@ public class HBaseSailFactoryTest {
 		hbsc.setSnapshotRestorePath("/path");
 		hbsc.setElasticIndexURL(new URL("https://whatever/index"));
 		hbsc.setElasticKeystoreLocation(new URL("file:/home/keystore"));
+
 		Sail sail = new HBaseSailFactory().getSail(hbsc);
 		assertTrue(sail instanceof HBaseSail);
 		HBaseSail hbs = (HBaseSail) sail;

@@ -18,7 +18,10 @@ package com.msd.gin.halyard.repository;
 
 import com.msd.gin.halyard.common.TableConfig;
 import com.msd.gin.halyard.sail.HBaseSail;
+import com.msd.gin.halyard.sail.HBaseSailFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -28,6 +31,7 @@ import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.client.Connection;
 import org.apache.http.client.HttpClient;
 import org.eclipse.rdf4j.http.client.HttpClientDependent;
 import org.eclipse.rdf4j.http.client.SessionManagerDependent;
@@ -58,29 +62,45 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 	private static final String SYSTEM_TABLE = "RDF4JSYSTEM";
 	// ensure different from RepositoryConfigRepository.ID
 	private static final String SYSTEM_ID = "system";
-    private volatile SharedHttpClientSessionManager client;
-    private volatile SPARQLServiceResolver serviceResolver;
-    private volatile Configuration config = HBaseConfiguration.create();
 
-	public static Repository createSystemRepository(Configuration config) throws RepositoryException {
-		config.set(TableConfig.ID_HASH, "Murmur3-128");
+	private final File baseDir;
+	private final Configuration config;
+	private Connection conn;
+	private volatile SharedHttpClientSessionManager client;
+    private volatile SPARQLServiceResolver serviceResolver;
+
+	public static Repository createSystemRepository(Connection hconn, Configuration conf) throws RepositoryException {
+		Configuration sysRepoConfig = new Configuration(conf);
+		sysRepoConfig.set(TableConfig.ID_HASH, "Murmur3-128");
 		// don't bother splitting such a small table
-		SailRepository repo = new SailRepository(new HBaseSail(config, SYSTEM_TABLE, true, -1, true, 180, null, null));
+		SailRepository repo = new SailRepository(new HBaseSail(hconn, sysRepoConfig, SYSTEM_TABLE, true, -1, true, 180, null, null));
 		repo.init();
 		return repo;
 	}
 
-    public HBaseRepositoryManager(Object...anyArgs) {
-    }
+	public HBaseRepositoryManager(File baseDir) throws IOException {
+		this(baseDir, HBaseConfiguration.create());
+	}
 
-    void overrideConfiguration(Configuration config) {
-        this.config = config;
+	HBaseRepositoryManager(File baseDir, Configuration conf) {
+		this.baseDir = baseDir;
+		this.config = conf;
     }
 
     @Override
-    public URL getLocation() throws MalformedURLException {
-        throw new MalformedURLException();
-    }
+	public void init() throws RepositoryException {
+		try {
+			conn = HBaseSailFactory.initSharedConnection(config);
+		} catch (IOException ioe) {
+			throw new RepositoryException(ioe);
+		}
+		super.init();
+	}
+
+	@Override
+	public URL getLocation() throws MalformedURLException {
+		return baseDir.toURI().toURL();
+	}
 
     private SharedHttpClientSessionManager getSesameClient() {
         SharedHttpClientSessionManager result = client;
@@ -128,6 +148,10 @@ public final class HBaseRepositoryManager extends RepositoryManager {
     public void shutDown() {
         try {
             super.shutDown();
+			try {
+				HBaseSailFactory.closeSharedConnection();
+			} catch (IOException ignore) {
+			}
         } finally {
             try {
                 SPARQLServiceResolver toCloseServiceResolver = serviceResolver;
@@ -147,9 +171,9 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 
     @Override
     protected Repository createRepository(String id) throws RepositoryConfigException, RepositoryException {
-		Repository repository;
+		final Repository repository;
 		if (SYSTEM_ID.equals(id)) {
-			repository = createSystemRepository(config);
+			repository = createSystemRepository(conn, conn.getConfiguration());
 		} else {
 			RepositoryConfig repConfig = getRepositoryConfig(id);
 			if (repConfig != null) {

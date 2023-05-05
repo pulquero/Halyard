@@ -56,7 +56,7 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 	 * @param evaluationTimeout
 	 * @param ticker
 	 */
-	public HBaseFederatedServiceResolver(@Nullable Connection conn, Configuration config, @Nullable String defaultTableName, boolean usePush, int evaluationTimeout, @Nullable Ticker ticker) {
+	public HBaseFederatedServiceResolver(Connection conn, Configuration config, @Nullable String defaultTableName, boolean usePush, int evaluationTimeout, @Nullable Ticker ticker) {
 		this.hConnection = conn;
 		this.config = config;
 		this.defaultTableName = defaultTableName;
@@ -110,7 +110,7 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 				if (url.getUserInfo() == null) {
 					synchronized (systemRepoLock) {
 						if (systemRepo == null) {
-							systemRepo = HBaseRepositoryManager.createSystemRepository(config);
+							systemRepo = HBaseRepositoryManager.createSystemRepository(hConnection, config);
 						}
 					}
 					// check for stored authentication info

@@ -252,10 +252,9 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 	 * @param elasticSettings
 	 * @param ticker
 	 * @param connFactory
-	 * @param fsr
 	 */
-	HBaseSail(@Nullable Connection conn, Configuration config, String tableName, boolean create, int splitBits, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings, Ticker ticker, SailConnectionFactory connFactory,
-			FederatedServiceResolver fsr) {
+	private HBaseSail(@Nullable Connection conn, Configuration config, String tableName, boolean create, int splitBits, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings, Ticker ticker,
+			SailConnectionFactory connFactory) {
 		this.hConnection = conn;
 		this.hConnectionIsShared = (conn != null);
 		this.config = Objects.requireNonNull(config);
@@ -269,13 +268,11 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 		this.esSettings = ElasticSettings.merge(config, elasticSettings);
 		this.ticker = ticker;
 		this.connFactory = connFactory;
-		this.federatedServiceResolver = fsr;
 		initSettings(config);
 	}
 
 	HBaseSail(Configuration config, String snapshotName, String snapshotRestorePath, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings) {
-		this(config, snapshotName, snapshotRestorePath, pushStrategy, evaluationTimeout, elasticSettings, null, HBaseSailConnection.Factory.INSTANCE,
-				new HBaseFederatedServiceResolver(null, config, null, pushStrategy, evaluationTimeout, null));
+		this(config, snapshotName, snapshotRestorePath, pushStrategy, evaluationTimeout, elasticSettings, null, HBaseSailConnection.Factory.INSTANCE);
 	}
 
 	/**
@@ -291,10 +288,8 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 	 * @param elasticSettings
 	 * @param ticker
 	 * @param connFactory
-	 * @param fsr
 	 */
-	HBaseSail(Configuration config, String snapshotName, String snapshotRestorePath, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings, Ticker ticker, SailConnectionFactory connFactory,
-			FederatedServiceResolver fsr) {
+	HBaseSail(Configuration config, String snapshotName, String snapshotRestorePath, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings, Ticker ticker, SailConnectionFactory connFactory) {
 		this.hConnection = null;
 		this.hConnectionIsShared = false;
 		this.config = Objects.requireNonNull(config);
@@ -308,17 +303,10 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 		this.esSettings = ElasticSettings.merge(config, elasticSettings);
 		this.ticker = ticker;
 		this.connFactory = connFactory;
-		this.federatedServiceResolver = fsr;
 		initSettings(config);
 	}
 
-	private HBaseSail(@Nullable Connection conn, Configuration config, String tableName, boolean create, int splitBits, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings, Ticker ticker,
-			SailConnectionFactory connFactory) {
-		this(conn, config, tableName, create, splitBits, pushStrategy, evaluationTimeout, elasticSettings, ticker, connFactory,
-				new HBaseFederatedServiceResolver(conn, config, tableName, pushStrategy, evaluationTimeout, null));
-	}
-
-	HBaseSail(@Nonnull Connection conn, Configuration config, String tableName, boolean create, int splitBits, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings, Ticker ticker) {
+	public HBaseSail(@Nonnull Connection conn, Configuration config, String tableName, boolean create, int splitBits, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings, Ticker ticker) {
 		this(conn, config, tableName, create, splitBits, pushStrategy, evaluationTimeout, elasticSettings, ticker, HBaseSailConnection.Factory.INSTANCE);
 	}
 
@@ -504,6 +492,10 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 		stmtIndices = new StatementIndices(config, rdfFactory);
 		valueFactory = new IdValueFactory(rdfFactory);
 
+		if (federatedServiceResolver == null) {
+			federatedServiceResolver = new HBaseFederatedServiceResolver(hConnection, config, tableName != null ? tableName.getNameAsString() : null, pushStrategy, evaluationTimeoutSecs, ticker);
+		}
+
 		if (includeNamespaces) {
 			try (HBaseSailConnection conn = getConnection()) {
 				conn.addNamespaces();
@@ -636,10 +628,11 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 			}
 			esTransport = null;
 		}
+		if (federatedServiceResolver instanceof AbstractFederatedServiceResolver) {
+			((AbstractFederatedServiceResolver) federatedServiceResolver).shutDown();
+			federatedServiceResolver = null;
+		}
 		if (!hConnectionIsShared) {
-			if (federatedServiceResolver instanceof AbstractFederatedServiceResolver) {
-				((AbstractFederatedServiceResolver) federatedServiceResolver).shutDown();
-			}
 
 			if (hConnection != null) {
 				try {

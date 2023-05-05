@@ -16,11 +16,14 @@
  */
 package com.msd.gin.halyard.sail;
 
+import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.SSLSettings;
 
+import java.io.IOException;
 import java.net.URL;
 
-import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.client.Connection;
 import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.config.SailConfigException;
 import org.eclipse.rdf4j.sail.config.SailFactory;
@@ -36,6 +39,30 @@ public final class HBaseSailFactory implements SailFactory {
      * String HBaseSail type identification
      */
     public static final String SAIL_TYPE = "openrdf:HBaseStore";
+
+	private static Connection sharedConnection;
+
+	public static synchronized Connection initSharedConnection(Configuration conf) throws IOException {
+		if (sharedConnection != null) {
+			throw new IllegalStateException("Shared connection already initialized!");
+		}
+		sharedConnection = HalyardTableUtils.getConnection(conf);
+		return sharedConnection;
+	}
+
+	public static synchronized Connection getSharedConnection() throws IOException {
+		if (sharedConnection == null) {
+			throw new IllegalStateException("Shared connection not initialized!");
+		}
+		return sharedConnection;
+	}
+
+	public static synchronized void closeSharedConnection() throws IOException {
+		if (sharedConnection != null) {
+			sharedConnection.close();
+			sharedConnection = null;
+		}
+	}
 
     @Override
     public String getSailType() {
@@ -78,10 +105,16 @@ public final class HBaseSailFactory implements SailFactory {
 					elasticSettings.sslSettings = sslSettings;
 				}
 			}
+			Connection hconn;
+			try {
+				hconn = getSharedConnection();
+			} catch (IOException ioe) {
+				throw new SailConfigException(ioe);
+			}
 			if (hasValue(hconfig.getTableName())) {
-				sail = new HBaseSail(HBaseConfiguration.create(), hconfig.getTableName(), hconfig.isCreate(), hconfig.getSplitBits(), hconfig.isPush(), hconfig.getEvaluationTimeout(), elasticSettings);
+				sail = new HBaseSail(hconn, hconfig.getTableName(), hconfig.isCreate(), hconfig.getSplitBits(), hconfig.isPush(), hconfig.getEvaluationTimeout(), elasticSettings, null);
 			} else if (hasValue(hconfig.getSnapshotName()) && hasValue(hconfig.getSnapshotRestorePath())) {
-				sail = new HBaseSail(HBaseConfiguration.create(), hconfig.getSnapshotName(), hconfig.getSnapshotRestorePath(), hconfig.isPush(), hconfig.getEvaluationTimeout(), elasticSettings);
+				sail = new HBaseSail(hconn.getConfiguration(), hconfig.getSnapshotName(), hconfig.getSnapshotRestorePath(), hconfig.isPush(), hconfig.getEvaluationTimeout(), elasticSettings);
 			} else {
 				throw new SailConfigException("Invalid sail configuration: missing table name or snapshot");
 			}
