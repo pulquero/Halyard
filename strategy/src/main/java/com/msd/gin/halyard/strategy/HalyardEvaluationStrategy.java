@@ -238,14 +238,18 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	}
 
 	BindingSetPipe track(BindingSetPipe parent, TupleExpr expr) {
-		initTracking(expr);
-		return new BindingSetPipe(parent) {
-			@Override
-			protected boolean next(BindingSet bs) {
-				incrementResultSizeActual(expr);
-				return super.next(bs);
-			}
-		};
+		if (trackResultSize) {
+			initTracking(expr);
+			return new BindingSetPipe(parent) {
+				@Override
+				protected boolean next(BindingSet bs) {
+					incrementResultSizeActual(expr);
+					return super.next(bs);
+				}
+			};
+		} else {
+			return parent;
+		}
 	}
 
 	void initTracking(TupleExpr queryNode) {

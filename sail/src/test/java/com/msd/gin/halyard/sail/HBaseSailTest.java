@@ -217,6 +217,23 @@ public class HBaseSailTest {
     }
 
     @Test
+	public void testGetConnectionWithCustomFactory() throws Exception {
+		HBaseSail sail = new HBaseSail(hconn, useTable("whatevertable"), true, 0, usePushStrategy, 10, null, null, s -> {
+			HBaseSailConnection conn = new HBaseSailConnection(s);
+			conn.setTrackResultSize(true);
+			return conn;
+		});
+		sail.init();
+		try {
+			try (HBaseSailConnection conn = sail.getConnection()) {
+				assertTrue(conn.isTrackResultSize());
+			}
+		} finally {
+			sail.shutDown();
+		}
+	}
+
+	@Test
     public void testGetValueFactory() throws Exception {
 		HBaseSail sail = new HBaseSail(hconn, useTable("whatevertable"), true, 0, usePushStrategy, 10, null, null);
 		sail.init();

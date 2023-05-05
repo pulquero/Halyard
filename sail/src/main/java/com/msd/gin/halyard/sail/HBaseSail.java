@@ -314,6 +314,10 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 		this(conn, conn.getConfiguration(), tableName, create, splitBits, pushStrategy, evaluationTimeout, elasticSettings, ticker, HBaseSailConnection.Factory.INSTANCE);
 	}
 
+	HBaseSail(@Nonnull Connection conn, String tableName, boolean create, int splitBits, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings, Ticker ticker, SailConnectionFactory connFactory) {
+		this(conn, conn.getConfiguration(), tableName, create, splitBits, pushStrategy, evaluationTimeout, elasticSettings, ticker, connFactory);
+	}
+
 	public HBaseSail(Configuration config, String tableName, boolean create, int splitBits, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings, Ticker ticker) {
 		this(null, config, tableName, create, splitBits, pushStrategy, evaluationTimeout, elasticSettings, ticker, HBaseSailConnection.Factory.INSTANCE);
 	}
@@ -676,15 +680,11 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 		if (!isInitialized()) {
 			throw new IllegalStateException("Sail is not initialized or has been shut down");
 		}
-		HBaseSailConnection conn;
 		try {
-			conn = connectionFactory.createConnection(this);
+			return connectionFactory.createConnection(this);
 		} catch (IOException ioe) {
 			throw new SailException(ioe);
 		}
-		conn.setTrackResultSize(trackResultSize);
-		conn.setTrackResultTime(trackResultTime);
-		return conn;
 	}
 
 	void connectionOpened(HBaseSailConnection conn) {

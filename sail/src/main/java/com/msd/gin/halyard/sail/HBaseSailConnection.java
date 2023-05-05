@@ -880,7 +880,10 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 		@Override
 		public HBaseSailConnection createConnection(HBaseSail sail) throws IOException {
-			return new HBaseSailConnection(sail);
+			HBaseSailConnection conn = new HBaseSailConnection(sail);
+			conn.setTrackResultSize(sail.isTrackResultSize());
+			conn.setTrackResultTime(sail.isTrackResultTime());
+			return conn;
 		}
 	}
 }
