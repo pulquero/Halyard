@@ -32,6 +32,7 @@ import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
+import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.parser.sparql.SPARQLParser;
 import org.junit.Test;
 
@@ -179,10 +180,10 @@ public class HalyardQueryJoinOptimizerTest {
 		}
 	
 		@Override
-		public double getCardinality(StatementPattern sp, Collection<String> boundVars) {
-			boolean sv = hasValue(sp.getSubjectVar(), boundVars);
-			boolean ov = hasValue(sp.getObjectVar(), boundVars);
-			IRI predicate = (IRI) sp.getPredicateVar().getValue();
+		public double getStatementCardinality(Var subjVar, Var predVar, Var objVar, Var ctxVar, Collection<String> boundVars) {
+			boolean sv = hasValue(subjVar, boundVars);
+			boolean ov = hasValue(objVar, boundVars);
+			IRI predicate = (IRI) predVar.getValue();
 			double card = predicateStats.get(predicate);
 			if (sv && ov) {
 				card = 1.0;

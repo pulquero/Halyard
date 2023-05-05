@@ -37,7 +37,6 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
-import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.slf4j.Logger;
@@ -66,33 +65,32 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	}
 
 	@Override
-	public double getCardinality(StatementPattern sp, Collection<String> boundVars) {
+	public double getStatementCardinality(Var subjVar, Var predVar, Var objVar, Var ctxVar, Collection<String> boundVars) {
 		IRI graphNode;
-		Var contextVar = sp.getContextVar();
-		Value contextValue = (contextVar != null) ? contextVar.getValue() : null;
+		Value contextValue = (ctxVar != null) ? ctxVar.getValue() : null;
 		if (contextValue == null) {
 			graphNode = HALYARD.STATS_ROOT_NODE;
 		} else {
 			graphNode = contextValue.isIRI() ? (IRI) contextValue : null;
 		}
-		Double card = (graphNode != null) ? getCardinalityFromStats(sp.getSubjectVar(), sp.getPredicateVar(), sp.getObjectVar(), graphNode, boundVars) : null;
+		Double card = (graphNode != null) ? getCardinalityFromStats(subjVar, predVar, objVar, graphNode, boundVars) : null;
 		if (card != null) {
-			LOG.debug("Cardinality of {} = {} (sampled)", sp, card);
+			LOG.debug("Cardinality of statement {} {} {} {} = {} (sampled)", subjVar, predVar, objVar, ctxVar, card);
 		} else {
-			card = super.getCardinality(sp, boundVars);
-			LOG.debug("Cardinality of {} = {} (preset)", sp, card);
+			card = super.getStatementCardinality(subjVar, predVar, objVar, ctxVar, boundVars);
+			LOG.debug("Cardinality of statement {} {} {} {} = {} (preset)", subjVar, predVar, objVar, ctxVar, card);
 		}
 		return card;
 	}
 
 	@Override
-	public double getCardinality(TripleRef tripleRef, Collection<String> boundVars) {
-		Double card = getCardinalityFromStats(tripleRef.getSubjectVar(), tripleRef.getPredicateVar(), tripleRef.getObjectVar(), HALYARD.TRIPLE_GRAPH_CONTEXT, boundVars);
+	public double getTripleCardinality(Var subjVar, Var predVar, Var objVar, Collection<String> boundVars) {
+		Double card = getCardinalityFromStats(subjVar, predVar, objVar, HALYARD.TRIPLE_GRAPH_CONTEXT, boundVars);
 		if (card != null) {
-			LOG.debug("Cardinality of {} = {} (sampled)", tripleRef, card);
+			LOG.debug("Cardinality of triple {} {} {} = {} (sampled)", subjVar, predVar, objVar, card);
 		} else {
-			card = super.getCardinality(tripleRef, boundVars);
-			LOG.debug("Cardinality of {} = {} (preset)", tripleRef, card);
+			card = super.getTripleCardinality(subjVar, predVar, objVar, boundVars);
+			LOG.debug("Cardinality of triple {} {} {} = {} (preset)", subjVar, predVar, objVar, card);
 		}
 		return card;
 	}

@@ -16,11 +16,21 @@
  */
 package com.msd.gin.halyard.optimizers;
 
+import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.vocab.HALYARD;
+
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+
+import org.eclipse.rdf4j.query.algebra.ArbitraryLengthPath;
+import org.eclipse.rdf4j.query.algebra.QueryModelNode;
+import org.eclipse.rdf4j.query.algebra.QueryRoot;
+import org.eclipse.rdf4j.query.algebra.Service;
+import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.parser.sparql.SPARQLParser;
 import org.junit.Assert;
 import org.junit.Test;
@@ -65,6 +75,7 @@ public class HalyardEvaluationStatisticsTest {
             {"select * where {}", 1.0, null, null},
             {"select * where {service <http://remote> {?s ?p ?o}}", 103.0, null, null},
             {"select * where {?s <:p>* ?o}", 2*S*P*O, null, null},
+            {"select * where {<< <:s> <:p> <:o> >> ?p ?o}", P*O, null, null},
         });
     }
 
@@ -88,8 +99,49 @@ public class HalyardEvaluationStatisticsTest {
 		return new HalyardEvaluationStatistics(SimpleStatementPatternCardinalityCalculator.FACTORY, null);
 	}
 
-    @Test
-    public void testCardinality() {
-        Assert.assertEquals(query, cardinality, createStatistics().getCardinality(new SPARQLParser().parseQuery(query, "http://baseuri/").getTupleExpr(), boundVars, priorityVars), cardinality/1000000.0);
-    }
+	@Test
+	public void testCardinality() {
+		QueryRoot queryRoot = (QueryRoot) new SPARQLParser().parseQuery(query, "http://baseuri/").getTupleExpr();
+		Assert.assertEquals(query, cardinality, createStatistics().getCardinality(queryRoot, boundVars, priorityVars), cardinality/1000000.0);
+		Map<TupleExpr,Double> mapToUpdate = new HashMap<>();
+		createStatistics().updateCardinalityMap(queryRoot, boundVars, priorityVars, mapToUpdate);
+		Assert.assertEquals(query, cardinality, mapToUpdate.get(queryRoot.getArg()), cardinality/1000000.0);
+		TupleExprCounter counter = new TupleExprCounter();
+		queryRoot.getArg().visit(counter);
+		Assert.assertEquals(counter.count, mapToUpdate.size());
+		for (TupleExpr node : mapToUpdate.keySet()) {
+			Map<TupleExpr,Double> individualMapToUpdate = new HashMap<>();
+			createStatistics().updateCardinalityMap(node, boundVars, priorityVars, individualMapToUpdate);
+			Assert.assertFalse(individualMapToUpdate.isEmpty());
+		}
+	}
+
+
+	static class TupleExprCounter extends AbstractExtendedQueryModelVisitor<RuntimeException> {
+		int count;
+		boolean inService;
+
+		@Override
+		public void meet(ArbitraryLengthPath alp) {
+			count++;
+		}
+
+		@Override
+		public void meet(Service node) {
+			count++;
+			inService = true;
+			super.meet(node);
+			inService = false;
+		}
+
+		@Override
+		protected void meetNode(QueryModelNode node) {
+			if (!inService) {
+				if (node instanceof TupleExpr) {
+					count++;
+				}
+			}
+			super.meetNode(node);
+		}
+	}
 }

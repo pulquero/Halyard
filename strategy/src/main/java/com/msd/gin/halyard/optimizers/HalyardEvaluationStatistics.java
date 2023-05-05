@@ -186,6 +186,12 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
         }
 
         @Override
+        public void meet(TripleRef node) {
+            super.meet(node);
+            updateMap(node);
+        }
+
+        @Override
         public void meet(ArbitraryLengthPath node) {
             super.meet(node);
             updateMap(node);

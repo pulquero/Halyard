@@ -3,8 +3,6 @@ package com.msd.gin.halyard.optimizers;
 import java.io.IOException;
 import java.util.Collection;
 
-import org.eclipse.rdf4j.query.algebra.StatementPattern;
-import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.Var;
 
 public class SimpleStatementPatternCardinalityCalculator implements StatementPatternCardinalityCalculator {
@@ -16,13 +14,13 @@ public class SimpleStatementPatternCardinalityCalculator implements StatementPat
 	public static final double CONTEXT_VAR_CARDINALITY = 10.0;
 
 	@Override
-	public double getCardinality(StatementPattern sp, Collection<String> boundVars) {
-		return getSubjectCardinality(sp.getSubjectVar(), boundVars) * getPredicateCardinality(sp.getPredicateVar(), boundVars) * getObjectCardinality(sp.getObjectVar(), boundVars) * getContextCardinality(sp.getContextVar(), boundVars);
+	public double getStatementCardinality(Var subjVar, Var predVar, Var objVar, Var ctxVar, Collection<String> boundVars) {
+		return getSubjectCardinality(subjVar, boundVars) * getPredicateCardinality(predVar, boundVars) * getObjectCardinality(objVar, boundVars) * getContextCardinality(ctxVar, boundVars);
 	}
 
 	@Override
-	public double getCardinality(TripleRef tripleRef, Collection<String> boundVars) {
-		return getSubjectCardinality(tripleRef.getSubjectVar(), boundVars) * getPredicateCardinality(tripleRef.getPredicateVar(), boundVars) * getObjectCardinality(tripleRef.getObjectVar(), boundVars);
+	public double getTripleCardinality(Var subjVar, Var predVar, Var objVar, Collection<String> boundVars) {
+		return getSubjectCardinality(subjVar, boundVars) * getPredicateCardinality(predVar, boundVars) * getObjectCardinality(objVar, boundVars);
 	}
 
 	protected double getSubjectCardinality(Var var, Collection<String> boundVars) {

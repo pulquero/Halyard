@@ -10,6 +10,8 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 
 import org.eclipse.rdf4j.query.QueryEvaluationException;
+import org.eclipse.rdf4j.query.algebra.ArbitraryLengthPath;
+import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TripleRef;
@@ -64,6 +66,22 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 		}
 
 		@Override
+		public void meet(BindingSetAssignment node) {
+			cardinality = getCardinality(node);
+		}
+
+		@Override
+		public void meet(ArbitraryLengthPath node) {
+			final Var pathVar = new Var("_anon_path", true);
+			// cardinality of ALP is determined based on the cost of a
+			// single ?s ?p ?o ?c pattern where ?p is unbound, compensating for the fact that
+			// the length of the path is unknown but expected to be _at least_ twice that of a normal
+			// statement pattern.
+			cardinality = 2.0 * getCardinality(new StatementPattern(node.getSubjectVar().clone(), pathVar,
+					node.getObjectVar().clone(), node.getContextVar() != null ? node.getContextVar().clone() : null));
+		}
+
+		@Override
 		public void meet(StatementPattern sp) {
 			cardinality = getCardinality(sp);
 		}
@@ -75,12 +93,16 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 
 		@Override
 		protected double getCardinality(StatementPattern sp) {
-			return spcalc.getCardinality(sp, boundVars);
+			return spcalc.getStatementCardinality(sp.getSubjectVar(), sp.getPredicateVar(), sp.getObjectVar(), sp.getContextVar(), boundVars);
 		}
 
 		@Override
 		protected double getCardinality(TripleRef tripleRef) {
-			return spcalc.getCardinality(tripleRef, boundVars);
+			if (boundVars.contains(tripleRef.getExprVar().getName())) {
+				return 1.0;
+			} else {
+				return spcalc.getTripleCardinality(tripleRef.getSubjectVar(), tripleRef.getPredicateVar(), tripleRef.getObjectVar(), boundVars);
+			}
 		}
 
 		@Override

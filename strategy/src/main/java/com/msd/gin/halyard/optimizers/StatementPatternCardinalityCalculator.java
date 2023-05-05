@@ -4,8 +4,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
 
-import org.eclipse.rdf4j.query.algebra.StatementPattern;
-import org.eclipse.rdf4j.query.algebra.TripleRef;
+import org.eclipse.rdf4j.query.algebra.Var;
 
 public interface StatementPatternCardinalityCalculator extends Closeable {
 
@@ -13,6 +12,6 @@ public interface StatementPatternCardinalityCalculator extends Closeable {
 		StatementPatternCardinalityCalculator create() throws IOException;
 	}
 
-	double getCardinality(StatementPattern sp, Collection<String> boundVars);
-	double getCardinality(TripleRef tripleRef, Collection<String> boundVars);
+	double getStatementCardinality(Var subjVar, Var predVar, Var objVar, Var ctxVar, Collection<String> boundVars);
+	double getTripleCardinality(Var subjVar, Var predVar, Var objVar, Collection<String> boundVars);
 }

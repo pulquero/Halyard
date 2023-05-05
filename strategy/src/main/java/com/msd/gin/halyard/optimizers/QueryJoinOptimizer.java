@@ -19,7 +19,6 @@ import java.util.Set;
 
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
-import org.eclipse.rdf4j.query.algebra.AbstractQueryModelNode;
 import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
 import org.eclipse.rdf4j.query.algebra.Extension;
 import org.eclipse.rdf4j.query.algebra.Join;
@@ -147,9 +146,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 
 						double cardinality = statistics.getCardinality(tupleExpr, boundVars);
 						tupleExpr.setResultSizeEstimate(cardinality);
-						if (!hasCachedCardinality(tupleExpr)) {
-							cardinalityMap.put(tupleExpr, cardinality);
-						}
+						cardinalityMap.put(tupleExpr, cardinality);
 						if (tupleExpr instanceof ZeroLengthPath) {
 							varsMap.put(tupleExpr, ((ZeroLengthPath) tupleExpr).getVarList());
 						} else {
@@ -509,13 +506,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 				}
 			}
 
-			double cost;
-
-			if (hasCachedCardinality(tupleExpr)) {
-				cost = ((AbstractQueryModelNode) tupleExpr).getCardinality();
-			} else {
-				cost = cardinalityMap.get(tupleExpr);
-			}
+			double cost = cardinalityMap.get(tupleExpr);
 
 			List<Var> vars = varsMap.get(tupleExpr);
 
@@ -664,10 +655,4 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 		}
 		return count;
 	}
-
-	private static boolean hasCachedCardinality(TupleExpr tupleExpr) {
-		return tupleExpr instanceof AbstractQueryModelNode
-				&& ((AbstractQueryModelNode) tupleExpr).isCardinalitySet();
-	}
-
 }
