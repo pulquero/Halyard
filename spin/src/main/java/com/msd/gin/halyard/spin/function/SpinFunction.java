@@ -23,12 +23,14 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
 import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 
 import com.google.common.base.Joiner;
+import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.spin.Argument;
 
 public class SpinFunction extends AbstractSpinFunction implements TransientFunction {
@@ -64,7 +66,13 @@ public class SpinFunction extends AbstractSpinFunction implements TransientFunct
 
 	@Override
 	public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
-		QueryPreparer qp = getCurrentQueryPreparer();
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		Value result;
 		if (parsedQuery instanceof ParsedBooleanQuery) {
 			ParsedBooleanQuery askQuery = (ParsedBooleanQuery) parsedQuery;

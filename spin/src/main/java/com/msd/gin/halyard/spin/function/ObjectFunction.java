@@ -19,8 +19,11 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.SPL;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
+
+import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 
 public class ObjectFunction extends AbstractSpinFunction implements Function {
 
@@ -30,7 +33,13 @@ public class ObjectFunction extends AbstractSpinFunction implements Function {
 
 	@Override
 	public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
-		QueryPreparer qp = getCurrentQueryPreparer();
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		if (args.length != 2) {
 			throw new ValueExprEvaluationException(
 					String.format("%s requires 2 arguments, got %d", getURI(), args.length));

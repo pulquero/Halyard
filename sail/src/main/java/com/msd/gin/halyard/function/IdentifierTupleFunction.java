@@ -3,7 +3,7 @@ package com.msd.gin.halyard.function;
 import com.msd.gin.halyard.common.Hashes;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.sail.HBaseSailConnection;
+import com.msd.gin.halyard.sail.HBaseTripleSource;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.Collections;
@@ -15,26 +15,26 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryContext;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.kohsuke.MetaInfServices;
 
 @MetaInfServices(TupleFunction.class)
-public class IdentifierTupleFunction implements TupleFunction {
+public class IdentifierTupleFunction implements ExtendedTupleFunction {
 	@Override
 	public String getURI() {
 		return HALYARD.IDENTIFIER_PROPERTY.stringValue();
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(ValueFactory vf,
+	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(TripleSource tripleSource,
 			Value... args)
 		throws ValueExprEvaluationException
 	{
-		StatementIndices indices = (StatementIndices) QueryContext.getQueryContext().getAttribute(HBaseSailConnection.QUERY_CONTEXT_INDICES_ATTRIBUTE);
+		HBaseTripleSource extTripleSource = (HBaseTripleSource) tripleSource;
+		StatementIndices indices = extTripleSource.getStatementIndices();
 		RDFFactory rdfFactory = indices.getRDFFactory();
 
 		Namespace ns;
@@ -59,6 +59,6 @@ public class IdentifierTupleFunction implements TupleFunction {
 			throw new ValueExprEvaluationException(String.format("%s requires 1 or 3 arguments, got %d", getURI(), args.length));
 		}
 
-		return new SingletonIteration<>(Collections.singletonList(vf.createIRI(ns.getName(), id)));
+		return new SingletonIteration<>(Collections.singletonList(extTripleSource.getValueFactory().createIRI(ns.getName(), id)));
 	}
 }

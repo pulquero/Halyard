@@ -1,11 +1,11 @@
 package com.msd.gin.halyard.function;
 
 import com.msd.gin.halyard.common.Hashes;
-import com.msd.gin.halyard.common.ValueIdentifier;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.sail.HBaseSailConnection;
+import com.msd.gin.halyard.common.ValueIdentifier;
+import com.msd.gin.halyard.sail.HBaseTripleSource;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
@@ -19,26 +19,27 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryContext;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 
-public abstract class AbstractReificationTupleFunction implements TupleFunction {
+public abstract class AbstractReificationTupleFunction implements ExtendedTupleFunction {
 
 	protected abstract int statementPosition();
 
 	protected abstract Value getValue(KeyspaceConnection ks, ValueIdentifier id, ValueFactory vf, StatementIndices stmtIndices) throws IOException;
 
 	@Override
-	public final CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(ValueFactory vf,
+	public final CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(TripleSource tripleSource,
 			Value... args)
 		throws ValueExprEvaluationException
 	{
+		HBaseTripleSource extTripleSource = (HBaseTripleSource) tripleSource;
+
 		if (args.length != 1 || !(args[0] instanceof IRI)) {
 			throw new ValueExprEvaluationException(String.format("%s requires an identifier IRI", getURI()));
 		}
 
-		StatementIndices indices = (StatementIndices) QueryContext.getQueryContext().getAttribute(HBaseSailConnection.QUERY_CONTEXT_INDICES_ATTRIBUTE);
+		StatementIndices indices = extTripleSource.getStatementIndices();
 		RDFFactory rdfFactory = indices.getRDFFactory();
 
 		IRI idIri = (IRI) args[0];
@@ -55,10 +56,10 @@ public abstract class AbstractReificationTupleFunction implements TupleFunction 
 			throw new ValueExprEvaluationException(String.format("%s requires an identifier IRI", getURI()));
 		}
 
-		KeyspaceConnection keyspace = (KeyspaceConnection) QueryContext.getQueryContext().getAttribute(HBaseSailConnection.QUERY_CONTEXT_KEYSPACE_ATTRIBUTE);
+		KeyspaceConnection keyspace = extTripleSource.getKeyspaceConnection();
 		Value v;
 		try {
-			v = getValue(keyspace, id, vf, indices);
+			v = getValue(keyspace, id, extTripleSource.getValueFactory(), indices);
 		} catch (IOException e) {
 			throw new ValueExprEvaluationException(e);
 		}

@@ -23,12 +23,14 @@ import com.msd.gin.halyard.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.algebra.StarJoin;
 import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
+import com.msd.gin.halyard.algebra.evaluation.TupleFunctionEvaluationStrategy;
 import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
 import com.msd.gin.halyard.common.ValueFactories;
 import com.msd.gin.halyard.common.ValueType;
 import com.msd.gin.halyard.federation.BindingSetCallbackFederatedService;
+import com.msd.gin.halyard.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.query.AbortConsumerException;
 import com.msd.gin.halyard.query.BindingSetPipe;
@@ -147,20 +149,19 @@ import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.ZeroLengthPath;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryValueEvaluationStep;
 import org.eclipse.rdf4j.query.algebra.evaluation.RDFStarTripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
+import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.StrictEvaluationStrategy;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.TupleFunctionEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.DescribeIteration;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.PathIteration;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.ProjectionIterator;
-import org.eclipse.rdf4j.query.algebra.evaluation.iterator.QueryContextIteration;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.ValueComparator;
 import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
@@ -188,8 +189,8 @@ final class HalyardTupleExprEvaluation {
 	private final TupleFunctionRegistry tupleFunctionRegistry;
 	private final CustomAggregateFunctionRegistry aggregateFunctionRegistry = CustomAggregateFunctionRegistry.getInstance();
 	private final TripleSource tripleSource;
+	private final Dataset dataset;
     private final HalyardEvaluationExecutor executor;
-    private final HalyardEvaluationContext evalContext;
     private final int hashJoinLimit;
     private final int collectionMemoryThreshold;
     private final int valueCacheSize;
@@ -198,18 +199,17 @@ final class HalyardTupleExprEvaluation {
 	 * Constructor used by {@link HalyardEvaluationStrategy} to create this helper class
 	 * 
 	 * @param parentStrategy
-	 * @param queryContext
 	 * @param tupleFunctionRegistry
 	 * @param tripleSource
 	 * @param dataset
 	 * @param executor
 	 */
-	HalyardTupleExprEvaluation(HalyardEvaluationStrategy parentStrategy, HalyardEvaluationContext evalContext,
-			TupleFunctionRegistry tupleFunctionRegistry, TripleSource tripleSource, HalyardEvaluationExecutor executor) {
+	HalyardTupleExprEvaluation(HalyardEvaluationStrategy parentStrategy,
+			TupleFunctionRegistry tupleFunctionRegistry, TripleSource tripleSource, Dataset dataset, HalyardEvaluationExecutor executor) {
         this.parentStrategy = parentStrategy;
-		this.evalContext = evalContext;
 		this.tupleFunctionRegistry = tupleFunctionRegistry;
 		this.tripleSource = tripleSource;
+		this.dataset = dataset;
 		this.executor = executor;
 		Configuration conf = parentStrategy.getConfiguration();
 		JoinAlgorithmOptimizer algoOpt = parentStrategy.getJoinAlgorithmOptimizer();
@@ -225,10 +225,11 @@ final class HalyardTupleExprEvaluation {
     /**
      * Precompiles the given expression.
      * @param expr supplied by HalyardEvaluationStrategy
+     * @param evalContext
      * @return a QueryEvaluationStep
      */
-	BindingSetPipeQueryEvaluationStep precompile(TupleExpr expr) {
-    	BindingSetPipeEvaluationStep step = precompileTupleExpr(expr);
+	BindingSetPipeQueryEvaluationStep precompile(TupleExpr expr, QueryEvaluationContext evalContext) {
+    	BindingSetPipeEvaluationStep step = precompileTupleExpr(expr, evalContext);
     	return new BindingSetPipeQueryEvaluationStep() {
 			@Override
 			public void evaluate(BindingSetPipe parent, BindingSet bindings) {
@@ -246,15 +247,15 @@ final class HalyardTupleExprEvaluation {
      * Switch logic appropriate for each type of {@link TupleExpr} query model node, sending each type to it's appropriate precompile method. For example,
      * {@code UnaryTupleOperator} is sent to {@link precompileUnaryTupleOperator()}.
      */
-    private BindingSetPipeEvaluationStep precompileTupleExpr(TupleExpr expr) {
+    private BindingSetPipeEvaluationStep precompileTupleExpr(TupleExpr expr, QueryEvaluationContext evalContext) {
         if (expr instanceof StatementPattern) {
             return precompileStatementPattern((StatementPattern) expr);
         } else if (expr instanceof UnaryTupleOperator) {
-        	return precompileUnaryTupleOperator((UnaryTupleOperator) expr);
+        	return precompileUnaryTupleOperator((UnaryTupleOperator) expr, evalContext);
         } else if (expr instanceof BinaryTupleOperator) {
-        	return precompileBinaryTupleOperator((BinaryTupleOperator) expr);
+        	return precompileBinaryTupleOperator((BinaryTupleOperator) expr, evalContext);
         } else if (expr instanceof StarJoin) {
-        	return precompileStarJoin((StarJoin) expr);
+        	return precompileStarJoin((StarJoin) expr, evalContext);
         } else if (expr instanceof SingletonSet) {
         	return precompileSingletonSet((SingletonSet) expr);
         } else if (expr instanceof EmptySet) {
@@ -269,7 +270,7 @@ final class HalyardTupleExprEvaluation {
         	return precompileTripleRef((TripleRef) expr);
 		} else if (expr instanceof TupleFunctionCall) {
 			// all TupleFunctionCalls are expected to be ExtendedTupleFunctionCalls
-			return precompileTupleFunctionCall((ExtendedTupleFunctionCall) expr);
+			return precompileTupleFunctionCall((ExtendedTupleFunctionCall) expr, evalContext);
         } else if (expr == null) {
             throw new IllegalArgumentException("expr must not be null");
         } else {
@@ -411,7 +412,6 @@ final class HalyardTupleExprEvaluation {
 
         final Set<IRI> graphs;
         final boolean emptyGraph;
-        Dataset dataset = evalContext.getDataset();
         if (dataset != null) {
             if (scope == StatementPattern.Scope.DEFAULT_CONTEXTS) { //evaluate against the default graph(s)
                 graphs = dataset.getDefaultGraphs();
@@ -782,35 +782,36 @@ final class HalyardTupleExprEvaluation {
     /**
      * Switch logic for precompilation of any instance of a {@link UnaryTupleOperator} query model node
      */
-    private BindingSetPipeEvaluationStep precompileUnaryTupleOperator(UnaryTupleOperator expr) {
+    private BindingSetPipeEvaluationStep precompileUnaryTupleOperator(UnaryTupleOperator expr, QueryEvaluationContext evalContext) {
         if (expr instanceof Projection) {
-        	return precompileProjection((Projection) expr);
+        	return precompileProjection((Projection) expr, evalContext);
         } else if (expr instanceof MultiProjection) {
-        	return precompileMultiProjection((MultiProjection) expr);
+        	return precompileMultiProjection((MultiProjection) expr, evalContext);
         } else if (expr instanceof Filter) {
-        	return precompileFilter((Filter) expr);
+        	return precompileFilter((Filter) expr, evalContext);
         } else if (expr instanceof Service) {
         	return precompileService((Service) expr);
         } else if (expr instanceof Slice) {
-        	return precompileSlice((Slice) expr);
+        	return precompileSlice((Slice) expr, evalContext);
         } else if (expr instanceof Extension) {
-        	return precompileExtension((Extension) expr);
+        	return precompileExtension((Extension) expr, evalContext);
         } else if (expr instanceof Distinct) {
-        	return precompileDistinct((Distinct) expr);
+        	return precompileDistinct((Distinct) expr, evalContext);
         } else if (expr instanceof Reduced) {
-        	return precompileReduced((Reduced) expr);
+        	return precompileReduced((Reduced) expr, evalContext);
         } else if (expr instanceof Group) {
-        	return precompileGroup((Group) expr);
+        	return precompileGroup((Group) expr, evalContext);
         } else if (expr instanceof Order) {
-        	return precompileOrder((Order) expr);
+        	return precompileOrder((Order) expr, evalContext);
         } else if (expr instanceof QueryRoot) {
         	QueryRoot root = (QueryRoot) expr;
-        	BindingSetPipeEvaluationStep step = precompileTupleExpr(root.getArg());
+        	parentStrategy.sharedValueOfNow.set(null);
+        	BindingSetPipeEvaluationStep step = precompileTupleExpr(root.getArg(), evalContext);
         	return (parent, bindings) -> {
         		step.evaluate(parentStrategy.track(parent, root), bindings);
         	};
         } else if (expr instanceof DescribeOperator) {
-        	return precompileDescribeOperator((DescribeOperator) expr);
+        	return precompileDescribeOperator((DescribeOperator) expr, evalContext);
         } else if (expr == null) {
             throw new IllegalArgumentException("expr must not be null");
         } else {
@@ -822,8 +823,8 @@ final class HalyardTupleExprEvaluation {
      * Precompile a {@link Projection} query model nodes
      * @param projection
      */
-    private BindingSetPipeEvaluationStep precompileProjection(final Projection projection) {
-        BindingSetPipeEvaluationStep step = precompileTupleExpr(projection.getArg());
+    private BindingSetPipeEvaluationStep precompileProjection(final Projection projection, QueryEvaluationContext evalContext) {
+        BindingSetPipeEvaluationStep step = precompileTupleExpr(projection.getArg(), evalContext);
         boolean outer = true;
         QueryModelNode ancestor = projection;
         while (ancestor.getParentNode() != null) {
@@ -864,8 +865,8 @@ final class HalyardTupleExprEvaluation {
      * Precompile a {@link MultiProjection} query model nodes
      * @param multiProjection
      */
-    private BindingSetPipeEvaluationStep precompileMultiProjection(final MultiProjection multiProjection) {
-        BindingSetPipeEvaluationStep step = precompileTupleExpr(multiProjection.getArg());
+    private BindingSetPipeEvaluationStep precompileMultiProjection(final MultiProjection multiProjection, QueryEvaluationContext evalContext) {
+        BindingSetPipeEvaluationStep step = precompileTupleExpr(multiProjection.getArg(), evalContext);
         return (parent, bindings) -> {
 	        step.evaluate(new BindingSetPipe(parent) {
 	            final List<ProjectionElemList> projections = multiProjection.getProjections();
@@ -903,8 +904,8 @@ final class HalyardTupleExprEvaluation {
      * Precompile filter {@link ExpressionTuple}s query model nodes pushing the result to the parent BindingSetPipe.
      * @param filter holds the details of any FILTER expression in a SPARQL query and any sub-chains.
      */
-    private BindingSetPipeEvaluationStep precompileFilter(final Filter filter) {
-        BindingSetPipeEvaluationStep argStep = precompileTupleExpr(filter.getArg());
+    private BindingSetPipeEvaluationStep precompileFilter(final Filter filter, QueryEvaluationContext evalContext) {
+        BindingSetPipeEvaluationStep argStep = precompileTupleExpr(filter.getArg(), evalContext);
         ValuePipeQueryValueEvaluationStep conditionStep = parentStrategy.precompile(filter.getCondition(), evalContext);
         boolean isInSubQuery = isPartOfSubQuery(filter);
         return (parent, bindings) -> {
@@ -950,8 +951,8 @@ final class HalyardTupleExprEvaluation {
      * Precompile {@link DescribeOperator} query model nodes
      * @param operator
      */
-    private BindingSetPipeEvaluationStep precompileDescribeOperator(DescribeOperator operator) {
-		BindingSetPipeQueryEvaluationStep argStep = precompile(operator.getArg());
+    private BindingSetPipeEvaluationStep precompileDescribeOperator(DescribeOperator operator, QueryEvaluationContext evalContext) {
+		BindingSetPipeQueryEvaluationStep argStep = precompile(operator.getArg(), evalContext);
 		return (parent, bindings) -> {
 			executor.pullAndPushAsync(parent, bs -> new DescribeIteration(argStep.evaluate(bs), parentStrategy,
 				operator.getBindingNames(), bs), operator, bindings, parentStrategy);
@@ -974,19 +975,17 @@ final class HalyardTupleExprEvaluation {
         private final boolean ascending[];
         private final long minorOrder;
 
-        ComparableBindingSetWrapper(EvaluationStrategy strategy, BindingSet bs, List<OrderElem> elements, long minorOrder) throws QueryEvaluationException {
+        ComparableBindingSetWrapper(EvaluationStrategy strategy, BindingSet bs, QueryValueEvaluationStep[] elemSteps, boolean[] ascending, long minorOrder) throws QueryEvaluationException {
             this.bs = bs;
-            this.values = new Value[elements.size()];
-            this.ascending = new boolean[elements.size()];
+            this.values = new Value[elemSteps.length];
             for (int i = 0; i < values.length; i++) {
-                OrderElem oe = elements.get(i);
                 try {
-                    values[i] = strategy.evaluate(oe.getExpr(), bs);
+                    values[i] = elemSteps[i].evaluate(bs);
                 } catch (ValueExprEvaluationException exc) {
                     values[i] = null;
                 }
-                ascending[i] = oe.isAscending();
             }
+            this.ascending = ascending;
             this.minorOrder = minorOrder;
         }
 
@@ -1017,9 +1016,17 @@ final class HalyardTupleExprEvaluation {
      * Precompile {@link Order} query model nodes
      * @param order
      */
-    private BindingSetPipeEvaluationStep precompileOrder(final Order order) {
+    private BindingSetPipeEvaluationStep precompileOrder(final Order order, QueryEvaluationContext evalContext) {
         final Sorter<ComparableBindingSetWrapper> sorter = new Sorter<>(getLimit(order), isReducedOrDistinct(order), collectionMemoryThreshold);
-        BindingSetPipeEvaluationStep step = precompileTupleExpr(order.getArg());
+        List<OrderElem> orderElems = order.getElements();
+        QueryValueEvaluationStep[] elemSteps = new QueryValueEvaluationStep[orderElems.size()];
+        boolean[] ascending = new boolean[elemSteps.length];
+        for (int i=0; i<elemSteps.length; i++) {
+        	OrderElem oe = orderElems.get(i);
+        	elemSteps[i] = parentStrategy.precompile(oe.getExpr(), evalContext);
+        	ascending[i] = oe.isAscending();
+        }
+        BindingSetPipeEvaluationStep step = precompileTupleExpr(order.getArg(), evalContext);
         return (parent, bindings) -> {
 	        step.evaluate(new BindingSetPipe(parent) {
 	            final AtomicLong minorOrder = new AtomicLong();
@@ -1033,7 +1040,7 @@ final class HalyardTupleExprEvaluation {
 	            @Override
 	            protected boolean next(BindingSet bs) {
 	                try {
-	                    ComparableBindingSetWrapper cbsw = new ComparableBindingSetWrapper(parentStrategy, bs, order.getElements(), minorOrder.getAndIncrement());
+	                    ComparableBindingSetWrapper cbsw = new ComparableBindingSetWrapper(parentStrategy, bs, elemSteps, ascending, minorOrder.getAndIncrement());
 	                    sorter.add(cbsw);
 	                    return true;
 	                } catch (QueryEvaluationException | IOException e) {
@@ -1071,8 +1078,8 @@ final class HalyardTupleExprEvaluation {
      * Precompile {@link Group} query model nodes
      * @param group
      */
-    private BindingSetPipeEvaluationStep precompileGroup(Group group) {
-        BindingSetPipeEvaluationStep step = precompileTupleExpr(group.getArg());
+    private BindingSetPipeEvaluationStep precompileGroup(Group group, QueryEvaluationContext evalContext) {
+        BindingSetPipeEvaluationStep step = precompileTupleExpr(group.getArg(), evalContext);
         List<GroupElem> elems = group.getGroupElements();
         ValuePipeQueryValueEvaluationStep[] opArgSteps = new ValuePipeQueryValueEvaluationStep[elems.size()];
         for (int i=0; i<opArgSteps.length; i++) {
@@ -1089,7 +1096,7 @@ final class HalyardTupleExprEvaluation {
     		return (parent, bindings) -> {
     	    	parentStrategy.initTracking(group);
 	    		step.evaluate(new BindingSetPipe(parent) {
-	    			final GroupValue aggregators = createGroupValue(group, opArgSteps, bindings);
+	    			final GroupValue aggregators = createGroupValue(group, opArgSteps, bindings, evalContext);
 					@Override
 					protected boolean next(BindingSet bs) {
 						if (parent.isClosed()) {
@@ -1120,7 +1127,7 @@ final class HalyardTupleExprEvaluation {
 	    			final String[] groupNames = toStringArray(group.getGroupBindingNames());
 					@Override
 					protected boolean next(BindingSet bs) {
-						GroupValue aggregators = groupByMap.computeIfAbsent(BindingSetValues.create(groupNames, bs), k -> createGroupValue(group, opArgSteps, bindings));
+						GroupValue aggregators = groupByMap.computeIfAbsent(BindingSetValues.create(groupNames, bs), k -> createGroupValue(group, opArgSteps, bindings, evalContext));
 						aggregators.addValues(bs);
 						return true;
 					}
@@ -1140,7 +1147,7 @@ final class HalyardTupleExprEvaluation {
 							QueryBindingSet result = new QueryBindingSet(bindings);
 							for (int i=0; i<opArgSteps.length; i++) {
 								GroupElem ge = elems.get(i);
-								Aggregator<?,?> agg = createAggregator(ge.getOperator(), opArgSteps[i], bindings);
+								Aggregator<?,?> agg = createAggregator(ge.getOperator(), opArgSteps[i], bindings, evalContext);
 								if (agg != null) {
 									try {
 										Value v = agg.getValue();
@@ -1170,12 +1177,12 @@ final class HalyardTupleExprEvaluation {
     	}
     }
 
-    private GroupValue createGroupValue(Group group, ValuePipeQueryValueEvaluationStep[] opArgSteps, BindingSet parentBindings) {
+    private GroupValue createGroupValue(Group group, ValuePipeQueryValueEvaluationStep[] opArgSteps, BindingSet parentBindings, QueryEvaluationContext evalContext) {
 		Map<String,Aggregator<?,?>> aggregators = new HashMap<>();
         List<GroupElem> elems = group.getGroupElements();
 		for (int i=0; i<opArgSteps.length; i++) {
 			GroupElem ge = elems.get(i);
-			Aggregator<?,?> agg = createAggregator(ge.getOperator(), opArgSteps[i], parentBindings);
+			Aggregator<?,?> agg = createAggregator(ge.getOperator(), opArgSteps[i], parentBindings, evalContext);
 			if (agg != null) {
 				aggregators.put(ge.getName(), agg);
 			}
@@ -1227,7 +1234,7 @@ final class HalyardTupleExprEvaluation {
 
 	private static final Predicate<?> ALWAYS_TRUE = (v) -> true;
 
-	private Aggregator<?,?> createAggregator(AggregateOperator operator, ValuePipeQueryValueEvaluationStep opArgStep, BindingSet parentBindings) {
+	private Aggregator<?,?> createAggregator(AggregateOperator operator, ValuePipeQueryValueEvaluationStep opArgStep, BindingSet parentBindings, QueryEvaluationContext evalContext) {
 		ValueFactory valueFactory = tripleSource.getValueFactory();
 		boolean isDistinct = operator.isDistinct();
 		if (operator instanceof Count) {
@@ -1417,8 +1424,8 @@ final class HalyardTupleExprEvaluation {
      * Precompile {@link Reduced} query model nodes
      * @param reduced
      */
-    private BindingSetPipeEvaluationStep precompileReduced(Reduced reduced) {
-        BindingSetPipeEvaluationStep step = precompileTupleExpr(reduced.getArg());
+    private BindingSetPipeEvaluationStep precompileReduced(Reduced reduced, QueryEvaluationContext evalContext) {
+        BindingSetPipeEvaluationStep step = precompileTupleExpr(reduced.getArg(), evalContext);
         return (parent, bindings) -> {
 	    	parentStrategy.initTracking(reduced);
 	        step.evaluate(new BindingSetPipe(parent) {
@@ -1447,8 +1454,8 @@ final class HalyardTupleExprEvaluation {
      * Precompile {@link Distinct} query model nodes
      * @param distinct
      */
-    private BindingSetPipeEvaluationStep precompileDistinct(final Distinct distinct) {
-        BindingSetPipeEvaluationStep step = precompileTupleExpr(distinct.getArg());
+    private BindingSetPipeEvaluationStep precompileDistinct(final Distinct distinct, QueryEvaluationContext evalContext) {
+        BindingSetPipeEvaluationStep step = precompileTupleExpr(distinct.getArg(), evalContext);
         return (parent, bindings) -> {
 	    	parentStrategy.initTracking(distinct);
 	        step.evaluate(new BindingSetPipe(parent) {
@@ -1487,8 +1494,8 @@ final class HalyardTupleExprEvaluation {
 	 * Precompile {@link Extension} query model nodes
 	 * @param extension
 	 */
-    private BindingSetPipeEvaluationStep precompileExtension(final Extension extension) {
-        BindingSetPipeEvaluationStep argStep = precompileTupleExpr(extension.getArg());
+    private BindingSetPipeEvaluationStep precompileExtension(final Extension extension, QueryEvaluationContext evalContext) {
+        BindingSetPipeEvaluationStep argStep = precompileTupleExpr(extension.getArg(), evalContext);
         List<ExtensionElem> extElems = extension.getElements();
         List<org.apache.commons.lang3.tuple.Triple<String,ValuePipeQueryValueEvaluationStep,QueryEvaluationException>> nonAggs = new ArrayList<>(extElems.size());
         for (ExtensionElem extElem : extElems) {
@@ -1552,10 +1559,10 @@ final class HalyardTupleExprEvaluation {
      * Precompile {@link Slice} query model nodes.
      * @param slice
      */
-    private BindingSetPipeEvaluationStep precompileSlice(Slice slice) {
+    private BindingSetPipeEvaluationStep precompileSlice(Slice slice, QueryEvaluationContext evalContext) {
         final long offset = slice.hasOffset() ? slice.getOffset() : 0;
         final long limit = slice.hasLimit() ? offset + slice.getLimit() : Long.MAX_VALUE;
-        BindingSetPipeEvaluationStep step = precompileTupleExpr(slice.getArg());
+        BindingSetPipeEvaluationStep step = precompileTupleExpr(slice.getArg(), evalContext);
         return (parent, bindings) -> {
         	parentStrategy.initTracking(slice);
 	        step.evaluate(new BindingSetPipe(parent) {
@@ -1706,17 +1713,17 @@ final class HalyardTupleExprEvaluation {
     /**
      * Precompiles {@link BinaryTupleOperator} query model nodes
      */
-    private BindingSetPipeEvaluationStep precompileBinaryTupleOperator(BinaryTupleOperator expr) {
+    private BindingSetPipeEvaluationStep precompileBinaryTupleOperator(BinaryTupleOperator expr, QueryEvaluationContext evalContext) {
         if (expr instanceof Join) {
-            return precompileJoin((Join) expr);
+            return precompileJoin((Join) expr, evalContext);
         } else if (expr instanceof LeftJoin) {
-        	return precompileLeftJoin((LeftJoin) expr);
+        	return precompileLeftJoin((LeftJoin) expr, evalContext);
         } else if (expr instanceof Union) {
-        	return precompileUnion((Union) expr);
+        	return precompileUnion((Union) expr, evalContext);
         } else if (expr instanceof Intersection) {
-        	return precompileIntersection((Intersection) expr);
+        	return precompileIntersection((Intersection) expr, evalContext);
         } else if (expr instanceof Difference) {
-        	return precompileDifference((Difference) expr);
+        	return precompileDifference((Difference) expr, evalContext);
         } else if (expr == null) {
             throw new IllegalArgumentException("expr must not be null");
         } else {
@@ -1727,7 +1734,7 @@ final class HalyardTupleExprEvaluation {
     /**
      * Precompiles {@link Join} query model nodes.
      */
-    private BindingSetPipeEvaluationStep precompileJoin(Join join) {
+    private BindingSetPipeEvaluationStep precompileJoin(Join join, QueryEvaluationContext evalContext) {
     	BindingSetPipeEvaluationStep step;
     	String algorithm = join.getAlgorithmName();
     	if (isOutOfScopeForLeftArgBindings(join.getRightArg())) {
@@ -1735,9 +1742,9 @@ final class HalyardTupleExprEvaluation {
     	}
 
     	if (Algorithms.HASH_JOIN.equals(algorithm)) {
-    		step = new HashJoinEvaluationStep(join);
+    		step = new HashJoinEvaluationStep(join, evalContext);
     	} else {
-    		step = precompileNestedLoopsJoin(join);
+    		step = precompileNestedLoopsJoin(join, evalContext);
     	}
     	return step;
     }
@@ -1746,10 +1753,10 @@ final class HalyardTupleExprEvaluation {
 		return (TupleExprs.isVariableScopeChange(expr) || TupleExprs.containsSubquery(expr));
 	}
 
-    private BindingSetPipeEvaluationStep precompileNestedLoopsJoin(Join join) {
+    private BindingSetPipeEvaluationStep precompileNestedLoopsJoin(Join join, QueryEvaluationContext evalContext) {
     	join.setAlgorithm(Algorithms.NESTED_LOOPS);
-        BindingSetPipeEvaluationStep outerStep = precompileTupleExpr(join.getLeftArg());
-        BindingSetPipeEvaluationStep innerStep = precompileTupleExpr(join.getRightArg());
+        BindingSetPipeEvaluationStep outerStep = precompileTupleExpr(join.getLeftArg(), evalContext);
+        BindingSetPipeEvaluationStep innerStep = precompileTupleExpr(join.getRightArg(), evalContext);
         return precompileNestedLoopsJoin(outerStep, innerStep, new ResultTracker(join));
     }
 
@@ -1786,7 +1793,7 @@ final class HalyardTupleExprEvaluation {
     /**
      * Precompiles {@link LeftJoin} query model nodes
      */
-    private BindingSetPipeEvaluationStep precompileLeftJoin(LeftJoin leftJoin) {
+    private BindingSetPipeEvaluationStep precompileLeftJoin(LeftJoin leftJoin, QueryEvaluationContext evalContext) {
     	BindingSetPipeEvaluationStep step;
     	String algorithm = leftJoin.getAlgorithmName();
     	if (TupleExprs.containsSubquery(leftJoin.getRightArg())) {
@@ -1794,9 +1801,9 @@ final class HalyardTupleExprEvaluation {
     	}
 
     	if (Algorithms.HASH_JOIN.equals(algorithm)) {
-    		step = new LeftHashJoinEvaluationStep(leftJoin);
+    		step = new LeftHashJoinEvaluationStep(leftJoin, evalContext);
     	} else {
-    		step = precompileNestedLoopsLeftJoin(leftJoin);
+    		step = precompileNestedLoopsLeftJoin(leftJoin, evalContext);
     	}
     	return step;
     }
@@ -1807,10 +1814,10 @@ final class HalyardTupleExprEvaluation {
         return filteredBindings;
     }
 
-    private BindingSetPipeEvaluationStep precompileNestedLoopsLeftJoin(LeftJoin leftJoin) {
+    private BindingSetPipeEvaluationStep precompileNestedLoopsLeftJoin(LeftJoin leftJoin, QueryEvaluationContext evalContext) {
     	leftJoin.setAlgorithm(Algorithms.NESTED_LOOPS);
-        BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(leftJoin.getLeftArg());
-        BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(leftJoin.getRightArg());
+        BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(leftJoin.getLeftArg(), evalContext);
+        BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(leftJoin.getRightArg(), evalContext);
         ValuePipeQueryValueEvaluationStep conditionStep = leftJoin.hasCondition() ? parentStrategy.precompile(leftJoin.getCondition(), evalContext) : null;
     	return (parentPipe, bindings) -> {
 	    	// Check whether optional join is "well designed" as defined in section
@@ -1950,13 +1957,13 @@ final class HalyardTupleExprEvaluation {
 		private final String[] buildAttributes;
 		private final int initialSize;
 
-    	protected AbstractHashJoinEvaluationStep(BinaryTupleOperator join, int hashTableLimit) {
+    	protected AbstractHashJoinEvaluationStep(BinaryTupleOperator join, int hashTableLimit, QueryEvaluationContext evalContext) {
 	    	join.setAlgorithm(Algorithms.HASH_JOIN);
     		this.join = join;
         	this.probeExpr = join.getLeftArg();
         	this.buildExpr = join.getRightArg();
-        	this.probeStep = precompileTupleExpr(probeExpr);
-        	this.buildStep = precompileTupleExpr(buildExpr);
+        	this.probeStep = precompileTupleExpr(probeExpr, evalContext);
+        	this.buildStep = precompileTupleExpr(buildExpr, evalContext);
         	this.hashTableLimit = hashTableLimit;
         	this.joinAttributeSet = getJoinAttributes();
         	this.joinAttributes = toStringArray(joinAttributeSet);
@@ -2090,8 +2097,8 @@ final class HalyardTupleExprEvaluation {
     }
 
 	final class HashJoinEvaluationStep extends AbstractHashJoinEvaluationStep {
-		HashJoinEvaluationStep(Join join) {
-			super(join, hashJoinLimit);
+		HashJoinEvaluationStep(Join join, QueryEvaluationContext evalContext) {
+			super(join, hashJoinLimit, evalContext);
 		}
 
 		final class HashJoinBindingSetPipe extends AbstractHashJoinBindingSetPipe {
@@ -2147,8 +2154,8 @@ final class HalyardTupleExprEvaluation {
 	}
 
 	final class LeftHashJoinEvaluationStep extends AbstractHashJoinEvaluationStep {
-		LeftHashJoinEvaluationStep(LeftJoin join) {
-			super(join, Integer.MAX_VALUE);
+		LeftHashJoinEvaluationStep(LeftJoin join, QueryEvaluationContext evalContext) {
+			super(join, Integer.MAX_VALUE, evalContext);
 		}
 
 		final class LeftHashJoinBindingSetPipe extends AbstractHashJoinBindingSetPipe {
@@ -2263,9 +2270,9 @@ final class HalyardTupleExprEvaluation {
      * Precompiles {@link Union} query model nodes.
      * @param union
      */
-    private BindingSetPipeEvaluationStep precompileUnion(Union union) {
-        BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(union.getLeftArg());
-        BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(union.getRightArg());
+    private BindingSetPipeEvaluationStep precompileUnion(Union union, QueryEvaluationContext evalContext) {
+        BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(union.getLeftArg(), evalContext);
+        BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(union.getRightArg(), evalContext);
         return (parent, bindings) -> {
         	parentStrategy.initTracking(union);
             final AtomicInteger args = new AtomicInteger(2);
@@ -2308,9 +2315,9 @@ final class HalyardTupleExprEvaluation {
      * Precompiles {@link Intersection} query model nodes
      * @param intersection
      */
-    private BindingSetPipeEvaluationStep precompileIntersection(final Intersection intersection) {
-        BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(intersection.getRightArg());
-        BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(intersection.getLeftArg());
+    private BindingSetPipeEvaluationStep precompileIntersection(final Intersection intersection, QueryEvaluationContext evalContext) {
+        BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(intersection.getRightArg(), evalContext);
+        BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(intersection.getLeftArg(), evalContext);
         return (topPipe, bindings) -> {
 	        rightStep.evaluate(new BindingSetPipe(topPipe) {
 	            private final BigHashSet<BindingSet> secondSet = BigHashSet.create(collectionMemoryThreshold);
@@ -2365,9 +2372,9 @@ final class HalyardTupleExprEvaluation {
      * Precompiles {@link Difference} query model nodes
      * @param difference
      */
-    private BindingSetPipeEvaluationStep precompileDifference(final Difference difference) {
-        BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(difference.getRightArg());
-        BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(difference.getLeftArg());
+    private BindingSetPipeEvaluationStep precompileDifference(final Difference difference, QueryEvaluationContext evalContext) {
+        BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(difference.getRightArg(), evalContext);
+        BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(difference.getLeftArg(), evalContext);
         return (topPipe, bindings) -> {
 	        rightStep.evaluate(new BindingSetPipe(topPipe) {
 	            private final BigHashSet<BindingSet> excludeSet = BigHashSet.create(collectionMemoryThreshold);
@@ -2432,12 +2439,12 @@ final class HalyardTupleExprEvaluation {
         };
     }
 
-    private BindingSetPipeEvaluationStep precompileStarJoin(StarJoin starJoin) {
+    private BindingSetPipeEvaluationStep precompileStarJoin(StarJoin starJoin, QueryEvaluationContext evalContext) {
     	List<? extends TupleExpr> args = starJoin.getArgs();
     	int i = args.size() - 1;
-    	BindingSetPipeEvaluationStep step = precompileTupleExpr(args.get(i));
+    	BindingSetPipeEvaluationStep step = precompileTupleExpr(args.get(i), evalContext);
     	for (i--; i>=0; i--) {
-    		step = precompileNestedLoopsJoin(precompileTupleExpr(args.get(i)), step, (i==0) ? new ResultTracker(starJoin) : null);
+    		step = precompileNestedLoopsJoin(precompileTupleExpr(args.get(i), evalContext), step, (i==0) ? new ResultTracker(starJoin) : null);
     	}
         return step;
     }
@@ -2551,7 +2558,6 @@ final class HalyardTupleExprEvaluation {
      * @param alp
      */
     private BindingSetPipeEvaluationStep precompileArbitraryLengthPath(ArbitraryLengthPath alp) {
-    	Dataset dataset = evalContext.getDataset();
     	return (parent, bindings) -> {
 	        final StatementPattern.Scope scope = alp.getScope();
 	        final Var subjectVar = alp.getSubjectVar();
@@ -2653,7 +2659,7 @@ final class HalyardTupleExprEvaluation {
 	 * 
 	 * @param tfc
 	 */
-	private BindingSetPipeEvaluationStep precompileTupleFunctionCall(ExtendedTupleFunctionCall tfc)
+	private BindingSetPipeEvaluationStep precompileTupleFunctionCall(ExtendedTupleFunctionCall tfc, QueryEvaluationContext evalContext)
 			throws QueryEvaluationException {
 		TupleFunction func = tupleFunctionRegistry.get(tfc.getURI())
 				.orElseThrow(() -> new QueryEvaluationException("Unknown tuple function '" + tfc.getURI() + "'"));
@@ -2664,8 +2670,14 @@ final class HalyardTupleExprEvaluation {
 			argSteps[i] = parentStrategy.precompile(args.get(i), evalContext);
 		}
 
-		QueryContext queryContext = evalContext.getQueryContext();
-		ValueFactory valueFactory = tripleSource.getValueFactory();
+		Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator;
+		if (func instanceof ExtendedTupleFunction) {
+			ExtendedTupleFunction extFunc = (ExtendedTupleFunction) func;
+			tfEvaluator = argValues -> extFunc.evaluate(tripleSource, argValues);
+		} else {
+			ValueFactory vf = tripleSource.getValueFactory();
+			tfEvaluator = argValues -> func.evaluate(vf, argValues);
+		}
 		Function<BindingSetPipe,BindingSetPipe> pipeBuilder = parent -> {
 			return new BindingSetPipe(parent) {
 				@Override
@@ -2676,22 +2688,12 @@ final class HalyardTupleExprEvaluation {
 							argValues[i] = argSteps[i].evaluate(bs);
 						}
 	
-						CloseableIteration<BindingSet, QueryEvaluationException> iter;
-						queryContext.begin();
-						try {
-							iter = TupleFunctionEvaluationStrategy.evaluate(func, tfc.getResultVars(), bs, valueFactory, argValues);
-						} finally {
-							queryContext.end();
-						}
-						iter = new QueryContextIteration(iter, queryContext);
-						try {
+						try (CloseableIteration<BindingSet, QueryEvaluationException> iter = TupleFunctionEvaluationStrategy.createBindings(tfEvaluator.apply(argValues), tfc.getResultVars(), bs)) {
 							while (iter.hasNext()) {
 								if(!parent.push(iter.next())) {
 									return false;
 								}
 							}
-						} finally {
-							iter.close();
 						}
 					} catch (ValueExprEvaluationException ignore) {
 						// can't evaluate arguments
@@ -2708,7 +2710,7 @@ final class HalyardTupleExprEvaluation {
 
 		TupleExpr depExpr = tfc.getDependentExpression();
 		if (depExpr != null) {
-			BindingSetPipeEvaluationStep step = precompileTupleExpr(depExpr);
+			BindingSetPipeEvaluationStep step = precompileTupleExpr(depExpr, evalContext);
 			return (parent, bindings) -> {
 				step.evaluate(pipeBuilder.apply(parent), bindings);
 			};

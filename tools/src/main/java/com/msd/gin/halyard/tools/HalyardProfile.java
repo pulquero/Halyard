@@ -46,7 +46,7 @@ import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
-import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.sail.SailException;
@@ -93,7 +93,7 @@ public final class HalyardProfile extends AbstractHalyardTool {
 		                return super.evaluate(tupleExpr, dataset, bindings, includeInferred);
 		            }
 		            @Override
-		            protected CloseableIteration<BindingSet, QueryEvaluationException> evaluateInternal(TupleExpr optimizedTupleExpr, EvaluationStrategy strategy) {
+		            protected CloseableIteration<BindingSet, QueryEvaluationException> evaluateInternal(TupleExpr optimizedTupleExpr, QueryEvaluationStep step) {
 		                System.out.println(toMessage("Optimized query:", optimizedTupleExpr));
 		                return new EmptyIteration<>();
 		            }
@@ -103,7 +103,7 @@ public final class HalyardProfile extends AbstractHalyardTool {
 		                super.evaluate(handler, tupleExpr, dataset, bindings, includeInferred);
 					}
 					@Override
-					protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr optimizedTupleExpr, EvaluationStrategy strategy) throws QueryEvaluationException {
+					protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr optimizedTupleExpr, QueryEvaluationStep step) throws QueryEvaluationException {
 		                System.out.println(toMessage("Optimized query:", optimizedTupleExpr));
 					}
 		            private String toMessage(String msg, TupleExpr expr) {

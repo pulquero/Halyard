@@ -25,7 +25,6 @@ import com.msd.gin.halyard.common.ValueIO;
 import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.sail.search.SearchDocument;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -43,6 +42,7 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.sail.SailException;
 
 import co.elastic.clients.elasticsearch.core.SearchResponse;
@@ -51,9 +51,13 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 public class HBaseSearchTripleSource extends HBaseTripleSource {
 	private final SearchClient searchClient;
 
-	public HBaseSearchTripleSource(KeyspaceConnection table, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, HBaseSail.ScanSettings settings, SearchClient searchClient, HBaseSail.Ticker ticker) {
-		super(table, vf, stmtIndices, timeoutSecs, settings, ticker);
+	public HBaseSearchTripleSource(KeyspaceConnection table, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer qp, HBaseSail.ScanSettings settings, SearchClient searchClient, HBaseSail.Ticker ticker) {
+		super(table, vf, stmtIndices, timeoutSecs, qp, settings, ticker);
 		this.searchClient = searchClient;
+	}
+
+	public SearchClient getSearchClient() {
+		return searchClient;
 	}
 
 	@Override

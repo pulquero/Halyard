@@ -7,18 +7,6 @@
  *******************************************************************************/
 package com.msd.gin.halyard.spin.function.spif;
 
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.optimizers.ExtendedEvaluationStatistics;
-import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
-import com.msd.gin.halyard.spin.Argument;
-import com.msd.gin.halyard.spin.ConstraintViolation;
-import com.msd.gin.halyard.spin.SpinFunctionInterpreter;
-import com.msd.gin.halyard.spin.SpinInferencing;
-import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
-import com.msd.gin.halyard.spin.SpinParser;
-import com.msd.gin.halyard.spin.function.AbstractSpinFunction;
-import com.msd.gin.halyard.strategy.ExtendedEvaluationStrategy;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +47,19 @@ import org.eclipse.rdf4j.query.algebra.evaluation.impl.EvaluationStatistics;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.TripleSources;
 import org.eclipse.rdf4j.repository.sparql.federation.SPARQLServiceResolver;
 
+import com.msd.gin.halyard.algebra.Algebra;
+import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.optimizers.ExtendedEvaluationStatistics;
+import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
+import com.msd.gin.halyard.spin.Argument;
+import com.msd.gin.halyard.spin.ConstraintViolation;
+import com.msd.gin.halyard.spin.SpinFunctionInterpreter;
+import com.msd.gin.halyard.spin.SpinInferencing;
+import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
+import com.msd.gin.halyard.spin.SpinParser;
+import com.msd.gin.halyard.spin.function.AbstractSpinFunction;
+import com.msd.gin.halyard.strategy.ExtendedEvaluationStrategy;
+
 public class CanInvoke extends AbstractSpinFunction implements Function {
 
 	private final FunctionRegistry functionRegistry;
@@ -86,7 +87,13 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 
 	@Override
 	public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
-		QueryPreparer qp = getCurrentQueryPreparer();
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		final TripleSource qpTripleSource = qp.getTripleSource();
 		if (args.length == 0) {
 			throw new ValueExprEvaluationException("At least one argument is required");
@@ -110,7 +117,7 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 				if (argIndex < args.length) {
 					Value argValue = args[argIndex];
 					IRI valueType = funcArg.getValueType();
-					Value isInstance = instanceOfFunc.evaluate(valueFactory, argValue, valueType);
+					Value isInstance = instanceOfFunc.evaluate(tripleSource, argValue, valueType);
 					if (((Literal) isInstance).booleanValue()) {
 						argValues.put(argName, argValue);
 					} else {

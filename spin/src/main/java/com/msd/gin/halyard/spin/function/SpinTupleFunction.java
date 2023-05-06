@@ -17,7 +17,6 @@ import java.util.List;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.SingletonIteration;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.query.BooleanQuery;
 import org.eclipse.rdf4j.query.GraphQuery;
@@ -25,17 +24,20 @@ import org.eclipse.rdf4j.query.Query;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
 import org.eclipse.rdf4j.query.parser.ParsedGraphQuery;
 import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 
 import com.google.common.base.Joiner;
+import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.spin.Argument;
 import com.msd.gin.halyard.spin.function.ConstructTupleFunction.GraphQueryResultIteration;
 import com.msd.gin.halyard.spin.function.SelectTupleFunction.TupleQueryResultIteration;
 
-public class SpinTupleFunction extends AbstractSpinFunction implements TransientTupleFunction {
+public class SpinTupleFunction extends AbstractSpinFunction implements TransientTupleFunction, ExtendedTupleFunction {
 
 	private ParsedQuery parsedQuery;
 
@@ -68,8 +70,9 @@ public class SpinTupleFunction extends AbstractSpinFunction implements Transient
 
 	@Override
 	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
-			ValueFactory valueFactory, Value... args) throws QueryEvaluationException {
-		QueryPreparer qp = getCurrentQueryPreparer();
+			TripleSource tripleSource, Value... args) throws QueryEvaluationException {
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter;
 		if (parsedQuery instanceof ParsedBooleanQuery) {
 			ParsedBooleanQuery askQuery = (ParsedBooleanQuery) parsedQuery;

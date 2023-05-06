@@ -15,6 +15,7 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.SPIF;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.parser.ParsedOperation;
@@ -47,6 +48,11 @@ public class ConvertSpinRDFToString extends AbstractSpinFunction implements Func
 
 	@Override
 	public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
 		if (args.length < 1 || args.length > 2) {
 			throw new ValueExprEvaluationException("Incorrect number of arguments");
 		}
@@ -60,11 +66,11 @@ public class ConvertSpinRDFToString extends AbstractSpinFunction implements Func
 		boolean useHtml = (args.length == 2) ? ((Literal) args[1]).booleanValue() : false;
 		String sparqlString;
 		try {
-			ParsedOperation op = parser.parse(q, getCurrentQueryPreparer().getTripleSource());
+			ParsedOperation op = parser.parse(q, tripleSource);
 			sparqlString = new SPARQLQueryRenderer().render((ParsedQuery) op);
 		} catch (Exception e) {
 			throw new ValueExprEvaluationException(e);
 		}
-		return valueFactory.createLiteral(sparqlString);
+		return tripleSource.getValueFactory().createLiteral(sparqlString);
 	}
 }

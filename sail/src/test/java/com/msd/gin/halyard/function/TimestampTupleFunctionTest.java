@@ -27,7 +27,7 @@ public class TimestampTupleFunctionTest {
 	private static final StatementIndices stmtIndices = StatementIndices.create();
 
 	private TripleSource getStubTripleSource(long ts) {
-		return new HBaseTripleSource(null, SimpleValueFactory.getInstance(), stmtIndices, 0) {
+		return new HBaseTripleSource(null, SimpleValueFactory.getInstance(), stmtIndices, 0, null) {
 			@Override
 			public TripleSource getTimestampedTripleSource() {
 				return new TripleSource() {
@@ -57,7 +57,7 @@ public class TimestampTupleFunctionTest {
 		Resource subj = vf.createBNode();
 		IRI pred = vf.createIRI(":prop");
 		Value obj = vf.createBNode();
-		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter = new TimestampTupleFunction().evaluate(tripleSource, vf, subj, pred, obj);
+		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter = new TimestampTupleFunction().evaluate(tripleSource, subj, pred, obj);
 		assertTrue(iter.hasNext());
 		List<? extends Value> bindings = iter.next();
 		assertEquals(1, bindings.size());
@@ -74,7 +74,7 @@ public class TimestampTupleFunctionTest {
 		Resource subj = vf.createBNode();
 		IRI pred = vf.createIRI(":prop");
 		Value obj = vf.createBNode();
-		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter = new TimestampTupleFunction().evaluate(tripleSource, vf, vf.createTriple(subj, pred, obj));
+		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter = new TimestampTupleFunction().evaluate(tripleSource, vf.createTriple(subj, pred, obj));
 		assertTrue(iter.hasNext());
 		List<? extends Value> bindings = iter.next();
 		assertEquals(1, bindings.size());
@@ -85,22 +85,25 @@ public class TimestampTupleFunctionTest {
 
 	@Test(expected = ValueExprEvaluationException.class)
 	public void testIncorrectNumberOfArgs() {
-		TripleSource ts = null;
-		SimpleValueFactory SVF = SimpleValueFactory.getInstance();
-		new TimestampTupleFunction().evaluate(ts, SVF, SVF.createBNode());
+		long ts = System.currentTimeMillis();
+		TripleSource tripleSource = getStubTripleSource(ts);
+		ValueFactory vf = tripleSource.getValueFactory();
+		new TimestampTupleFunction().evaluate(tripleSource, vf.createBNode());
 	}
 
 	@Test(expected = ValueExprEvaluationException.class)
 	public void testIncorrectNumberArgType1() {
-		TripleSource ts = null;
-		SimpleValueFactory SVF = SimpleValueFactory.getInstance();
-		new TimestampTupleFunction().evaluate(ts, SVF, SVF.createLiteral("foo"), null, null);
+		long ts = System.currentTimeMillis();
+		TripleSource tripleSource = getStubTripleSource(ts);
+		ValueFactory vf = tripleSource.getValueFactory();
+		new TimestampTupleFunction().evaluate(tripleSource, vf.createLiteral("foo"), null, null);
 	}
 
 	@Test(expected = ValueExprEvaluationException.class)
 	public void testIncorrectNumberArgType2() {
-		TripleSource ts = null;
-		SimpleValueFactory SVF = SimpleValueFactory.getInstance();
-		new TimestampTupleFunction().evaluate(ts, SVF, SVF.createBNode(), SVF.createLiteral("foo"), null);
+		long ts = System.currentTimeMillis();
+		TripleSource tripleSource = getStubTripleSource(ts);
+		ValueFactory vf = tripleSource.getValueFactory();
+		new TimestampTupleFunction().evaluate(tripleSource, vf.createBNode(), vf.createLiteral("foo"), null);
 	}
 }

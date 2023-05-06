@@ -15,6 +15,7 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.RDFStarTripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.sail.NotifyingSailConnection;
@@ -45,11 +46,15 @@ class MemoryStoreWithExistsStrategy extends MemoryStore {
 		}
 	}
 
-	static class MockTripleSource implements RDFStarTripleSource, ExtendedTripleSource {
+	static class MockTripleSource implements ExtendedTripleSource, RDFStarTripleSource {
 		private final TripleSource tripleSource;
 
 		MockTripleSource(TripleSource tripleSource) {
 			this.tripleSource = tripleSource;
+		}
+
+		public QueryPreparer getQueryPreparer() {
+			throw new AssertionError();
 		}
 
 		@Override

@@ -4,7 +4,8 @@ import com.google.common.collect.Lists;
 import com.msd.gin.halyard.common.ObjectLiteral;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.sail.HBaseSailConnection;
+import com.msd.gin.halyard.function.ExtendedTupleFunction;
+import com.msd.gin.halyard.sail.HBaseSearchTripleSource;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
@@ -19,7 +20,7 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryContext;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.kohsuke.MetaInfServices;
 
@@ -27,7 +28,7 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 
 @MetaInfServices(TupleFunction.class)
-public class SearchTupleFunction implements TupleFunction {
+public class SearchTupleFunction implements ExtendedTupleFunction {
 
 	@Override
 	public String getURI() {
@@ -35,7 +36,9 @@ public class SearchTupleFunction implements TupleFunction {
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(ValueFactory valueFactory, Value... args) throws QueryEvaluationException {
+	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(TripleSource tripleSource, Value... args) throws QueryEvaluationException {
+		HBaseSearchTripleSource extTripleSource = (HBaseSearchTripleSource) tripleSource;
+
 		if (args.length != 6) {
 			throw new QueryEvaluationException("Missing arguments");
 		}
@@ -51,12 +54,10 @@ public class SearchTupleFunction implements TupleFunction {
 		int fuzziness = ((Literal) args[argPos++]).intValue();
 		int phraseSlop = ((Literal) args[argPos++]).intValue();
 		List<SearchInterpreter.SearchParams.MatchParams> matches = ((ObjectLiteral<List<SearchInterpreter.SearchParams.MatchParams>>) args[argPos++]).objectValue();
-		StatementIndices indices = (StatementIndices) QueryContext.getQueryContext().getAttribute(HBaseSailConnection.QUERY_CONTEXT_INDICES_ATTRIBUTE);
+		ValueFactory valueFactory = extTripleSource.getValueFactory();
+		StatementIndices indices = extTripleSource.getStatementIndices();
 		RDFFactory rdfFactory = indices.getRDFFactory();
-		SearchClient searchClient = (SearchClient) QueryContext.getQueryContext().getAttribute(HBaseSailConnection.QUERY_CONTEXT_SEARCH_ATTRIBUTE);
-		if (searchClient == null) {
-			throw new QueryEvaluationException("Search index not configured");
-		}
+		SearchClient searchClient = extTripleSource.getSearchClient();
 
 		try {
 			SearchResponse<SearchDocument> searchResults = searchClient.search(query, limit, minScore, fuzziness, phraseSlop);

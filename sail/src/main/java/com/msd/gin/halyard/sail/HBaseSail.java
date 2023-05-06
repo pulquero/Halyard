@@ -39,7 +39,6 @@ import com.msd.gin.halyard.util.MBeanManager;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -72,7 +71,6 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.MutableBindingSet;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryContextInitializer;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.AbstractFederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
@@ -209,7 +207,6 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 	private final FunctionRegistry functionRegistry = new DynamicFunctionRegistry();
 	private final TupleFunctionRegistry tupleFunctionRegistry = TupleFunctionRegistry.getInstance();
 	private final SpinParser spinParser = new SpinParser(Input.TEXT_FIRST, functionRegistry, tupleFunctionRegistry);
-	private final List<QueryContextInitializer> queryContextInitializers = new ArrayList<>();
 	private final ScanSettings scanSettings = new ScanSettings();
 	final SailConnectionFactory connFactory;
 	Connection hConnection;
@@ -449,7 +446,7 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 	}
 
 	HalyardEvaluationStatistics newStatistics(Cache<IRI, Long> tripleCountCache) {
-		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs),
+		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs, null),
 				rdfFactory, tripleCountCache);
 		HalyardEvaluationStatistics.ServiceStatsProvider srvStatsProvider = new HalyardEvaluationStatistics.ServiceStatsProvider() {
 			final Map<String, Optional<HalyardEvaluationStatistics>> serviceToStats = new HashMap<>();
@@ -588,14 +585,6 @@ public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
 
 	public FederatedServiceResolver getFederatedServiceResolver() {
 		return federatedServiceResolver;
-	}
-
-	public void addQueryContextInitializer(QueryContextInitializer initializer) {
-		this.queryContextInitializers.add(initializer);
-	}
-
-	protected List<QueryContextInitializer> getQueryContextInitializers() {
-		return this.queryContextInitializers;
 	}
 
 	public SpinParser getSpinParser() {

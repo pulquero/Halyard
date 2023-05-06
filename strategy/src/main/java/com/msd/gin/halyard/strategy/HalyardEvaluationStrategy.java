@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -46,7 +47,7 @@ import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryContext;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizerPipeline;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryValueEvaluationStep;
@@ -73,8 +74,8 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
     private final FederatedServiceResolver serviceResolver;
     private final Map<String,FederatedService> federatedServices = new HashMap<>();
     private final TripleSource tripleSource;
+    private final Dataset dataset;
     private final HalyardEvaluationExecutor executor;
-    private final HalyardEvaluationContext evalContext;
     /**
      * Evaluates TupleExpressions and all implementations of that interface
      */
@@ -95,6 +96,8 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	private QueryOptimizerPipeline pipeline;
 
+	final AtomicReference<Literal> sharedValueOfNow = new AtomicReference<>();
+
 	/**
 	 * Default constructor of HalyardEvaluationStrategy
 	 * 
@@ -107,24 +110,24 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	 * @param serviceResolver {@code FederatedServiceResolver} resolver for any federated services (graphs) required for the evaluation
 	 * @param statistics statistics to use
 	 */
-	public HalyardEvaluationStrategy(Configuration conf, TripleSource tripleSource, QueryContext queryContext,
+	public HalyardEvaluationStrategy(Configuration conf, TripleSource tripleSource,
 			TupleFunctionRegistry tupleFunctionRegistry,
 			FunctionRegistry functionRegistry, Dataset dataset, FederatedServiceResolver serviceResolver,
 			HalyardEvaluationStatistics statistics, HalyardEvaluationExecutor executor) {
 		this.conf = conf;
 		this.tripleSource = tripleSource;
+		this.dataset = dataset;
 		this.serviceResolver = serviceResolver;
 		this.executor = executor;
-		this.evalContext = new HalyardEvaluationContext(queryContext, dataset, tripleSource.getValueFactory());
-		this.tupleEval = new HalyardTupleExprEvaluation(this, evalContext, tupleFunctionRegistry, tripleSource,
+		this.tupleEval = new HalyardTupleExprEvaluation(this, tupleFunctionRegistry, tripleSource, dataset,
 				executor);
-		this.valueEval = new HalyardValueExprEvaluation(this, evalContext, functionRegistry, tripleSource, executor.getQueuePollTimeoutMillis());
+		this.valueEval = new HalyardValueExprEvaluation(this, functionRegistry, tripleSource, executor.getQueuePollTimeoutMillis());
 		this.pipeline = new HalyardQueryOptimizerPipeline(this, tripleSource.getValueFactory(), statistics);
 	}
 
 	HalyardEvaluationStrategy(Configuration conf, TripleSource tripleSource, Dataset dataset,
 			FederatedServiceResolver serviceResolver, HalyardEvaluationStatistics statistics) {
-		this(conf, tripleSource, new QueryContext(), TupleFunctionRegistry.getInstance(), FunctionRegistry.getInstance(),
+		this(conf, tripleSource, TupleFunctionRegistry.getInstance(), FunctionRegistry.getInstance(),
 				dataset, serviceResolver, statistics, new HalyardEvaluationExecutor(conf));
 	}
 
@@ -196,7 +199,6 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	@Override
 	public TupleExpr optimize(TupleExpr expr, EvaluationStatistics evaluationStatistics, BindingSet bindings) {
-		Dataset dataset = evalContext.getDataset();
 		TupleExpr optimizedExpr = expr;
 		for (QueryOptimizer optimizer : pipeline.getOptimizers()) {
 			optimizer.optimize(optimizedExpr, dataset, bindings);
@@ -213,8 +215,13 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
     }
 
     @Override
-    public BindingSetPipeQueryEvaluationStep precompile(TupleExpr expr) {
-    	return tupleEval.precompile(expr);
+    public BindingSetPipeQueryEvaluationStep precompile(TupleExpr expr, QueryEvaluationContext context) {
+    	return tupleEval.precompile(expr, context);
+    }
+
+    @Override
+    public QueryEvaluationStep precompile(TupleExpr expr) {
+    	return precompile(expr, new HalyardEvaluationContext(dataset, tripleSource.getValueFactory()));
     }
 
     /**
@@ -271,23 +278,23 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
     @Override
     public ValuePipeQueryValueEvaluationStep precompile(ValueExpr expr, QueryEvaluationContext context) {
-    	return valueEval.precompile(expr);
+    	return valueEval.precompile(expr, context);
     }
 
 	/**
-     * Called by RDF4J to evaluate a value expression
+     * Called by RDF4J to evaluate a value expression.
      */
     @Override
     public Value evaluate(ValueExpr expr, BindingSet bindings) throws ValueExprEvaluationException, QueryEvaluationException {
-        return valueEval.precompile(expr).evaluate(bindings);
+        return valueEval.precompile(expr, new HalyardEvaluationContext(dataset, tripleSource.getValueFactory())).evaluate(bindings);
     }
 
     /**
-     * Called by RDF4J to evaluate a binary expression
+     * Called by RDF4J to evaluate a boolean expression.
      */
     @Override
     public boolean isTrue(ValueExpr expr, BindingSet bindings) throws ValueExprEvaluationException, QueryEvaluationException {
-    	return isTrue(valueEval.precompile(expr), bindings);
+    	return isTrue(valueEval.precompile(expr, new HalyardEvaluationContext(dataset, tripleSource.getValueFactory())), bindings);
     }
 
 	@Override
@@ -315,7 +322,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	@Override
 	public String toString() {
-		return super.toString() + "[context = " + evalContext + ", tripleSource = " + tripleSource + "]";
+		return super.toString() + "[tripleSource = " + tripleSource + "]";
 	}
 
 

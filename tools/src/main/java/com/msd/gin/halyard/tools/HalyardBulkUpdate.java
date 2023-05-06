@@ -60,7 +60,7 @@ import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.Update;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
-import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.parser.ParsedUpdate;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
@@ -147,7 +147,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 							private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
 
 							@Override
-							protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr tupleExpr, EvaluationStrategy strategy) {
+							protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr tupleExpr, QueryEvaluationStep step) {
 								LOG.info("Optimised query tree:\n{}", tupleExpr);
 								HalyardEvaluationStatistics stats = getStatistics();
 								double estimate = stats.getCardinality(tupleExpr);
@@ -160,7 +160,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 										throw new QueryEvaluationException(e);
 									}
 									handler.accept(next);
-								}, tupleExpr, strategy);
+								}, tupleExpr, step);
 								LOG.info("Execution statistics:\n{}", tupleExpr);
 							}
 

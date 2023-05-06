@@ -97,12 +97,12 @@ import org.eclipse.rdf4j.query.algebra.ValueConstant;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
 import org.eclipse.rdf4j.query.algebra.ValueExprTripleRef;
 import org.eclipse.rdf4j.query.algebra.Var;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.FunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.datetime.Now;
+import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.XMLDatatypeMathUtil;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
@@ -119,7 +119,6 @@ class HalyardValueExprEvaluation {
     private final HalyardEvaluationStrategy parentStrategy;
 	private final FunctionRegistry functionRegistry;
     private final TripleSource tripleSource;
-    private final HalyardEvaluationContext evalContext;
     private final ValueFactory valueFactory;
     private final Literal TRUE;
     private final Literal FALSE;
@@ -127,10 +126,9 @@ class HalyardValueExprEvaluation {
     private final ValueOrError OK_FALSE;
 	private int pollTimeoutMillis;
 
-	HalyardValueExprEvaluation(HalyardEvaluationStrategy parentStrategy, HalyardEvaluationContext evalContext, FunctionRegistry functionRegistry,
+	HalyardValueExprEvaluation(HalyardEvaluationStrategy parentStrategy, FunctionRegistry functionRegistry,
 			TripleSource tripleSource, int pollTimeoutMillis) {
         this.parentStrategy = parentStrategy;
-        this.evalContext = evalContext;
 		this.functionRegistry = functionRegistry;
         this.tripleSource = tripleSource;
         this.valueFactory = tripleSource.getValueFactory();
@@ -144,8 +142,8 @@ class HalyardValueExprEvaluation {
     /**
      * Precompiles the given {@link ValueExpr}
      */
-	ValuePipeQueryValueEvaluationStep precompile(ValueExpr expr) throws ValueExprEvaluationException, QueryEvaluationException {
-		ValuePipeEvaluationStep step = precompileValueExpr(expr);
+	ValuePipeQueryValueEvaluationStep precompile(ValueExpr expr, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
+		ValuePipeEvaluationStep step = precompileValueExpr(expr, evalContext);
 		return new ValuePipeQueryValueEvaluationStep() {
 			@Override
 			public void evaluate(ValuePipe parent, BindingSet bindings) {
@@ -163,73 +161,73 @@ class HalyardValueExprEvaluation {
 		};
 	}
 
-	private ValuePipeEvaluationStep precompileValueExpr(ValueExpr expr) throws ValueExprEvaluationException, QueryEvaluationException {
+	private ValuePipeEvaluationStep precompileValueExpr(ValueExpr expr, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
         if (expr instanceof Var) {
             return precompileVar((Var) expr);
         } else if (expr instanceof ValueConstant) {
             return precompileValueConstant((ValueConstant) expr);
         } else if (expr instanceof BNodeGenerator) {
-            return precompileBNodeGenerator((BNodeGenerator) expr);
+            return precompileBNodeGenerator((BNodeGenerator) expr, evalContext);
         } else if (expr instanceof Bound) {
             return precompileBound((Bound) expr);
         } else if (expr instanceof Str) {
-            return precompileStr((Str) expr);
+            return precompileStr((Str) expr, evalContext);
         } else if (expr instanceof Label) {
-            return precompileLabel((Label) expr);
+            return precompileLabel((Label) expr, evalContext);
         } else if (expr instanceof Lang) {
-            return precompileLang((Lang) expr);
+            return precompileLang((Lang) expr, evalContext);
         } else if (expr instanceof LangMatches) {
-            return precompileLangMatches((LangMatches) expr);
+            return precompileLangMatches((LangMatches) expr, evalContext);
         } else if (expr instanceof Datatype) {
-            return precompileDatatype((Datatype) expr);
+            return precompileDatatype((Datatype) expr, evalContext);
         } else if (expr instanceof Namespace) {
-            return precompileNamespace((Namespace) expr);
+            return precompileNamespace((Namespace) expr, evalContext);
         } else if (expr instanceof LocalName) {
-            return precompileLocalName((LocalName) expr);
+            return precompileLocalName((LocalName) expr, evalContext);
         } else if (expr instanceof IsResource) {
-            return precompileIsResource((IsResource) expr);
+            return precompileIsResource((IsResource) expr, evalContext);
         } else if (expr instanceof IsURI) {
-            return precompileIsURI((IsURI) expr);
+            return precompileIsURI((IsURI) expr, evalContext);
         } else if (expr instanceof IsBNode) {
-            return precompileIsBNode((IsBNode) expr);
+            return precompileIsBNode((IsBNode) expr, evalContext);
         } else if (expr instanceof IsLiteral) {
-            return precompileIsLiteral((IsLiteral) expr);
+            return precompileIsLiteral((IsLiteral) expr, evalContext);
         } else if (expr instanceof IsNumeric) {
-            return precompileIsNumeric((IsNumeric) expr);
+            return precompileIsNumeric((IsNumeric) expr, evalContext);
         } else if (expr instanceof IRIFunction) {
-            return precompileIRIFunction((IRIFunction) expr);
+            return precompileIRIFunction((IRIFunction) expr, evalContext);
         } else if (expr instanceof Regex) {
-            return precompileRegex((Regex) expr);
+            return precompileRegex((Regex) expr, evalContext);
         } else if (expr instanceof Coalesce) {
-            return precompileCoalesce((Coalesce) expr);
+            return precompileCoalesce((Coalesce) expr, evalContext);
         } else if (expr instanceof Like) {
-            return precompileLike((Like) expr);
+            return precompileLike((Like) expr, evalContext);
         } else if (expr instanceof FunctionCall) {
-            return precompileFunctionCall((FunctionCall) expr);
+            return precompileFunctionCall((FunctionCall) expr, evalContext);
         } else if (expr instanceof And) {
-            return precompileAnd((And) expr);
+            return precompileAnd((And) expr, evalContext);
         } else if (expr instanceof Or) {
-            return precompileOr((Or) expr);
+            return precompileOr((Or) expr, evalContext);
         } else if (expr instanceof Not) {
-            return precompileNot((Not) expr);
+            return precompileNot((Not) expr, evalContext);
         } else if (expr instanceof SameTerm) {
-            return precompileSameTerm((SameTerm) expr);
+            return precompileSameTerm((SameTerm) expr, evalContext);
         } else if (expr instanceof Compare) {
-            return precompileCompare((Compare) expr);
+            return precompileCompare((Compare) expr, evalContext);
         } else if (expr instanceof MathExpr) {
-            return precompileMathExpr((MathExpr) expr);
+            return precompileMathExpr((MathExpr) expr, evalContext);
         } else if (expr instanceof In) {
-            return precompileIn((In) expr);
+            return precompileIn((In) expr, evalContext);
         } else if (expr instanceof CompareAny) {
-            return precompileCompareAny((CompareAny) expr);
+            return precompileCompareAny((CompareAny) expr, evalContext);
         } else if (expr instanceof CompareAll) {
-            return precompileCompareAll((CompareAll) expr);
+            return precompileCompareAll((CompareAll) expr, evalContext);
         } else if (expr instanceof Exists) {
-            return precompileExists((Exists) expr);
+            return precompileExists((Exists) expr, evalContext);
         } else if (expr instanceof If) {
-            return precompileIf((If) expr);
+            return precompileIf((If) expr, evalContext);
         } else if (expr instanceof ListMemberOperator) {
-            return precompileListMemberOperator((ListMemberOperator) expr);
+            return precompileListMemberOperator((ListMemberOperator) expr, evalContext);
 		} else if (expr instanceof ValueExprTripleRef) {
 			return precompileValueExprTripleRef((ValueExprTripleRef) expr );
         } else if (expr == null) {
@@ -248,8 +246,8 @@ class HalyardValueExprEvaluation {
 		}
 	}
 
-	private ValuePipeEvaluationStep precompileUnaryValueOperator(UnaryValueOperator node, java.util.function.Function<ValuePipeEvaluationStep,ValuePipeEvaluationStep> operator) {
-		return precompileUnaryValueExpr(precompileValueExpr(node.getArg()), operator);
+	private ValuePipeEvaluationStep precompileUnaryValueOperator(UnaryValueOperator node, java.util.function.Function<ValuePipeEvaluationStep,ValuePipeEvaluationStep> operator, QueryEvaluationContext evalContext) {
+		return precompileUnaryValueExpr(precompileValueExpr(node.getArg(), evalContext), operator);
 	}
 
 	private ValuePipeEvaluationStep precompileBinaryValueExpr(ValuePipeEvaluationStep leftStep, ValuePipeEvaluationStep rightStep, BiFunction<ValuePipeEvaluationStep,ValuePipeEvaluationStep,ValuePipeEvaluationStep> operator) {
@@ -261,8 +259,8 @@ class HalyardValueExprEvaluation {
 		}
 	}
 
-	private ValuePipeEvaluationStep precompileBinaryValueOperator(BinaryValueOperator node, BiFunction<ValuePipeEvaluationStep,ValuePipeEvaluationStep,ValuePipeEvaluationStep> operator) {
-		return precompileBinaryValueExpr(precompileValueExpr(node.getLeftArg()), precompileValueExpr(node.getRightArg()), operator);
+	private ValuePipeEvaluationStep precompileBinaryValueOperator(BinaryValueOperator node, BiFunction<ValuePipeEvaluationStep,ValuePipeEvaluationStep,ValuePipeEvaluationStep> operator, QueryEvaluationContext evalContext) {
+		return precompileBinaryValueExpr(precompileValueExpr(node.getLeftArg(), evalContext), precompileValueExpr(node.getRightArg(), evalContext), operator);
 	}
 
 	private ValuePipeEvaluationStep precompileNAryValueExpr(ValuePipeEvaluationStep[] steps, java.util.function.Function<ValuePipeEvaluationStep[],ValuePipeEvaluationStep> operator) {
@@ -281,11 +279,11 @@ class HalyardValueExprEvaluation {
 		}
 	}
 
-	private ValuePipeEvaluationStep precompileNAryValueOperator(NAryValueOperator node, java.util.function.Function<ValuePipeEvaluationStep[],ValuePipeEvaluationStep> operator) {
+	private ValuePipeEvaluationStep precompileNAryValueOperator(NAryValueOperator node, java.util.function.Function<ValuePipeEvaluationStep[],ValuePipeEvaluationStep> operator, QueryEvaluationContext evalContext) {
     	List<ValueExpr> args = node.getArguments();
     	ValuePipeEvaluationStep[] argSteps = new ValuePipeEvaluationStep[args.size()];
     	for (int i=0; i<argSteps.length; i++) {
-    		argSteps[i] = precompileValueExpr(args.get(i));
+    		argSteps[i] = precompileValueExpr(args.get(i), evalContext);
     	}
 		return precompileNAryValueExpr(argSteps, operator);
 	}
@@ -323,13 +321,14 @@ class HalyardValueExprEvaluation {
     /**
      * Precompiles a {@link BNodeGenerator} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileBNodeGenerator(BNodeGenerator node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileBNodeGenerator(BNodeGenerator node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
         ValueExpr nodeIdExpr = node.getNodeIdExpr();
         if (nodeIdExpr != null) {
-        	ValuePipeEvaluationStep step = precompileValueExpr(nodeIdExpr);
+        	ValuePipeEvaluationStep step = precompileValueExpr(nodeIdExpr, evalContext);
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, nodeId -> {
     	            if (nodeId instanceof Literal) {
@@ -369,10 +368,11 @@ class HalyardValueExprEvaluation {
     /**
      * Precompiles a {@link Str} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileStr(Str node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileStr(Str node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> {
@@ -392,16 +392,17 @@ class HalyardValueExprEvaluation {
 		        	return ValueOrError.ok(str);
 	    		}), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Precompiles a {@link Label} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileLabel(Label node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileLabel(Label node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
         // FIXME: deprecate Label in favour of Str(?)
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
@@ -420,16 +421,17 @@ class HalyardValueExprEvaluation {
 			        }
 	    		}), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Precompiles a {@link Lang} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileLang(Lang node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileLang(Lang node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> {
@@ -448,16 +450,17 @@ class HalyardValueExprEvaluation {
 			        }
 	    		}), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Precompiles a {@link Datatype} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileDatatype(Datatype node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileDatatype(Datatype node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, v -> {
@@ -479,16 +482,17 @@ class HalyardValueExprEvaluation {
 			        }
 	    		}), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Precompiles a {@link Namespace} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileNamespace(Namespace node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileNamespace(Namespace node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> {
@@ -500,16 +504,17 @@ class HalyardValueExprEvaluation {
 			        }
 	    		}), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Precompiles a LocalName node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileLocalName(LocalName node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileLocalName(LocalName node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> {
@@ -521,58 +526,58 @@ class HalyardValueExprEvaluation {
 			        }
 	    		}), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Determines whether the operand (a variable) contains a Resource.
      */
-    private ValuePipeEvaluationStep precompileIsResource(IsResource node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileIsResource(IsResource node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> ok(argValue.isResource())), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Determines whether the operand (a variable) contains a URI.
      */
-    private ValuePipeEvaluationStep precompileIsURI(IsURI node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileIsURI(IsURI node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> ok(argValue.isIRI())), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Determines whether the operand (a variable) contains a BNode.
      */
-    private ValuePipeEvaluationStep precompileIsBNode(IsBNode node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileIsBNode(IsBNode node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> ok(argValue.isBNode())), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Determines whether the operand (a variable) contains a Literal.
      */
-    private ValuePipeEvaluationStep precompileIsLiteral(IsLiteral node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileIsLiteral(IsLiteral node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> ok(argValue.isLiteral())), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Determines whether the operand (a variable) contains a numeric datatyped literal, i.e. a literal with datatype xsd:float, xsd:double, xsd:decimal, or a
      * derived datatype of xsd:decimal.
      */
-    private ValuePipeEvaluationStep precompileIsNumeric(IsNumeric node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileIsNumeric(IsNumeric node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> {
@@ -587,17 +592,18 @@ class HalyardValueExprEvaluation {
 			        return ValueOrError.ok(result);
 	    		}), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Creates a URI from the operand value (a plain literal or a URI).
      *
      * @param node the node to evaluate, represents an invocation of the SPARQL IRI function
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileIRIFunction(IRIFunction node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileIRIFunction(IRIFunction node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ValuePipe(parent) {
@@ -634,13 +640,13 @@ class HalyardValueExprEvaluation {
 	    			}
 	    		}, bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Determines whether the two operands match according to the <code>regex</code> operator.
      */
-    private ValuePipeEvaluationStep precompileRegex(Regex node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileRegex(Regex node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	BiFunction<ValuePipeEvaluationStep,ValuePipeEvaluationStep,ValuePipeEvaluationStep> patternOperator = (pargStep, flagsStep) -> {
     		return (parent, bindings) -> {
         		AtomicInteger args = new AtomicInteger(2);
@@ -716,11 +722,11 @@ class HalyardValueExprEvaluation {
     			}, bindings);
     		};
     	};
-    	ValuePipeEvaluationStep argStep = precompileValueExpr(node.getArg());
-    	ValuePipeEvaluationStep pargStep = precompileValueExpr(node.getPatternArg());
+    	ValuePipeEvaluationStep argStep = precompileValueExpr(node.getArg(), evalContext);
+    	ValuePipeEvaluationStep pargStep = precompileValueExpr(node.getPatternArg(), evalContext);
     	ValuePipeEvaluationStep flagsStep;
     	if (node.getFlagsArg() != null) {
-    		flagsStep = precompileValueExpr(node.getFlagsArg());
+    		flagsStep = precompileValueExpr(node.getFlagsArg(), evalContext);
     	} else {
     		flagsStep = new ConstantValuePipeEvaluationStep(valueFactory.createLiteral("")); // default flags
     	}
@@ -732,10 +738,11 @@ class HalyardValueExprEvaluation {
     /**
      * Determines whether the language tag or the node matches the language argument of the node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileLangMatches(LangMatches node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileLangMatches(LangMatches node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileBinaryValueOperator(node, (langTagStep, langRangeStep) -> {
 	    	return (parent, bindings) -> {
 	    		AtomicInteger args = new AtomicInteger(2);
@@ -766,14 +773,14 @@ class HalyardValueExprEvaluation {
 	    		langTagStep.evaluate(new MultiValuePipe(parent, args, v -> langTagRef.set(v), resultSupplier), bindings);
 	    		langRangeStep.evaluate(new MultiValuePipe(parent, args, v -> langRangeRef.set(v), resultSupplier), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Determines whether the two operands match according to the <code>like</code> operator. The operator is defined as a string comparison with the possible
      * use of an asterisk (*) at the end and/or the start of the second operand to indicate substring matching.
      */
-    private ValuePipeEvaluationStep precompileLike(Like node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileLike(Like node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, val -> {
@@ -842,27 +849,26 @@ class HalyardValueExprEvaluation {
 	                return OK_FALSE;
 	    		}), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Evaluates a function.
      */
-    private ValuePipeEvaluationStep precompileFunctionCall(FunctionCall node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileFunctionCall(FunctionCall node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
 		Function function = functionRegistry.get(node.getURI()).orElseThrow(() -> new QueryEvaluationException(String.format("Unknown function '%s'", node.getURI())));
 
 		// the NOW function is a special case as it needs to keep a shared return
         // value for the duration of the query.
         if (function instanceof Now) {
-            return precompileNow((Now) function);
+            return precompileNow((Now) function, evalContext);
         }
 
         List<ValueExpr> args = node.getArgs();
         ValuePipeEvaluationStep[] argSteps = new ValuePipeEvaluationStep[args.size()];
         for (int i = 0; i < args.size(); i++) {
-            argSteps[i] = precompileValueExpr(args.get(i));
+            argSteps[i] = precompileValueExpr(args.get(i), evalContext);
         }
-        QueryContext queryContext = evalContext.getQueryContext();
         return (parent, bs) -> {
         	if (argSteps.length > 0) {
 	        	AtomicInteger argsRemaining = new AtomicInteger(argSteps.length);
@@ -873,13 +879,10 @@ class HalyardValueExprEvaluation {
 						arr[i] = argValues.get(i);
 					}
 					Value result;
-			        queryContext.begin();
 			        try {
 			        	result = function.evaluate(tripleSource, arr);
 			        } catch (ValueExprEvaluationException e) {
 			        	return ValueOrError.fail(e.getMessage());
-			        } finally {
-			        	queryContext.end();
 			        }
 			        return ValueOrError.ok(result);
 	        	};
@@ -888,14 +891,12 @@ class HalyardValueExprEvaluation {
 	        		argSteps[i].evaluate(new MultiValuePipe(parent, argsRemaining, v -> argValues.set(idx, v), resultSupplier), bs);
 	        	}
         	} else {
-				Value result;
-		        queryContext.begin();
-		        try {
-		        	result = function.evaluate(tripleSource);
-		        } finally {
-		        	queryContext.end();
+        		try {
+		        	Value result = function.evaluate(tripleSource);
+	        		parent.push(result);
+		        } catch (ValueExprEvaluationException e) {
+		        	parent.handleValueError(e.getMessage());
 		        }
-        		parent.push(result);
         	}
         };
     }
@@ -903,10 +904,11 @@ class HalyardValueExprEvaluation {
     /**
      * Precompiles an {@link And} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileAnd(And node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileAnd(And node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileBinaryValueOperator(node, (leftStep, rightStep) -> {
 	    	return (topPipe, bindings) -> {
 	    		leftStep.evaluate(new ValuePipe(topPipe) {
@@ -945,16 +947,17 @@ class HalyardValueExprEvaluation {
 					}
 	    		}, bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Precompiles an {@link Or} node
-     * @param bindings the set of named value bindings
+     * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileOr(Or node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileOr(Or node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileBinaryValueOperator(node, (leftStep, rightStep) -> {
 	    	return (topPipe, bindings) -> {
 	    		leftStep.evaluate(new ValuePipe(topPipe) {
@@ -993,16 +996,17 @@ class HalyardValueExprEvaluation {
 					}
 	    		}, bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Precompiles a {@link Not} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileNot(Not node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileNot(Not node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, v -> {
@@ -1019,17 +1023,18 @@ class HalyardValueExprEvaluation {
 	    			}
 	    		}), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Precompiles a {@link Now} node. the value of 'now' is shared across the whole query and evaluation strategy
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileNow(Now node) throws ValueExprEvaluationException, QueryEvaluationException {
-    	Literal now = evalContext.getNow();
+    private ValuePipeEvaluationStep precompileNow(Now node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
+    	Literal now = parentStrategy.sharedValueOfNow.updateAndGet(current -> current != null ? current : evalContext.getNow());
         return (parent, bindings)-> {
         	parent.push(now);
         };
@@ -1038,10 +1043,11 @@ class HalyardValueExprEvaluation {
     /**
      * Precompiles if the left and right arguments of the {@link SameTerm} node are equal
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileSameTerm(SameTerm node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileSameTerm(SameTerm node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileBinaryValueOperator(node, (leftStep, rightStep) -> {
 	    	return (parent, bindings) -> {
 	    		AtomicInteger args = new AtomicInteger(2);
@@ -1051,21 +1057,22 @@ class HalyardValueExprEvaluation {
 	    		leftStep.evaluate(new MultiValuePipe(parent, args, v -> leftValue.set(v), resultSupplier), bindings);
 	    		rightStep.evaluate(new MultiValuePipe(parent, args, v -> rightValue.set(v), resultSupplier), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Precompiles a {@link Coalesce} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      */
-    private ValuePipeEvaluationStep precompileCoalesce(Coalesce node) throws ValueExprEvaluationException {
+    private ValuePipeEvaluationStep precompileCoalesce(Coalesce node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException {
     	return precompileNAryValueOperator(node, argSteps -> {
 	    	return (parent, bindings) -> {
 	    		Iterator<ValuePipeEvaluationStep> stepIter = Arrays.asList(argSteps).iterator();
 	    		evaluateNextArg(parent, node, stepIter, bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     private void evaluateNextArg(ValuePipe parent, Coalesce node, Iterator<ValuePipeEvaluationStep> stepIter, BindingSet bindings) {
@@ -1096,10 +1103,11 @@ class HalyardValueExprEvaluation {
     /**
      * Precompiles a Compare node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileCompare(Compare node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileCompare(Compare node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileBinaryValueOperator(node, (leftStep, rightStep) -> {
 	    	return (parent, bindings) -> {
 	    		AtomicInteger args = new AtomicInteger(2);
@@ -1109,16 +1117,17 @@ class HalyardValueExprEvaluation {
 	    		leftStep.evaluate(new MultiValuePipe(parent, args, v -> leftValue.set(v), resultSupplier), bindings);
 	    		rightStep.evaluate(new MultiValuePipe(parent, args, v -> rightValue.set(v), resultSupplier), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Precompiles a {@link MathExpr}
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileMathExpr(MathExpr node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileMathExpr(MathExpr node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileBinaryValueOperator(node, (leftStep, rightStep) -> {
 	    	return (parent, bindings) -> {
 	    		AtomicInteger args = new AtomicInteger(2);
@@ -1136,18 +1145,19 @@ class HalyardValueExprEvaluation {
 	    		leftStep.evaluate(new MultiValuePipe(parent, args, v -> leftValue.set(v), resultSupplier), bindings);
 	    		rightStep.evaluate(new MultiValuePipe(parent, args, v -> rightValue.set(v), resultSupplier), bindings);
 	    	};
-    	});
+    	}, evalContext);
     }
 
     /**
      * Precompiles an {@link If} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileIf(If node) throws QueryEvaluationException {
-    	ValuePipeEvaluationStep conditionStep = precompileValueExpr(node.getCondition());
-    	ValuePipeEvaluationStep resultStep = precompileValueExpr(node.getResult());
-    	ValuePipeEvaluationStep altStep = precompileValueExpr(node.getAlternative());
+    private ValuePipeEvaluationStep precompileIf(If node, QueryEvaluationContext evalContext) throws QueryEvaluationException {
+    	ValuePipeEvaluationStep conditionStep = precompileValueExpr(node.getCondition(), evalContext);
+    	ValuePipeEvaluationStep resultStep = precompileValueExpr(node.getResult(), evalContext);
+    	ValuePipeEvaluationStep altStep = precompileValueExpr(node.getAlternative(), evalContext);
     	return (parent, bindings) -> {
     		conditionStep.evaluate(new ValuePipe(parent) {
     			@Override
@@ -1176,12 +1186,13 @@ class HalyardValueExprEvaluation {
     /**
      * Precompiles an {@link In} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileIn(In node) throws ValueExprEvaluationException, QueryEvaluationException {
-    	ValuePipeEvaluationStep argStep = precompileValueExpr(node.getArg());
-		BindingSetPipeQueryEvaluationStep subQueryStep = parentStrategy.precompile(node.getSubQuery());
+    private ValuePipeEvaluationStep precompileIn(In node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
+    	ValuePipeEvaluationStep argStep = precompileValueExpr(node.getArg(), evalContext);
+		BindingSetPipeQueryEvaluationStep subQueryStep = parentStrategy.precompile(node.getSubQuery(), evalContext);
         String bindingName = node.getSubQuery().getBindingNames().iterator().next();
 		return (valuePipe, bindings) -> {
 			argStep.evaluate(new ValuePipe(null) {
@@ -1211,10 +1222,11 @@ class HalyardValueExprEvaluation {
     /**
      * Precompiles a {@link ListMemberOperator}
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileListMemberOperator(ListMemberOperator node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileListMemberOperator(ListMemberOperator node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	return precompileNAryValueOperator(node, argSteps -> {
         	return (parent, bindings) -> {
         		Iterator<ValuePipeEvaluationStep> stepIter = Arrays.asList(argSteps).iterator();
@@ -1226,7 +1238,7 @@ class HalyardValueExprEvaluation {
         			}
         		}, bindings);
         	};
-    	});
+    	}, evalContext);
     }
 
     private void evaluateNextMember(ValuePipe parent, Value leftValue, String typeError, Iterator<ValuePipeEvaluationStep> stepIter, BindingSet bindings) {
@@ -1273,12 +1285,13 @@ class HalyardValueExprEvaluation {
     /**
      * Precompiles a {@link CompareAny} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileCompareAny(CompareAny node) throws ValueExprEvaluationException, QueryEvaluationException {
-    	ValuePipeEvaluationStep argStep = precompileValueExpr(node.getArg());
-		BindingSetPipeQueryEvaluationStep subQueryStep = parentStrategy.precompile(node.getSubQuery());
+    private ValuePipeEvaluationStep precompileCompareAny(CompareAny node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
+    	ValuePipeEvaluationStep argStep = precompileValueExpr(node.getArg(), evalContext);
+		BindingSetPipeQueryEvaluationStep subQueryStep = parentStrategy.precompile(node.getSubQuery(), evalContext);
         String bindingName = node.getSubQuery().getBindingNames().iterator().next();
 		return (valuePipe, bindings) -> {
 			argStep.evaluate(new ValuePipe(null) {
@@ -1320,12 +1333,13 @@ class HalyardValueExprEvaluation {
     /**
      * Precompiles a {@link CompareAll} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileCompareAll(CompareAll node) throws ValueExprEvaluationException, QueryEvaluationException {
-    	ValuePipeEvaluationStep argStep = precompileValueExpr(node.getArg());
-		BindingSetPipeQueryEvaluationStep subQueryStep = parentStrategy.precompile(node.getSubQuery());
+    private ValuePipeEvaluationStep precompileCompareAll(CompareAll node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
+    	ValuePipeEvaluationStep argStep = precompileValueExpr(node.getArg(), evalContext);
+		BindingSetPipeQueryEvaluationStep subQueryStep = parentStrategy.precompile(node.getSubQuery(), evalContext);
         String bindingName = node.getSubQuery().getBindingNames().iterator().next();
 		return (valuePipe, bindings) -> {
 			argStep.evaluate(new ValuePipe(null) {
@@ -1367,10 +1381,11 @@ class HalyardValueExprEvaluation {
     /**
      * Precompiles a {@link Exists} node
      * @param node the node to evaluate
+     * @param evalContext
      * @throws ValueExprEvaluationException
      * @throws QueryEvaluationException
      */
-    private ValuePipeEvaluationStep precompileExists(Exists node) throws ValueExprEvaluationException, QueryEvaluationException {
+    private ValuePipeEvaluationStep precompileExists(Exists node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	TupleExpr subQuery = node.getSubQuery();
     	if ((parentStrategy.getTripleSource() instanceof ExtendedTripleSource) && (subQuery instanceof StatementPattern)) {
     		StatementPattern sp = (StatementPattern) subQuery;
@@ -1385,7 +1400,7 @@ class HalyardValueExprEvaluation {
 			}
 		}
 
-		BindingSetPipeQueryEvaluationStep bsStep = parentStrategy.precompile(subQuery);
+		BindingSetPipeQueryEvaluationStep bsStep = parentStrategy.precompile(subQuery, evalContext);
 		return (valuePipe, bindings) -> {
 			bsStep.evaluate(new ValueBindingSetPipe(valuePipe) {
 				volatile Value hasResult = FALSE;

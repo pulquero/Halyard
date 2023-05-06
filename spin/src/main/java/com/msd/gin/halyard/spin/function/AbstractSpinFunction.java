@@ -13,15 +13,11 @@ package com.msd.gin.halyard.spin.function;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.query.Query;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryContext;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 
 public abstract class AbstractSpinFunction {
 
 	private final String uri;
-
-	private QueryPreparer queryPreparer;
 
 	protected AbstractSpinFunction(String uri) {
 		this.uri = uri;
@@ -29,22 +25,6 @@ public abstract class AbstractSpinFunction {
 
 	public String getURI() {
 		return uri;
-	}
-
-	public QueryPreparer getQueryPreparer() {
-		return queryPreparer;
-	}
-
-	public void setQueryPreparer(QueryPreparer queryPreparer) {
-		this.queryPreparer = queryPreparer;
-	}
-
-	protected QueryPreparer getCurrentQueryPreparer() {
-		QueryPreparer qp = (queryPreparer != null) ? queryPreparer : QueryContext.getQueryContext().getQueryPreparer();
-		if (qp == null) {
-			throw new IllegalStateException("No QueryPreparer!");
-		}
-		return qp;
 	}
 
 	protected static void addBindings(Query query, Value... args) throws ValueExprEvaluationException {

@@ -3,7 +3,8 @@ package com.msd.gin.halyard.sail.geosparql;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.WKTLiteral;
-import com.msd.gin.halyard.sail.HBaseSailConnection;
+import com.msd.gin.halyard.function.ExtendedTupleFunction;
+import com.msd.gin.halyard.sail.HBaseSearchTripleSource;
 import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.sail.search.SearchDocument;
 import com.msd.gin.halyard.vocab.HALYARD;
@@ -21,7 +22,7 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.GEOF;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryContext;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.kohsuke.MetaInfServices;
 import org.locationtech.jts.geom.Coordinate;
@@ -31,14 +32,16 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 
 @MetaInfServices(TupleFunction.class)
-public class WithinDistanceTupleFunction implements TupleFunction {
+public class WithinDistanceTupleFunction implements ExtendedTupleFunction {
 	@Override
 	public String getURI() {
 		return HALYARD.WITHIN_DISTANCE.stringValue();
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(ValueFactory valueFactory, Value... args) throws QueryEvaluationException {
+	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(TripleSource tripleSource, Value... args) throws QueryEvaluationException {
+		HBaseSearchTripleSource extTripleSource = (HBaseSearchTripleSource) tripleSource;
+
 		if (args.length < 3) {
 			throw new QueryEvaluationException("Missing arguments");
 		}
@@ -85,12 +88,10 @@ public class WithinDistanceTupleFunction implements TupleFunction {
 			fromLonRad = Double.NaN;
 		}
 
-		StatementIndices indices = (StatementIndices) QueryContext.getQueryContext().getAttribute(HBaseSailConnection.QUERY_CONTEXT_INDICES_ATTRIBUTE);
+		ValueFactory valueFactory = extTripleSource.getValueFactory();
+		StatementIndices indices = extTripleSource.getStatementIndices();
 		RDFFactory rdfFactory = indices.getRDFFactory();
-		SearchClient searchClient = (SearchClient) QueryContext.getQueryContext().getAttribute(HBaseSailConnection.QUERY_CONTEXT_SEARCH_ATTRIBUTE);
-		if (searchClient == null) {
-			throw new QueryEvaluationException("Search index not configured");
-		}
+		SearchClient searchClient = extTripleSource.getSearchClient();
 
 		try {
 			SearchResponse<SearchDocument> searchResults = searchClient.search(fromCoord.getY(), fromCoord.getX(), esDistLimit, esUnits);

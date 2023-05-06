@@ -22,7 +22,6 @@ import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
-import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.Timestamped;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.TupleFunctionCallOptimizer;
@@ -87,12 +86,9 @@ import org.eclipse.rdf4j.query.QueryInterruptedException;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryContext;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryContextInitializer;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 import org.eclipse.rdf4j.query.algebra.evaluation.RDFStarTripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
-import org.eclipse.rdf4j.query.algebra.evaluation.iterator.QueryContextIteration;
 import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.ParentReferenceCleaner;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 import org.eclipse.rdf4j.sail.SailException;
@@ -108,9 +104,6 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 	public static final String SOURCE_STRING_BINDING = "__source__";
 	public static final String UPDATE_PART_BINDING = "__update_part__";
-	public static final String QUERY_CONTEXT_KEYSPACE_ATTRIBUTE = KeyspaceConnection.class.getName();
-	public static final String QUERY_CONTEXT_INDICES_ATTRIBUTE = StatementIndices.class.getName();
-	public static final String QUERY_CONTEXT_SEARCH_ATTRIBUTE = SearchClient.class.getName();
 	private static final int NO_UPDATE_PARTS = -1;
 
 	private final QueryCache queryCache;
@@ -207,25 +200,16 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
     }
 
-	private HBaseTripleSource createTripleSource() {
-		return new HBaseSearchTripleSource(keyspaceConn, sail.getValueFactory(), sail.getStatementIndices(), sail.evaluationTimeoutSecs, sail.getScanSettings(), searchClient, sail.ticker);
+	private HBaseTripleSource createTripleSource(boolean includeInferred) {
+		SailConnectionQueryPreparer queryPreparer = new SailConnectionQueryPreparer(this, includeInferred, sail.getValueFactory());
+		return new HBaseSearchTripleSource(keyspaceConn, sail.getValueFactory(), sail.getStatementIndices(), sail.evaluationTimeoutSecs, queryPreparer, sail.getScanSettings(), searchClient, sail.ticker);
 	}
 
-	private QueryContext createQueryContext(TripleSource source, boolean includeInferred, String sourceString) {
-		SailConnectionQueryPreparer queryPreparer = new SailConnectionQueryPreparer(this, includeInferred, source);
-		QueryContext queryContext = new QueryContext(queryPreparer);
-		queryContext.setAttribute(QUERY_CONTEXT_KEYSPACE_ATTRIBUTE, keyspaceConn);
-		queryContext.setAttribute(QUERY_CONTEXT_INDICES_ATTRIBUTE, sail.getStatementIndices());
-		queryContext.setAttribute(HalyardEvaluationContext.QUERY_CONTEXT_SOURCE_STRING_ATTRIBUTE, sourceString);
-		queryContext.setAttribute(QUERY_CONTEXT_SEARCH_ATTRIBUTE, searchClient);
-		return queryContext;
-	}
-
-	private EvaluationStrategy createEvaluationStrategy(TripleSource source, Dataset dataset, QueryContext queryContext) {
+	private EvaluationStrategy createEvaluationStrategy(TripleSource source, Dataset dataset) {
 		EvaluationStrategy strategy;
 		HalyardEvaluationStatistics stats = getStatistics();
 		if (usePush) {
-			strategy = new HalyardEvaluationStrategy(sail.getConfiguration(), source, queryContext, sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), dataset, sail.getFederatedServiceResolver(), stats, getExecutor());
+			strategy = new HalyardEvaluationStrategy(sail.getConfiguration(), source, sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), dataset, sail.getFederatedServiceResolver(), stats, getExecutor());
 		} else {
 			strategy = new ExtendedEvaluationStrategy(source, dataset, sail.getFederatedServiceResolver(), sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), 0L, stats);
 			strategy.setOptimizerPipeline(new ExtendedQueryOptimizerPipeline(strategy, source.getValueFactory(), stats));
@@ -280,33 +264,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	// evaluate queries/ subqueries
     @Override
 	public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) throws SailException {
-		flush();
-
-		String sourceString = Literals.getLabel(bindings.getValue(SOURCE_STRING_BINDING), null);
-		int updatePart = Literals.getIntValue(bindings.getValue(UPDATE_PART_BINDING), NO_UPDATE_PARTS);
-		BindingSet queryBindings = removeImplicitBindings(bindings);
-
-		RDFStarTripleSource tripleSource = createTripleSource();
-		QueryContext queryContext = createQueryContext(tripleSource, includeInferred, sourceString);
-		EvaluationStrategy strategy = createEvaluationStrategy(tripleSource, dataset, queryContext);
-
-		queryContext.begin();
-		try {
-			initQueryContext(queryContext);
-			TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);
-			HBaseSail.QueryInfo queryInfo = sail.trackQuery(sourceString, tupleExpr, optimizedTree);
+		return evaluate((optimizedTree, step, queryInfo) -> {
 			try {
-				CloseableIteration<BindingSet, QueryEvaluationException> iter = evaluateInternal(optimizedTree, strategy);
+				CloseableIteration<BindingSet, QueryEvaluationException> iter = evaluateInternal(optimizedTree, step);
 				iter = new IterationWrapper<BindingSet, QueryEvaluationException>(iter) {
 					@Override
 					protected void handleClose() throws QueryEvaluationException {
 						queryInfo.end();
 					}
 				};
-				if (!usePush) {
-					// NB: Iteration methods may do on-demand evaluation hence need to wrap these too
-					iter = new QueryContextIteration(iter, queryContext);
-				}
 				return sail.evaluationTimeoutSecs <= 0 ? iter
 						: new TimeLimitIteration<BindingSet, QueryEvaluationException>(iter, TimeUnit.SECONDS.toMillis(sail.evaluationTimeoutSecs)) {
 							@Override
@@ -318,47 +284,39 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			} catch (QueryEvaluationException ex) {
 				throw new SailException(ex);
 			}
-		} finally {
-			try {
-				destroyQueryContext(queryContext);
-			} finally {
-				queryContext.end();
-			}
-		}
+		}, tupleExpr, dataset, bindings, includeInferred);
     }
 
 	@Override
 	public void evaluate(Consumer<BindingSet> handler, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
+		evaluate((optimizedTree, step, queryInfo) -> {
+			Consumer<BindingSet> timeLimitHandler = TimeLimitConsumer.apply(handler, sail.evaluationTimeoutSecs);
+			try {
+				evaluateInternal(timeLimitHandler, optimizedTree, step);
+			} catch (QueryEvaluationException ex) {
+				throw new SailException(ex);
+			} finally {
+				queryInfo.end();
+			}
+			return null;
+		}, tupleExpr, dataset, bindings, includeInferred);
+	}
+
+	private <E> E evaluate(QueryEvaluator<E> evaluator, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
 		flush();
 
 		String sourceString = Literals.getLabel(bindings.getValue(SOURCE_STRING_BINDING), null);
 		int updatePart = Literals.getIntValue(bindings.getValue(UPDATE_PART_BINDING), NO_UPDATE_PARTS);
 		BindingSet queryBindings = removeImplicitBindings(bindings);
 
-		RDFStarTripleSource tripleSource = createTripleSource();
-		QueryContext queryContext = createQueryContext(tripleSource, includeInferred, sourceString);
-		EvaluationStrategy strategy = createEvaluationStrategy(tripleSource, dataset, queryContext);
+		RDFStarTripleSource tripleSource = createTripleSource(includeInferred);
+		EvaluationStrategy strategy = createEvaluationStrategy(tripleSource, dataset);
 
-		queryContext.begin();
-		try {
-			initQueryContext(queryContext);
-			TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);
-			handler = TimeLimitConsumer.apply(handler, sail.evaluationTimeoutSecs);
-			HBaseSail.QueryInfo queryInfo = sail.trackQuery(sourceString, tupleExpr, optimizedTree);
-			try {
-				evaluateInternal(handler, optimizedTree, strategy);
-			} catch (QueryEvaluationException ex) {
-				throw new SailException(ex);
-			} finally {
-				queryInfo.end();
-			}
-		} finally {
-			try {
-				destroyQueryContext(queryContext);
-			} finally {
-				queryContext.end();
-			}
-		}
+		TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);
+		HalyardEvaluationContext evalContext = new HalyardEvaluationContext(dataset, tripleSource.getValueFactory());
+		QueryEvaluationStep step = strategy.precompile(optimizedTree, evalContext);
+		HBaseSail.QueryInfo queryInfo = sail.trackQuery(sourceString, tupleExpr, optimizedTree);
+		return evaluator.evaluate(optimizedTree, step, queryInfo);
 	}
 
 	private BindingSet removeImplicitBindings(BindingSet bs) {
@@ -372,25 +330,11 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		return (!cleaned.isEmpty()) ? cleaned : EmptyBindingSet.getInstance();
 	}
 
-	private void initQueryContext(QueryContext qctx) {
-		for (QueryContextInitializer initializer : sail.getQueryContextInitializers()) {
-			initializer.init(qctx);
-		}
-	}
-
-	private void destroyQueryContext(QueryContext qctx) {
-		for (QueryContextInitializer initializer : sail.getQueryContextInitializers()) {
-			initializer.destroy(qctx);
-		}
-	}
-
-	protected CloseableIteration<BindingSet, QueryEvaluationException> evaluateInternal(TupleExpr tupleExpr, EvaluationStrategy strategy) throws QueryEvaluationException {
-		QueryEvaluationStep step = strategy.precompile(tupleExpr);
+	protected CloseableIteration<BindingSet, QueryEvaluationException> evaluateInternal(TupleExpr optimizedTree, QueryEvaluationStep step) throws QueryEvaluationException {
 		return step.evaluate(EmptyBindingSet.getInstance());
 	}
 
-	protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr tupleExpr, EvaluationStrategy strategy) throws QueryEvaluationException {
-		QueryEvaluationStep step = strategy.precompile(tupleExpr);
+	protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr optimizedTree, QueryEvaluationStep step) throws QueryEvaluationException {
 		if (step instanceof BindingSetPipeQueryEvaluationStep) {
 			long timeout = sail.evaluationTimeoutSecs > 0 ? sail.evaluationTimeoutSecs : Integer.MAX_VALUE;
 			QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(getExecutor().getMaxQueueSize(), timeout, TimeUnit.SECONDS);
@@ -469,7 +413,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     @Override
     public CloseableIteration<? extends Statement, SailException> getStatements(Resource subj, IRI pred, Value obj, boolean includeInferred, Resource... contexts) throws SailException {
 		flush();
-		TripleSource tripleSource = createTripleSource();
+		TripleSource tripleSource = createTripleSource(includeInferred);
 		return new ExceptionConvertingIteration<Statement, SailException>(tripleSource.getStatements(subj, pred, obj, contexts)) {
 			@Override
 			protected SailException convert(Exception e) {
@@ -486,7 +430,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			}
 		}
 		flush();
-		ExtendedTripleSource tripleSource = createTripleSource();
+		ExtendedTripleSource tripleSource = createTripleSource(includeInferred);
 		return tripleSource.hasStatement(subj, pred, obj, contexts);
 	}
 
@@ -885,5 +829,10 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			conn.setTrackResultTime(sail.isTrackResultTime());
 			return conn;
 		}
+	}
+
+	@FunctionalInterface
+	static interface QueryEvaluator<E> {
+		E evaluate(TupleExpr optimizedTree, QueryEvaluationStep step, HBaseSail.QueryInfo queryInfo);
 	}
 }

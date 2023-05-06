@@ -20,19 +20,20 @@ import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.SPIN;
 import org.eclipse.rdf4j.query.GraphQuery;
 import org.eclipse.rdf4j.query.GraphQueryResult;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.eclipse.rdf4j.query.parser.ParsedGraphQuery;
 
+import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.spin.SpinParser;
 
-public class ConstructTupleFunction extends AbstractSpinFunction implements TupleFunction {
+public class ConstructTupleFunction extends AbstractSpinFunction implements ExtendedTupleFunction {
 
 	private SpinParser parser;
 
@@ -53,10 +54,10 @@ public class ConstructTupleFunction extends AbstractSpinFunction implements Tupl
 		this.parser = parser;
 	}
 
-	@Override
 	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
-			ValueFactory valueFactory, Value... args) throws QueryEvaluationException {
-		QueryPreparer qp = getCurrentQueryPreparer();
+			TripleSource tripleSource, Value... args) throws QueryEvaluationException {
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		if (args.length == 0 || !(args[0] instanceof Resource)) {
 			throw new QueryEvaluationException("First argument must be a resource");
 		}

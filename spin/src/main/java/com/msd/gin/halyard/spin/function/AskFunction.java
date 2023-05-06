@@ -18,10 +18,12 @@ import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.vocabulary.SPIN;
 import org.eclipse.rdf4j.query.BooleanQuery;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
 
+import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.spin.SpinParser;
 
 public class AskFunction extends AbstractSpinFunction implements Function {
@@ -47,7 +49,13 @@ public class AskFunction extends AbstractSpinFunction implements Function {
 
 	@Override
 	public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
-		QueryPreparer qp = getCurrentQueryPreparer();
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		if (args.length == 0 || !(args[0] instanceof Resource)) {
 			throw new ValueExprEvaluationException("First argument must be a resource");
 		}

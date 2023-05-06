@@ -20,10 +20,12 @@ import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.model.vocabulary.SPIF;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.TripleSources;
 
+import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.spin.function.AbstractSpinFunction;
 
 public class Name extends AbstractSpinFunction implements Function {
@@ -34,6 +36,12 @@ public class Name extends AbstractSpinFunction implements Function {
 
 	@Override
 	public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
+		ValueFactory valueFactory = tripleSource.getValueFactory();
 		if (args.length != 1) {
 			throw new ValueExprEvaluationException(
 					String.format("%s requires 1 argument, got %d", getURI(), args.length));
@@ -41,7 +49,8 @@ public class Name extends AbstractSpinFunction implements Function {
 		if (args[0] instanceof Literal) {
 			return valueFactory.createLiteral(((Literal) args[0]).getLabel());
 		} else {
-			QueryPreparer qp = getCurrentQueryPreparer();
+			ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+			QueryPreparer qp = extTripleSource.getQueryPreparer();
 			try {
 
 				try (Stream<Literal> stream = TripleSources
