@@ -94,6 +94,7 @@ public final class QueueingBindingSetPipe extends BindingSetPipe {
 			}
 		} catch (InterruptedException ie) {
 			added = false;
+			Thread.currentThread().interrupt();
 		}
 		return added;
 	}

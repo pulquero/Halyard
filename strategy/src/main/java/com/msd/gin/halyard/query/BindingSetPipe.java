@@ -16,7 +16,7 @@
  */
 package com.msd.gin.halyard.query;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
@@ -26,10 +26,13 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
  * form part of the query evaluation (a query generates an evaluation tree).
  */
 public abstract class BindingSetPipe {
+	private static final int ACCEPT_STATE = 0;
+	private static final int REJECT_STATE = 1;
+	private static final int CLOSED_ONCE_STATE = 2;
+	private static final int CLOSED_MANY_STATE = 3;
 
     protected final BindingSetPipe parent;
-    private final AtomicBoolean closed = new AtomicBoolean();
-    private volatile boolean allowsMore = true;
+    private final AtomicInteger state = new AtomicInteger(ACCEPT_STATE);
 
     /**
      * Create a pipe
@@ -45,16 +48,15 @@ public abstract class BindingSetPipe {
      * (to stop feeding this pipe) by returning false and
      * also to indicate up the tree that this is the end of data
      * (by calling pushLast() on the parent pipe in the evaluation tree).
-     * Must be thread-safe.
      *
      * @param bs BindingSet
      * @return boolean indicating if more data is expected from the caller
      */
     public final boolean push(BindingSet bs) {
-    	if (allowsMore) {
-    		boolean pushMore = closed.get() ? false : next(bs);
+    	if (state.get() == ACCEPT_STATE) {
+    		boolean pushMore = next(bs);
     		if (!pushMore) {
-    			allowsMore = false;
+    			state.set(REJECT_STATE);
     		}
     		return pushMore;
     	} else {
@@ -63,6 +65,7 @@ public abstract class BindingSetPipe {
     }
 
     /**
+     * Must be thread-safe.
      * 
      * @param bs BindingSet
      * @return boolean indicating if more data is expected from the caller
@@ -76,7 +79,13 @@ public abstract class BindingSetPipe {
     }
 
     public final void close() {
-    	if (closed.compareAndSet(false, true)) {
+    	if (state.updateAndGet(current -> {
+    		if (current < CLOSED_ONCE_STATE) {
+    			return CLOSED_ONCE_STATE;
+    		} else {
+    			return CLOSED_MANY_STATE;
+    		}
+    	}) == CLOSED_ONCE_STATE) {
     		doClose();
     	}
     }
@@ -103,6 +112,6 @@ public abstract class BindingSetPipe {
     }
 
     public final boolean isClosed() {
-    	return closed.get();
+    	return state.get() >= CLOSED_ONCE_STATE;
     }
 }

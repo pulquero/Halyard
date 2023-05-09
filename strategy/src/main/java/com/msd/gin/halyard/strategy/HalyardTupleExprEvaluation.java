@@ -598,13 +598,13 @@ final class HalyardTupleExprEvaluation {
 	 * Precompiles a TripleRef node returning bindingsets from the matched Triple nodes in the dataset (or explore
 	 * standard reification)
 	 */
-	private BindingSetPipeEvaluationStep precompileTripleRef(TripleRef ref) {
+	private BindingSetPipeEvaluationStep precompileTripleRef(TripleRef tripleRef) {
 		// Naive implementation that walks over all statements matching (x rdf:type rdf:Statement)
 		// and filter those that do not match the bindings for subject, predicate and object vars (if bound)
-		final Var subjVar = ref.getSubjectVar();
-		final Var predVar = ref.getPredicateVar();
-		final Var objVar = ref.getObjectVar();
-		final Var extVar = ref.getExprVar();
+		final Var subjVar = tripleRef.getSubjectVar();
+		final Var predVar = tripleRef.getPredicateVar();
+		final Var objVar = tripleRef.getObjectVar();
+		final Var extVar = tripleRef.getExprVar();
 		// whether the TripleSouce support access to RDF star
 		final boolean sourceSupportsRdfStar = tripleSource instanceof RDFStarTripleSource;
 		if (sourceSupportsRdfStar) {
@@ -632,6 +632,7 @@ final class HalyardTupleExprEvaluation {
 
 				if (extValue != null) {
 					Triple extTriple = (Triple) extValue;
+					parentStrategy.initTracking(tripleRef);
 					QueryBindingSet result = new QueryBindingSet(bindings);
 					if (subjValue == null) {
 						result.addBinding(subjVar.getName(), extTriple.getSubject());
@@ -651,6 +652,7 @@ final class HalyardTupleExprEvaluation {
 						parent.close(); // nothing to push
 						return;
 					}
+					parentStrategy.incrementResultSizeActual(tripleRef);
 					parent.pushLast(result);
 				} else {
 					final QueryEvaluationStep evalStep = bs -> {
@@ -674,7 +676,7 @@ final class HalyardTupleExprEvaluation {
 							}
 						};
 					};
-					executor.pullAndPushAsync(parent, evalStep, ref, bindings, parentStrategy);
+					executor.pullAndPushAsync(parent, evalStep, tripleRef, bindings, parentStrategy);
 				}
 			};
 		} else {
@@ -774,7 +776,7 @@ final class HalyardTupleExprEvaluation {
 						}
 					};
 				};
-				executor.pullAndPushAsync(parent, evalStep, ref, bindings, parentStrategy);
+				executor.pullAndPushAsync(parent, evalStep, tripleRef, bindings, parentStrategy);
 			};
 		}
 	}
@@ -1141,7 +1143,9 @@ final class HalyardTupleExprEvaluation {
 									aggregators.bindResult(result);
 								}
 								parentStrategy.incrementResultSizeActual(group);
-								parent.push(result);
+								if (!parent.push(result)) {
+									break;
+								}
 							}
 						} else {
 							QueryBindingSet result = new QueryBindingSet(bindings);
