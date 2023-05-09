@@ -17,6 +17,7 @@
 package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.sail.ElasticSettings;
 import com.msd.gin.halyard.sail.HBaseSail;
@@ -104,6 +105,15 @@ public final class HalyardProfile extends AbstractHalyardTool {
 					}
 					@Override
 					protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr optimizedTupleExpr, QueryEvaluationStep step) throws QueryEvaluationException {
+		                System.out.println(toMessage("Optimized query:", optimizedTupleExpr));
+					}
+					@Override
+					public void evaluate(BindingSetPipe pipe, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
+		                System.out.println(toMessage("Original query:", tupleExpr));
+		                super.evaluate(pipe, tupleExpr, dataset, bindings, includeInferred);
+					}
+					@Override
+					protected void evaluateInternal(BindingSetPipe pipe, TupleExpr optimizedTupleExpr, QueryEvaluationStep step) throws QueryEvaluationException {
 		                System.out.println(toMessage("Optimized query:", optimizedTupleExpr));
 					}
 		            private String toMessage(String msg, TupleExpr expr) {

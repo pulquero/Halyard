@@ -2,8 +2,11 @@ package com.msd.gin.halyard.federation;
 
 import com.msd.gin.halyard.algebra.ServiceRoot;
 import com.msd.gin.halyard.common.ValueFactories;
-import com.msd.gin.halyard.sail.BindingSetCallbackSail;
-import com.msd.gin.halyard.sail.BindingSetCallbackSailConnection;
+import com.msd.gin.halyard.query.BindingSetPipe;
+import com.msd.gin.halyard.sail.BindingSetConsumerSail;
+import com.msd.gin.halyard.sail.BindingSetConsumerSailConnection;
+import com.msd.gin.halyard.sail.BindingSetPipeSail;
+import com.msd.gin.halyard.sail.BindingSetPipeSailConnection;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -26,7 +29,7 @@ import org.eclipse.rdf4j.repository.sparql.query.InsertBindingSetCursor;
 import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.SailConnection;
 
-public class SailFederatedService implements BindingSetCallbackFederatedService {
+public class SailFederatedService implements BindingSetConsumerFederatedService, BindingSetPipeFederatedService {
 	private final Sail sail;
 	private final AtomicBoolean initialized = new AtomicBoolean();
 
@@ -83,14 +86,28 @@ public class SailFederatedService implements BindingSetCallbackFederatedService 
 
 	@Override
 	public void select(Consumer<BindingSet> handler, Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
-		if (sail instanceof BindingSetCallbackSail) {
-			try (BindingSetCallbackSailConnection conn = (BindingSetCallbackSailConnection) getConnection()) {
+		if (sail instanceof BindingSetConsumerSail) {
+			try (BindingSetConsumerSailConnection conn = (BindingSetConsumerSailConnection) getConnection()) {
 				handler = new InsertBindingSetCallback(handler, bindings);
 				conn.evaluate(handler, ServiceRoot.create(service), null, ValueFactories.convertValues(bindings, sail.getValueFactory()), true);
 			}
 		} else {
 			try (CloseableIteration<BindingSet, QueryEvaluationException> result = select(service, projectionVars, bindings, baseUri)) {
-				BindingSetCallbackSailConnection.report(result, handler);
+				BindingSetConsumerSailConnection.report(result, handler);
+			}
+		}
+	}
+
+	@Override
+	public void select(BindingSetPipe pipe, Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
+		if (sail instanceof BindingSetPipeSail) {
+			try (BindingSetPipeSailConnection conn = (BindingSetPipeSailConnection) getConnection()) {
+				pipe = new InsertBindingSetPipe(pipe, bindings);
+				conn.evaluate(pipe, ServiceRoot.create(service), null, ValueFactories.convertValues(bindings, sail.getValueFactory()), true);
+			}
+		} else {
+			try (CloseableIteration<BindingSet, QueryEvaluationException> result = select(service, projectionVars, bindings, baseUri)) {
+				BindingSetPipeSailConnection.report(result, pipe);
 			}
 		}
 	}
@@ -191,6 +208,27 @@ public class SailFederatedService implements BindingSetCallbackFederatedService 
 				combined.setBinding(binding);
 			}
 			delegate.accept(combined);
+		}
+	}
+
+
+	private static class InsertBindingSetPipe extends BindingSetPipe {
+		private final BindingSet bindingSet;
+
+		InsertBindingSetPipe(BindingSetPipe delegate, BindingSet bs) {
+			super(delegate);
+			this.bindingSet = bs;
+		}
+
+		@Override
+		protected boolean next(BindingSet bs) {
+			int size = bindingSet.size() + bs.size();
+			QueryBindingSet combined = new QueryBindingSet(size);
+			combined.addAll(bindingSet);
+			for (Binding binding : bs) {
+				combined.setBinding(binding);
+			}
+			return parent.push(combined);
 		}
 	}
 }

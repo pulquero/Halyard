@@ -94,7 +94,7 @@ import co.elastic.clients.transport.rest_client.RestClientTransport;
  * only supported for queries across multiple graphs in one Halyard database.
  * @author Adam Sotona (MSD)
  */
-public class HBaseSail implements BindingSetCallbackSail, HBaseSailMXBean {
+public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, HBaseSailMXBean {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HBaseSail.class);
 
     /**

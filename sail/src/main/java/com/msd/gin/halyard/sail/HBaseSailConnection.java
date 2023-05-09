@@ -25,6 +25,7 @@ import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.Timestamped;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.TupleFunctionCallOptimizer;
+import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.query.QueueingBindingSetPipe;
 import com.msd.gin.halyard.query.TimeLimitConsumer;
@@ -99,7 +100,7 @@ import org.slf4j.LoggerFactory;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 
-public class HBaseSailConnection extends AbstractSailConnection implements BindingSetCallbackSailConnection {
+public class HBaseSailConnection extends AbstractSailConnection implements BindingSetConsumerSailConnection, BindingSetPipeSailConnection {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HBaseSailConnection.class);
 
 	public static final String SOURCE_STRING_BINDING = "__source__";
@@ -302,6 +303,20 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}, tupleExpr, dataset, bindings, includeInferred);
 	}
 
+	@Override
+	public void evaluate(BindingSetPipe pipe, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
+		evaluate((optimizedTree, step, queryInfo) -> {
+			try {
+				evaluateInternal(pipe, optimizedTree, step);
+			} catch (QueryEvaluationException ex) {
+				throw new SailException(ex);
+			} finally {
+				queryInfo.end();
+			}
+			return null;
+		}, tupleExpr, dataset, bindings, includeInferred);
+	}
+
 	private <E> E evaluate(QueryEvaluator<E> evaluator, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
 		flush();
 
@@ -341,7 +356,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			((BindingSetPipeQueryEvaluationStep) step).evaluate(pipe, EmptyBindingSet.getInstance());
 			pipe.collect(handler);
 		} else {
-			BindingSetCallbackSailConnection.report(step.evaluate(EmptyBindingSet.getInstance()), handler);
+			BindingSetConsumerSailConnection.report(step.evaluate(EmptyBindingSet.getInstance()), handler);
+		}
+	}
+
+	protected void evaluateInternal(BindingSetPipe pipe, TupleExpr optimizedTree, QueryEvaluationStep step) throws QueryEvaluationException {
+		if (step instanceof BindingSetPipeQueryEvaluationStep) {
+			((BindingSetPipeQueryEvaluationStep) step).evaluate(pipe, EmptyBindingSet.getInstance());
+		} else {
+			BindingSetPipeSailConnection.report(step.evaluate(EmptyBindingSet.getInstance()), pipe);
 		}
 	}
 

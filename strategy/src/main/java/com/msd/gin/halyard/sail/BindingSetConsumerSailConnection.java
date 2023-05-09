@@ -9,7 +9,7 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.sail.SailConnection;
 
-public interface BindingSetCallbackSailConnection extends SailConnection {
+public interface BindingSetConsumerSailConnection extends SailConnection {
 	default void evaluate(Consumer<BindingSet> handler, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
 		report(evaluate(tupleExpr, dataset, bindings, includeInferred), handler);
 	}

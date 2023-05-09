@@ -1,6 +1,8 @@
 package com.msd.gin.halyard.common;
 
-import com.msd.gin.halyard.util.LRUCache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -22,13 +24,13 @@ import org.eclipse.rdf4j.model.base.CoreDatatype;
 
 public final class CachingValueFactory implements ValueFactory {
 	private final ValueFactory delegate;
-	private final LRUCache<String,IRI> iriCache;
+	private final LoadingCache<String,IRI> iriCache;
 	private IRI defaultContext;
 	private boolean overrideContext;
 
 	public CachingValueFactory(ValueFactory vf, int cacheSize) {
 		delegate = vf;
-		iriCache = new LRUCache<>(cacheSize);
+		iriCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build(CacheLoader.from(delegate::createIRI));
 	}
 
 	public void setDefaultContext(IRI defaultContext, boolean overrideContext) {
@@ -37,7 +39,7 @@ public final class CachingValueFactory implements ValueFactory {
 	}
 
 	private IRI getOrCreateIRI(String v) {
-		return iriCache.computeIfAbsent(v, delegate::createIRI);
+		return iriCache.getUnchecked(v);
 	}
 
 	@Override

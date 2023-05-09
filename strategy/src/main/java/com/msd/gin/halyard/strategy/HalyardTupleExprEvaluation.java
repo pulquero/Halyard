@@ -29,7 +29,8 @@ import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
 import com.msd.gin.halyard.common.ValueFactories;
 import com.msd.gin.halyard.common.ValueType;
-import com.msd.gin.halyard.federation.BindingSetCallbackFederatedService;
+import com.msd.gin.halyard.federation.BindingSetConsumerFederatedService;
+import com.msd.gin.halyard.federation.BindingSetPipeFederatedService;
 import com.msd.gin.halyard.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.query.AbortConsumerException;
@@ -1660,11 +1661,22 @@ final class HalyardTupleExprEvaluation {
             	topPipe.close();
 	        } else {
 		        // otherwise: perform a SELECT query
-		        if (fs instanceof BindingSetCallbackFederatedService) {
+		        if (fs instanceof BindingSetPipeFederatedService) {
+            		BindingSetPipe pipe = parentStrategy.track(topPipe, service);
+            		ValueFactory cachingVF = new CachingValueFactory(tripleSource.getValueFactory(), valueCacheSize);
+					((BindingSetPipeFederatedService)fs).select(new BindingSetPipe(pipe) {
+						@Override
+						protected boolean next(BindingSet theirBs) {
+							// in same VM so need to explicitly convert Values
+							BindingSet ourBs = ValueFactories.convertValues(theirBs, cachingVF);
+							return parent.push(ourBs);
+						}
+					}, service, freeVars, fsBindings, baseUri);
+		        } else if (fs instanceof BindingSetConsumerFederatedService) {
             		BindingSetPipe pipe = parentStrategy.track(topPipe, service);
             		ValueFactory cachingVF = new CachingValueFactory(tripleSource.getValueFactory(), valueCacheSize);
 	            	try {
-	            		((BindingSetCallbackFederatedService)fs).select(theirBs -> {
+	            		((BindingSetConsumerFederatedService)fs).select(theirBs -> {
 	            			// in same VM so need to explicitly convert Values
 	            			BindingSet ourBs = ValueFactories.convertValues(theirBs, cachingVF);
 	            			if(!pipe.push(ourBs)) {
