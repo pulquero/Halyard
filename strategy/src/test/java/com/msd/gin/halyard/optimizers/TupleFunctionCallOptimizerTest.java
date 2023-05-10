@@ -16,6 +16,8 @@ import org.eclipse.rdf4j.query.algebra.Extension;
 import org.eclipse.rdf4j.query.algebra.ExtensionElem;
 import org.eclipse.rdf4j.query.algebra.Filter;
 import org.eclipse.rdf4j.query.algebra.Join;
+import org.eclipse.rdf4j.query.algebra.QueryRoot;
+import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.ValueConstant;
@@ -65,6 +67,7 @@ public class TupleFunctionCallOptimizerTest {
 		Join join = new Join(tfc, sp);
 		TupleExpr root = Algebra.ensureRooted(join);
 		optimize(root);
+		assertEquals(tfc, ((QueryRoot)root).getArg());
         assertEquals(sp, tfc.getDependentExpression(), root.toString());
 	}
 
@@ -75,6 +78,7 @@ public class TupleFunctionCallOptimizerTest {
 		Join join = new Join(sp, tfc);
 		TupleExpr root = Algebra.ensureRooted(join);
 		optimize(root);
+		assertEquals(tfc, ((QueryRoot)root).getArg());
         assertEquals(sp, tfc.getDependentExpression(), root.toString());
 	}
 
@@ -101,6 +105,7 @@ public class TupleFunctionCallOptimizerTest {
 		Join join = new Join(tfc, ext);
 		TupleExpr root = Algebra.ensureRooted(join);
 		optimize(root);
+		assertEquals(tfc, ((QueryRoot)root).getArg());
         assertEquals(ext, tfc.getDependentExpression(), root.toString());
 	}
 
@@ -120,6 +125,32 @@ public class TupleFunctionCallOptimizerTest {
 		assertEquals(tfc2, tfc3.getDependentExpression(), root.toString());
 		assertEquals(tfc1, tfc2.getDependentExpression(), root.toString());
 		assertEquals(tfcx, tfc1.getDependentExpression(), root.toString());
+	}
+
+	@Test
+	public void testTupleFunctionWithService() {
+		ValueFactory vf = SimpleValueFactory.getInstance();
+		ExtendedTupleFunctionCall tfc = createTupleFunctionCall("o1", "out");
+		StatementPattern sp = createStatementPattern("s", "p1", "o1");
+		Service service = new Service(new Var("url", vf.createIRI("http://endpoint")), sp, "", null, null, false);
+		Join join = new Join(tfc, service);
+		TupleExpr root = Algebra.ensureRooted(join);
+		optimize(root);
+		assertEquals(tfc, ((QueryRoot)root).getArg());
+		assertEquals(service, tfc.getDependentExpression(), root.toString());
+	}
+
+	@Test
+	public void testServiceWithTupleFunction() {
+		ValueFactory vf = SimpleValueFactory.getInstance();
+		ExtendedTupleFunctionCall tfc = createTupleFunctionCall("o1", "out");
+		StatementPattern sp = createStatementPattern("s", "p1", "o1");
+		Service service = new Service(new Var("url", vf.createIRI("http://endpoint")), tfc, "", null, null, false);
+		Join join = new Join(service, sp);
+		TupleExpr root = Algebra.ensureRooted(join);
+		optimize(root);
+		assertEquals(service, ((QueryRoot)root).getArg());
+		assertEquals(sp, tfc.getDependentExpression(), root.toString());
 	}
 
 	private List<Join> getJoins(TupleExpr expr) {

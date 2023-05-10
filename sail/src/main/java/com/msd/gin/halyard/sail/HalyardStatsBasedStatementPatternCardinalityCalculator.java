@@ -55,7 +55,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 
 	static Cache<IRI, Long> newStatementCountCache() {
 		// NB: use concurrency of 1 else waste lots of HBase connections retrieving the same data concurrently
-		return CacheBuilder.newBuilder().concurrencyLevel(1).maximumSize(1000).build();
+		return CacheBuilder.newBuilder().concurrencyLevel(1).maximumSize(100).build();
 	}
 
 	public HalyardStatsBasedStatementPatternCardinalityCalculator(TripleSource statsSource, RDFFactory rdfFactory, Cache<IRI, Long> stmtCountCache) {

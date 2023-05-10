@@ -39,11 +39,6 @@ public class TupleFunctionCallOptimizer implements QueryOptimizer {
 			public void meet(StatementPattern node) {
 				// skip children
 			}
-
-			@Override
-			public void meet(Service node) {
-				// leave for the remote endpoint
-			}
 		});
 	}
 
