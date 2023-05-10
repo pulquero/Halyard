@@ -1,7 +1,5 @@
 package com.msd.gin.halyard.common;
 
-import static com.msd.gin.halyard.common.StatementIndex.*;
-
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
@@ -142,23 +140,19 @@ public final class StatementIndices {
 	}
 
 	public Scan scanAll() {
-		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*6; // all 6 indices
-        int rowBatchSize = HalyardTableUtils.rowBatchSize(cardinality, maxCaching);
 		return HalyardTableUtils.scan(
 			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.role3.startKey(), spo.role4.startKey()),
 			cosp.concat(true, cosp.role1.stopKey(), cosp.role2.stopKey(), cosp.role3.stopKey(), cosp.role4.stopKey()),
-			rowBatchSize,
+			maxCaching,
 			true
 		);
 	}
 
 	public Scan scanDefaultIndices() {
-		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*3; // 3 indices
-        int rowBatchSize = HalyardTableUtils.rowBatchSize(cardinality, maxCaching);
 		return HalyardTableUtils.scan(
 			spo.concat(false, spo.role1.startKey(), spo.role2.startKey(), spo.role3.startKey(), spo.role4.startKey()),
 			osp.concat(true, osp.role1.stopKey(), osp.role2.stopKey(), osp.role3.stopKey(), osp.role4.stopKey()),
-			rowBatchSize,
+			maxCaching,
 			true
 		);
 	}
@@ -189,11 +183,10 @@ public final class StatementIndices {
 		StatementIndex<SPOC.O,SPOC.S,SPOC.P,SPOC.C> index = osp;
 		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
 		if (typeSaltSize == 1) {
-			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
 				rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role1.startKey()), index.role2.startKey(), index.role3.startKey(), index.role4.startKey(),
 				rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role1.stopKey()), index.role2.stopKey(), index.role3.stopKey(), index.role4.stopKey(),
-				cardinality,
+				maxCaching,
 				true
 			);
 		} else {
@@ -208,11 +201,10 @@ public final class StatementIndices {
 		if (typeSaltSize == 1) {
 			ValueIdentifier.Format idFormat = rdfFactory.idFormat;
 			ByteSequence ctxb = new ByteArray(index.role1.keyHash(ctx.getId(), idFormat));
-			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
 				ctxb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.startKey()), index.role3.startKey(), index.role4.startKey(),
 				ctxb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.stopKey()), index.role3.stopKey(), index.role4.stopKey(),
-				cardinality,
+				maxCaching,
 				true
 			);
 		} else {
@@ -227,11 +219,10 @@ public final class StatementIndices {
 		if (typeSaltSize == 1) {
 			ValueIdentifier.Format idFormat = rdfFactory.idFormat;
 			ByteSequence predb = new ByteArray(index.role1.keyHash(pred.getId(), idFormat));
-			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
 				predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.startKey()), index.role3.startKey(), index.role4.startKey(),
 				predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role2.stopKey()), index.role3.stopKey(), index.role4.stopKey(),
-				cardinality,
+				maxCaching,
 				true
 			);
 		} else {
@@ -248,11 +239,10 @@ public final class StatementIndices {
 			ValueIdentifier.Format idFormat = rdfFactory.idFormat;
 			ByteSequence ctxb = new ByteArray(index.role1.keyHash(ctx.getId(), idFormat));
 			ByteSequence predb = new ByteArray(index.role2.keyHash(pred.getId(), idFormat));
-			int cardinality = VAR_CARDINALITY*VAR_CARDINALITY;
 			return index.scan(
 				ctxb, predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role3.startKey()), index.role4.startKey(),
 				ctxb, predb, rdfFactory.writeSaltAndType(0, ValueType.LITERAL, null, index.role3.stopKey()), index.role4.stopKey(),
-				cardinality,
+				maxCaching,
 				true
 			);
 		} else {

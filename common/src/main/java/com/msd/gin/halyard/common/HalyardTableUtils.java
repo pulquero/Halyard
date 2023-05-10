@@ -418,13 +418,7 @@ public final class HalyardTableUtils {
     }
 
 	static int rowBatchSize(int cardinality, int maxCachingLimit) {
-		if (cardinality == 1) {
-			return 1;
-		} else if (cardinality > StatementIndex.VAR_CARDINALITY) {
-			return maxCachingLimit;
-		} else {
-			return 100;
-		}
+		return Math.min(cardinality, maxCachingLimit);
 	}
 
 	private static ColumnFamilyDescriptor createColumnFamily(int maxVersions, RDFFactory rdfFactory) {

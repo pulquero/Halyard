@@ -39,7 +39,21 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 	};
 	private static final byte WELL_KNOWN_IRI_MARKER = (byte) ('#' | 0x80);  // marker must be negative (msb set) so it is distinguishable from a length (>=0)
-	static final int VAR_CARDINALITY = 10;
+
+	private static int getRoleCardinality(RDFRole.Name role) {
+		switch (role) {
+			case SUBJECT:
+				return 1000;
+			case PREDICATE:
+				return 10;
+			case OBJECT:
+				return 1000;
+			case CONTEXT:
+				return 3;
+			default:
+				throw new AssertionError();
+		}
+	}
 
 	/**
 	 * @param sizeLen length of size field, 2 for short, 4 for int.
@@ -128,6 +142,10 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	private final RDFRole<?>[] spocRoles;
 	private final RDFFactory rdfFactory;
 	private final ValueIdentifier.Format idFormat;
+	private final int cardinality1;
+	private final int cardinality2;
+	private final int cardinality3;
+	private final int cardinality4;
 	private final int maxCaching;
 
 	StatementIndex(Name name, int prefix, RDFRole<T1> role1, RDFRole<T2> role2, RDFRole<T3> role3, RDFRole<T4> role4, RDFFactory rdfFactory, Configuration conf) {
@@ -152,6 +170,10 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			this.spocIndices[spocIndex] = i;
 			this.spocRoles[spocIndex] = role;
 		}
+		this.cardinality1 = getRoleCardinality(role1.getName());
+		this.cardinality2 = getRoleCardinality(role2.getName());
+		this.cardinality3 = getRoleCardinality(role3.getName());
+		this.cardinality4 = getRoleCardinality(role4.getName());
 	}
 
 	public Name getName() {
@@ -315,7 +337,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return scanWithConstraint(null);
 	}
 	public Scan scanWithConstraint(ValueConstraint constraint) {
-		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
+		int cardinality = cardinality1*cardinality2*cardinality3*cardinality4;
 		Scan scan = scan(
 			role1.startKey(), role2.startKey(), role3.startKey(), role4.startKey(),
 			role1.stopKey(),  role2.stopKey(),  role3.stopKey(),  role4.stopKey(),
@@ -338,7 +360,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	}
 	public Scan scanWithConstraint(RDFIdentifier<T1> k1, ValueConstraint constraint) {
 		ByteSequence kb = new ByteArray(role1.keyHash(k1.getId(), idFormat));
-		int cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
+		int cardinality = cardinality1*cardinality2*cardinality3;
 		Scan scan = scan(
 			kb, role2.startKey(), role3.startKey(), role4.startKey(),
 			kb, role2.stopKey(),  role3.stopKey(),  role4.stopKey(),
@@ -370,11 +392,11 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		if (k2 != null) {
 			k2b = new ByteArray(role2.keyHash(k2.getId(), idFormat));
 			stop2 = k2b;
-			cardinality = VAR_CARDINALITY*VAR_CARDINALITY;
+			cardinality = cardinality1*cardinality2;
 		} else {
 			k2b = role2.startKey();
 			stop2 = role2.stopKey();
-			cardinality = VAR_CARDINALITY*VAR_CARDINALITY*VAR_CARDINALITY;
+			cardinality = cardinality1*cardinality2*cardinality3;
 		}
 		Scan scan = scan(
 			k1b, k2b, role3.startKey(), role4.startKey(),
@@ -407,11 +429,11 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		if (k3 != null) {
 			k3b = new ByteArray(role3.keyHash(k3.getId(), idFormat));
 			stop3 = k3b;
-			cardinality = VAR_CARDINALITY;
+			cardinality = cardinality1;
 		} else {
 			k3b = role3.startKey();
 			stop3 = role3.stopKey();
-			cardinality = VAR_CARDINALITY*VAR_CARDINALITY;
+			cardinality = cardinality1*cardinality2;
 		}
 		Scan scan = scan(
 			k1b, k2b, k3b, role4.startKey(),
