@@ -1,7 +1,8 @@
 package com.msd.gin.halyard.function;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.msd.gin.halyard.common.XMLLiteral;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
 import com.msd.gin.halyard.vocab.HALYARD;
@@ -13,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import javax.xml.namespace.QName;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -36,14 +38,14 @@ import org.w3c.dom.ls.LSSerializer;
 
 @MetaInfServices(TupleFunction.class)
 public class XPathTupleFunction implements TupleFunction, InverseMagicProperty {
-	private static final Cache<String, XPathExpression> XPATH_CACHE = CacheBuilder.newBuilder().maximumSize(100).expireAfterAccess(10, TimeUnit.SECONDS).concurrencyLevel(1).build();
-
-	private static final ThreadLocal<XPathFactory> XPATH_FACTORY = new ThreadLocal<XPathFactory>() {
+	private static final class XPathCacheLoader extends CacheLoader<String, XPathExpression> {
 		@Override
-		protected XPathFactory initialValue() {
-			return XPathFactory.newInstance();
+		public XPathExpression load(String query) throws XPathExpressionException {
+			return XPathFactory.newInstance().newXPath().compile(query);
 		}
-	};
+	}
+
+	private static final LoadingCache<String, XPathExpression> XPATH_CACHE = CacheBuilder.newBuilder().maximumSize(100).expireAfterAccess(10, TimeUnit.SECONDS).concurrencyLevel(1).build(new XPathCacheLoader());
 
 	@Override
 	public String getURI() {
@@ -82,7 +84,7 @@ public class XPathTupleFunction implements TupleFunction, InverseMagicProperty {
 				String xml = ((Literal) args[1]).getLabel();
 				doc = XMLLiteral.parseXml(xml);
 			}
-			XPathExpression xpe = XPATH_CACHE.get(query, () -> XPATH_FACTORY.get().newXPath().compile(query));
+			XPathExpression xpe = XPATH_CACHE.get(query);
 			Object result = xpe.evaluate(doc, returnType);
 			LSSerializer serializer;
 			if (result instanceof Node || result instanceof NodeList) {

@@ -16,8 +16,9 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.common.InternalObjectLiteral;
 import com.msd.gin.halyard.query.BindingSetPipe;
@@ -114,7 +115,41 @@ import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
  */
 class HalyardValueExprEvaluation {
 
-	private static final Cache<Pair<String,String>,InternalObjectLiteral<Pattern>> REGEX_CACHE = CacheBuilder.newBuilder().concurrencyLevel(1).maximumSize(100).expireAfterAccess(1L, TimeUnit.HOURS).build();
+	private static final class RegexCacheLoader extends CacheLoader<Pair<String,String>,InternalObjectLiteral<Pattern>> {
+		@Override
+		public InternalObjectLiteral<Pattern> load(Pair<String, String> key) throws ValueExprEvaluationException {
+			String ptn = key.getLeft();
+			String flags = key.getRight();
+			int f = 0;
+            for (char c : flags.toCharArray()) {
+                switch (c) {
+                    case 's':
+                        f |= Pattern.DOTALL;
+                        break;
+                    case 'm':
+                        f |= Pattern.MULTILINE;
+                        break;
+                    case 'i':
+                        f |= Pattern.CASE_INSENSITIVE;
+                        f |= Pattern.UNICODE_CASE;
+                        break;
+                    case 'x':
+                        f |= Pattern.COMMENTS;
+                        break;
+                    case 'd':
+                        f |= Pattern.UNIX_LINES;
+                        break;
+                    case 'u':
+                        f |= Pattern.UNICODE_CASE;
+                        break;
+                    default:
+                        throw new ValueExprEvaluationException(flags);
+                }
+            }
+            return InternalObjectLiteral.of(Pattern.compile(ptn, f));
+		}
+	}
+	private static final LoadingCache<Pair<String,String>,InternalObjectLiteral<Pattern>> REGEX_CACHE = CacheBuilder.newBuilder().concurrencyLevel(1).maximumSize(100).expireAfterAccess(1L, TimeUnit.HOURS).build(new RegexCacheLoader());
 
     private final HalyardEvaluationStrategy parentStrategy;
 	private final FunctionRegistry functionRegistry;
@@ -659,35 +694,7 @@ class HalyardValueExprEvaluation {
         	            String ptn = ((Literal) parg).getLabel();
         	            String flags = ((Literal) farg).getLabel();
         	            try {
-    	    	            InternalObjectLiteral<Pattern> pattern = REGEX_CACHE.get(Pair.of(ptn, flags), () -> {
-    	        	            int f = 0;
-    	        	            for (char c : flags.toCharArray()) {
-    	        	                switch (c) {
-    	        	                    case 's':
-    	        	                        f |= Pattern.DOTALL;
-    	        	                        break;
-    	        	                    case 'm':
-    	        	                        f |= Pattern.MULTILINE;
-    	        	                        break;
-    	        	                    case 'i':
-    	        	                        f |= Pattern.CASE_INSENSITIVE;
-    	        	                        f |= Pattern.UNICODE_CASE;
-    	        	                        break;
-    	        	                    case 'x':
-    	        	                        f |= Pattern.COMMENTS;
-    	        	                        break;
-    	        	                    case 'd':
-    	        	                        f |= Pattern.UNIX_LINES;
-    	        	                        break;
-    	        	                    case 'u':
-    	        	                        f |= Pattern.UNICODE_CASE;
-    	        	                        break;
-    	        	                    default:
-    	        	                        throw new ValueExprEvaluationException(flags);
-    	        	                }
-    	        	            }
-    	        	            return InternalObjectLiteral.of(Pattern.compile(ptn, f));
-    	    	            });
+    	    	            InternalObjectLiteral<Pattern> pattern = REGEX_CACHE.get(Pair.of(ptn, flags));
     	    	            return ValueOrError.ok(pattern);
         	            } catch (ExecutionException e) {
         	            	return ValueOrError.fail(e.getCause().getMessage());
