@@ -16,20 +16,12 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import static junit.framework.TestCase.*;
+import static junit.framework.TestCase.assertNotNull;
+
+import com.msd.gin.halyard.algebra.evaluation.EmptyTripleSource;
 
 import org.apache.hadoop.conf.Configuration;
-import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
-import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
-import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
+import org.eclipse.rdf4j.repository.sparql.federation.SPARQLServiceResolver;
 import org.junit.Test;
 
 /**
@@ -39,30 +31,11 @@ public class HalyardStrategyServiceTest {
 
     @Test
     public void testGetService() {
-        assertNull(new HalyardEvaluationStrategy(new Configuration(), getTripleSource(), null, new FederatedServiceResolver() {
-            @Override
-            public FederatedService getService(String serviceUrl) throws QueryEvaluationException {
-                return null;
-            }
-        }, null).getService(null));
+        assertNotNull(new HalyardEvaluationStrategy(new Configuration(), new EmptyTripleSource(), null, new SPARQLServiceResolver(), null).getService("http://whatever/endpoint"));
     }
 
     @Test(expected = UnsupportedOperationException.class)
     public void testServiceEvaluateFail() {
-        new HalyardEvaluationStrategy(new Configuration(), getTripleSource(), null, null, null).evaluate(null, null, null);
-    }
-
-    private TripleSource getTripleSource() {
-        return new TripleSource() {
-            @Override
-            public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
-                throw new QueryEvaluationException();
-            }
-
-            @Override
-            public ValueFactory getValueFactory() {
-                return SimpleValueFactory.getInstance();
-            }
-        };
+        new HalyardEvaluationStrategy(new Configuration(), new EmptyTripleSource(), null, null, null).evaluate(null, null, null);
     }
 }

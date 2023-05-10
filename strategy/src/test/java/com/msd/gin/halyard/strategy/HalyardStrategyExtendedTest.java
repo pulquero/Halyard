@@ -61,8 +61,17 @@ public class HalyardStrategyExtendedTest {
         repo.shutDown();
     }
 
+    @Test
+    public void testService() {
+        String sparql = "SELECT * WHERE {SERVICE <repository:memory> { VALUES ?s {1} }}";
+        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
+            res.hasNext();
+	        assertEquals(1, ((Literal) res.next().getValue("s")).intValue());
+        }
+    }
+
     @Test(expected = QueryEvaluationException.class)
-    public void testService() throws Exception {
+    public void testServiceNotReachable() throws Exception {
         String sparql = "SELECT * WHERE {SERVICE <http://whatever/> { ?s ?p ?o . }}";
         try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
             res.hasNext();
@@ -83,6 +92,15 @@ public class HalyardStrategyExtendedTest {
         try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
             res.hasNext();
 	        assertEquals(1, ((Literal) res.next().getValue("s")).intValue());
+        }
+    }
+
+    @Test
+    public void testAskSailFederatedService() {
+    	// SERVICE query with all bound variables should be evaluated as an ASK query
+        String sparql = "SELECT * WHERE {VALUES (?s ?p ?o) {(<http://whatever> <http://whatever> <http://whatever>)} SERVICE <repository:askOnly> { ?s ?p ?o }}";
+        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
+            res.hasNext();
         }
     }
 

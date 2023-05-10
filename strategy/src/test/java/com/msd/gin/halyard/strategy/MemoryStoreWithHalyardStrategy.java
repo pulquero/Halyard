@@ -20,9 +20,12 @@ import com.msd.gin.halyard.federation.SailFederatedService;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
+import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 
 import java.util.LinkedList;
+import java.util.Set;
+import java.util.function.Consumer;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -33,8 +36,10 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
+import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.RDFStarTripleSource;
@@ -60,7 +65,29 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
 	MemoryStoreWithHalyardStrategy() {
 		this(0, 0, Float.MAX_VALUE);
 		SPARQLServiceResolver fsr = new SPARQLServiceResolver();
+		fsr.registerService("repository:memory", new SailFederatedService(new MemoryStore()));
 		fsr.registerService("repository:pushOnly", new SailFederatedService(new PushOnlyMemoryStore()));
+		fsr.registerService("repository:askOnly", new SailFederatedService(new MemoryStore()) {
+			@Override
+			public CloseableIteration<BindingSet, QueryEvaluationException> select(Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public void select(Consumer<BindingSet> handler, Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public void select(BindingSetPipe pipe, Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(Service service, CloseableIteration<BindingSet, QueryEvaluationException> bindings, String baseUri) throws QueryEvaluationException {
+				throw new UnsupportedOperationException();
+			}
+		});
 		setFederatedServiceResolver(fsr);
 	}
 
