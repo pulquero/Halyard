@@ -28,6 +28,7 @@ import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.federation.SailFederatedService;
 import com.msd.gin.halyard.function.DynamicFunctionRegistry;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
+import com.msd.gin.halyard.optimizers.ServiceStatisticsProvider;
 import com.msd.gin.halyard.optimizers.StatementPatternCardinalityCalculator;
 import com.msd.gin.halyard.spin.SpinFunctionInterpreter;
 import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
@@ -448,10 +449,11 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, HB
 	HalyardEvaluationStatistics newStatistics(Cache<IRI, Long> tripleCountCache) {
 		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs, null),
 				rdfFactory, tripleCountCache);
-		HalyardEvaluationStatistics.ServiceStatsProvider srvStatsProvider = new HalyardEvaluationStatistics.ServiceStatsProvider() {
+		ServiceStatisticsProvider srvStatsProvider = new ServiceStatisticsProvider() {
 			final Map<String, Optional<HalyardEvaluationStatistics>> serviceToStats = new HashMap<>();
 
-			public HalyardEvaluationStatistics getStatsForService(String serviceUrl) {
+			@Override
+			public HalyardEvaluationStatistics getStatisticsForService(String serviceUrl) {
 				return serviceToStats.computeIfAbsent(serviceUrl, (service) -> {
 					FederatedService fedServ = federatedServiceResolver.getService(service);
 					if (fedServ instanceof SailFederatedService) {

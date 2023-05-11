@@ -10,7 +10,7 @@ public class SimpleStatementPatternCardinalityCalculator implements StatementPat
 
 	public static final double SUBJECT_VAR_CARDINALITY = 1000.0;
 	public static final double PREDICATE_VAR_CARDINALITY = 10.0;
-	public static final double OBJECT_VAR_CARDINALITY = 1000.0;
+	public static final double OBJECT_VAR_CARDINALITY = 2000.0;
 	public static final double CONTEXT_VAR_CARDINALITY = 10.0;
 
 	@Override

@@ -40,16 +40,21 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	};
 	private static final byte WELL_KNOWN_IRI_MARKER = (byte) ('#' | 0x80);  // marker must be negative (msb set) so it is distinguishable from a length (>=0)
 
+	private static final int SUBJECT_VAR_CARDINALITY = 1000;
+	private static final int PREDICATE_VAR_CARDINALITY = 10;
+	private static final int OBJECT_VAR_CARDINALITY = 2000;  // usually more objects than subjects
+	private static final int CONTEXT_VAR_CARDINALITY = 3;
+
 	private static int getRoleCardinality(RDFRole.Name role) {
 		switch (role) {
 			case SUBJECT:
-				return 1000;
+				return SUBJECT_VAR_CARDINALITY;
 			case PREDICATE:
-				return 10;
+				return PREDICATE_VAR_CARDINALITY;
 			case OBJECT:
-				return 1000;
+				return OBJECT_VAR_CARDINALITY;
 			case CONTEXT:
-				return 3;
+				return CONTEXT_VAR_CARDINALITY;
 			default:
 				throw new AssertionError();
 		}

@@ -171,6 +171,36 @@ public class HalyardQueryJoinOptimizerTest {
         assertEquals(expr.toString(), Arrays.asList(pred2, pred3, pred1), joinOrder);
     }
 
+    @Test
+    public void testQueryJoinOptimizerWithService() {
+    	ValueFactory vf = SimpleValueFactory.getInstance();
+        final TupleExpr expr = new SPARQLParser().parseQuery("SELECT * WHERE { SERVICE <http://endpoint> { ?a <http://whatever/1>/<http://whatever/2> ?b. ?a <http://whatever/a>/<http://whatever/b> ?c } }", BASE_URI).getTupleExpr();
+        IRI pred1 = vf.createIRI("http://whatever/1");
+        IRI pred2 = vf.createIRI("http://whatever/2");
+        IRI preda = vf.createIRI("http://whatever/a");
+        IRI predb = vf.createIRI("http://whatever/b");
+        Map<IRI, Double> predicateStats = new HashMap<>();
+        predicateStats.put(pred1, 100.0);
+        predicateStats.put(pred2, 5.0);
+        predicateStats.put(preda, 2.0);
+        predicateStats.put(predb, 45.0);
+        new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null)).optimize(expr, null, null);
+        List<IRI> joinOrder = new ArrayList<>();
+        expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
+            @Override
+            public void meet(Join node) {
+                if (node.getLeftArg() instanceof StatementPattern) {
+                    joinOrder.add((IRI) ((StatementPattern)node.getLeftArg()).getPredicateVar().getValue());
+                }
+                if (node.getRightArg() instanceof StatementPattern) {
+                    joinOrder.add((IRI) ((StatementPattern)node.getRightArg()).getPredicateVar().getValue());
+                }
+                super.meet(node);
+            }
+        });
+        assertEquals(expr.toString(), Arrays.asList(pred1, preda, pred2, predb), joinOrder);
+    }
+
 
 	public static class MockStatementPatternCardinalityCalculator extends SimpleStatementPatternCardinalityCalculator {
 		final Map<IRI, Double> predicateStats;

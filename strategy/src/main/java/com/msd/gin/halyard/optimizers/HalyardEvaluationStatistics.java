@@ -21,7 +21,6 @@ import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,8 +33,6 @@ import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
 import org.eclipse.rdf4j.query.algebra.EmptySet;
 import org.eclipse.rdf4j.query.algebra.Filter;
-import org.eclipse.rdf4j.query.algebra.Join;
-import org.eclipse.rdf4j.query.algebra.LeftJoin;
 import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.SingletonSet;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
@@ -53,30 +50,38 @@ import org.eclipse.rdf4j.query.algebra.ZeroLengthPath;
 public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatistics {
 	static final double PRIORITY_VAR_FACTOR = 1000000.0;
 
-	public static interface ServiceStatsProvider {
-	
-		HalyardEvaluationStatistics getStatsForService(String serviceUrl);
-	}
-
-    private final ServiceStatsProvider srvProvider;
-
-    public HalyardEvaluationStatistics(@Nonnull StatementPatternCardinalityCalculator.Factory spcalcFactory, ServiceStatsProvider srvProvider) {
-        super(spcalcFactory);
-        this.srvProvider = srvProvider;
+    public HalyardEvaluationStatistics(@Nonnull StatementPatternCardinalityCalculator.Factory spcalcFactory, @Nullable ServiceStatisticsProvider srvStatsProvider) {
+        super(spcalcFactory, srvStatsProvider);
     }
 
 	public void updateCardinalityMap(TupleExpr expr, Set<String> boundVars, Set<String> priorityVars, Map<TupleExpr, Double> mapToUpdate) {
+		ExtendedEvaluationStatistics stats = getStatisticsFor(expr);
+		if (stats instanceof HalyardEvaluationStatistics) {
+			((HalyardEvaluationStatistics)stats).updateCardinalityMapInternal(expr, boundVars, priorityVars, mapToUpdate);
+		}
+	}
+
+	private void updateCardinalityMapInternal(TupleExpr expr, Set<String> boundVars, Set<String> priorityVars, Map<TupleExpr, Double> mapToUpdate) {
 		try (StatementPatternCardinalityCalculator spcalc = spcalcFactory.create()) {
-			HalyardCardinalityCalculator cc = new HalyardCardinalityCalculator(spcalc, srvProvider, boundVars, priorityVars, mapToUpdate);
+			HalyardCardinalityCalculator cc = new HalyardCardinalityCalculator(spcalc, srvStatsProvider, boundVars, priorityVars, mapToUpdate);
 			expr.visit(cc);
 		} catch(IOException ioe) {
 			throw new QueryEvaluationException(ioe);
 		}
 	}
 
-	public double getCardinality(TupleExpr expr, final Set<String> boundVariables, final Set<String> priorityVariables) {
+	public double getCardinality(TupleExpr expr, Set<String> boundVariables, Set<String> priorityVariables) {
+		ExtendedEvaluationStatistics stats = getStatisticsFor(expr);
+		if (stats instanceof HalyardEvaluationStatistics) {
+			return ((HalyardEvaluationStatistics)stats).getCardinalityInternal(expr, boundVariables, priorityVariables);
+		} else {
+			return stats.getCardinalityInternal(expr, boundVariables);
+		}
+	}
+
+	private double getCardinalityInternal(TupleExpr expr, Set<String> boundVariables, Set<String> priorityVariables) {
 		try (StatementPatternCardinalityCalculator spcalc = spcalcFactory.create()) {
-			HalyardCardinalityCalculator cc = new HalyardCardinalityCalculator(spcalc, srvProvider, boundVariables, priorityVariables, null);
+			HalyardCardinalityCalculator cc = new HalyardCardinalityCalculator(spcalc, srvStatsProvider, boundVariables, priorityVariables, null);
 			expr.visit(cc);
 			return cc.getCardinality();
 		} catch(IOException ioe) {
@@ -85,20 +90,18 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
 	}
 
 	@Override
-	public double getCardinality(TupleExpr expr, final Set<String> boundVariables) {
+	public double getCardinality(TupleExpr expr, Set<String> boundVariables) {
 		return getCardinality(expr, boundVariables, Collections.emptySet());
 	}
 
 
     private static class HalyardCardinalityCalculator extends ExtendedCardinalityCalculator {
 
-    	private final ServiceStatsProvider srvProvider;
         private final Set<String> priorityVariables;
         private final Map<TupleExpr, Double> mapToUpdate;
 
-        public HalyardCardinalityCalculator(@Nonnull StatementPatternCardinalityCalculator spcalc, ServiceStatsProvider srvProvider, Set<String> boundVariables, Set<String> priorityVariables, @Nullable Map<TupleExpr, Double> mapToUpdate) {
-        	super(spcalc, boundVariables);
-        	this.srvProvider = srvProvider;
+        public HalyardCardinalityCalculator(@Nonnull StatementPatternCardinalityCalculator spcalc, ServiceStatisticsProvider srvStatsProvider, Set<String> boundVariables, Set<String> priorityVariables, @Nullable Map<TupleExpr, Double> mapToUpdate) {
+        	super(spcalc, srvStatsProvider, boundVariables);
             this.priorityVariables = priorityVariables;
             this.mapToUpdate = mapToUpdate;
         }
@@ -133,27 +136,23 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
         }
 
         @Override
-        public void meet(Join node) {
-            meetJoin(node);
+        protected void meetJoin(BinaryTupleOperator node) {
+        	super.meetJoin(node);
+            updateMap(node);
         }
 
         @Override
-        public void meet(LeftJoin node) {
-            meetJoin(node);
+        protected void meetJoinLeft(TupleExpr left) {
+        	super.meetJoinLeft(left);
+        	updateMap(left);
         }
 
-        private void meetJoin(BinaryTupleOperator node) {
-            node.getLeftArg().visit(this);
-            updateMap(node.getLeftArg());
-            double leftArgCost = this.cardinality;
-            Set<String> newBoundVars = new HashSet<>(boundVars);
-            newBoundVars.addAll(node.getLeftArg().getBindingNames());
-            HalyardCardinalityCalculator newCalc = new HalyardCardinalityCalculator(spcalc, srvProvider, newBoundVars, priorityVariables, mapToUpdate);
-            node.getRightArg().visit(newCalc);
+        @Override
+        protected void meetJoinRight(TupleExpr right, Set<String> newBoundVars) {
+            HalyardCardinalityCalculator newCalc = new HalyardCardinalityCalculator(spcalc, srvStatsProvider, newBoundVars, priorityVariables, mapToUpdate);
+            right.visit(newCalc);
             cardinality = newCalc.cardinality;
-            updateMap(node.getRightArg());
-            cardinality *= leftArgCost;
-            updateMap(node);
+            updateMap(right);
         }
 
         @Override
@@ -235,20 +234,22 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
 
         @Override
         public void meet(Service node) {
-            HalyardEvaluationStatistics srvStats = (srvProvider != null && node.getServiceRef().hasValue()) ? srvProvider.getStatsForService(node.getServiceRef().getValue().stringValue()) : null;
-            //try to calculate cardinality also for (Halyard-internally) federated service expressions
-            if (srvStats != null) {
-                TupleExpr remoteExpr = node.getServiceExpr();
-                if (mapToUpdate != null) {
-                    srvStats.updateCardinalityMap(remoteExpr, boundVars, priorityVariables, mapToUpdate);
-                    cardinality = mapToUpdate.get(remoteExpr);
-                } else {
-                	cardinality = srvStats.getCardinality(remoteExpr, boundVars, priorityVariables);
-                }
-            } else {
-                super.meet(node);
-            }
+        	super.meet(node);
             updateMap(node);
+        }
+
+        @Override
+        protected void meetServiceExpr(TupleExpr remoteExpr, ExtendedEvaluationStatistics srvStats) {
+        	if (srvStats instanceof HalyardEvaluationStatistics) {
+	            if (mapToUpdate != null) {
+	                ((HalyardEvaluationStatistics)srvStats).updateCardinalityMapInternal(remoteExpr, boundVars, priorityVariables, mapToUpdate);
+	                cardinality = mapToUpdate.get(remoteExpr);
+	            } else {
+	            	cardinality = ((HalyardEvaluationStatistics)srvStats).getCardinalityInternal(remoteExpr, boundVars, priorityVariables);
+	            }
+        	} else {
+        		super.meetServiceExpr(remoteExpr, srvStats);
+        	}
         }
 
         private void updateMap(TupleExpr node) {

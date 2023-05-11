@@ -8,11 +8,17 @@ import java.util.HashSet;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.ArbitraryLengthPath;
+import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
+import org.eclipse.rdf4j.query.algebra.Join;
+import org.eclipse.rdf4j.query.algebra.LeftJoin;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
+import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
@@ -25,14 +31,42 @@ import org.eclipse.rdf4j.query.algebra.evaluation.impl.EvaluationStatistics;
 public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 
 	protected final StatementPatternCardinalityCalculator.Factory spcalcFactory;
+	protected final ServiceStatisticsProvider srvStatsProvider;
 
 	public ExtendedEvaluationStatistics(@Nonnull StatementPatternCardinalityCalculator.Factory spcalcFactory) {
-		this.spcalcFactory = spcalcFactory;
+		this(spcalcFactory, null);
 	}
 
-	public double getCardinality(TupleExpr expr, final Set<String> boundVariables) {
+	public ExtendedEvaluationStatistics(@Nonnull StatementPatternCardinalityCalculator.Factory spcalcFactory, @Nullable ServiceStatisticsProvider srvStatsProvider) {
+		this.spcalcFactory = spcalcFactory;
+		this.srvStatsProvider = srvStatsProvider;
+	}
+
+	protected final ExtendedEvaluationStatistics getStatisticsFor(TupleExpr expr) {
+		QueryModelNode parent = expr.getParentNode();
+		while(parent != null && !(parent instanceof Service)) {
+			parent = parent.getParentNode();
+		}
+		Service service = (Service) parent;
+		if (service == null) {
+			return this;
+		}
+		if (srvStatsProvider != null) {
+			IRI serviceUrl = (IRI) service.getServiceRef().getValue();
+			if (serviceUrl != null) {
+				return srvStatsProvider.getStatisticsForService(serviceUrl.stringValue());
+			}
+		}
+		return new ExtendedEvaluationStatistics(SimpleStatementPatternCardinalityCalculator.FACTORY);
+	}
+
+	public double getCardinality(TupleExpr expr, Set<String> boundVariables) {
+		return getStatisticsFor(expr).getCardinalityInternal(expr, boundVariables);
+	}
+
+	protected final double getCardinalityInternal(TupleExpr expr, Set<String> boundVariables) {
 		try (StatementPatternCardinalityCalculator spcalc = spcalcFactory.create()) {
-			ExtendedCardinalityCalculator cc = new ExtendedCardinalityCalculator(spcalc, boundVariables);
+			ExtendedCardinalityCalculator cc = new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, boundVariables);
 			expr.visit(cc);
 			return cc.getCardinality();
 		} catch(IOException ioe) {
@@ -58,10 +92,12 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 		private static final double TFC_COST_FACTOR = 0.1;
 
 		protected final StatementPatternCardinalityCalculator spcalc;
+		protected final ServiceStatisticsProvider srvStatsProvider;
 		protected final Set<String> boundVars;
 
-		public ExtendedCardinalityCalculator(@Nonnull StatementPatternCardinalityCalculator spcalc, Set<String> boundVariables) {
+		public ExtendedCardinalityCalculator(@Nonnull StatementPatternCardinalityCalculator spcalc, @Nullable ServiceStatisticsProvider srvStatsProvider, Set<String> boundVariables) {
 			this.spcalc = spcalc;
+			this.srvStatsProvider = srvStatsProvider;
 			this.boundVars = boundVariables;
 		}
 
@@ -122,6 +158,36 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 		}
 
         @Override
+        public void meet(Join node) {
+            meetJoin(node);
+        }
+
+        @Override
+        public void meet(LeftJoin node) {
+            meetJoin(node);
+        }
+
+        protected void meetJoin(BinaryTupleOperator node) {
+            meetJoinLeft(node.getLeftArg());
+            double leftArgCost = this.cardinality;
+
+            Set<String> newBoundVars = new HashSet<>(boundVars);
+            newBoundVars.addAll(node.getLeftArg().getBindingNames());
+            meetJoinRight(node.getRightArg(), newBoundVars);
+            cardinality *= leftArgCost;
+        }
+
+        protected void meetJoinLeft(TupleExpr left) {
+        	left.visit(this);
+        }
+
+        protected void meetJoinRight(TupleExpr right, Set<String> newBoundVars) {
+            ExtendedCardinalityCalculator newCalc = new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, newBoundVars);
+        	right.visit(newCalc);
+            cardinality = newCalc.cardinality;
+        }
+
+        @Override
     	public void meetOther(QueryModelNode node) {
     		if (node instanceof TupleFunctionCall) {
     			meet((TupleFunctionCall)node);
@@ -160,5 +226,26 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 			// output cardinality tends to be independent of number of result vars
 			cardinality = TFC_COST_FACTOR * argCard * VAR_CARDINALITY;
 		}
-    }
+
+        @Override
+        public void meet(Service node) {
+            ExtendedEvaluationStatistics srvStats = null;
+    		if (srvStatsProvider != null) {
+    			IRI serviceUrl = (IRI) node.getServiceRef().getValue();
+    			if (serviceUrl != null) {
+    				srvStats = srvStatsProvider.getStatisticsForService(serviceUrl.stringValue());
+    			}
+    		}
+            if (srvStats != null) {
+                TupleExpr remoteExpr = node.getServiceExpr();
+                meetServiceExpr(remoteExpr, srvStats);
+            } else {
+                super.meet(node);
+            }
+        }
+
+        protected void meetServiceExpr(TupleExpr remoteExpr, ExtendedEvaluationStatistics srvStats) {
+            cardinality = srvStats.getCardinalityInternal(remoteExpr, boundVars);
+        }
+	}
 }
