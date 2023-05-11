@@ -3,12 +3,16 @@ package com.msd.gin.halyard.optimizers;
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algorithms;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
 import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.LeftJoin;
+import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
@@ -58,9 +62,12 @@ public class JoinAlgorithmOptimizer implements QueryOptimizer {
 		TupleExpr left = join.getLeftArg();
 		TupleExpr right = join.getRightArg();
 		if (isSupported(left) && isSupported(right)) {
-			double leftCard = statistics.getCardinality(left);
-			double rightCard = statistics.getCardinality(right);
-			double nestedRightCard = statistics.getCardinality(right, left.getBindingNames());
+			Set<String> boundVars = getBoundVars(join);
+			double leftCard = statistics.getCardinality(left, boundVars);
+			double rightCard = statistics.getCardinality(right, boundVars);
+			Set<String> nestedBoundVars = new HashSet<>(boundVars);
+			nestedBoundVars.addAll(left.getBindingNames());
+			double nestedRightCard = statistics.getCardinality(right, nestedBoundVars);
 			double nestedCost = leftCard * nestedRightCard * INDEX_LOOKUP_COST;
 			double hashCost = leftCard*HASH_LOOKUP_COST + rightCard*HASH_BUILD_COST;
 			boolean useHash = rightCard <= hashJoinLimit && costRatio*hashCost < nestedCost;
@@ -80,5 +87,21 @@ public class JoinAlgorithmOptimizer implements QueryOptimizer {
 		return (expr instanceof StatementPattern)
 				|| (expr instanceof BindingSetAssignment)
 				|| ((expr instanceof BinaryTupleOperator) && Algorithms.HASH_JOIN.equals(((BinaryTupleOperator)expr).getAlgorithmName()));
+	}
+
+	private Set<String> getBoundVars(TupleExpr node) {
+		Set<String> vars = new HashSet<>();
+		QueryModelNode parent = node.getParentNode();
+		while (parent instanceof TupleExpr) {
+			if (parent instanceof Join || parent instanceof LeftJoin) {
+				BinaryTupleOperator op = (BinaryTupleOperator) parent;
+				if (((BinaryTupleOperator) parent).getRightArg() == node) {
+					vars.addAll(op.getLeftArg().getBindingNames());
+				}
+			}
+			node = (TupleExpr) parent;
+			parent = parent.getParentNode();
+		}
+		return vars;
 	}
 }
