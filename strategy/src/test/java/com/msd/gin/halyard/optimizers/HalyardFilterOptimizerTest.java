@@ -150,7 +150,7 @@ public class HalyardFilterOptimizerTest {
     @Test
     public void testPushFilterIntoStarJoins() {
     	TupleExpr expr = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, "select * {?s <:p1> ?o1; <:p2> ?o2; <:p3> ?o3 filter(?o1 = \"x\")}", null).getTupleExpr();
-        new StarJoinOptimizer().optimize(expr, null, null);
+        new StarJoinOptimizer(1).optimize(expr, null, null);
         getOptimizer().optimize(expr, null, null);
         expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
             @Override

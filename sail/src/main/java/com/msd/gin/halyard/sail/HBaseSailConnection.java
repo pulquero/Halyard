@@ -254,10 +254,10 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		TupleExpr optimizedTree;
 		if (sourceString != null && cloneTupleExpression) {
 			optimizedTree = queryCache.getOptimizedQuery(this, sourceString, updatePart, tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
-			LOGGER.debug("Query tree after optimization (cached):\n{}", tupleExpr);
+			LOGGER.debug("Query tree after optimization (cached):\n{}", optimizedTree);
 		} else {
 			optimizedTree = optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
-			LOGGER.debug("Query tree after optimization:\n{}", tupleExpr);
+			LOGGER.debug("Query tree after optimization:\n{}", optimizedTree);
 		}
 		return optimizedTree;
 	}

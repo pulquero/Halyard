@@ -42,13 +42,18 @@ import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 
 public class StarJoinOptimizer implements QueryOptimizer {
+	private final int minJoins;
+
+	public StarJoinOptimizer(int minJoins) {
+		this.minJoins = minJoins;
+	}
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
 		tupleExpr.visit(new StarJoinFinder());
 	}
 
-	static class StarJoinFinder extends AbstractExtendedQueryModelVisitor<RDF4JException> {
+	final class StarJoinFinder extends AbstractExtendedQueryModelVisitor<RDF4JException> {
 
 		@Override
 		public void meet(StatementPattern node) {
@@ -58,6 +63,13 @@ public class StarJoinOptimizer implements QueryOptimizer {
 		@Override
 		public void meet(Service node) throws RDF4JException {
 			// skip service nodes - leave it to the remote endpoint to optimize
+			/*
+			 * NB: StarJoin optimizer MUST run after the magic property interpreter
+			 * (else StarJoins might contain TupleFunctionCalls after StatementPatterns are replaced).
+			 * For SERVICE calls, we don't know if the remote endpoint supports magic properties,
+			 * therefore we can't run the magic property interpreter on SERVICE expressions,
+			 * and thus can't run the StarJoin optimizer on them either.
+			 */
 		}
 
 		@Override
@@ -65,9 +77,7 @@ public class StarJoinOptimizer implements QueryOptimizer {
 			BGPCollector<RDF4JException> collector = new BGPCollector<>(this);
 			node.visit(collector);
 			if(!collector.getStatementPatterns().isEmpty()) {
-				Parent parent = new Parent();
-				node.replaceWith(parent);
-				parent.setArg(node);
+				Parent parent = Parent.wrap(node);
 				processJoins(parent, collector.getStatementPatterns());
 			}
 		}
@@ -82,11 +92,14 @@ public class StarJoinOptimizer implements QueryOptimizer {
 			List<StarJoin> starJoins = new ArrayList<>(sps.size());
 			for(Map.Entry<Pair<Var,Var>, Collection<StatementPattern>> entry : spByCtxSubj.asMap().entrySet()) {
 				List<StatementPattern> subjSps = (List<StatementPattern>) entry.getValue();
-				if(subjSps.size() > 1) {
+				// (num of joins) = (num of statement patterns) - 1
+				if(subjSps.size() > minJoins) {
 					for(StatementPattern sp : subjSps) {
 						Algebra.remove(sp);
 					}
-					starJoins.add(new StarJoin(entry.getKey().getRight(), entry.getKey().getLeft(), subjSps));
+					Var ctxVar = entry.getKey().getLeft();
+					Var commonVar = entry.getKey().getRight();
+					starJoins.add(new StarJoin(commonVar, ctxVar, subjSps));
 				}
 			}
 
@@ -104,6 +117,13 @@ public class StarJoinOptimizer implements QueryOptimizer {
 
 	static final class Parent extends UnaryTupleOperator {
 		private static final long serialVersionUID = 1620947330539139269L;
+
+		static Parent wrap(TupleExpr node) {
+			Parent parent = new Parent();
+			node.replaceWith(parent);
+			parent.setArg(node);
+			return parent;
+		}
 
 		@Override
 		public <X extends Exception> void visit(QueryModelVisitor<X> visitor) throws X {

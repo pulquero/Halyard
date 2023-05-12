@@ -17,6 +17,7 @@
 package com.msd.gin.halyard.optimizers;
 
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.algebra.StarJoin;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -159,16 +161,18 @@ public class HalyardQueryJoinOptimizerTest {
         predicateStats.put(pred1, 100.0);
         predicateStats.put(pred2, 5.0);
         predicateStats.put(pred3, 8.0);
-        new StarJoinOptimizer().optimize(expr, null, null);
+        new StarJoinOptimizer(2).optimize(expr, null, null);
         new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null)).optimize(expr, null, null);
-        List<IRI> joinOrder = new ArrayList<>();
+        List<StarJoin> sjs = new ArrayList<>();
         expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
             @Override
-            public void meet(StatementPattern node) {
-                joinOrder.add((IRI) node.getPredicateVar().getValue());
+            public void meet(StarJoin node) {
+            	sjs.add(node);
+            	super.meet(node);
             }
         });
-        assertEquals(expr.toString(), Arrays.asList(pred2, pred3, pred1), joinOrder);
+        assertEquals(expr.toString(), 1, sjs.size());
+        assertEquals(expr.toString(), Arrays.asList(pred2, pred3, pred1),  sjs.get(0).getArgs().stream().map(sp -> ((StatementPattern)sp).getPredicateVar().getValue()).collect(Collectors.toList()));
     }
 
     @Test

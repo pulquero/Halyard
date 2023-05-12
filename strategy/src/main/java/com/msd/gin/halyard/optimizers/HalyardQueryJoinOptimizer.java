@@ -93,14 +93,15 @@ public final class HalyardQueryJoinOptimizer extends QueryJoinOptimizer {
             @Override
             public void meet(StarJoin node) {
             	List<? extends TupleExpr> sjArgs = node.getArgs();
-            	// Detach the args into a join tree.
+            	StarJoinOptimizer.Parent parent = StarJoinOptimizer.Parent.wrap(node);
+            	// replace the star join with a join tree.
             	Join joins = (Join) Algebra.join(sjArgs);
-            	TupleExpr root = Algebra.ensureRooted(joins);
+            	node.replaceWith(joins);
             	// optimize the join order
             	meet(joins);
             	// re-attach in new order
             	List<TupleExpr> orderedArgs = new ArrayList<>(sjArgs.size());
-        		root.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {
+        		parent.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {
         			@Override
         			public void meet(Join join) {
         				TupleExpr left = join.getLeftArg();
@@ -121,6 +122,7 @@ public final class HalyardQueryJoinOptimizer extends QueryJoinOptimizer {
         			}
 				});
             	node.setArgs(orderedArgs);
+            	parent.replaceWith(node);
             }
 
             @Override

@@ -4,6 +4,7 @@ public final class StrategyConfig {
 
 	static final String HALYARD_EVALUATION_HASH_JOIN_LIMIT = "halyard.evaluation.hashJoin.limit";
 	static final String HALYARD_EVALUATION_HASH_JOIN_COST_RATIO = "halyard.evaluation.hashJoin.costRatio";
+	static final String HALYARD_EVALUATION_STAR_JOIN_MIN_JOINS = "halyard.evaluation.starJoin.minJoins";
 	static final String HALYARD_EVALUATION_MEMORY_THRESHOLD = "halyard.evaluation.collections.memoryThreshold";
 	static final String HALYARD_EVALUATION_VALUE_CACHE_SIZE = "halyard.evaluation.valueCache.size";
 	static final String HALYARD_EVALUATION_POLL_TIMEOUT_MILLIS = "halyard.evaluation.pollTimeoutMillis";
@@ -20,6 +21,7 @@ public final class StrategyConfig {
 	static final String HALYARD_EVALUATION_THREAD_POOL_CHECK_PERIOD_SECS = "halyard.evaluation.threadPoolCheckPeriodSecs";
 
 	static final int DEFAULT_HASH_JOIN_LIMIT = 50000;
+	static final int DEFAULT_STAR_JOIN_MIN_JOINS = 3;
 	static final int DEFAULT_MEMORY_THRESHOLD = 100000;
 	static final int DEFAULT_VALUE_CACHE_SIZE = 1000;
 	public static final String JMX_DOMAIN = "com.msd.gin.halyard";

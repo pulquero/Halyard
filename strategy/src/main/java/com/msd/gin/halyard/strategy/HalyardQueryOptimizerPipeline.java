@@ -44,12 +44,15 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 	private final ExtendedEvaluationStatistics statistics;
 	private final EvaluationStrategy strategy;
 	private final ValueFactory valueFactory;
+	private final StarJoinOptimizer starJoinOptimizer;
 	private final JoinAlgorithmOptimizer joinAlgoOptimizer;
 
 	public HalyardQueryOptimizerPipeline(HalyardEvaluationStrategy strategy, ValueFactory valueFactory, ExtendedEvaluationStatistics statistics) {
 		this.strategy = strategy;
 		this.valueFactory = valueFactory;
 		this.statistics = statistics;
+		int minJoins = strategy.getConfiguration().getInt(StrategyConfig.HALYARD_EVALUATION_STAR_JOIN_MIN_JOINS, StrategyConfig.DEFAULT_STAR_JOIN_MIN_JOINS);
+		this.starJoinOptimizer = new StarJoinOptimizer(minJoins);
 		int hashJoinLimit = strategy.getConfiguration().getInt(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_LIMIT, StrategyConfig.DEFAULT_HASH_JOIN_LIMIT);
 		float costRatio = strategy.getConfiguration().getFloat(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_COST_RATIO, 2.0f);
 		this.joinAlgoOptimizer = new JoinAlgorithmOptimizer(statistics, hashJoinLimit, costRatio);
@@ -70,7 +73,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 			StandardQueryOptimizerPipeline.CONJUNCTIVE_CONSTRAINT_SPLITTER,
 			StandardQueryOptimizerPipeline.DISJUNCTIVE_CONSTRAINT_OPTIMIZER,
 			StandardQueryOptimizerPipeline.SAME_TERM_FILTER_OPTIMIZER,
-			new StarJoinOptimizer(),
+			starJoinOptimizer,
 			StandardQueryOptimizerPipeline.UNION_SCOPE_CHANGE_OPTIMIZER,
 			StandardQueryOptimizerPipeline.QUERY_MODEL_NORMALIZER,
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
