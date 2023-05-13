@@ -205,6 +205,31 @@ public class HalyardQueryJoinOptimizerTest {
         assertEquals(expr.toString(), Arrays.asList(pred1, preda, pred2, predb), joinOrder);
     }
 
+    @Test
+    public void testQueryJoinOptimizerWithServiceStarJoin() {
+    	ValueFactory vf = SimpleValueFactory.getInstance();
+        final TupleExpr expr = new SPARQLParser().parseQuery("SELECT * WHERE { SERVICE <http://endpoint> { ?a <http://whatever/1> ?b; <http://whatever/2> ?c; <http://whatever/3> ?d } }", BASE_URI).getTupleExpr();
+        IRI pred1 = vf.createIRI("http://whatever/1");
+        IRI pred2 = vf.createIRI("http://whatever/2");
+        IRI pred3 = vf.createIRI("http://whatever/3");
+        Map<IRI, Double> predicateStats = new HashMap<>();
+        predicateStats.put(pred1, 100.0);
+        predicateStats.put(pred2, 5.0);
+        predicateStats.put(pred3, 8.0);
+        new StarJoinOptimizer(2).optimize(expr, null, null);
+        new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null)).optimize(expr, null, null);
+        List<StarJoin> sjs = new ArrayList<>();
+        expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
+            @Override
+            public void meet(StarJoin node) {
+            	sjs.add(node);
+            	super.meet(node);
+            }
+        });
+        assertEquals(expr.toString(), 1, sjs.size());
+        assertEquals(expr.toString(), Arrays.asList(pred1, pred2, pred3),  sjs.get(0).getArgs().stream().map(sp -> ((StatementPattern)sp).getPredicateVar().getValue()).collect(Collectors.toList()));
+    }
+
 
 	public static class MockStatementPatternCardinalityCalculator extends SimpleStatementPatternCardinalityCalculator {
 		final Map<IRI, Double> predicateStats;

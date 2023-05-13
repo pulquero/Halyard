@@ -34,7 +34,6 @@ import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.QueryModelVisitor;
-import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.UnaryTupleOperator;
@@ -58,18 +57,6 @@ public class StarJoinOptimizer implements QueryOptimizer {
 		@Override
 		public void meet(StatementPattern node) {
 			// skip children
-		}
-
-		@Override
-		public void meet(Service node) throws RDF4JException {
-			// skip service nodes - leave it to the remote endpoint to optimize
-			/*
-			 * NB: StarJoin optimizer MUST run after the magic property interpreter
-			 * (else StarJoins might contain TupleFunctionCalls after StatementPatterns are replaced).
-			 * For SERVICE calls, we don't know if the remote endpoint supports magic properties,
-			 * therefore we can't run the magic property interpreter on SERVICE expressions,
-			 * and thus can't run the StarJoin optimizer on them either.
-			 */
 		}
 
 		@Override

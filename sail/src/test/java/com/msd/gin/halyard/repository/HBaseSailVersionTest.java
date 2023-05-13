@@ -19,8 +19,8 @@ package com.msd.gin.halyard.repository;
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.RDFFactory;
-import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.sail.HBaseSail;
+import com.msd.gin.halyard.strategy.StrategyConfig;
 
 import java.util.Date;
 import java.util.HashSet;
@@ -62,7 +62,10 @@ public class HBaseSailVersionTest {
 
 	@BeforeEach
     public void setup() throws Exception {
-		hconn = HalyardTableUtils.getConnection(HBaseServerTestInstance.getInstanceConfig());
+		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
+		// test star joins with magic properties
+		conf.setInt(StrategyConfig.HALYARD_EVALUATION_STAR_JOIN_MIN_JOINS, 1);
+		hconn = HalyardTableUtils.getConnection(conf);
     }
 
 	@AfterEach
