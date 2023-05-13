@@ -27,6 +27,10 @@ public abstract class NAryTupleOperator extends AbstractQueryModelNode implement
 		args[i] = te;
 	}
 
+	public TupleExpr getArg(int i) {
+		return args[i];
+	}
+
 	public List<? extends TupleExpr> getArgs() {
 		return Arrays.asList(args);
 	}
@@ -49,6 +53,21 @@ public abstract class NAryTupleOperator extends AbstractQueryModelNode implement
 				setArg(i, (TupleExpr) replacement);
 				return;
 			}
+		}
+	}
+
+	public void removeChildNode(TupleExpr current) {
+		TupleExpr[] newArgs = new TupleExpr[args.length-1];
+		boolean removed = false;
+		for (int i=0, j=0; i<args.length; i++) {
+			if (current == args[i]) {
+				removed = true;
+			} else if (j < newArgs.length) {
+				newArgs[j++] = args[i];
+			}
+		}
+		if (removed) {
+			args = newArgs;
 		}
 	}
 

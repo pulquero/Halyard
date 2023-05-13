@@ -7,8 +7,6 @@
  *******************************************************************************/
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.algebra.evaluation.TupleFunctionEvaluationStrategy;
-
 import java.util.List;
 
 import org.eclipse.rdf4j.model.Literal;

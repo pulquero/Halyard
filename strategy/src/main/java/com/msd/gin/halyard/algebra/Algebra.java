@@ -16,11 +16,11 @@ import org.eclipse.rdf4j.query.algebra.Var;
 public final class Algebra {
 	private Algebra() {}
 
-	public static TupleExpr ensureRooted(TupleExpr tupleExpr) {
+	public static UnaryTupleOperator ensureRooted(TupleExpr tupleExpr) {
 		if (!(tupleExpr instanceof QueryRoot)) {
 			tupleExpr = new QueryRoot(tupleExpr);
 		}
-		return tupleExpr;
+		return (UnaryTupleOperator) tupleExpr;
 	}
 
 	public static boolean isEmpty(TupleExpr tupleExpr) {
@@ -56,6 +56,12 @@ public final class Algebra {
 			}
 		} else if (parent instanceof UnaryTupleOperator) {
 			expr.replaceWith(new SingletonSet());
+		} else if (parent instanceof NAryTupleOperator) {
+			NAryTupleOperator op = (NAryTupleOperator) parent;
+			op.removeChildNode(expr);
+			if (op.getArgCount() == 1) {
+				op.replaceWith(op.getArg(0));
+			}
 		} else {
 			throw new IllegalArgumentException(String.format("Cannot remove %s from %s", expr.getSignature(), parent.getSignature()));
 		}

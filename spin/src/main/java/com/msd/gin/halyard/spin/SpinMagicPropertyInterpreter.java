@@ -38,20 +38,21 @@ import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.AbstractFederatedServiceResolver;
-import org.eclipse.rdf4j.query.algebra.evaluation.federation.TupleFunctionFederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.TripleSources;
-import org.eclipse.rdf4j.query.algebra.helpers.AbstractQueryModelVisitor;
-import org.eclipse.rdf4j.query.algebra.helpers.BGPCollector;
 import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 import org.eclipse.rdf4j.queryrender.sparql.SPARQLQueryRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
+import com.msd.gin.halyard.algebra.BGPCollector;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
+import com.msd.gin.halyard.algebra.StarJoin;
+import com.msd.gin.halyard.federation.TupleFunctionFederatedService;
 import com.msd.gin.halyard.spin.function.ConstructTupleFunction;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
 import com.msd.gin.halyard.spin.function.SelectTupleFunction;
@@ -106,7 +107,7 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 		}
 	}
 
-	private class PropertyScanner extends AbstractQueryModelVisitor<RDF4JException> {
+	private class PropertyScanner extends AbstractExtendedQueryModelVisitor<RDF4JException> {
 
 		private void processGraphPattern(List<StatementPattern> sps) {
 			Map<StatementPattern, TupleFunction> magicProperties = new LinkedHashMap<>();
@@ -128,16 +129,8 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 						} else {
 							// normal statement
 							String subj = sp.getSubjectVar().getName();
-							Map<IRI, List<StatementPattern>> predMap = spIndex.get(subj);
-							if (predMap == null) {
-								predMap = new HashMap<>(8);
-								spIndex.put(subj, predMap);
-							}
-							List<StatementPattern> v = predMap.get(pred);
-							if (v == null) {
-								v = new ArrayList<>(1);
-								predMap.put(pred, v);
-							}
+							Map<IRI, List<StatementPattern>> predMap = spIndex.computeIfAbsent(subj, k -> new HashMap<>(8));
+							List<StatementPattern> v = predMap.computeIfAbsent(pred, k -> new ArrayList<>(1));
 							v.add(sp);
 						}
 					}
@@ -180,7 +173,7 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 						// use SERVICE evaluation
 						if (!serviceResolver.hasService(SPIN_SERVICE)) {
 							serviceResolver.registerService(SPIN_SERVICE, new TupleFunctionFederatedService(
-									tupleFunctionRegistry, tripleSource.getValueFactory()));
+									tupleFunctionRegistry, tripleSource));
 						}
 
 						Var serviceRef = TupleExprs.createConstVar(spinServiceUri);
@@ -285,6 +278,15 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 		@Override
 		public void meet(StatementPattern node) {
 			processGraphPattern(Collections.singletonList(node));
+		}
+
+		@Override
+		public void meet(StarJoin node) {
+			BGPCollector<RDF4JException> collector = new BGPCollector<>(this);
+			for (TupleExpr arg : node.getArgs()) {
+				arg.visit(collector);
+			}
+			processGraphPattern(collector.getStatementPatterns());
 		}
 
 		@Override

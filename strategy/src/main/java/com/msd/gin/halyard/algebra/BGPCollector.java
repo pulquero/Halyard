@@ -8,12 +8,12 @@ import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryModelVisitor;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
-import org.eclipse.rdf4j.query.algebra.helpers.AbstractQueryModelVisitor;
+import org.eclipse.rdf4j.query.algebra.TupleExpr;
 
 /**
  * Basic graph pattern collector.
  */
-public class BGPCollector<X extends Exception> extends AbstractQueryModelVisitor<X> {
+public class BGPCollector<X extends Exception> extends AbstractExtendedQueryModelVisitor<X> {
 
 	private final QueryModelVisitor<X> visitor;
 
@@ -39,6 +39,14 @@ public class BGPCollector<X extends Exception> extends AbstractQueryModelVisitor
 			statementPatterns = new ArrayList<>();
 		}
 		statementPatterns.add(sp);
+	}
+
+	@Override
+	public void meet(StarJoin node) throws X {
+		// by-pass meetNode()
+		for (TupleExpr arg : node.getArgs()) {
+			arg.visit(this);
+		}
 	}
 
 	@Override

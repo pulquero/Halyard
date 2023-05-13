@@ -55,7 +55,9 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 
 	@Override
 	public void shutdown() throws QueryEvaluationException {
-		sail.shutDown();
+		if (initialized.compareAndSet(true, false)) {
+			sail.shutDown();
+		}
 	}
 
 	protected SailConnection getConnection() {

@@ -27,8 +27,8 @@ import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import org.eclipse.rdf4j.sail.memory.MemoryStoreConnection;
 
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
-import com.msd.gin.halyard.algebra.evaluation.TupleFunctionEvaluationStrategy;
 import com.msd.gin.halyard.sail.connection.SailConnectionQueryPreparer;
+import com.msd.gin.halyard.strategy.TupleFunctionEvaluationStrategy;
 
 public class SpinMemoryStore extends MemoryStore {
 

@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
-package com.msd.gin.halyard.algebra.evaluation;
+package com.msd.gin.halyard.strategy;
 
 import com.msd.gin.halyard.function.ExtendedTupleFunction;
 
@@ -107,14 +107,7 @@ public class TupleFunctionEvaluationStrategy extends StrictEvaluationStrategy {
 			throws QueryEvaluationException {
 		TupleFunction func = tupleFuncRegistry.get(expr.getURI())
 				.orElseThrow(() -> new QueryEvaluationException("Unknown tuple function '" + expr.getURI() + "'"));
-		Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator;
-		if (func instanceof ExtendedTupleFunction) {
-			ExtendedTupleFunction extFunc = (ExtendedTupleFunction) func;
-			tfEvaluator = argValues -> extFunc.evaluate(tripleSource, argValues);
-		} else {
-			ValueFactory vf = tripleSource.getValueFactory();
-			tfEvaluator = argValues -> func.evaluate(vf, argValues);
-		}
+		Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
 
 		List<ValueExpr> args = expr.getArgs();
 		QueryValueEvaluationStep[] argEpresions = new QueryValueEvaluationStep[args.size()];
@@ -134,6 +127,18 @@ public class TupleFunctionEvaluationStrategy extends StrictEvaluationStrategy {
 				return createBindings(tfEvaluator.apply(argValues), expr.getResultVars(), bindings);
 			}
 		};
+	}
+
+	public static Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> createEvaluator(TupleFunction func, TripleSource tripleSource) {
+		Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator;
+		if (func instanceof ExtendedTupleFunction) {
+			ExtendedTupleFunction extFunc = (ExtendedTupleFunction) func;
+			tfEvaluator = argValues -> extFunc.evaluate(tripleSource, argValues);
+		} else {
+			ValueFactory vf = tripleSource.getValueFactory();
+			tfEvaluator = argValues -> func.evaluate(vf, argValues);
+		}
+		return tfEvaluator;
 	}
 
 	public static CloseableIteration<BindingSet, QueryEvaluationException> createBindings(CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter, List<Var> resultVars, BindingSet bindings) {

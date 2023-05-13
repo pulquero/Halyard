@@ -23,7 +23,6 @@ import com.msd.gin.halyard.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.algebra.StarJoin;
 import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
-import com.msd.gin.halyard.algebra.evaluation.TupleFunctionEvaluationStrategy;
 import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
@@ -31,7 +30,6 @@ import com.msd.gin.halyard.common.ValueFactories;
 import com.msd.gin.halyard.common.ValueType;
 import com.msd.gin.halyard.federation.BindingSetConsumerFederatedService;
 import com.msd.gin.halyard.federation.BindingSetPipeFederatedService;
-import com.msd.gin.halyard.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.query.AbortConsumerException;
 import com.msd.gin.halyard.query.BindingSetPipe;
@@ -2456,11 +2454,10 @@ final class HalyardTupleExprEvaluation {
     }
 
     private BindingSetPipeEvaluationStep precompileStarJoin(StarJoin starJoin, QueryEvaluationContext evalContext) {
-    	List<? extends TupleExpr> args = starJoin.getArgs();
-    	int i = args.size() - 1;
-    	BindingSetPipeEvaluationStep step = precompileTupleExpr(args.get(i), evalContext);
+    	int i = starJoin.getArgCount() - 1;
+    	BindingSetPipeEvaluationStep step = precompileTupleExpr(starJoin.getArg(i), evalContext);
     	for (i--; i>=0; i--) {
-    		step = precompileNestedLoopsJoin(precompileTupleExpr(args.get(i), evalContext), step, (i==0) ? new ResultTracker(starJoin) : null);
+    		step = precompileNestedLoopsJoin(precompileTupleExpr(starJoin.getArg(i), evalContext), step, (i==0) ? new ResultTracker(starJoin) : null);
     	}
         return step;
     }
@@ -2686,14 +2683,7 @@ final class HalyardTupleExprEvaluation {
 			argSteps[i] = parentStrategy.precompile(args.get(i), evalContext);
 		}
 
-		Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator;
-		if (func instanceof ExtendedTupleFunction) {
-			ExtendedTupleFunction extFunc = (ExtendedTupleFunction) func;
-			tfEvaluator = argValues -> extFunc.evaluate(tripleSource, argValues);
-		} else {
-			ValueFactory vf = tripleSource.getValueFactory();
-			tfEvaluator = argValues -> func.evaluate(vf, argValues);
-		}
+		Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
 		Function<BindingSetPipe,BindingSetPipe> pipeBuilder = parent -> {
 			return new BindingSetPipe(parent) {
 				@Override
