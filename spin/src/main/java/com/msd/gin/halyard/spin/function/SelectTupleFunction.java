@@ -28,7 +28,6 @@ import org.eclipse.rdf4j.query.BooleanQuery;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
@@ -36,6 +35,7 @@ import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.spin.SpinParser;
 
@@ -63,27 +63,30 @@ public class SelectTupleFunction extends AbstractSpinFunction implements Extende
 	@Override
 	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
 			TripleSource tripleSource, Value... args) throws QueryEvaluationException {
-		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
-		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		if (args.length == 0 || !(args[0] instanceof Resource)) {
 			throw new QueryEvaluationException("First argument must be a resource");
 		}
 		if ((args.length % 2) == 0) {
 			throw new QueryEvaluationException("Old number of arguments required");
 		}
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
 		try {
-			ParsedQuery parsedQuery = parser.parseQuery((Resource) args[0], qp.getTripleSource());
+			ParsedQuery parsedQuery = parser.parseQuery((Resource) args[0], extTripleSource);
 			if (parsedQuery instanceof ParsedTupleQuery) {
 				ParsedTupleQuery tupleQuery = (ParsedTupleQuery) parsedQuery;
+				QueryPreparer qp = extTripleSource.newQueryPreparer();
 				TupleQuery queryOp = qp.prepare(tupleQuery);
 				addBindings(queryOp, args);
 				final TupleQueryResult queryResult = queryOp.evaluate();
-				return new TupleQueryResultIteration(queryResult);
+				return new TupleQueryResultIteration(qp, queryResult);
 			} else if (parsedQuery instanceof ParsedBooleanQuery) {
 				ParsedBooleanQuery booleanQuery = (ParsedBooleanQuery) parsedQuery;
-				BooleanQuery queryOp = qp.prepare(booleanQuery);
-				addBindings(queryOp, args);
-				Value result = BooleanLiteral.valueOf(queryOp.evaluate());
+				Value result;
+				try (QueryPreparer qp = extTripleSource.newQueryPreparer()) {
+					BooleanQuery queryOp = qp.prepare(booleanQuery);
+					addBindings(queryOp, args);
+					result = BooleanLiteral.valueOf(queryOp.evaluate());
+				}
 				return new SingletonIteration<>(Collections.singletonList(result));
 			} else {
 				throw new QueryEvaluationException("First argument must be a SELECT or ASK query");
@@ -96,12 +99,14 @@ public class SelectTupleFunction extends AbstractSpinFunction implements Extende
 	}
 
 	static class TupleQueryResultIteration extends AbstractCloseableIteration<List<Value>, QueryEvaluationException> {
+		private final QueryPreparer qp;
 
 		private final TupleQueryResult queryResult;
 
 		private final List<String> bindingNames;
 
-		TupleQueryResultIteration(TupleQueryResult queryResult) throws QueryEvaluationException {
+		TupleQueryResultIteration(QueryPreparer qp, TupleQueryResult queryResult) throws QueryEvaluationException {
+			this.qp = qp;
 			this.queryResult = queryResult;
 			this.bindingNames = queryResult.getBindingNames();
 		}
@@ -152,9 +157,13 @@ public class SelectTupleFunction extends AbstractSpinFunction implements Extende
 		@Override
 		public void handleClose() throws QueryEvaluationException {
 			try {
-				super.handleClose();
+				try {
+					super.handleClose();
+				} finally {
+					queryResult.close();
+				}
 			} finally {
-				queryResult.close();
+				qp.close();
 			}
 		}
 	}

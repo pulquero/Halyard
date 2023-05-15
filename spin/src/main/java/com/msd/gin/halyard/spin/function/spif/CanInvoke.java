@@ -34,12 +34,10 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.UpdateExecutionException;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
-import org.eclipse.rdf4j.query.algebra.evaluation.AbstractQueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.federation.AbstractFederatedServiceResolver;
+import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.FunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
@@ -48,7 +46,10 @@ import org.eclipse.rdf4j.query.algebra.evaluation.util.TripleSources;
 import org.eclipse.rdf4j.repository.sparql.federation.SPARQLServiceResolver;
 
 import com.msd.gin.halyard.algebra.Algebra;
+import com.msd.gin.halyard.algebra.evaluation.AbstractQueryPreparer;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.algebra.evaluation.SimpleTupleFunctionContextFactory;
 import com.msd.gin.halyard.optimizers.ExtendedEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
 import com.msd.gin.halyard.spin.Argument;
@@ -92,9 +93,6 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 
 	@Override
 	public Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
-		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
-		QueryPreparer qp = extTripleSource.getQueryPreparer();
-		final TripleSource qpTripleSource = qp.getTripleSource();
 		if (args.length == 0) {
 			throw new ValueExprEvaluationException("At least one argument is required");
 		}
@@ -104,10 +102,11 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 
 		IRI func = (IRI) args[0];
 
-		try {
-			Function instanceOfFunc = getFunction("http://spinrdf.org/spl#instanceOf", qpTripleSource,
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+		try (QueryPreparer qp = extTripleSource.newQueryPreparer()) {
+			Function instanceOfFunc = getFunction("http://spinrdf.org/spl#instanceOf", extTripleSource,
 					functionRegistry);
-			Map<IRI, Argument> funcArgs = parser.parseArguments(func, qpTripleSource);
+			Map<IRI, Argument> funcArgs = parser.parseArguments(func, extTripleSource);
 			List<IRI> funcArgList = SpinParser.orderArguments(funcArgs.keySet());
 			final Map<IRI, Value> argValues = new HashMap<>(funcArgList.size() * 3);
 			for (int i = 0; i < funcArgList.size(); i++) {
@@ -132,11 +131,11 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 			 * in order to check any additional constraints we have to create a virtual function instance to run them
 			 * against
 			 */
-			final Resource funcInstance = qpTripleSource.getValueFactory().createBNode();
+			final Resource funcInstance = extTripleSource.getValueFactory().createBNode();
 
-			TripleSource tempTripleSource = new TripleSource() {
+			ExtendedTripleSource tempTripleSource = new ExtendedTripleSource() {
 
-				private final ValueFactory vf = qpTripleSource.getValueFactory();
+				private final ValueFactory vf = extTripleSource.getValueFactory();
 
 				@Override
 				public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj,
@@ -151,7 +150,7 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 
 						return new EmptyIteration<>();
 					} else {
-						return qpTripleSource.getStatements(subj, pred, obj, contexts);
+						return extTripleSource.getStatements(subj, pred, obj, contexts);
 					}
 				}
 
@@ -159,53 +158,65 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 				public ValueFactory getValueFactory() {
 					return vf;
 				}
-			};
-
-			QueryPreparer tempQueryPreparer = new AbstractQueryPreparer(tempTripleSource) {
-
-				private final AbstractFederatedServiceResolver serviceResolver = new SPARQLServiceResolver();
 
 				@Override
-				protected CloseableIteration<? extends BindingSet, QueryEvaluationException> evaluate(
-						TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred,
-						int maxExecutionTime) throws QueryEvaluationException {
-					// Clone the tuple expression to allow for more aggressive
-					// optimizations
-					tupleExpr = tupleExpr.clone();
+				public QueryPreparer newQueryPreparer() {
+					return new AbstractQueryPreparer() {
 
-					// Add a dummy root node to the tuple expressions to allow the
-					// optimizers to modify the actual root node
-					tupleExpr = Algebra.ensureRooted(tupleExpr);
+						private final FederatedServiceResolver serviceResolver = new SPARQLServiceResolver();
 
-					new SpinFunctionInterpreter(parser, getTripleSource(), functionRegistry).optimize(tupleExpr,
-							dataset, bindings);
-					new SpinMagicPropertyInterpreter(parser, getTripleSource(), tupleFunctionRegistry, serviceResolver)
-							.optimize(tupleExpr, dataset, bindings);
+						@Override
+						protected CloseableIteration<? extends BindingSet, QueryEvaluationException> evaluate(
+								TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred,
+								int maxExecutionTime) throws QueryEvaluationException {
+							// Clone the tuple expression to allow for more aggressive
+							// optimizations
+							tupleExpr = tupleExpr.clone();
 
-					EvaluationStatistics stats = new ExtendedEvaluationStatistics(SimpleStatementPatternCardinalityCalculator.FACTORY);
-					EvaluationStrategy strategy = new ExtendedEvaluationStrategy(getTripleSource(), dataset,
-							serviceResolver, tupleFunctionRegistry, functionRegistry, 0L, stats);
-					strategy.optimize(tupleExpr, stats, bindings);
-					return strategy.evaluate(tupleExpr, bindings);
-				}
+							// Add a dummy root node to the tuple expressions to allow the
+							// optimizers to modify the actual root node
+							tupleExpr = Algebra.ensureRooted(tupleExpr);
 
-				@Override
-				protected void execute(UpdateExpr updateExpr, Dataset dataset, BindingSet bindings,
-						boolean includeInferred, int maxExecutionTime) throws UpdateExecutionException {
-					throw new UnsupportedOperationException();
+							new SpinFunctionInterpreter(parser, tripleSource, functionRegistry).optimize(tupleExpr,
+									dataset, bindings);
+							new SpinMagicPropertyInterpreter(parser, tripleSource, new SimpleTupleFunctionContextFactory(tripleSource, tupleFunctionRegistry), serviceResolver, true)
+									.optimize(tupleExpr, dataset, bindings);
+
+							EvaluationStatistics stats = new ExtendedEvaluationStatistics(SimpleStatementPatternCardinalityCalculator.FACTORY);
+							EvaluationStrategy strategy = new ExtendedEvaluationStrategy(tripleSource, dataset,
+									serviceResolver, tupleFunctionRegistry, functionRegistry, 0L, stats);
+							strategy.optimize(tupleExpr, stats, bindings);
+							return strategy.evaluate(tupleExpr, bindings);
+						}
+
+						@Override
+						protected void execute(UpdateExpr updateExpr, Dataset dataset, BindingSet bindings,
+								boolean includeInferred, int maxExecutionTime) throws UpdateExecutionException {
+							throw new UnsupportedOperationException();
+						}
+
+						@Override
+						public void close() {
+						}
+
+						@Override
+						protected ValueFactory getValueFactory() {
+							return vf;
+						}
+					};
 				}
 			};
 
 			try (CloseableIteration<Resource, QueryEvaluationException> iter = TripleSources
-					.getObjectResources(func, SPIN.CONSTRAINT_PROPERTY, qpTripleSource)) {
+					.getObjectResources(func, SPIN.CONSTRAINT_PROPERTY, extTripleSource)) {
 				while (iter.hasNext()) {
 					Resource constraint = iter.next();
 					Set<IRI> constraintTypes = Iterations
-							.asSet(TripleSources.getObjectURIs(constraint, RDF.TYPE, qpTripleSource));
+							.asSet(TripleSources.getObjectURIs(constraint, RDF.TYPE, extTripleSource));
 					// skip over argument constraints that we have already checked
 					if (!constraintTypes.contains(SPL.ARGUMENT_TEMPLATE)) {
 						ConstraintViolation violation = SpinInferencing.checkConstraint(funcInstance, constraint,
-								tempQueryPreparer, parser);
+								extTripleSource, parser);
 						if (violation != null) {
 							return BooleanLiteral.FALSE;
 						}

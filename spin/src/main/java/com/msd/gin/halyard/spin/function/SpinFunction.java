@@ -22,7 +22,6 @@ import org.eclipse.rdf4j.query.Query;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
@@ -31,6 +30,7 @@ import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 
 import com.google.common.base.Joiner;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.spin.Argument;
 
 public class SpinFunction extends AbstractSpinFunction implements TransientFunction {
@@ -72,41 +72,42 @@ public class SpinFunction extends AbstractSpinFunction implements TransientFunct
 	@Override
 	public Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
 		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
-		QueryPreparer qp = extTripleSource.getQueryPreparer();
-		Value result;
-		if (parsedQuery instanceof ParsedBooleanQuery) {
-			ParsedBooleanQuery askQuery = (ParsedBooleanQuery) parsedQuery;
-			BooleanQuery queryOp = qp.prepare(askQuery);
-			addBindings(queryOp, arguments, args);
-			try {
-				result = BooleanLiteral.valueOf(queryOp.evaluate());
-			} catch (QueryEvaluationException e) {
-				throw new ValueExprEvaluationException(e);
-			}
-		} else if (parsedQuery instanceof ParsedTupleQuery) {
-			ParsedTupleQuery selectQuery = (ParsedTupleQuery) parsedQuery;
-			TupleQuery queryOp = qp.prepare(selectQuery);
-			addBindings(queryOp, arguments, args);
-			try {
-				try (TupleQueryResult queryResult = queryOp.evaluate()) {
-					if (queryResult.hasNext()) {
-						BindingSet bs = queryResult.next();
-						if (bs.size() != 1) {
-							throw new ValueExprEvaluationException(
-									"Only a single result variables is supported: " + bs);
-						}
-						result = bs.iterator().next().getValue();
-					} else {
-						throw new ValueExprEvaluationException("No value");
-					}
+		try (QueryPreparer qp = extTripleSource.newQueryPreparer()) {
+			Value result;
+			if (parsedQuery instanceof ParsedBooleanQuery) {
+				ParsedBooleanQuery askQuery = (ParsedBooleanQuery) parsedQuery;
+				BooleanQuery queryOp = qp.prepare(askQuery);
+				addBindings(queryOp, arguments, args);
+				try {
+					result = BooleanLiteral.valueOf(queryOp.evaluate());
+				} catch (QueryEvaluationException e) {
+					throw new ValueExprEvaluationException(e);
 				}
-			} catch (QueryEvaluationException e) {
-				throw new ValueExprEvaluationException(e);
+			} else if (parsedQuery instanceof ParsedTupleQuery) {
+				ParsedTupleQuery selectQuery = (ParsedTupleQuery) parsedQuery;
+				TupleQuery queryOp = qp.prepare(selectQuery);
+				addBindings(queryOp, arguments, args);
+				try {
+					try (TupleQueryResult queryResult = queryOp.evaluate()) {
+						if (queryResult.hasNext()) {
+							BindingSet bs = queryResult.next();
+							if (bs.size() != 1) {
+								throw new ValueExprEvaluationException(
+										"Only a single result variables is supported: " + bs);
+							}
+							result = bs.iterator().next().getValue();
+						} else {
+							throw new ValueExprEvaluationException("No value");
+						}
+					}
+				} catch (QueryEvaluationException e) {
+					throw new ValueExprEvaluationException(e);
+				}
+			} else {
+				throw new IllegalStateException("Unexpected query: " + parsedQuery);
 			}
-		} else {
-			throw new IllegalStateException("Unexpected query: " + parsedQuery);
+			return result;
 		}
-		return result;
 	}
 
 	private static void addBindings(Query query, List<Argument> arguments, Value... args) {

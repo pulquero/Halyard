@@ -17,13 +17,13 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.vocabulary.SPIN;
 import org.eclipse.rdf4j.query.BooleanQuery;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
 
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.spin.SpinParser;
 
 public class AskFunction extends AbstractSpinFunction implements Function {
@@ -55,15 +55,14 @@ public class AskFunction extends AbstractSpinFunction implements Function {
 	@Override
 	public Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
 		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
-		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		if (args.length == 0 || !(args[0] instanceof Resource)) {
 			throw new ValueExprEvaluationException("First argument must be a resource");
 		}
 		if ((args.length % 2) == 0) {
 			throw new ValueExprEvaluationException("Old number of arguments required");
 		}
-		try {
-			ParsedBooleanQuery askQuery = parser.parseAskQuery((Resource) args[0], qp.getTripleSource());
+		try (QueryPreparer qp = extTripleSource.newQueryPreparer()) {
+			ParsedBooleanQuery askQuery = parser.parseAskQuery((Resource) args[0], extTripleSource);
 			BooleanQuery queryOp = qp.prepare(askQuery);
 			addBindings(queryOp, args);
 			return BooleanLiteral.valueOf(queryOp.evaluate());

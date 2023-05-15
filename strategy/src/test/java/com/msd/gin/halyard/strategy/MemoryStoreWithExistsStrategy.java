@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.strategy;
 
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
 
@@ -15,7 +16,6 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.RDFStarTripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.sail.NotifyingSailConnection;
@@ -53,7 +53,7 @@ class MemoryStoreWithExistsStrategy extends MemoryStore {
 			this.tripleSource = tripleSource;
 		}
 
-		public QueryPreparer getQueryPreparer() {
+		public QueryPreparer newQueryPreparer() {
 			throw new AssertionError();
 		}
 

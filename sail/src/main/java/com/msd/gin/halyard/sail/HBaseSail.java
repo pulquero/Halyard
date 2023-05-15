@@ -19,6 +19,8 @@ package com.msd.gin.halyard.sail;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalNotification;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.algebra.evaluation.TupleFunctionContext;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
@@ -30,10 +32,13 @@ import com.msd.gin.halyard.function.DynamicFunctionRegistry;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.ServiceStatisticsProvider;
 import com.msd.gin.halyard.optimizers.StatementPatternCardinalityCalculator;
+import com.msd.gin.halyard.sail.connection.SailConnectionQueryPreparer;
+import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.spin.SpinFunctionInterpreter;
 import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
 import com.msd.gin.halyard.spin.SpinParser;
 import com.msd.gin.halyard.spin.SpinParser.Input;
+import com.msd.gin.halyard.spin.SpinSail;
 import com.msd.gin.halyard.util.MBeanDetails;
 import com.msd.gin.halyard.util.MBeanManager;
 
@@ -71,7 +76,9 @@ import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.MutableBindingSet;
+import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.AbstractFederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
@@ -85,6 +92,7 @@ import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
@@ -95,7 +103,7 @@ import co.elastic.clients.transport.rest_client.RestClientTransport;
  * only supported for queries across multiple graphs in one Halyard database.
  * @author Adam Sotona (MSD)
  */
-public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, HBaseSailMXBean {
+public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, SpinSail, HBaseSailMXBean {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HBaseSail.class);
 
     /**
@@ -192,8 +200,8 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, HB
 	final boolean pushStrategy;
 	final int splitBits;
 	final int evaluationTimeoutSecs;
-	private boolean readOnly = true;
-	private long readOnlyTimestamp = 0L;
+	private volatile boolean readOnly = true;
+	private volatile long readOnlyTimestamp = 0L;
 	final ElasticSettings esSettings;
 	ElasticsearchTransport esTransport;
 	boolean includeNamespaces = false;
@@ -213,6 +221,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, HB
 	Connection hConnection;
 	final boolean hConnectionIsShared; //whether a Connection is provided or we need to create our own
 	Keyspace keyspace;
+	volatile Optional<SearchClient> searchClient;
 	String owner;
 	private MBeanManager<HBaseSail> mbeanManager;
 	private final Cache<HBaseSailConnection, Object> connInfos = CacheBuilder.newBuilder().weakKeys().removalListener((RemovalNotification<HBaseSailConnection, Object> notif) -> {
@@ -569,10 +578,6 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, HB
 		return attrs;
 	}
 
-	private boolean isInitialized() {
-		return (keyspace != null) && (rdfFactory != null) && (stmtIndices != null);
-	}
-
 	public Configuration getConfiguration() {
 		return config;
 	}
@@ -585,12 +590,54 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, HB
 		return tupleFunctionRegistry;
 	}
 
+	@Override
 	public FederatedServiceResolver getFederatedServiceResolver() {
 		return federatedServiceResolver;
 	}
 
+	@Override
 	public SpinParser getSpinParser() {
 		return spinParser;
+	}
+
+	@Override
+	public TupleFunctionContext.Factory getTupleFunctionContextFactory() {
+		return new TupleFunctionContext.Factory() {
+			@Override
+			public TupleFunctionContext create() {
+				try {
+					return new TupleFunctionContext() {
+						private KeyspaceConnection keyspaceConn = keyspace.getConnection();
+
+						@Override
+						public TripleSource getTripleSource() {
+							return createTripleSource(keyspaceConn, true);
+						}
+
+						@Override
+						public void close() {
+							try {
+								keyspaceConn.close();
+							} catch (IOException ioe) {
+								throw new QueryEvaluationException(ioe);
+							}
+						}
+					};
+				} catch (IOException ioe) {
+					throw new QueryEvaluationException(ioe);
+				}
+			}
+
+			@Override
+			public TupleFunctionRegistry getTupleFunctionRegistry() {
+				return tupleFunctionRegistry;
+			}
+		};
+	}
+
+	HBaseTripleSource createTripleSource(KeyspaceConnection keyspaceConn, boolean includeInferred) {
+		QueryPreparer.Factory qpFactory = () -> new SailConnectionQueryPreparer(getConnection(), includeInferred, getValueFactory());
+		return new HBaseSearchTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), getSearchClient().orElse(null), ticker);
 	}
 
 	public RDFFactory getRDFFactory() {
@@ -607,7 +654,26 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, HB
 		return stmtIndices;
 	}
 
-    @Override
+	Optional<SearchClient> getSearchClient() {
+		Optional<SearchClient> localRef = searchClient;
+		if (localRef == null) {
+			if (esTransport != null) {
+				synchronized (this) {
+					localRef = searchClient;
+					if (localRef == null) {
+						localRef = Optional.of(new SearchClient(new ElasticsearchClient(esTransport), esSettings.indexName));
+						searchClient = localRef;
+					}
+				}
+			} else {
+				localRef = Optional.empty();
+				searchClient = localRef;
+			}
+		}
+		return localRef;
+	}
+
+	@Override
 	public void shutDown() throws SailException {
 		connInfos.invalidateAll();
 
@@ -650,7 +716,8 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, HB
     public boolean isWritable() throws SailException {
 		if (hConnection != null) {
 			long time = System.currentTimeMillis();
-			if ((readOnlyTimestamp == 0) || (time > readOnlyTimestamp + STATUS_CACHING_TIMEOUT)) {
+			long lastCheckTimestamp = readOnlyTimestamp;
+			if ((lastCheckTimestamp == 0) || (time > lastCheckTimestamp + STATUS_CACHING_TIMEOUT)) {
 				try (Table table = hConnection.getTable(tableName)) {
 					readOnly = table.getDescriptor().isReadOnly();
 					readOnlyTimestamp = time;
@@ -668,7 +735,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, HB
     }
 
 	HBaseSailConnection getConnection(SailConnectionFactory connectionFactory) throws SailException {
-		if (!isInitialized()) {
+		if (!isConnectable()) {
 			throw new IllegalStateException("Sail is not initialized or has been shut down");
 		}
 		try {
@@ -676,6 +743,10 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, HB
 		} catch (IOException ioe) {
 			throw new SailException(ioe);
 		}
+	}
+
+	private boolean isConnectable() {
+		return (keyspace != null) && (rdfFactory != null) && (stmtIndices != null);
 	}
 
 	void connectionOpened(HBaseSailConnection conn) {

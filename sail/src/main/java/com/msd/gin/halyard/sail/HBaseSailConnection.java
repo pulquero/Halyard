@@ -30,9 +30,7 @@ import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.query.QueueingBindingSetPipe;
 import com.msd.gin.halyard.query.TimeLimitConsumer;
 import com.msd.gin.halyard.sail.HBaseSail.SailConnectionFactory;
-import com.msd.gin.halyard.sail.connection.SailConnectionQueryPreparer;
 import com.msd.gin.halyard.sail.geosparql.WithinDistanceInterpreter;
-import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.sail.search.SearchInterpreter;
 import com.msd.gin.halyard.spin.SpinFunctionInterpreter;
 import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
@@ -98,8 +96,6 @@ import org.eclipse.rdf4j.sail.UpdateContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-
 public class HBaseSailConnection extends AbstractSailConnection implements BindingSetConsumerSailConnection, BindingSetPipeSailConnection {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HBaseSailConnection.class);
 
@@ -112,7 +108,6 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
     private final HBaseSail sail;
 	private final boolean usePush;
-	private final SearchClient searchClient;
 	private KeyspaceConnection keyspaceConn;
 	private HalyardEvaluationStatistics statistics;
 	private HalyardEvaluationExecutor executor;
@@ -136,11 +131,6 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		// tables are lightweight but not thread-safe so get a new instance per sail
 		// connection
 		this.keyspaceConn = sail.keyspace.getConnection();
-		if (sail.esTransport != null) {
-			searchClient = new SearchClient(new ElasticsearchClient(sail.esTransport), sail.esSettings.indexName);
-		} else {
-			searchClient = null;
-		}
 		sail.connectionOpened(this);
     }
 
@@ -201,11 +191,6 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
     }
 
-	private HBaseTripleSource createTripleSource(boolean includeInferred) {
-		SailConnectionQueryPreparer queryPreparer = new SailConnectionQueryPreparer(this, includeInferred, sail.getValueFactory());
-		return new HBaseSearchTripleSource(keyspaceConn, sail.getValueFactory(), sail.getStatementIndices(), sail.evaluationTimeoutSecs, queryPreparer, sail.getScanSettings(), searchClient, sail.ticker);
-	}
-
 	private EvaluationStrategy createEvaluationStrategy(TripleSource source, Dataset dataset) {
 		EvaluationStrategy strategy;
 		HalyardEvaluationStatistics stats = getStatistics();
@@ -235,7 +220,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 		new SpinFunctionInterpreter(sail.getSpinParser(), source, sail.getFunctionRegistry()).optimize(tupleExpr, dataset, bindings);
 		if (includeInferred) {
-			new SpinMagicPropertyInterpreter(sail.getSpinParser(), source, sail.getTupleFunctionRegistry(), null).optimize(tupleExpr, dataset, bindings);
+			new SpinMagicPropertyInterpreter(sail.getSpinParser(), source, sail.getTupleFunctionContextFactory(), sail.getFederatedServiceResolver(), true).optimize(tupleExpr, dataset, bindings);
 		}
 		new SearchInterpreter().optimize(tupleExpr, dataset, bindings);
 		new WithinDistanceInterpreter().optimize(tupleExpr, dataset, bindings);
@@ -324,7 +309,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		int updatePart = Literals.getIntValue(bindings.getValue(UPDATE_PART_BINDING), NO_UPDATE_PARTS);
 		BindingSet queryBindings = removeImplicitBindings(bindings);
 
-		RDFStarTripleSource tripleSource = createTripleSource(includeInferred);
+		RDFStarTripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred);
 		EvaluationStrategy strategy = createEvaluationStrategy(tripleSource, dataset);
 
 		TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);
@@ -436,7 +421,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     @Override
     public CloseableIteration<? extends Statement, SailException> getStatements(Resource subj, IRI pred, Value obj, boolean includeInferred, Resource... contexts) throws SailException {
 		flush();
-		TripleSource tripleSource = createTripleSource(includeInferred);
+		TripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred);
 		return new ExceptionConvertingIteration<Statement, SailException>(tripleSource.getStatements(subj, pred, obj, contexts)) {
 			@Override
 			protected SailException convert(Exception e) {
@@ -453,7 +438,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			}
 		}
 		flush();
-		ExtendedTripleSource tripleSource = createTripleSource(includeInferred);
+		ExtendedTripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred);
 		return tripleSource.hasStatement(subj, pred, obj, contexts);
 	}
 

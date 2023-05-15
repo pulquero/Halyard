@@ -22,7 +22,6 @@ import org.eclipse.rdf4j.query.BooleanQuery;
 import org.eclipse.rdf4j.query.GraphQuery;
 import org.eclipse.rdf4j.query.Operation;
 import org.eclipse.rdf4j.query.Update;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
 import org.eclipse.rdf4j.query.parser.ParsedGraphQuery;
@@ -43,6 +42,9 @@ import org.eclipse.rdf4j.sail.inferencer.fc.SchemaCachingRDFSInferencer;
 import org.eclipse.rdf4j.sail.inferencer.util.RDFInferencerInserter;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
 
+import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
+
 /**
  * Collection of useful utilities for doing SPIN inferencing.
  */
@@ -59,58 +61,60 @@ public class SpinInferencing {
 		target.add(url, RDFFormat.TURTLE);
 	}
 
-	public static int executeRule(Resource subj, Resource rule, QueryPreparer queryPreparer, SpinParser parser,
+	public static int executeRule(Resource subj, Resource rule, ExtendedTripleSource tripleSource, SpinParser parser,
 			InferencerConnection conn) {
 		int nofInferred;
-		TripleSource tripleSource = queryPreparer.getTripleSource();
-		ParsedOperation parsedOp = parser.parse(rule, tripleSource);
-		if (parsedOp instanceof ParsedGraphQuery) {
-			ParsedGraphQuery graphQuery = (ParsedGraphQuery) parsedOp;
-			GraphQuery queryOp = queryPreparer.prepare(graphQuery);
-			addBindings(subj, rule, graphQuery, queryOp, tripleSource, parser);
-			CountingRDFInferencerInserter handler = new CountingRDFInferencerInserter(conn,
-					tripleSource.getValueFactory());
-			queryOp.evaluate(handler);
-			nofInferred = handler.getStatementCount();
-		} else if (parsedOp instanceof ParsedUpdate) {
-			ParsedUpdate graphUpdate = (ParsedUpdate) parsedOp;
-			Update updateOp = queryPreparer.prepare(graphUpdate);
-			addBindings(subj, rule, graphUpdate, updateOp, tripleSource, parser);
-			UpdateCountListener listener = new UpdateCountListener();
-			conn.addConnectionListener(listener);
-			updateOp.execute();
-			conn.removeConnectionListener(listener);
-			// number of statement changes
-			nofInferred = listener.getAddedStatementCount() + listener.getRemovedStatementCount();
-		} else {
-			throw new MalformedSpinException("Invalid rule: " + rule);
+		try (QueryPreparer queryPreparer = tripleSource.newQueryPreparer()) {
+			ParsedOperation parsedOp = parser.parse(rule, tripleSource);
+			if (parsedOp instanceof ParsedGraphQuery) {
+				ParsedGraphQuery graphQuery = (ParsedGraphQuery) parsedOp;
+				GraphQuery queryOp = queryPreparer.prepare(graphQuery);
+				addBindings(subj, rule, graphQuery, queryOp, tripleSource, parser);
+				CountingRDFInferencerInserter handler = new CountingRDFInferencerInserter(conn,
+						tripleSource.getValueFactory());
+				queryOp.evaluate(handler);
+				nofInferred = handler.getStatementCount();
+			} else if (parsedOp instanceof ParsedUpdate) {
+				ParsedUpdate graphUpdate = (ParsedUpdate) parsedOp;
+				Update updateOp = queryPreparer.prepare(graphUpdate);
+				addBindings(subj, rule, graphUpdate, updateOp, tripleSource, parser);
+				UpdateCountListener listener = new UpdateCountListener();
+				conn.addConnectionListener(listener);
+				updateOp.execute();
+				conn.removeConnectionListener(listener);
+				// number of statement changes
+				nofInferred = listener.getAddedStatementCount() + listener.getRemovedStatementCount();
+			} else {
+				throw new MalformedSpinException("Invalid rule: " + rule);
+			}
 		}
 		return nofInferred;
 	}
 
-	public static ConstraintViolation checkConstraint(Resource subj, Resource constraint, QueryPreparer queryPreparer,
+	public static ConstraintViolation checkConstraint(Resource subj, Resource constraint, ExtendedTripleSource tripleSource,
 			SpinParser parser) {
 		ConstraintViolation violation;
-		TripleSource tripleSource = queryPreparer.getTripleSource();
-		ParsedQuery parsedQuery = parser.parseQuery(constraint, tripleSource);
-		if (parsedQuery instanceof ParsedBooleanQuery) {
-			ParsedBooleanQuery askQuery = (ParsedBooleanQuery) parsedQuery;
-			BooleanQuery queryOp = queryPreparer.prepare(askQuery);
-			addBindings(subj, constraint, askQuery, queryOp, tripleSource, parser);
-			if (queryOp.evaluate()) {
-				violation = parser.parseConstraintViolation(constraint, tripleSource);
+		try (QueryPreparer queryPreparer = tripleSource.newQueryPreparer()) {
+			ParsedQuery parsedQuery = parser.parseQuery(constraint, tripleSource);
+			if (parsedQuery instanceof ParsedBooleanQuery) {
+				ParsedBooleanQuery askQuery = (ParsedBooleanQuery) parsedQuery;
+				BooleanQuery queryOp = queryPreparer.prepare(askQuery);
+				addBindings(subj, constraint, askQuery, queryOp, tripleSource, parser);
+				if (queryOp.evaluate()) {
+					violation = parser.parseConstraintViolation(constraint, tripleSource);
+				} else {
+					violation = null;
+				}
+			} else if (parsedQuery instanceof ParsedGraphQuery) {
+				ParsedGraphQuery graphQuery = (ParsedGraphQuery) parsedQuery;
+				GraphQuery queryOp = queryPreparer.prepare(graphQuery);
+				addBindings(subj, constraint, graphQuery, queryOp, tripleSource, parser);
+				ConstraintViolationRDFHandler handler = new ConstraintViolationRDFHandler();
+				queryOp.evaluate(handler);
+				violation = handler.getConstraintViolation();
 			} else {
-				violation = null;
+				throw new MalformedSpinException("Invalid constraint: " + constraint);
 			}
-		} else if (parsedQuery instanceof ParsedGraphQuery) {
-			ParsedGraphQuery graphQuery = (ParsedGraphQuery) parsedQuery;
-			GraphQuery queryOp = queryPreparer.prepare(graphQuery);
-			addBindings(subj, constraint, graphQuery, queryOp, tripleSource, parser);
-			ConstraintViolationRDFHandler handler = new ConstraintViolationRDFHandler();
-			queryOp.evaluate(handler);
-			violation = handler.getConstraintViolation();
-		} else {
-			throw new MalformedSpinException("Invalid constraint: " + constraint);
 		}
 		return violation;
 	}

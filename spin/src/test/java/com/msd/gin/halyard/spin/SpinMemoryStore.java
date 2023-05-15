@@ -4,18 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.FunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
@@ -26,7 +20,9 @@ import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import org.eclipse.rdf4j.sail.memory.MemoryStoreConnection;
 
-import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.algebra.evaluation.SimpleTupleFunctionContextFactory;
+import com.msd.gin.halyard.algebra.evaluation.TupleFunctionContext;
 import com.msd.gin.halyard.sail.connection.SailConnectionQueryPreparer;
 import com.msd.gin.halyard.strategy.TupleFunctionEvaluationStrategy;
 
@@ -57,8 +53,10 @@ public class SpinMemoryStore extends MemoryStore {
 
 		@Override
         protected EvaluationStrategy getEvaluationStrategy(Dataset dataset, final TripleSource tripleSource) {
-			SailConnectionQueryPreparer queryPreparer = new SailConnectionQueryPreparer(this, includeInferred, getValueFactory());
-			ExtendedTripleSourceWrapper extTripleSource = new ExtendedTripleSourceWrapper(tripleSource, queryPreparer);
+			boolean includeInferred = this.includeInferred;
+			QueryPreparer.Factory queryPreparerFactory = () -> new SailConnectionQueryPreparer(getConnection(), includeInferred, getValueFactory());
+			ExtendedTripleSourceWrapper extTripleSource = new ExtendedTripleSourceWrapper(tripleSource, queryPreparerFactory);
+			TupleFunctionContext.Factory tfContextFactory = new SimpleTupleFunctionContextFactory(extTripleSource, tupleFunctionRegistry);
 			EvaluationStatistics stats = new EvaluationStatistics();
 			TupleFunctionEvaluationStrategy evalStrat = new TupleFunctionEvaluationStrategy(extTripleSource, dataset, getFederatedServiceResolver(), tupleFunctionRegistry, 0, stats);
 			evalStrat.setOptimizerPipeline(new StandardQueryOptimizerPipeline(evalStrat, extTripleSource, stats) {
@@ -66,7 +64,7 @@ public class SpinMemoryStore extends MemoryStore {
 				public Iterable<QueryOptimizer> getOptimizers() {
 					List<QueryOptimizer> optimizers = new ArrayList<>();
 					optimizers.add(new SpinFunctionInterpreter(spinParser, extTripleSource, functionRegistry));
-					optimizers.add(new SpinMagicPropertyInterpreter(spinParser, extTripleSource, tupleFunctionRegistry, null));
+					optimizers.add(new SpinMagicPropertyInterpreter(spinParser, extTripleSource, tfContextFactory, getFederatedServiceResolver(), true));
 					for (QueryOptimizer optimizer : super.getOptimizers()) {
 						optimizers.add(optimizer);
 					}
@@ -88,32 +86,6 @@ public class SpinMemoryStore extends MemoryStore {
 			} finally {
 				this.includeInferred = null;
 			}
-		}
-	}
-
-
-	static class ExtendedTripleSourceWrapper implements ExtendedTripleSource {
-		private final TripleSource delegate;
-		private QueryPreparer queryPreparer;
-
-		ExtendedTripleSourceWrapper(TripleSource delegate, QueryPreparer queryPreparer) {
-			this.delegate = delegate;
-			this.queryPreparer = queryPreparer;
-		}
-
-		@Override
-		public QueryPreparer getQueryPreparer() {
-			return queryPreparer;
-		}
-
-		@Override
-		public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
-			return delegate.getStatements(subj, pred, obj, contexts);
-		}
-
-		@Override
-		public ValueFactory getValueFactory() {
-			return delegate.getValueFactory();
 		}
 	}
 }

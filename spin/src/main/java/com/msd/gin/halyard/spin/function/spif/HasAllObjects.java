@@ -18,13 +18,13 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.vocabulary.SPIF;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.TripleSources;
 
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.spin.function.AbstractSpinFunction;
 
 public class HasAllObjects extends AbstractSpinFunction implements Function {
@@ -40,8 +40,6 @@ public class HasAllObjects extends AbstractSpinFunction implements Function {
 
 	@Override
 	public Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
-		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
-		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		if (args.length != 3) {
 			throw new ValueExprEvaluationException(
 					String.format("%s requires 3 argument, got %d", getURI(), args.length));
@@ -49,11 +47,12 @@ public class HasAllObjects extends AbstractSpinFunction implements Function {
 		Resource subj = (Resource) args[0];
 		IRI pred = (IRI) args[1];
 		Resource list = (Resource) args[2];
-		try {
-			Iteration<Value, QueryEvaluationException> iter = TripleSources.list(list, qp.getTripleSource());
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+		try (QueryPreparer qp = extTripleSource.newQueryPreparer()) {
+			Iteration<Value, QueryEvaluationException> iter = TripleSources.list(list, extTripleSource);
 			while (iter.hasNext()) {
 				Value obj = iter.next();
-				if (TripleSources.single(subj, pred, obj, qp.getTripleSource()) == null) {
+				if (TripleSources.single(subj, pred, obj, extTripleSource) == null) {
 					return BooleanLiteral.FALSE;
 				}
 			}

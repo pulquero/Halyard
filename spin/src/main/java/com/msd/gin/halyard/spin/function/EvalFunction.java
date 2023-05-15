@@ -33,7 +33,6 @@ import org.eclipse.rdf4j.query.algebra.ExtensionElem;
 import org.eclipse.rdf4j.query.algebra.SingletonSet;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
@@ -43,6 +42,7 @@ import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.spin.SpinParser;
 
 public class EvalFunction extends AbstractSpinFunction implements Function {
@@ -74,7 +74,6 @@ public class EvalFunction extends AbstractSpinFunction implements Function {
 	@Override
 	public Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
 		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
-		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		if (args.length == 0 || !(args[0] instanceof Resource)) {
 			throw new ValueExprEvaluationException("First argument must be a resource");
 		}
@@ -82,13 +81,13 @@ public class EvalFunction extends AbstractSpinFunction implements Function {
 			throw new ValueExprEvaluationException("Old number of arguments required");
 		}
 		Value result;
-		Resource subj = (Resource) args[0];
-		try {
+		try (QueryPreparer qp = extTripleSource.newQueryPreparer()) {
+			Resource subj = (Resource) args[0];
 			ParsedQuery parsedQuery;
-			if (isQuery(subj, qp.getTripleSource())) {
-				parsedQuery = parser.parseQuery(subj, qp.getTripleSource());
+			if (isQuery(subj, extTripleSource)) {
+				parsedQuery = parser.parseQuery(subj, extTripleSource);
 			} else {
-				ValueExpr expr = parser.parseExpression(subj, qp.getTripleSource());
+				ValueExpr expr = parser.parseExpression(subj, extTripleSource);
 				// wrap in a TupleExpr
 				TupleExpr root = new Extension(new SingletonSet(), new ExtensionElem(expr, "result"));
 				parsedQuery = new ParsedTupleQuery(root);

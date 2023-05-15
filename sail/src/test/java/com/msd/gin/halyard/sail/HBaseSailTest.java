@@ -149,6 +149,14 @@ public class HBaseSailTest {
     }
 
     @Test
+	public void testInitializeAndShutDownWithIncludeNamespaces() throws Exception {
+		HBaseSail sail = new HBaseSail(hconn, useTable("whatevertable"), true, 0, usePushStrategy, 10, null, null);
+		sail.includeNamespaces = true;
+		sail.init();
+		sail.shutDown();
+	}
+
+	@Test
 	public void testInitializeAndShutDownWithElastic() throws Exception {
 		ElasticSettings esSettings = ElasticSettings.from(new URL("http://elastic:9200/index"));
 		esSettings.username = "elastic";

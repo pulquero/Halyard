@@ -24,12 +24,12 @@ import org.eclipse.rdf4j.model.vocabulary.SPIN;
 import org.eclipse.rdf4j.query.GraphQuery;
 import org.eclipse.rdf4j.query.GraphQueryResult;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.parser.ParsedGraphQuery;
 
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.spin.SpinParser;
 
@@ -54,22 +54,23 @@ public class ConstructTupleFunction extends AbstractSpinFunction implements Exte
 		this.parser = parser;
 	}
 
+	@Override
 	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
 			TripleSource tripleSource, Value... args) throws QueryEvaluationException {
-		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
-		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		if (args.length == 0 || !(args[0] instanceof Resource)) {
 			throw new QueryEvaluationException("First argument must be a resource");
 		}
 		if ((args.length % 2) == 0) {
 			throw new QueryEvaluationException("Old number of arguments required");
 		}
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+		QueryPreparer qp = extTripleSource.newQueryPreparer();
 		try {
-			ParsedGraphQuery graphQuery = parser.parseConstructQuery((Resource) args[0], qp.getTripleSource());
+			ParsedGraphQuery graphQuery = parser.parseConstructQuery((Resource) args[0], extTripleSource);
 			GraphQuery queryOp = qp.prepare(graphQuery);
 			addBindings(queryOp, args);
 			final GraphQueryResult queryResult = queryOp.evaluate();
-			return new GraphQueryResultIteration(queryResult);
+			return new GraphQueryResultIteration(qp, queryResult);
 		} catch (QueryEvaluationException e) {
 			throw e;
 		} catch (RDF4JException e) {
@@ -78,10 +79,11 @@ public class ConstructTupleFunction extends AbstractSpinFunction implements Exte
 	}
 
 	static class GraphQueryResultIteration extends AbstractCloseableIteration<List<Value>, QueryEvaluationException> {
-
+		private final QueryPreparer qp;
 		private final GraphQueryResult queryResult;
 
-		GraphQueryResultIteration(GraphQueryResult queryResult) {
+		GraphQueryResultIteration(QueryPreparer qp, GraphQueryResult queryResult) {
+			this.qp = qp;
 			this.queryResult = queryResult;
 		}
 
@@ -132,9 +134,13 @@ public class ConstructTupleFunction extends AbstractSpinFunction implements Exte
 		@Override
 		public void handleClose() throws QueryEvaluationException {
 			try {
-				super.handleClose();
+				try {
+					super.handleClose();
+				} finally {
+					queryResult.close();
+				}
 			} finally {
-				queryResult.close();
+				qp.close();
 			}
 		}
 	}

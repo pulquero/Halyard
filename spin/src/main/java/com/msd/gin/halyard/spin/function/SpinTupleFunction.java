@@ -23,7 +23,6 @@ import org.eclipse.rdf4j.query.GraphQuery;
 import org.eclipse.rdf4j.query.Query;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.TupleQuery;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
 import org.eclipse.rdf4j.query.parser.ParsedGraphQuery;
@@ -32,6 +31,7 @@ import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 
 import com.google.common.base.Joiner;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.spin.Argument;
 import com.msd.gin.halyard.spin.function.ConstructTupleFunction.GraphQueryResultIteration;
@@ -72,24 +72,28 @@ public class SpinTupleFunction extends AbstractSpinFunction implements Transient
 	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
 			TripleSource tripleSource, Value... args) throws QueryEvaluationException {
 		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
-		QueryPreparer qp = extTripleSource.getQueryPreparer();
 		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter;
 		if (parsedQuery instanceof ParsedBooleanQuery) {
 			ParsedBooleanQuery askQuery = (ParsedBooleanQuery) parsedQuery;
-			BooleanQuery queryOp = qp.prepare(askQuery);
-			addBindings(queryOp, arguments, args);
-			Value result = BooleanLiteral.valueOf(queryOp.evaluate());
+			Value result;
+			try (QueryPreparer qp = extTripleSource.newQueryPreparer()) {
+				BooleanQuery queryOp = qp.prepare(askQuery);
+				addBindings(queryOp, arguments, args);
+				result = BooleanLiteral.valueOf(queryOp.evaluate());
+			}
 			iter = new SingletonIteration<>(Collections.singletonList(result));
 		} else if (parsedQuery instanceof ParsedTupleQuery) {
 			ParsedTupleQuery selectQuery = (ParsedTupleQuery) parsedQuery;
+			QueryPreparer qp = extTripleSource.newQueryPreparer();
 			TupleQuery queryOp = qp.prepare(selectQuery);
 			addBindings(queryOp, arguments, args);
-			iter = new TupleQueryResultIteration(queryOp.evaluate());
+			iter = new TupleQueryResultIteration(qp, queryOp.evaluate());
 		} else if (parsedQuery instanceof ParsedGraphQuery) {
 			ParsedGraphQuery graphQuery = (ParsedGraphQuery) parsedQuery;
+			QueryPreparer qp = extTripleSource.newQueryPreparer();
 			GraphQuery queryOp = qp.prepare(graphQuery);
 			addBindings(queryOp, arguments, args);
-			iter = new GraphQueryResultIteration(queryOp.evaluate());
+			iter = new GraphQueryResultIteration(qp, queryOp.evaluate());
 		} else {
 			throw new IllegalStateException("Unexpected query: " + parsedQuery);
 		}

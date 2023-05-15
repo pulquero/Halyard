@@ -19,13 +19,13 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.model.vocabulary.SPIF;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.TripleSources;
 
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.spin.function.AbstractSpinFunction;
 
 public class Name extends AbstractSpinFunction implements Function {
@@ -50,11 +50,9 @@ public class Name extends AbstractSpinFunction implements Function {
 			return valueFactory.createLiteral(((Literal) args[0]).getLabel());
 		} else {
 			ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
-			QueryPreparer qp = extTripleSource.getQueryPreparer();
-			try {
-
+			try (QueryPreparer qp = extTripleSource.newQueryPreparer()) {
 				try (Stream<Literal> stream = TripleSources
-						.getObjectLiterals((Resource) args[0], RDFS.LABEL, qp.getTripleSource())
+						.getObjectLiterals((Resource) args[0], RDFS.LABEL, extTripleSource)
 						.stream()) {
 					return stream.findFirst().orElseGet(() -> valueFactory.createLiteral(args[0].stringValue()));
 				}

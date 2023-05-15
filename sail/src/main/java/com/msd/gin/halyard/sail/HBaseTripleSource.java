@@ -18,6 +18,7 @@ package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFContext;
@@ -60,7 +61,6 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.SPIN;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
 import org.eclipse.rdf4j.query.algebra.evaluation.RDFStarTripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.slf4j.Logger;
@@ -71,23 +71,23 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 
 	protected final KeyspaceConnection keyspaceConn;
 	protected final ValueFactory vf;
-	private final QueryPreparer queryPreparer;
 	protected final StatementIndices stmtIndices;
+	private final long timeoutSecs;
+	private final QueryPreparer.Factory queryPreparerFactory;
 	protected final RDFFactory rdfFactory;
 	private final ValueIO.Reader valueReader;
-	private final long timeoutSecs;
 	private final HBaseSail.ScanSettings settings;
 	private final HBaseSail.Ticker ticker;
 
-	public HBaseTripleSource(KeyspaceConnection keyspaceConn, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer qp) {
-		this(keyspaceConn, vf, stmtIndices, timeoutSecs, qp, null, null);
+	public HBaseTripleSource(KeyspaceConnection keyspaceConn, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory) {
+		this(keyspaceConn, vf, stmtIndices, timeoutSecs, qpFactory, null, null);
 	}
 
-	protected HBaseTripleSource(KeyspaceConnection keyspaceConn, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer qp, HBaseSail.ScanSettings settings, HBaseSail.Ticker ticker) {
+	protected HBaseTripleSource(KeyspaceConnection keyspaceConn, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory, HBaseSail.ScanSettings settings, HBaseSail.Ticker ticker) {
 		this.keyspaceConn = keyspaceConn;
 		this.vf = vf;
-		this.queryPreparer = qp;
 		this.stmtIndices = stmtIndices;
+		this.queryPreparerFactory = qpFactory;
 		this.rdfFactory = stmtIndices.getRDFFactory();
 		this.valueReader = stmtIndices.getRDFFactory().valueReader;
 		this.timeoutSecs = timeoutSecs;
@@ -96,8 +96,8 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	@Override
-	public QueryPreparer getQueryPreparer() {
-		return queryPreparer;
+	public QueryPreparer newQueryPreparer() {
+		return queryPreparerFactory.create();
 	}
 
 	public KeyspaceConnection getKeyspaceConnection() {
@@ -212,12 +212,12 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	public TripleSource getTimestampedTripleSource() {
-		return new HBaseTripleSource(keyspaceConn, new TimestampedValueFactory(rdfFactory), stmtIndices, timeoutSecs, queryPreparer, settings, ticker);
+		return new HBaseTripleSource(keyspaceConn, new TimestampedValueFactory(rdfFactory), stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker);
 	}
 
 	@Override
 	public TripleSource getTripleSource(ValueConstraint subjConstraint, ValueConstraint objConstraints) {
-		return new HBaseTripleSource(keyspaceConn, vf, stmtIndices, timeoutSecs, queryPreparer, settings, ticker) {
+		return new HBaseTripleSource(keyspaceConn, vf, stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker) {
 			@Override
 			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, StatementIndices indices) {
 				return indices.scanWithConstraints(subj, subjConstraint, pred, obj, objConstraints, ctx);

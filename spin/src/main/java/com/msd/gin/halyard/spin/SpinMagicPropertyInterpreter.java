@@ -38,12 +38,15 @@ import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.AbstractFederatedServiceResolver;
+import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
+import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.TripleSources;
 import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 import org.eclipse.rdf4j.queryrender.sparql.SPARQLQueryRenderer;
+import org.eclipse.rdf4j.sail.Sail;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,6 +55,8 @@ import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.BGPCollector;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.algebra.StarJoin;
+import com.msd.gin.halyard.algebra.evaluation.TupleFunctionContext;
+import com.msd.gin.halyard.federation.SailFederatedService;
 import com.msd.gin.halyard.federation.TupleFunctionFederatedService;
 import com.msd.gin.halyard.spin.function.ConstructTupleFunction;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
@@ -63,18 +68,6 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 
 	private static final String SPIN_SERVICE = "spin:/";
 
-	private final TripleSource tripleSource;
-
-	private final SpinParser parser;
-
-	private final TupleFunctionRegistry tupleFunctionRegistry;
-
-	private final AbstractFederatedServiceResolver serviceResolver;
-
-	private final IRI spinServiceUri;
-
-	private final boolean includeMatchingTriples;
-
 	public static void registerSpinParsingTupleFunctions(SpinParser parser, TupleFunctionRegistry tupleFunctionRegistry) {
 		if (!tupleFunctionRegistry.has(SPIN.CONSTRUCT_PROPERTY.stringValue())) {
 			tupleFunctionRegistry.add(new ConstructTupleFunction(parser));
@@ -84,35 +77,61 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 		}
 	}
 
+	private final SpinParser parser;
+	private final TripleSource tripleSource;
+	private final TupleFunctionContext.Factory tfContextFactory;
+	private final FederatedServiceResolver serviceResolver;
+	private final boolean nativeEvaluation;
+	private final boolean includeMatchingTriples;
+
 	public SpinMagicPropertyInterpreter(SpinParser parser, TripleSource tripleSource,
-			TupleFunctionRegistry tupleFunctionRegistry, AbstractFederatedServiceResolver serviceResolver) {
-		this(parser, tripleSource, tupleFunctionRegistry, serviceResolver, true);
+			TupleFunctionContext.Factory tfContextFactory, FederatedServiceResolver serviceResolver, boolean nativeEvaluation) {
+		this(parser, tripleSource, tfContextFactory, serviceResolver, nativeEvaluation, true);
 	}
 
-	public SpinMagicPropertyInterpreter(SpinParser parser, TripleSource tripleSource, TupleFunctionRegistry tupleFunctionRegistry, AbstractFederatedServiceResolver serviceResolver, boolean includeTriples) {
+	public SpinMagicPropertyInterpreter(SpinParser parser, TripleSource tripleSource, TupleFunctionContext.Factory tfContextFactory, FederatedServiceResolver serviceResolver, boolean nativeEvaluation, boolean includeTriples) {
 		this.parser = parser;
 		this.tripleSource = tripleSource;
-		this.tupleFunctionRegistry = tupleFunctionRegistry;
+		this.tfContextFactory = tfContextFactory;
 		this.serviceResolver = serviceResolver;
-		this.spinServiceUri = tripleSource.getValueFactory().createIRI(SPIN_SERVICE);
+		this.nativeEvaluation = nativeEvaluation;
 		this.includeMatchingTriples = includeTriples;
 	}
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
 		try {
-			tupleExpr.visit(new PropertyScanner());
+			tupleExpr.visit(new MagicPropertyScanner(parser, tripleSource, tfContextFactory, serviceResolver, nativeEvaluation, includeMatchingTriples));
 		} catch (RDF4JException e) {
 			logger.warn("Failed to parse tuple function");
 		}
 	}
 
-	private class PropertyScanner extends AbstractExtendedQueryModelVisitor<RDF4JException> {
+
+	private static class MagicPropertyScanner extends AbstractExtendedQueryModelVisitor<RDF4JException> {
+		private final SpinParser parser;
+		private final TripleSource tripleSource;
+		private final TupleFunctionContext.Factory tfContextFactory;
+		private final FederatedServiceResolver serviceResolver;
+		private final boolean nativeEvaluation;
+		private final boolean includeMatchingTriples;
+		private final IRI spinServiceUri;
+
+		MagicPropertyScanner(SpinParser parser, TripleSource tripleSource, TupleFunctionContext.Factory tfContextFactory, FederatedServiceResolver serviceResolver, boolean nativeEvaluation, boolean includeTriples) {
+			this.parser = parser;
+			this.tripleSource = tripleSource;
+			this.tfContextFactory = tfContextFactory;
+			this.serviceResolver = serviceResolver;
+			this.nativeEvaluation = nativeEvaluation;
+			this.includeMatchingTriples = includeTriples;
+			this.spinServiceUri = tripleSource.getValueFactory().createIRI(SPIN_SERVICE);
+		}
 
 		private void processGraphPattern(List<StatementPattern> sps) {
 			Map<StatementPattern, TupleFunction> magicProperties = new LinkedHashMap<>();
 			Map<String, Map<IRI, List<StatementPattern>>> spIndex = new HashMap<>();
 
+			TupleFunctionRegistry tupleFunctionRegistry = tfContextFactory.getTupleFunctionRegistry();
 			for (StatementPattern sp : sps) {
 				IRI pred = (IRI) sp.getPredicateVar().getValue();
 				if (pred != null) {
@@ -169,11 +188,13 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 					}
 
 					TupleExpr magicPropertyNode;
-					if (serviceResolver != null) {
+					if (nativeEvaluation) {
+						magicPropertyNode = funcCall;
+					} else {
 						// use SERVICE evaluation
-						if (!serviceResolver.hasService(SPIN_SERVICE)) {
-							serviceResolver.registerService(SPIN_SERVICE, new TupleFunctionFederatedService(
-									tupleFunctionRegistry, tripleSource));
+						AbstractFederatedServiceResolver fedResolver = (AbstractFederatedServiceResolver) serviceResolver;
+						if (!fedResolver.hasService(SPIN_SERVICE)) {
+							fedResolver.registerService(SPIN_SERVICE, new TupleFunctionFederatedService(tfContextFactory));
 						}
 
 						Var serviceRef = TupleExprs.createConstVar(spinServiceUri);
@@ -189,8 +210,6 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 						prefixDecls.put(SPIN.PREFIX, SPIN.NAMESPACE);
 						prefixDecls.put(SPL.PREFIX, SPL.NAMESPACE);
 						magicPropertyNode = new Service(serviceRef, funcCall, exprString, prefixDecls, null, false);
-					} else {
-						magicPropertyNode = funcCall;
 					}
 
 					if (includeMatchingTriples && hasTriplesWithMagicProperty(func.getURI())) {
@@ -291,7 +310,23 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 
 		@Override
 		public void meet(Service node) {
-			// leave for the remote endpoint to interpret
+			IRI serviceUrl = (IRI) node.getServiceRef().getValue();
+			if (serviceUrl != null) {
+				FederatedService fs = serviceResolver.getService(serviceUrl.stringValue());
+				if (fs instanceof SailFederatedService) {
+					SailFederatedService sfs = (SailFederatedService) fs;
+					Sail sail = sfs.getSail();
+					if (sail instanceof SpinSail) {
+						SpinSail spinSail = (SpinSail) sail;
+						TupleFunctionContext.Factory serviceContextFactory = spinSail.getTupleFunctionContextFactory();
+						try (TupleFunctionContext serviceContext = serviceContextFactory.create()) {
+							MagicPropertyScanner serviceScanner = new MagicPropertyScanner(spinSail.getSpinParser(), serviceContext.getTripleSource(), serviceContextFactory, spinSail.getFederatedServiceResolver(), nativeEvaluation, includeMatchingTriples);
+							node.getServiceExpr().visit(serviceScanner);
+						}
+					}
+				}
+			}
+			// else leave for the remote endpoint to interpret
 		}
 	}
 }

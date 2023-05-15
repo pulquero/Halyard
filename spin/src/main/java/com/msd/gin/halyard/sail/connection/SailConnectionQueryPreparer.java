@@ -12,15 +12,14 @@ import org.eclipse.rdf4j.query.BooleanQuery;
 import org.eclipse.rdf4j.query.GraphQuery;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.Update;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryPreparer;
-import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
 import org.eclipse.rdf4j.query.parser.ParsedGraphQuery;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 import org.eclipse.rdf4j.query.parser.ParsedUpdate;
 import org.eclipse.rdf4j.rio.ParserConfig;
 import org.eclipse.rdf4j.sail.SailConnection;
-import org.eclipse.rdf4j.sail.evaluation.SailTripleSource;
+
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 
 /**
  * QueryPreparer for use with Sails.
@@ -33,15 +32,12 @@ public class SailConnectionQueryPreparer implements QueryPreparer {
 
 	private final ValueFactory vf;
 
-	private final TripleSource source;
-
 	private ParserConfig parserConfig = new ParserConfig();
 
 	public SailConnectionQueryPreparer(SailConnection con, boolean includeInferred, ValueFactory vf) {
 		this.con = con;
 		this.includeInferred = includeInferred;
 		this.vf = vf;
-		this.source = new SailTripleSource(con, includeInferred, vf);
 	}
 
 	public void setParserConfig(ParserConfig parserConfig) {
@@ -81,7 +77,7 @@ public class SailConnectionQueryPreparer implements QueryPreparer {
 	}
 
 	@Override
-	public TripleSource getTripleSource() {
-		return source;
+	public void close() {
+		con.close();
 	}
 }

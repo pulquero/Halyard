@@ -10,6 +10,8 @@
  *******************************************************************************/
 package com.msd.gin.halyard.federation;
 
+import com.msd.gin.halyard.algebra.Algebra;
+import com.msd.gin.halyard.algebra.evaluation.TupleFunctionContext;
 import com.msd.gin.halyard.strategy.TupleFunctionEvaluationStrategy;
 
 import java.util.ArrayList;
@@ -35,11 +37,9 @@ import org.eclipse.rdf4j.query.algebra.ValueExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
-import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
-import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtil;
 
 /**
@@ -47,15 +47,11 @@ import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtil;
  */
 public class TupleFunctionFederatedService implements FederatedService {
 
-	private final TupleFunctionRegistry tupleFunctionRegistry;
-
-	private final TripleSource tripleSource;
-
+	private final TupleFunctionContext.Factory tfContextFactory;
 	private volatile boolean isInitialized;
 
-	public TupleFunctionFederatedService(TupleFunctionRegistry tupleFunctionRegistry, TripleSource tripleSource) {
-		this.tupleFunctionRegistry = tupleFunctionRegistry;
-		this.tripleSource = tripleSource;
+	public TupleFunctionFederatedService(TupleFunctionContext.Factory tfContextFactory) {
+		this.tfContextFactory = tfContextFactory;
 	}
 
 	@Override
@@ -163,44 +159,40 @@ public class TupleFunctionFederatedService implements FederatedService {
 		}
 
 		TupleFunctionCall funcCall = (TupleFunctionCall) expr;
-		TupleFunction func = tupleFunctionRegistry.get(funcCall.getURI())
+		TupleFunction func = tfContextFactory.getTupleFunctionRegistry().get(funcCall.getURI())
 				.orElseThrow(() -> new QueryEvaluationException("Unknown tuple function '" + funcCall.getURI() + "'"));
-		Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
-
-		List<ValueExpr> argExprs = funcCall.getArgs();
 
 		List<CloseableIteration<BindingSet, QueryEvaluationException>> resultIters = new ArrayList<>();
-		while (bindings.hasNext()) {
-			BindingSet bs = bindings.next();
-			Value[] argValues = new Value[argExprs.size()];
-			for (int i = 0; i < argExprs.size(); i++) {
-				ValueExpr argExpr = argExprs.get(i);
-				Value argValue;
-				if (argExpr instanceof Var) {
-					argValue = getValue((Var) argExpr, bs);
-				} else if (argExpr instanceof ValueConstant) {
-					argValue = ((ValueConstant) argExpr).getValue();
-				} else {
-					throw new ValueExprEvaluationException(
-							"Unsupported ValueExpr for argument " + i + ": " + argExpr.getClass().getSimpleName());
+		try (TupleFunctionContext context = tfContextFactory.create()) {
+			Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, context.getTripleSource());
+	
+			List<ValueExpr> argExprs = funcCall.getArgs();
+	
+			while (bindings.hasNext()) {
+				BindingSet bs = bindings.next();
+				Value[] argValues = new Value[argExprs.size()];
+				for (int i = 0; i < argExprs.size(); i++) {
+					ValueExpr argExpr = argExprs.get(i);
+					Value argValue;
+					if (argExpr instanceof Var) {
+						Var argVar = (Var) argExpr;
+						argValue = Algebra.getVarValue(argVar, bs);
+						if (argValue == null) {
+							throw new ValueExprEvaluationException("No value for binding: " + argVar.getName());
+						}
+					} else if (argExpr instanceof ValueConstant) {
+						argValue = ((ValueConstant) argExpr).getValue();
+					} else {
+						throw new ValueExprEvaluationException(
+								"Unsupported ValueExpr for argument " + i + ": " + argExpr.getClass().getSimpleName());
+					}
+					argValues[i] = argValue;
 				}
-				argValues[i] = argValue;
+				resultIters
+						.add(TupleFunctionEvaluationStrategy.createBindings(tfEvaluator.apply(argValues), funcCall.getResultVars(), bs));
 			}
-			resultIters
-					.add(TupleFunctionEvaluationStrategy.createBindings(tfEvaluator.apply(argValues), funcCall.getResultVars(), bs));
 		}
 		return (resultIters.size() > 1) ? new DistinctIteration<>(new UnionIteration<>(resultIters))
 				: resultIters.get(0);
-	}
-
-	private static Value getValue(Var var, BindingSet bs) throws ValueExprEvaluationException {
-		Value v = var.getValue();
-		if (v == null) {
-			v = bs.getValue(var.getName());
-		}
-		if (v == null) {
-			throw new ValueExprEvaluationException("No value for binding: " + var.getName());
-		}
-		return v;
 	}
 }
