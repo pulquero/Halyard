@@ -18,11 +18,13 @@ package com.msd.gin.halyard.sail;
 
 import com.google.common.cache.Cache;
 import com.msd.gin.halyard.algebra.Algebra;
+import com.msd.gin.halyard.algebra.ServiceRoot;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.Timestamped;
+import com.msd.gin.halyard.optimizers.HalyardConstantOptimizer;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.TupleFunctionCallOptimizer;
 import com.msd.gin.halyard.query.BindingSetPipe;
@@ -86,9 +88,11 @@ import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 import org.eclipse.rdf4j.query.algebra.evaluation.RDFStarTripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.ParentReferenceCleaner;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.StandardQueryOptimizerPipeline;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.UnknownSailTransactionStateException;
@@ -209,7 +213,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		return strategy;
 	}
 
-	TupleExpr optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, final boolean includeInferred, TripleSource source, EvaluationStrategy strategy) {
+	private TupleExpr optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, final boolean includeInferred, TripleSource tripleSource, QueryOptimizer optimizer) {
 		if (cloneTupleExpression) {
 			tupleExpr = tupleExpr.clone();
 		}
@@ -218,15 +222,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		// optimizers to modify the actual root node
 		tupleExpr = Algebra.ensureRooted(tupleExpr);
 
-		new SpinFunctionInterpreter(sail.getSpinParser(), source, sail.getFunctionRegistry()).optimize(tupleExpr, dataset, bindings);
+		new SpinFunctionInterpreter(sail.getSpinParser(), tripleSource, sail.getFunctionRegistry()).optimize(tupleExpr, dataset, bindings);
 		if (includeInferred) {
-			new SpinMagicPropertyInterpreter(sail.getSpinParser(), source, sail.getTupleFunctionContextFactory(), sail.getFederatedServiceResolver(), true).optimize(tupleExpr, dataset, bindings);
+			new SpinMagicPropertyInterpreter(sail.getSpinParser(), tripleSource, sail.getTupleFunctionContextFactory(), sail.getFederatedServiceResolver(), true).optimize(tupleExpr, dataset, bindings);
 		}
 		new SearchInterpreter().optimize(tupleExpr, dataset, bindings);
 		new WithinDistanceInterpreter().optimize(tupleExpr, dataset, bindings);
 		LOGGER.trace("Query tree after interpretation:\n{}", tupleExpr);
 
-		strategy.optimize(tupleExpr, getStatistics(), bindings);
+		optimizer.optimize(tupleExpr, dataset, bindings);
 
 		// required for correct evaluation of tuple functions
 		new TupleFunctionCallOptimizer().optimize(tupleExpr, dataset, bindings);
@@ -234,10 +238,24 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		return tupleExpr;
 	}
 
+	TupleExpr optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred, TripleSource tripleSource, EvaluationStrategy strategy) {
+		return optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, (te, d, b) -> strategy.optimize(te, getStatistics(), b));
+	}
+
+	private TupleExpr bindOptimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred, TripleSource tripleSource, EvaluationStrategy strategy) {
+		return optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, (te, d, b) -> {
+			StandardQueryOptimizerPipeline.BINDING_ASSIGNER.optimize(te, d, b);
+			new HalyardConstantOptimizer(strategy).optimize(te, d, b);
+		});
+	}
+
 	private TupleExpr getOptimizedQuery(String sourceString, int updatePart, TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, final boolean includeInferred, TripleSource tripleSource, EvaluationStrategy strategy) {
 		LOGGER.debug("Query tree before optimization:\n{}", tupleExpr);
 		TupleExpr optimizedTree;
-		if (sourceString != null && cloneTupleExpression) {
+		if (tupleExpr instanceof ServiceRoot) {
+			optimizedTree = bindOptimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
+			LOGGER.debug("Query tree after optimization (binding-optimized):\n{}", optimizedTree);
+		} else if (sourceString != null && cloneTupleExpression) {
 			optimizedTree = queryCache.getOptimizedQuery(this, sourceString, updatePart, tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
 			LOGGER.debug("Query tree after optimization (cached):\n{}", optimizedTree);
 		} else {
