@@ -23,6 +23,7 @@ import com.msd.gin.halyard.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.algebra.StarJoin;
 import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
+import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
@@ -64,6 +65,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -75,7 +77,9 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.common.iteration.CloseableIteratorIteration;
 import org.eclipse.rdf4j.common.iteration.ConvertingIteration;
+import org.eclipse.rdf4j.common.iteration.EmptyIteration;
 import org.eclipse.rdf4j.common.iteration.FilterIteration;
 import org.eclipse.rdf4j.common.iteration.LookAheadIteration;
 import org.eclipse.rdf4j.common.iteration.SingletonIteration;
@@ -182,6 +186,7 @@ final class HalyardTupleExprEvaluation {
 	private static final String ANON_PREDICATE_VAR = "__pred";
 	private static final String ANON_OBJECT_VAR = "__obj";
 	private static final int MAX_INITIAL_HASH_JOIN_TABLE_SIZE = 5000;
+	private static final Resource[] ALL_CONTEXTS = new Resource[0];
 
     private final HalyardEvaluationStrategy parentStrategy;
 	private final TupleFunctionRegistry tupleFunctionRegistry;
@@ -407,7 +412,6 @@ final class HalyardTupleExprEvaluation {
     }
 
     static final class QuadPattern {
-    	static final Resource[] ALL_CONTEXTS = new Resource[0];
     	final Resource subj;
     	final IRI pred;
     	final Value obj;
@@ -487,7 +491,7 @@ final class HalyardTupleExprEvaluation {
 			 * contexts = new Resource[] { null }; }
 			 */
 			else {
-				contexts = QuadPattern.ALL_CONTEXTS;
+				contexts = ALL_CONTEXTS;
 			}
         } else if (contextValue != null) {
             if (graphs.contains(contextValue)) {
@@ -518,6 +522,14 @@ final class HalyardTupleExprEvaluation {
         return new QuadPattern(subjValue, predValue, objValue, contexts, scope);
     }
 
+    private static boolean isUnbound(Var var, BindingSet bindings) {
+        if (var == null) {
+            return false;
+        } else {
+            return bindings.hasBinding(var.getName()) && bindings.getValue(var.getName()) == null;
+        }
+    }
+
     CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(QuadPattern nq, TripleSource tripleSource) {
     	CloseableIteration<? extends Statement, QueryEvaluationException> stIter = tripleSource.getStatements(nq.subj, nq.pred, nq.obj, nq.ctxs);
         if (nq.isAllNamedContexts()) {
@@ -536,108 +548,116 @@ final class HalyardTupleExprEvaluation {
     }
 
     private QueryEvaluationStep evaluateStatementPattern(StatementPattern sp, QuadPattern nq, TripleSource tripleSource) {
-        final Var subjVar = sp.getSubjectVar(); //subject
-        final Var predVar = sp.getPredicateVar(); //predicate
-        final Var objVar = sp.getObjectVar(); //object
-        final Var conVar = sp.getContextVar(); //graph or target context
+        final Var ctxVar = sp.getContextVar();
 
         return bs -> {
 	        //get an iterator over all triple statements that match the s, p, o specification in the contexts
 	        CloseableIteration<? extends Statement, QueryEvaluationException> stIter = getStatements(nq, tripleSource);
 	
 	        // The same variable might have been used multiple times in this
-	        // StatementPattern (e.g. ?x :p ?x, ?x ?x "foobar"), verify value equality in those cases.
+	        // StatementPattern (e.g. ?x :p ?x or ?x ?x "foobar"), verify value equality in those cases.
 	        int distinctVarCount = sp.getBindingNames().size();
-	        boolean allVarsDistinct = (conVar != null && distinctVarCount == 4) || (conVar == null && distinctVarCount == 3);
+	        boolean allVarsDistinct = (ctxVar != null && distinctVarCount == 4) || (ctxVar == null && distinctVarCount == 3);
 	        if (!allVarsDistinct) {
 		        stIter = new FilterIteration<Statement, QueryEvaluationException>(stIter) {
-		
 		            @Override
-		            protected boolean accept(Statement st) {
-		                Resource subj = st.getSubject();
-		                IRI pred = st.getPredicate();
-		                Value obj = st.getObject();
-		                Resource context = st.getContext();
-		
-		                if (nq.subj == null) {
-		                    if (subjVar.equals(predVar) && !subj.equals(pred)) {
-		                        return false;
-		                    }
-		                    if (subjVar.equals(objVar) && !subj.equals(obj)) {
-		                        return false;
-		                    }
-		                    if (subjVar.equals(conVar) && !subj.equals(context)) {
-		                        return false;
-		                    }
-		                }
-		
-		                if (nq.pred == null) {
-		                    if (predVar.equals(objVar) && !pred.equals(obj)) {
-		                        return false;
-		                    }
-		                    if (predVar.equals(conVar) && !pred.equals(context)) {
-		                        return false;
-		                    }
-		                }
-		
-		                if (nq.obj == null) {
-		                    if (objVar.equals(conVar) && !obj.equals(context)) {
-		                        return false;
-		                    }
-		                }
-		
-		                return true;
+		            protected boolean accept(Statement stmt) {
+		            	return filterStatement(sp, stmt, nq);
 		            }
 		        };
 	        }
 	
 	        // Return an iterator that converts the RDF statements (triples) to var bindings
 	        return new ConvertingIteration<Statement, BindingSet, QueryEvaluationException>(stIter) {
-	        	final String subjName = subjVar.getName();
-	        	final String predName = predVar.getName();
-	        	final String objName = objVar.getName();
-	        	final String conName = (conVar != null) ? conVar.getName() : null;
-	
 	            @Override
-	            protected BindingSet convert(Statement st) {
-	                QueryBindingSet result = new QueryBindingSet(bs);
-	                if (!subjVar.isConstant() && !result.hasBinding(subjName)) {
-	                    result.addBinding(subjName, st.getSubject());
-	                }
-	                if (!predVar.isConstant() && !result.hasBinding(predName)) {
-	                    result.addBinding(predName, st.getPredicate());
-	                }
-	                if (!objVar.isConstant()) {
-	                    if (!result.hasBinding(objName)) {
-	                        result.addBinding(objVar.getName(), st.getObject());
-	                    } else {
-		                    Value val = result.getValue(objName);
-	                        if (HalyardEvaluationStrategy.isSearchStatement(val)) {
-			                    // override Halyard search type object literals with real object value from the statement
-		                        result.setBinding(objName, st.getObject());
-	                        }
-	                    }
-	                }
-	                if (conVar != null && !conVar.isConstant() && !result.hasBinding(conName)
-	                        && st.getContext() != null) {
-	                    result.addBinding(conName, st.getContext());
-	                }
-	
-	                return result;
+	            protected BindingSet convert(Statement stmt) {
+	            	return convertStatement(sp, stmt, bs);
 	            }
 			};
         };
     }
 
-    private boolean isUnbound(Var var, BindingSet bindings) {
-        if (var == null) {
-            return false;
-        } else {
-            return bindings.hasBinding(var.getName()) && bindings.getValue(var.getName()) == null;
+    private boolean filterStatement(StatementPattern sp, Statement stmt, QuadPattern nq) {
+        final Var subjVar = sp.getSubjectVar();
+        final Var predVar = sp.getPredicateVar();
+        final Var objVar = sp.getObjectVar();
+        final Var ctxVar = sp.getContextVar();
+        Resource subj = stmt.getSubject();
+        IRI pred = stmt.getPredicate();
+        Value obj = stmt.getObject();
+        Resource context = stmt.getContext();
+
+        if (nq.subj == null) {
+            if (subjVar.equals(predVar) && !subj.equals(pred)) {
+                return false;
+            }
+            if (subjVar.equals(objVar) && !subj.equals(obj)) {
+                return false;
+            }
+            if (subjVar.equals(ctxVar) && !subj.equals(context)) {
+                return false;
+            }
         }
+
+        if (nq.pred == null) {
+            if (predVar.equals(objVar) && !pred.equals(obj)) {
+                return false;
+            }
+            if (predVar.equals(ctxVar) && !pred.equals(context)) {
+                return false;
+            }
+        }
+
+        if (nq.obj == null) {
+            if (objVar.equals(ctxVar) && !obj.equals(context)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
-	/**
+    private MutableBindingSet convertStatement(StatementPattern sp, Statement stmt, BindingSet bs) {
+        final Var subjVar = sp.getSubjectVar();
+        final Var predVar = sp.getPredicateVar();
+        final Var objVar = sp.getObjectVar();
+        final Var ctxVar = sp.getContextVar();
+
+        QueryBindingSet result = new QueryBindingSet(bs);
+        if (!subjVar.isConstant()) {
+            final String subjName = subjVar.getName();
+            if (!result.hasBinding(subjName)) {
+                result.addBinding(subjName, stmt.getSubject());
+            }
+        }
+        if (!predVar.isConstant()) {
+            final String predName = predVar.getName();
+            if (!result.hasBinding(predName)) {
+                result.addBinding(predName, stmt.getPredicate());
+            }
+        }
+        if (!objVar.isConstant()) {
+            final String objName = objVar.getName();
+            if (!result.hasBinding(objName)) {
+                result.addBinding(objVar.getName(), stmt.getObject());
+            } else {
+                Value val = result.getValue(objName);
+                if (HalyardEvaluationStrategy.isSearchStatement(val)) {
+                    // override Halyard search type object literals with real object value from the statement
+                    result.setBinding(objName, stmt.getObject());
+                }
+            }
+        }
+        if (ctxVar != null && !ctxVar.isConstant() && stmt.getContext() != null) {
+            final String ctxName = (ctxVar != null) ? ctxVar.getName() : null;
+            if (!result.hasBinding(ctxName)) {
+                result.addBinding(ctxName, stmt.getContext());
+            }
+        }
+    	return result;
+    }
+
+    /**
 	 * Precompiles a TripleRef node returning bindingsets from the matched Triple nodes in the dataset (or explore
 	 * standard reification)
 	 */
@@ -2425,12 +2445,146 @@ final class HalyardTupleExprEvaluation {
     }
 
     private BindingSetPipeEvaluationStep precompileStarJoin(StarJoin starJoin, QueryEvaluationContext evalContext) {
+    	if (starJoin.getScope() == StatementPattern.Scope.DEFAULT_CONTEXTS && (tripleSource instanceof ExtendedTripleSource)) {
+    		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+	    	StatementPattern[] sps = new StatementPattern[starJoin.getArgCount()];
+	    	for (int i=0; i<sps.length; i++) {
+	    		TupleExpr te = starJoin.getArg(i);
+	    		if (te instanceof StatementPattern) {
+	    			sps[i] = (StatementPattern) te;
+	    		} else {
+	    			break;
+	    		}
+	    	}
+	    	Var commonVar = starJoin.getCommonVar();
+	    	Var ctxVar = starJoin.getContextVar();
+	    	boolean allAreStmts = (sps[sps.length-1] != null);
+	    	if (allAreStmts) {
+	    		BindingSetPipeEvaluationStep firstStep = precompileTupleExpr(sps[0], evalContext);
+		    	return (parent, bindings) -> {
+		        	BindingSetPipeEvaluationStep step;
+		        	boolean isCommonBound = commonVar.hasValue() || bindings.hasBinding(commonVar.getName());
+		        	boolean isCtxBound = (ctxVar != null) && (ctxVar.hasValue() || bindings.hasBinding(ctxVar.getName()));
+		        	boolean isPrebound = isCommonBound && (ctxVar == null || isCtxBound);
+		        	int startIndex = isPrebound ? 0 : 1;
+	
+		        	boolean getFullSubject = false;
+		    		IRI[] preds = new IRI[sps.length];
+		        	for (int i=0; i<sps.length; i++) {
+		       			StatementPattern sp = sps[i];
+		        		IRI pred = (IRI) Algebra.getVarValue(sp.getPredicateVar(), bindings);
+		        		if (pred == null) {
+		        			getFullSubject = true;
+		        		}
+		        		preds[i] = pred;
+		        	}
+		        	getFullSubject = true; // TODO currently only support getFullSubject mode
+		        	if (getFullSubject) {
+		        		// TODO replace this with single evaluateStatemetns if only one sps left
+		        		step = (p, stepBindings) -> executor.pullAndPushAsync(p, evalBindings -> {
+		        			List<BindingSet>[] resultsPerSp = (List<BindingSet>[]) new List<?>[sps.length];
+		    	        	Resource common = (Resource) Algebra.getVarValue(commonVar, evalBindings);
+		    	        	Resource ctx = (Resource) Algebra.getVarValue(ctxVar, evalBindings);
+		        			Resource[] ctxs = (ctxVar != null) ? new Resource[] {ctx} : ALL_CONTEXTS;
+		        			CloseableIteration<? extends Statement, QueryEvaluationException> iter = tripleSource.getStatements(common, null, null, ctxs);
+							while (iter.hasNext()) {
+								Statement stmt = iter.next();
+								for (int i=startIndex; i<sps.length; i++) {
+									StatementPattern sp = sps[i];
+									Value pred = Algebra.getVarValue(sp.getPredicateVar(), evalBindings);
+									Value obj = Algebra.getVarValue(sp.getObjectVar(), evalBindings);
+									if ((pred == null || pred.equals(stmt.getPredicate())) && (obj == null || obj.equals(stmt.getObject()))) {
+										QuadPattern nq = getQuadPattern(sp, evalBindings);
+										if (filterStatement(sp, stmt, nq)) {
+											BindingSet spBs = convertStatement(sp, stmt, evalBindings);
+											List<BindingSet> bsList = resultsPerSp[i];
+											if (bsList == null) {
+												resultsPerSp[i] = Collections.singletonList(spBs);
+											} else if (bsList.size() == 1) {
+												List<BindingSet> newBsList = new ArrayList<>(2);
+												newBsList.add(bsList.get(0));
+												newBsList.add(spBs);
+												resultsPerSp[i] = newBsList;
+											} else {
+												bsList.add(spBs);
+											}
+										}
+									}
+								}
+							}
+							List<BindingSet> results = resultsPerSp[startIndex];
+							if (results == null) {
+								return new EmptyIteration<>();
+							}
+							for (int i=startIndex+1; i<resultsPerSp.length; i++) {
+								List<BindingSet> bsList = resultsPerSp[i];
+								results = join(results, bsList);
+								if (results == null) {
+									return new EmptyIteration<>();
+								}
+							}
+							return new CloseableIteratorIteration<>(results.iterator());
+		        		}, starJoin, stepBindings, parentStrategy);
+		        	} else {
+		        		// TODO: getStatements(Resource subj, Set<IRI> preds, Resource... ctxs)
+		        		throw new AssertionError();
+		        	}
+	
+		    		if (!isPrebound) {
+		    			step = precompileNestedLoopsJoin(firstStep, step, null);	
+		    		}
+		    		step.evaluate(parent, bindings);
+		    	};
+	    	}
+    	}
+
     	int i = starJoin.getArgCount() - 1;
     	BindingSetPipeEvaluationStep step = precompileTupleExpr(starJoin.getArg(i), evalContext);
     	for (i--; i>=0; i--) {
     		step = precompileNestedLoopsJoin(precompileTupleExpr(starJoin.getArg(i), evalContext), step, (i==0) ? starJoin : null);
     	}
         return step;
+    }
+
+    private static List<BindingSet> join(List<BindingSet> left, List<BindingSet> right) {
+    	if (left == null || right == null) {
+    		return null;
+    	} else {
+	    	List<BindingSet> result = new ArrayList<>(left.size()*right.size());
+	    	for (BindingSet l : left) {
+	    		for (BindingSet r : right) {
+	    			BindingSet bs = tryJoin(l, r);
+	    			if (bs != null) {
+	    				result.add(bs);
+	    			}
+	    		}
+	    	}
+	    	return result;
+    	}
+    }
+
+    private static BindingSet tryJoin(BindingSet left, BindingSet right) {
+    	QueryBindingSet result = null;
+    	for (Binding b : right) {
+    		String name = b.getName();
+			Value rv = b.getValue();
+    		if (left.hasBinding(name)) {
+    			Value lv = left.getValue(name);
+    			if (!Objects.equals(lv, rv)) {
+    				return null;
+    			} else if (result == null) {
+    				result = new QueryBindingSet(left);
+    			}
+    		} else {
+    			if (rv != null) {
+    				if (result == null) {
+    					result = new QueryBindingSet(left);
+    				}
+    				result.setBinding(name, rv);
+    			}
+    		}
+    	}
+    	return result;
     }
 
     /**

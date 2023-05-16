@@ -83,37 +83,49 @@ public class HalyardStrategyJoinTest {
     }
 
     @Test
-    public void testJoin_1var() throws Exception {
+    public void testJoinOn1Var() throws Exception {
         String q = "prefix : <http://example/> select ?s ?t where {?s :r/:s ?t}";
         joinTest(q, "/test-cases/join-results-1.srx", 1, expectedAlgo());
     }
 
     @Test
-    public void testJoin_1var_bound() throws Exception {
+    public void testJoinOn1Var_duplicate() throws Exception {
+        String q = "prefix : <http://example/> select ?x where {:x2 :p ?x. :x2 :p ?x}";
+        joinTest(q, "/test-cases/join-results-1-duplicate.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+    }
+
+    @Test
+    public void testJoinOn1Var_bound() throws Exception {
         String q = "prefix : <http://example/> select ?s ?t where {values ?x {:y2 :y3 :y3a} ?s :r ?x. ?x :s ?t}";
         joinTest(q, "/test-cases/join-data.ttl", "/test-cases/join-results-1.srx", 2, Algorithms.NESTED_LOOPS, expectedAlgo());
     }
 
     @Test
-    public void testJoin_2var() throws Exception {
+    public void testJoinOn2Var() throws Exception {
         String q = "prefix : <http://example/> select ?x ?y where {?x :p ?y. ?x :t ?y}";
         joinTest(q, "/test-cases/join-results-2.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
     }
 
     @Test
-    public void testJoin_2var_constant() throws Exception {
+    public void testJoinOn2Var_duplicate() throws Exception {
+        String q = "prefix : <http://example/> select ?x ?y where {?x :s ?y. ?x :s ?y}";
+        joinTest(q, "/test-cases/join-results-2-duplicate.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+    }
+
+    @Test
+    public void testJoinOn2Var_constant() throws Exception {
         String q = "prefix : <http://example/> select ?x ?y where {:y3 :s ?x, ?y}";
         joinTest(q, "/test-cases/join-results-2-constant.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
     }
 
     @Test
-    public void testJoin_0var() throws Exception {
+    public void testJoinOn0Var() throws Exception {
         String q = "prefix : <http://example/> select * where {?s :r ?t. ?x :s ?y}";
         joinTest(q, "/test-cases/join-results-0.srx", 1, expectedAlgo());
     }
 
     @Test
-    public void testJoin_empty_0var() throws Exception {
+    public void testJoinOn0Var_empty() throws Exception {
         String q = "prefix : <http://example/> select * where {:x1 :q \"a\". ?x :p ?y}";
         joinTest(q, "/test-cases/join-results-empty-0.srx", 1, expectedAlgo());
     }
@@ -131,6 +143,24 @@ public class HalyardStrategyJoinTest {
     }
 
     @Test
+    public void testStarJoin_empty_bound() throws Exception {
+        String q = "prefix : <http://example/> select * where {:x1 :p ?y. :x1 :z ?v}";
+        joinTest(q, "/test-cases/join-results-empty.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+    }
+
+    @Test
+    public void testStarJoin_empty_unbound() throws Exception {
+        String q = "prefix : <http://example/> select * where {?x :p ?y. ?x :z ?v}";
+        joinTest(q, "/test-cases/join-results-empty.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+    }
+
+    @Test
+    public void testStarJoin() throws Exception {
+        String q = "prefix : <http://example/> select * where {?x :p ?u. ?x :r ?v}";
+        joinTest(q, "/test-cases/star-join-results.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+    }
+
+    @Test
 	public void testJoin_unbound_value() throws Exception {
 		String q = "prefix : <http://example/> "
 				+ "select ?x ?y where { "
@@ -142,31 +172,31 @@ public class HalyardStrategyJoinTest {
 
 
     @Test
-    public void testLeftJoin_1var() throws Exception {
+    public void testLeftJoinOn1Var() throws Exception {
         String q = "prefix : <http://example/> select ?s ?t where {?s :r ?k. optional {?k :s ?t} }";
         joinTest(q, "/test-cases/left-join-results-1.srx", 1, expectedAlgo());
     }
 
     @Test
-    public void testLeftJoin_2var() throws Exception {
+    public void testLeftJoinOn2Var() throws Exception {
         String q = "prefix : <http://example/> select ?x ?y where {?x :p ?y. optional {?x :t ?y} }";
         joinTest(q, "/test-cases/left-join-results-2.srx", 1, expectedAlgo());
     }
 
     @Test
-    public void testLeftJoin_0var() throws Exception {
+    public void testLeftJoinOn0Var() throws Exception {
         String q = "prefix : <http://example/> select * where {?s :r ?t. optional {?x :s ?y} }";
         joinTest(q, "/test-cases/left-join-results-0.srx", 1, expectedAlgo());
     }
 
     @Test
-    public void testLeftJoin_empty_0var() throws Exception {
+    public void testLeftJoinOn0Var_empty() throws Exception {
         String q = "prefix : <http://example/> select * where {:x1 :q \"a\". optional {?x :p ?y} }";
         joinTest(q, "/test-cases/left-join-results-empty-0.srx", 1, expectedAlgo());
     }
 
     @Test
-    public void testLeftJoin_empty_0var_swapped() throws Exception {
+    public void testLeftJoinOn0Var_empty_swapped() throws Exception {
         String q = "prefix : <http://example/> select * where {?x :p ?y. optional {:x1 :q \"a\"} }";
         joinTest(q, "/test-cases/left-join-results-empty-0.srx", 1, expectedAlgo());
     }
