@@ -16,6 +16,8 @@
  */
 package com.msd.gin.halyard.strategy;
 
+import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.federation.SailFederatedService;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
@@ -138,7 +140,7 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
         }
 	}
 
-    static class MockTripleSource implements RDFStarTripleSource {
+    static class MockTripleSource implements RDFStarTripleSource, ExtendedTripleSource {
         private final TripleSource tripleSource;
 
         MockTripleSource(TripleSource tripleSource) {
@@ -174,6 +176,10 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
 		@Override
 		public CloseableIteration<? extends Triple, QueryEvaluationException> getRdfStarTriples(Resource subj, IRI pred, Value obj) throws QueryEvaluationException {
 			return ((RDFStarTripleSource)tripleSource).getRdfStarTriples(subj, pred, obj);
+		}
+
+		public QueryPreparer newQueryPreparer() {
+			throw new AssertionError();
 		}
     }
 }
