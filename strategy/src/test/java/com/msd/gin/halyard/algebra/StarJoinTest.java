@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.algebra;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
@@ -34,5 +35,14 @@ public class StarJoinTest {
 		StarJoin sj = new StarJoin(new Var("s"), null, children);
 		sj.removeChildNode(new StatementPattern(new Var("s"), Algebra.createAnonVar("p"), Algebra.createAnonVar("o")));
 		assertEquals(children, sj.getArgs());
+	}
+
+	@Test
+	public void testHashCode() {
+		StatementPattern sp1 = new StatementPattern(new Var("s"), Algebra.createAnonVar("p1"), Algebra.createAnonVar("o1"));
+		StatementPattern sp2 = new StatementPattern(new Var("s"), Algebra.createAnonVar("p2"), Algebra.createAnonVar("o2"));
+		StarJoin sj12 = new StarJoin(new Var("s"), null, Arrays.asList(sp1, sp2));
+		StarJoin sj21 = new StarJoin(new Var("s"), null, Arrays.asList(sp2, sp1));
+		assertEquals(sj12.hashCode(), sj21.hashCode());
 	}
 }

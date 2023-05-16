@@ -19,6 +19,7 @@ package com.msd.gin.halyard.algebra;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 import javax.annotation.Nullable;
 
@@ -27,6 +28,7 @@ import org.eclipse.rdf4j.query.algebra.QueryModelVisitor;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
+import org.eclipse.rdf4j.query.algebra.StatementPattern.Scope;
 import org.eclipse.rdf4j.query.algebra.helpers.collectors.StatementPatternCollector;
 
 /**
@@ -36,17 +38,27 @@ import org.eclipse.rdf4j.query.algebra.helpers.collectors.StatementPatternCollec
 public class StarJoin extends NAryTupleOperator {
 	private static final long serialVersionUID = -4523270958311045771L;
 
+	private StatementPattern.Scope scope;
 	private Var commonVar;
 	private Var contextVar;
 
 	public StarJoin(Var commonVar, @Nullable Var contextVar, List<StatementPattern> exprs) {
+		this(StatementPattern.Scope.DEFAULT_CONTEXTS, commonVar, contextVar, exprs);
+	}
+
+	public StarJoin(StatementPattern.Scope scope, Var commonVar, @Nullable Var contextVar, List<StatementPattern> exprs) {
 		assert exprs.size() > 1;
+		this.scope = scope;
 		setCommonVar(commonVar);
 		setContextVar(contextVar);
 		setArgs(exprs);
 	}
 
-	public void setCommonVar(Var var) {
+	public StatementPattern.Scope getScope() {
+		return scope;
+	}
+
+	private void setCommonVar(Var var) {
 		var.setParentNode(this);
 		commonVar = var;
 	}
@@ -55,7 +67,7 @@ public class StarJoin extends NAryTupleOperator {
 		return commonVar;
 	}
 
-	public void setContextVar(@Nullable Var var) {
+	private void setContextVar(@Nullable Var var) {
 		if (var != null) {
 			var.setParentNode(this);
 		}
@@ -104,6 +116,33 @@ public class StarJoin extends NAryTupleOperator {
 		} else {
 			super.replaceChildNode(current, replacement);
 		}
+	}
+
+	@Override
+	public String getSignature() {
+		StringBuilder sb = new StringBuilder(128);
+		sb.append(super.getSignature());
+		if (scope == Scope.NAMED_CONTEXTS) {
+			sb.append(" FROM NAMED CONTEXT");
+		}
+		return sb.toString();
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		if (other instanceof StarJoin) {
+			StarJoin o = (StarJoin) other;
+			return commonVar.equals(o.commonVar)
+					&& Objects.equals(contextVar, o.contextVar)
+					&& scope.equals(o.getScope())
+					&& super.equals(other);
+		}
+		return false;
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(commonVar, contextVar, scope, super.hashCode());
 	}
 
 	@Override

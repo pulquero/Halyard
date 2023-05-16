@@ -101,7 +101,15 @@ public abstract class NAryTupleOperator extends AbstractQueryModelNode implement
 
 	@Override
 	public int hashCode() {
-		return Arrays.hashCode(args);
+		if (args.length == 0) {
+			return 0;
+		}
+		// NB: must use XOR so this can still be retrieved from a hash map after its args have been re-ordered
+		int hash = args[0].hashCode();
+		for (int i=1; i<args.length; i++) {
+			hash ^= args[i].hashCode();
+		}
+		return hash;
 	}
 
 	@Override

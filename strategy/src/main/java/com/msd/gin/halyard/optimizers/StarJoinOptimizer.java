@@ -29,7 +29,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
@@ -72,23 +72,24 @@ public class StarJoinOptimizer implements QueryOptimizer {
 		}
 
 		private void processJoins(Parent parent, List<StatementPattern> sps) {
-			ListMultimap<Pair<Var,Var>, StatementPattern> spByCtxSubj = ArrayListMultimap.create(sps.size(), 4);
+			ListMultimap<Triple<StatementPattern.Scope,Var,Var>, StatementPattern> spByCtxSubj = ArrayListMultimap.create(sps.size(), 4);
 			for(StatementPattern sp : sps) {
 				Var ctxVar = sp.getContextVar();
 				Var subjVar = sp.getSubjectVar();
-				spByCtxSubj.put(Pair.of(ctxVar != null ? ctxVar.clone() : null, subjVar.clone()), sp);
+				spByCtxSubj.put(Triple.of(sp.getScope(), ctxVar, subjVar), sp);
 			}
 			List<StarJoin> starJoins = new ArrayList<>(sps.size());
-			for(Map.Entry<Pair<Var,Var>, Collection<StatementPattern>> entry : spByCtxSubj.asMap().entrySet()) {
+			for(Map.Entry<Triple<StatementPattern.Scope,Var,Var>, Collection<StatementPattern>> entry : spByCtxSubj.asMap().entrySet()) {
 				List<StatementPattern> subjSps = (List<StatementPattern>) entry.getValue();
 				// (num of joins) = (num of statement patterns) - 1
 				if(subjSps.size() > minJoins) {
 					for(StatementPattern sp : subjSps) {
 						Algebra.remove(sp);
 					}
-					Var ctxVar = entry.getKey().getLeft();
+					StatementPattern.Scope scope = entry.getKey().getLeft();
+					Var ctxVar = entry.getKey().getMiddle();
 					Var commonVar = entry.getKey().getRight();
-					starJoins.add(new StarJoin(commonVar, ctxVar, subjSps));
+					starJoins.add(new StarJoin(scope, commonVar.clone(), ctxVar != null ? ctxVar.clone() : null, subjSps));
 				}
 			}
 

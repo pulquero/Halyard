@@ -309,16 +309,24 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
     	}
 
         public void meet(StarJoin node) {
-        	double card = Double.POSITIVE_INFINITY;
-        	for (TupleExpr sp : node.getArgs()) {
-        		sp.visit(this);
-        		card = Math.min(card, this.cardinality);
+        	TupleExpr sp = node.getArg(0);
+        	sp.visit(this);
+        	double card = cardinality;
+
+        	int n = node.getArgCount();
+        	if (n > 1) {
+	        	double rightCard = 0.0;
+	            Set<String> newBoundVars = new HashSet<>(boundVars);
+	            newBoundVars.addAll(sp.getBindingNames());
+	        	for (int i=1; i<n; i++) {
+	        		sp = node.getArg(i);
+	        		meetJoinRight(sp, newBoundVars);
+	        		rightCard = Math.max(rightCard, cardinality);
+	        	}
+	        	card *= rightCard;
         	}
-        	Set<Var> vars = new HashSet<>();
-        	node.getVars(vars);
-        	vars.remove(node.getCommonVar());
-        	int constCount = countConstantVars(vars);
-            cardinality = card*Math.pow(VAR_CARDINALITY*VAR_CARDINALITY, (double)(vars.size()-constCount)/vars.size());
+
+            cardinality = card;
             updateMap(node);
         }
 
