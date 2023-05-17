@@ -16,7 +16,6 @@
  */
 package com.msd.gin.halyard.sail;
 
-import com.google.common.cache.Cache;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.ServiceRoot;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
@@ -107,13 +106,9 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	public static final String UPDATE_PART_BINDING = "__update_part__";
 	private static final int NO_UPDATE_PARTS = -1;
 
-	private final QueryCache queryCache;
-	private final Cache<IRI, Long> stmtCountCache;
-
-    private final HBaseSail sail;
+	private final HBaseSail sail;
 	private final boolean usePush;
 	private KeyspaceConnection keyspaceConn;
-	private HalyardEvaluationStatistics statistics;
 	private HalyardEvaluationExecutor executor;
 	private boolean executorIsShared;
 	private BufferedMutator mutator;
@@ -122,14 +117,12 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private boolean lastUpdateWasDelete;
 
 	public HBaseSailConnection(HBaseSail sail) throws IOException {
-		this(sail, new QueryCache(sail.queryCacheSize), HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache(), null);
+		this(sail, null);
 	}
 
-	HBaseSailConnection(HBaseSail sail, QueryCache cache, Cache<IRI, Long> stmtCountCache, HalyardEvaluationExecutor executor) throws IOException {
+	HBaseSailConnection(HBaseSail sail, HalyardEvaluationExecutor executor) throws IOException {
 		this.sail = sail;
 		this.usePush = sail.pushStrategy;
-		this.queryCache = cache;
-		this.stmtCountCache = stmtCountCache;
 		this.executor = executor;
 		this.executorIsShared = (executor != null);
 		// tables are lightweight but not thread-safe so get a new instance per sail
@@ -197,7 +190,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 	private EvaluationStrategy createEvaluationStrategy(TripleSource source, Dataset dataset) {
 		EvaluationStrategy strategy;
-		HalyardEvaluationStatistics stats = getStatistics();
+		HalyardEvaluationStatistics stats = sail.getStatistics();
 		if (usePush) {
 			strategy = new HalyardEvaluationStrategy(sail.getConfiguration(), source, sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), dataset, sail.getFederatedServiceResolver(), stats, getExecutor());
 		} else {
@@ -239,7 +232,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	}
 
 	TupleExpr optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred, TripleSource tripleSource, EvaluationStrategy strategy) {
-		return optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, (te, d, b) -> strategy.optimize(te, getStatistics(), b));
+		return optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, (te, d, b) -> strategy.optimize(te, sail.getStatistics(), b));
 	}
 
 	private TupleExpr bindOptimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred, TripleSource tripleSource, EvaluationStrategy strategy) {
@@ -256,7 +249,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			optimizedTree = bindOptimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
 			LOGGER.debug("Query tree after optimization (binding-optimized):\n{}", optimizedTree);
 		} else if (sourceString != null && cloneTupleExpression) {
-			optimizedTree = queryCache.getOptimizedQuery(this, sourceString, updatePart, tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
+			optimizedTree = sail.queryCache.getOptimizedQuery(this, sourceString, updatePart, tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
 			LOGGER.debug("Query tree after optimization (cached):\n{}", optimizedTree);
 		} else {
 			optimizedTree = optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
@@ -536,13 +529,6 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     public boolean isActive() throws UnknownSailTransactionStateException {
         return true;
     }
-
-	protected final HalyardEvaluationStatistics getStatistics() {
-		if (statistics == null) {
-			statistics = sail.newStatistics(stmtCountCache);
-		}
-		return statistics;
-	}
 
 	protected long getTimestamp(UpdateContext op, boolean isDelete) {
 		return (op instanceof Timestamped) ? ((Timestamped) op).getTimestamp() : getDefaultTimestamp(isDelete);

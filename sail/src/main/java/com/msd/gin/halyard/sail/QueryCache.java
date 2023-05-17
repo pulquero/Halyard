@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nonnull;
 
@@ -28,8 +29,7 @@ final class QueryCache {
 	private final Cache<PreparedQueryKey, PreparedQuery> cache;
 
 	QueryCache(int queryCacheMaxSize) {
-		// NB: use concurrency of 1 else waste time optimizing the same query concurrently
-		cache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumSize(queryCacheMaxSize).build();
+		cache = CacheBuilder.newBuilder().maximumSize(queryCacheMaxSize).expireAfterWrite(1L, TimeUnit.DAYS).build();
 	}
 
 	TupleExpr getOptimizedQuery(HBaseSailConnection conn, String sourceString, int updatePart, TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, final boolean includeInferred, TripleSource tripleSource,
@@ -51,6 +51,9 @@ final class QueryCache {
 		return preparedQuery.getTupleExpression();
 	}
 
+	void clear() {
+		cache.invalidateAll();
+	}
 
 	private static final class PreparedQueryKey implements Serializable {
 		private static final long serialVersionUID = -8673870599435959092L;

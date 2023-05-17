@@ -27,6 +27,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
@@ -54,8 +55,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	private final Cache<IRI, Long> stmtCountCache;
 
 	static Cache<IRI, Long> newStatementCountCache() {
-		// NB: use concurrency of 1 else waste lots of HBase connections retrieving the same data concurrently
-		return CacheBuilder.newBuilder().concurrencyLevel(1).maximumSize(100).build();
+		return CacheBuilder.newBuilder().maximumSize(100).expireAfterWrite(1L, TimeUnit.DAYS).build();
 	}
 
 	public HalyardStatsBasedStatementPatternCardinalityCalculator(TripleSource statsSource, RDFFactory rdfFactory, Cache<IRI, Long> stmtCountCache) {

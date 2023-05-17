@@ -222,6 +222,9 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	final boolean hConnectionIsShared; //whether a Connection is provided or we need to create our own
 	Keyspace keyspace;
 	volatile Optional<SearchClient> searchClient;
+	QueryCache queryCache;
+	private Cache<IRI, Long> stmtCountCache;
+	private HalyardEvaluationStatistics statistics;
 	String owner;
 	private MBeanManager<HBaseSail> mbeanManager;
 	private final Cache<HBaseSailConnection, Object> connInfos = CacheBuilder.newBuilder().weakKeys().removalListener((RemovalNotification<HBaseSailConnection, Object> notif) -> {
@@ -351,6 +354,8 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		queryCacheSize = config.getInt(EvaluationConfig.QUERY_CACHE_MAX_SIZE, 100);
 		trackResultSize = config.getBoolean(EvaluationConfig.TRACK_RESULT_SIZE, false);
 		trackResultTime = config.getBoolean(EvaluationConfig.TRACK_RESULT_TIME, false);
+		queryCache = new QueryCache(queryCacheSize);
+		stmtCountCache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache();
 	}
 
 	@Override
@@ -413,6 +418,20 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		return queryHistory.toArray(new QueryInfo[queryHistory.size()]);
 	}
 
+	@Override
+	public void clearQueryCache() {
+		queryCache.clear();
+	}
+
+	@Override
+	public void clearStatementCountCache() {
+		stmtCountCache.invalidateAll();
+	}
+
+	public HalyardEvaluationStatistics getStatistics() {
+		return statistics;
+	}
+
 	BufferedMutator getBufferedMutator() {
 		if (hConnection == null) {
 			throw new SailException("Snapshots are not modifiable");
@@ -451,13 +470,9 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		throw new UnsupportedOperationException();
 	}
 
-	HalyardEvaluationStatistics newStatistics() {
-		return newStatistics(HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache());
-	}
-
-	HalyardEvaluationStatistics newStatistics(Cache<IRI, Long> tripleCountCache) {
+	private HalyardEvaluationStatistics newStatistics() {
 		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs, null),
-				rdfFactory, tripleCountCache);
+				rdfFactory, stmtCountCache);
 		ServiceStatisticsProvider srvStatsProvider = new ServiceStatisticsProvider() {
 			final Map<String, Optional<HalyardEvaluationStatistics>> serviceToStats = new HashMap<>();
 
@@ -507,6 +522,8 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		if (federatedServiceResolver == null) {
 			federatedServiceResolver = new HBaseFederatedServiceResolver(hConnection, config, tableName != null ? tableName.getNameAsString() : null, pushStrategy, evaluationTimeoutSecs, ticker);
 		}
+
+		statistics = newStatistics();
 
 		if (includeNamespaces) {
 			try (HBaseSailConnection conn = getConnection()) {

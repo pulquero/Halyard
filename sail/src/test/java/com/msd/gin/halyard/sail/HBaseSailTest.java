@@ -861,7 +861,7 @@ public class HBaseSailTest {
         TupleExpr q2 = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "select * where {graph <http://whatevercontext> {?s a ?o}}", "http://whatever/").getTupleExpr();
         TupleExpr q3 = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "select * where {?s <http://whatever/> ?o}", "http://whatever/").getTupleExpr();
         TupleExpr q4 = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "select * where {?s ?p \"whatever\"^^<" + HALYARD.SEARCH.stringValue() + ">}", "http://whatever/").getTupleExpr();
-		HalyardEvaluationStatistics stats = sail.newStatistics();
+		HalyardEvaluationStatistics stats = sail.getStatistics();
 		assertEquals(S_CARD * O_CARD, stats.getCardinality(q1), 0.01);
 		assertEquals(S_CARD * O_CARD, stats.getCardinality(q2), 0.01);
 		assertEquals(S_CARD * O_CARD, stats.getCardinality(q3), 0.01);
@@ -885,7 +885,7 @@ public class HBaseSailTest {
 		TupleExpr q2 = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "select * where {graph <http://whatevercontext> {?s a ?o}}", "http://whatever/").getTupleExpr();
 		TupleExpr q3 = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "select * where {?s <http://whatever/> ?o}", "http://whatever/").getTupleExpr();
 		TupleExpr q4 = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "select * where {?s ?p \"whatever\"^^<" + HALYARD.SEARCH.stringValue() + ">}", "http://whatever/").getTupleExpr();
-		HalyardEvaluationStatistics stats = sail.newStatistics();
+		HalyardEvaluationStatistics stats = sail.getStatistics();
 		assertEquals(5000.0, stats.getCardinality(q1), 0.01);
 		assertEquals(20.0, stats.getCardinality(q2), 0.01);
 		assertEquals(100.0, stats.getCardinality(q3), 0.01);

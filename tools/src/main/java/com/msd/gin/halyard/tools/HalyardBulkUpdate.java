@@ -149,7 +149,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 							@Override
 							protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr tupleExpr, QueryEvaluationStep step) {
 								LOG.info("Optimised query tree:\n{}", tupleExpr);
-								HalyardEvaluationStatistics stats = getStatistics();
+								HalyardEvaluationStatistics stats = sail.getStatistics();
 								double estimate = stats.getCardinality(tupleExpr);
 								super.evaluateInternal(next -> {
 									qis.setProgress((float) ((double)tupleExpr.getResultSizeActual()/estimate));

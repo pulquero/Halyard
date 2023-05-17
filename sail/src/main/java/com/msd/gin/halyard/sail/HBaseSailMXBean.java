@@ -20,4 +20,8 @@ public interface HBaseSailMXBean {
 	QueryInfo[] getRecentQueries();
 
 	int getConnectionCount();
+
+	void clearQueryCache();
+
+	void clearStatementCountCache();
 }
