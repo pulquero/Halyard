@@ -38,12 +38,12 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.WeakHashMap;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.MissingOptionException;
@@ -390,6 +390,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         HBaseSail sail;
 		HBaseSailConnection conn;
         long removed = 0, added = 0;
+        Map<IRI,IRI> partitionPredicates;
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
@@ -437,7 +438,11 @@ public final class HalyardStats extends AbstractHalyardTool {
                 writeStatement(HALYARD.STATS_ROOT_NODE, RDF.TYPE, SD.GRAPH_CLASS);
                 writeStatement(HALYARD.STATS_ROOT_NODE, SD.DEFAULT_GRAPH, HALYARD.STATS_ROOT_NODE);
             }
-            graphs = new WeakHashMap<>();
+            graphs = new HashMap<>();
+            partitionPredicates = new HashMap<>();
+            partitionPredicates.put(VOID_EXT.SUBJECT, VOID_EXT.SUBJECT_PARTITION);
+            partitionPredicates.put(VOID.PROPERTY, VOID.PROPERTY_PARTITION);
+            partitionPredicates.put(VOID_EXT.OBJECT, VOID_EXT.OBJECT_PARTITION);
         }
 
         @Override
@@ -456,27 +461,22 @@ public final class HalyardStats extends AbstractHalyardTool {
             if (SD.NAMED_GRAPH_PROPERTY.equals(predicate)) { //workaround to at least count all small named graph that are below the threshold
                 writeStatement(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, graph);
             } else {
-                Resource statsNode;
-                if (HALYARD.STATS_ROOT_NODE.equals(graph)) {
-                    statsNode = HALYARD.STATS_ROOT_NODE;
-                } else {
-                    statsNode = graph;
-                    if (graphs.putIfAbsent(graph, Boolean.FALSE) == null) {
-                        writeStatement(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, statsNode);
-                        writeStatement(statsNode, SD.NAME, statsNode);
-                        writeStatement(statsNode, SD.GRAPH_PROPERTY, statsNode);
-                        writeStatement(statsNode, RDF.TYPE, SD.NAMED_GRAPH_CLASS);
-                        writeStatement(statsNode, RDF.TYPE, SD.GRAPH_CLASS);
-                        writeStatement(statsNode, RDF.TYPE, VOID.DATASET);
-                    }
+                IRI statsNode = graph;
+                if (!HALYARD.STATS_ROOT_NODE.equals(graph) && graphs.putIfAbsent(graph, Boolean.TRUE) == null) {
+                    writeStatement(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, statsNode);
+                    writeStatement(statsNode, SD.NAME, statsNode);
+                    writeStatement(statsNode, SD.GRAPH_PROPERTY, statsNode);
+                    writeStatement(statsNode, RDF.TYPE, SD.NAMED_GRAPH_CLASS);
+                    writeStatement(statsNode, RDF.TYPE, SD.GRAPH_CLASS);
+                    writeStatement(statsNode, RDF.TYPE, VOID.DATASET);
                 }
                 Literal countLiteral = vf.createLiteral(count);
                 if (partitionId != null) {
-					IRI subset = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIRI(graph, predicate, partitionId, rdfFactory, vf);
-                    writeStatement(statsNode, vf.createIRI(predicate + "Partition"), subset);
-                    writeStatement(subset, RDF.TYPE, VOID.DATASET);
-					writeStatement(subset, predicate, partitionId);
-                    writeStatement(subset, VOID.TRIPLES, countLiteral);
+					IRI subsetNode = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIRI(statsNode, predicate, partitionId, rdfFactory, vf);
+                    writeStatement(statsNode, partitionPredicates.get(predicate), subsetNode);
+                    writeStatement(subsetNode, RDF.TYPE, VOID.DATASET);
+					writeStatement(subsetNode, predicate, partitionId);
+                    writeStatement(subsetNode, VOID.TRIPLES, countLiteral);
                 } else {
                     writeStatement(statsNode, predicate, countLiteral);
                 }
@@ -498,7 +498,7 @@ public final class HalyardStats extends AbstractHalyardTool {
 
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
-            if (conn != null) {
+        	if (conn != null) {
 				conn.close();
 				conn = null;
             }

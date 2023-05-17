@@ -26,6 +26,9 @@ import com.msd.gin.halyard.vocab.VOID_EXT;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -37,7 +40,6 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.slf4j.Logger;
@@ -49,6 +51,15 @@ import org.slf4j.LoggerFactory;
  */
 public final class HalyardStatsBasedStatementPatternCardinalityCalculator extends SimpleStatementPatternCardinalityCalculator {
 	private static final Logger LOG = LoggerFactory.getLogger(HalyardStatsBasedStatementPatternCardinalityCalculator.class);
+	private static final Map<IRI, IRI> DISTINCT_PREDICATES = createDistinctPredicateMapping();
+
+	private static Map<IRI, IRI> createDistinctPredicateMapping() {
+		Map<IRI, IRI> mapping = new HashMap<>();
+		mapping.put(VOID_EXT.SUBJECT, VOID.DISTINCT_SUBJECTS);
+		mapping.put(VOID.PROPERTY, VOID.PROPERTIES);
+		mapping.put(VOID_EXT.OBJECT, VOID.DISTINCT_OBJECTS);
+		return Collections.unmodifiableMap(mapping);
+	}
 
 	private final TripleSource statsSource;
 	private final RDFFactory rdfFactory;
@@ -99,8 +110,8 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	 * Get the cardinality from VOID statistics.
 	 */
 	private Double getCardinalityFromStats(Var subjVar, Var predVar, Var objVar, IRI graphNode, Collection<String> boundVars) {
-		final long triples = getTriplesCount(graphNode, -1l);
-		if (triples == -1l) {
+		final long triples = getTriplesCount(graphNode, -1L);
+		if (triples == -1L) {
 			return null;
 		}
 
@@ -114,21 +125,21 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 				if (ov) {
 					card = 1.0;
 				} else {
-					card = subsetTriplesPart(graphNode, VOID_EXT.SUBJECT, subjVar, defaultCardinality) * subsetTriplesPart(graphNode, VOID.PROPERTY, predVar, defaultCardinality) / triples;
+					card = subsetTriplesPart(graphNode, VOID_EXT.SUBJECT, subjVar, triples, defaultCardinality) * subsetTriplesPart(graphNode, VOID.PROPERTY, predVar, triples, defaultCardinality) / triples;
 				}
 			} else if (ov) {
-				card = subsetTriplesPart(graphNode, VOID_EXT.SUBJECT, subjVar, defaultCardinality) * subsetTriplesPart(graphNode, VOID_EXT.OBJECT, objVar, defaultCardinality) / triples;
+				card = subsetTriplesPart(graphNode, VOID_EXT.SUBJECT, subjVar, triples, defaultCardinality) * subsetTriplesPart(graphNode, VOID_EXT.OBJECT, objVar, triples, defaultCardinality) / triples;
 			} else {
-				card = subsetTriplesPart(graphNode, VOID_EXT.SUBJECT, subjVar, defaultCardinality);
+				card = subsetTriplesPart(graphNode, VOID_EXT.SUBJECT, subjVar, triples, defaultCardinality);
 			}
 		} else if (pv) {
 			if (ov) {
-				card = subsetTriplesPart(graphNode, VOID.PROPERTY, predVar, defaultCardinality) * subsetTriplesPart(graphNode, VOID_EXT.OBJECT, objVar, defaultCardinality) / triples;
+				card = subsetTriplesPart(graphNode, VOID.PROPERTY, predVar, triples, defaultCardinality) * subsetTriplesPart(graphNode, VOID_EXT.OBJECT, objVar, triples, defaultCardinality) / triples;
 			} else {
-				card = subsetTriplesPart(graphNode, VOID.PROPERTY, predVar, defaultCardinality);
+				card = subsetTriplesPart(graphNode, VOID.PROPERTY, predVar, triples, defaultCardinality);
 			}
 		} else if (ov) {
-			card = subsetTriplesPart(graphNode, VOID_EXT.OBJECT, objVar, defaultCardinality);
+			card = subsetTriplesPart(graphNode, VOID_EXT.OBJECT, objVar, triples, defaultCardinality);
 		} else {
 			card = triples;
 		}
@@ -139,28 +150,32 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	 * Get the triple count for a given subject from VOID statistics or return the default value.
 	 */
 	private long getTriplesCount(IRI subjectNode, long defaultValue) {
+		return getCount(subjectNode, VOID.TRIPLES, defaultValue);
+	}
+
+	private long getCount(IRI subjectNode, IRI countPredicate, long defaultValue) {
 		try {
 			return stmtCountCache.get(subjectNode, () -> {
-				try (CloseableIteration<? extends Statement, QueryEvaluationException> ci = statsSource.getStatements(subjectNode, VOID.TRIPLES, null, HALYARD.STATS_GRAPH_CONTEXT)) {
+				try (CloseableIteration<? extends Statement, QueryEvaluationException> ci = statsSource.getStatements(subjectNode, countPredicate, null, HALYARD.STATS_GRAPH_CONTEXT)) {
 					if (ci.hasNext()) {
 						Value v = ci.next().getObject();
 						if (v.isLiteral()) {
 							try {
 								long l = ((Literal) v).longValue();
-								LOG.trace("Triple stats for {} = {}", subjectNode, l);
+								LOG.trace("{} statistics for {} = {}", countPredicate, subjectNode, l);
 								return l;
 							} catch (NumberFormatException ignore) {
-								LOG.warn("Invalid statistics for {}: {}", subjectNode, v, ignore);
+								LOG.warn("Invalid {} statistics for {}: {}", countPredicate, subjectNode, v, ignore);
 							}
 						}
-						LOG.warn("Invalid statistics for {}: {}", subjectNode, v);
+						LOG.warn("Invalid {} statistics for {}: {}", countPredicate, subjectNode, v);
 					}
 				}
-				LOG.trace("Triple stats for {} are not available", subjectNode);
+				LOG.trace("{} statistics for {} are not available", countPredicate, subjectNode);
 				return defaultValue;
 			});
 		} catch (ExecutionException ee) {
-			LOG.warn("Error retrieving statistics for {}", subjectNode, ee.getCause());
+			LOG.warn("Error retrieving {} statistics for {}", countPredicate, subjectNode, ee.getCause());
 			return defaultValue;
 		}
 	}
@@ -168,12 +183,19 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	/**
 	 * Calculate a multiplier for the triple count for this sub-part of the graph.
 	 */
-	private double subsetTriplesPart(IRI graph, IRI partitionType, Var partitionVar, long defaultCardinality) {
-		if (partitionVar == null || !partitionVar.hasValue()) {
-			return defaultCardinality;
+	private double subsetTriplesPart(IRI graph, IRI partitionType, Var partitionVar, long totalTriples, long defaultCardinality) {
+		if (partitionVar.hasValue()) {
+			IRI partitionIri = createPartitionIRI(graph, partitionType, partitionVar.getValue(), rdfFactory, statsSource.getValueFactory());
+			return getTriplesCount(partitionIri, defaultCardinality);
+		} else {
+			long distinctCount = getCount(graph, DISTINCT_PREDICATES.get(partitionType), -1L);
+			if (distinctCount != -1L) {
+				// average cardinality for partitionType
+				return (double) totalTriples / (double) distinctCount;
+			} else {
+				return defaultCardinality;
+			}
 		}
-		IRI partitionIri = createPartitionIRI(graph, partitionType, partitionVar.getValue(), rdfFactory, statsSource.getValueFactory());
-		return getTriplesCount(partitionIri, defaultCardinality);
 	}
 
 	@Override
