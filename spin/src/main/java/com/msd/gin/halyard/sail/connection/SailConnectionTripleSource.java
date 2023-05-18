@@ -24,10 +24,11 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.sail.SailConnection;
 
-public class SailConnectionTripleSource implements TripleSource {
+import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
+
+public class SailConnectionTripleSource implements CloseableTripleSource {
 
 	private final SailConnection conn;
 	private final boolean includeInferred;
@@ -52,5 +53,10 @@ public class SailConnectionTripleSource implements TripleSource {
 	@Override
 	public ValueFactory getValueFactory() {
 		return vf;
+	}
+
+	@Override
+	public void close() {
+		conn.close();
 	}
 }

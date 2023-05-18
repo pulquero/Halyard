@@ -217,7 +217,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 		new SpinFunctionInterpreter(sail.getSpinParser(), tripleSource, sail.getFunctionRegistry()).optimize(tupleExpr, dataset, bindings);
 		if (includeInferred) {
-			new SpinMagicPropertyInterpreter(sail.getSpinParser(), tripleSource, sail.getTupleFunctionContextFactory(), sail.getFederatedServiceResolver(), true).optimize(tupleExpr, dataset, bindings);
+			new SpinMagicPropertyInterpreter(sail.getSpinParser(), tripleSource, sail.getTupleFunctionRegistry(), sail.getFederatedServiceResolver()).optimize(tupleExpr, dataset, bindings);
 		}
 		new SearchInterpreter().optimize(tupleExpr, dataset, bindings);
 		new WithinDistanceInterpreter().optimize(tupleExpr, dataset, bindings);

@@ -11,7 +11,7 @@
 package com.msd.gin.halyard.federation;
 
 import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.evaluation.TupleFunctionContext;
+import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.strategy.TupleFunctionEvaluationStrategy;
 
 import java.util.ArrayList;
@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.eclipse.rdf4j.common.iteration.AbstractCloseableIteration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -40,6 +41,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
+import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtil;
 
 /**
@@ -47,11 +49,13 @@ import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtil;
  */
 public class TupleFunctionFederatedService implements FederatedService {
 
-	private final TupleFunctionContext.Factory tfContextFactory;
+	private final Supplier<CloseableTripleSource> tripleSourceFactory;
+	private final TupleFunctionRegistry tupleFunctionRegistry;
 	private volatile boolean isInitialized;
 
-	public TupleFunctionFederatedService(TupleFunctionContext.Factory tfContextFactory) {
-		this.tfContextFactory = tfContextFactory;
+	public TupleFunctionFederatedService(Supplier<CloseableTripleSource> tripleSourceFactory, TupleFunctionRegistry tupleFunctionRegistry) {
+		this.tripleSourceFactory = tripleSourceFactory;
+		this.tupleFunctionRegistry = tupleFunctionRegistry;
 	}
 
 	@Override
@@ -159,15 +163,15 @@ public class TupleFunctionFederatedService implements FederatedService {
 		}
 
 		TupleFunctionCall funcCall = (TupleFunctionCall) expr;
-		TupleFunction func = tfContextFactory.getTupleFunctionRegistry().get(funcCall.getURI())
+		TupleFunction func = tupleFunctionRegistry.get(funcCall.getURI())
 				.orElseThrow(() -> new QueryEvaluationException("Unknown tuple function '" + funcCall.getURI() + "'"));
 
 		List<CloseableIteration<BindingSet, QueryEvaluationException>> resultIters = new ArrayList<>();
-		try (TupleFunctionContext context = tfContextFactory.create()) {
-			Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, context.getTripleSource());
-	
+		try (CloseableTripleSource tripleSource = tripleSourceFactory.get()) {
+			Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
+
 			List<ValueExpr> argExprs = funcCall.getArgs();
-	
+
 			while (bindings.hasNext()) {
 				BindingSet bs = bindings.next();
 				Value[] argValues = new Value[argExprs.size()];

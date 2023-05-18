@@ -49,7 +49,6 @@ import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.evaluation.AbstractQueryPreparer;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
-import com.msd.gin.halyard.algebra.evaluation.SimpleTupleFunctionContextFactory;
 import com.msd.gin.halyard.optimizers.ExtendedEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
 import com.msd.gin.halyard.spin.Argument;
@@ -116,7 +115,7 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 				if (argIndex < args.length) {
 					Value argValue = args[argIndex];
 					IRI valueType = funcArg.getValueType();
-					Value isInstance = instanceOfFunc.evaluate(tripleSource, argValue, valueType);
+					Value isInstance = instanceOfFunc.evaluate(extTripleSource, argValue, valueType);
 					if (((Literal) isInstance).booleanValue()) {
 						argValues.put(argName, argValue);
 					} else {
@@ -133,7 +132,7 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 			 */
 			final Resource funcInstance = extTripleSource.getValueFactory().createBNode();
 
-			ExtendedTripleSource tempTripleSource = new ExtendedTripleSource() {
+			class FunctionExtendedTripleSource implements ExtendedTripleSource {
 
 				private final ValueFactory vf = extTripleSource.getValueFactory();
 
@@ -177,13 +176,13 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 							// optimizers to modify the actual root node
 							tupleExpr = Algebra.ensureRooted(tupleExpr);
 
-							new SpinFunctionInterpreter(parser, tripleSource, functionRegistry).optimize(tupleExpr,
+							new SpinFunctionInterpreter(parser, FunctionExtendedTripleSource.this, functionRegistry).optimize(tupleExpr,
 									dataset, bindings);
-							new SpinMagicPropertyInterpreter(parser, tripleSource, new SimpleTupleFunctionContextFactory(tripleSource, tupleFunctionRegistry), serviceResolver, true)
+							new SpinMagicPropertyInterpreter(parser, FunctionExtendedTripleSource.this, tupleFunctionRegistry, serviceResolver)
 									.optimize(tupleExpr, dataset, bindings);
 
 							EvaluationStatistics stats = new ExtendedEvaluationStatistics(SimpleStatementPatternCardinalityCalculator.FACTORY);
-							EvaluationStrategy strategy = new ExtendedEvaluationStrategy(tripleSource, dataset,
+							EvaluationStrategy strategy = new ExtendedEvaluationStrategy(FunctionExtendedTripleSource.this, dataset,
 									serviceResolver, tupleFunctionRegistry, functionRegistry, 0L, stats);
 							strategy.optimize(tupleExpr, stats, bindings);
 							return strategy.evaluate(tupleExpr, bindings);
@@ -207,6 +206,7 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 				}
 			};
 
+			ExtendedTripleSource tempTripleSource = new FunctionExtendedTripleSource();
 			try (CloseableIteration<Resource, QueryEvaluationException> iter = TripleSources
 					.getObjectResources(func, SPIN.CONSTRAINT_PROPERTY, extTripleSource)) {
 				while (iter.hasNext()) {
@@ -216,7 +216,7 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 					// skip over argument constraints that we have already checked
 					if (!constraintTypes.contains(SPL.ARGUMENT_TEMPLATE)) {
 						ConstraintViolation violation = SpinInferencing.checkConstraint(funcInstance, constraint,
-								extTripleSource, parser);
+								tempTripleSource, parser);
 						if (violation != null) {
 							return BooleanLiteral.FALSE;
 						}

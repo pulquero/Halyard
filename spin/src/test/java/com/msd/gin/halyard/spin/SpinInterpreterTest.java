@@ -3,6 +3,7 @@ package com.msd.gin.halyard.spin;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
+import java.util.function.Supplier;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -12,7 +13,6 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
-import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.ExtendedEvaluationStrategyFactory;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
@@ -21,13 +21,11 @@ import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFParseException;
-import org.eclipse.rdf4j.sail.evaluation.SailTripleSource;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import org.junit.Test;
 
 import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.evaluation.SimpleTupleFunctionContextFactory;
-import com.msd.gin.halyard.algebra.evaluation.TupleFunctionContext;
+import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.sail.connection.SailConnectionTripleSource;
 
 public class SpinInterpreterTest {
@@ -39,12 +37,9 @@ public class SpinInterpreterTest {
 		SailRepository repo = new SailRepository(sail);
 		repo.init();
 		SailRepositoryConnection repoConn = repo.getConnection();
-		ValueFactory vf = repoConn.getValueFactory();
 		SpinInferencing.insertSchema(repoConn);
 
-		TripleSource tripleSource = new SailConnectionTripleSource(repoConn.getSailConnection(), true, vf);
-		TupleFunctionContext.Factory tfContextFactory = new SimpleTupleFunctionContextFactory(tripleSource, new TupleFunctionRegistry());
-		SpinMagicPropertyInterpreter interpreter = new SpinMagicPropertyInterpreter(new SpinParser(), tripleSource, tfContextFactory, sail.getFederatedServiceResolver(), true);
+		SpinMagicPropertyInterpreter interpreter = new SpinMagicPropertyInterpreter(new SpinParser(), new SailConnectionTripleSource(sail.getConnection(), true, sail.getValueFactory()), new TupleFunctionRegistry(), sail.getFederatedServiceResolver());
 		ParsedTupleQuery q = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "select ?str {?str spif:split (\"Hello World\" \" \")}", null);
 		TupleExpr expr = Algebra.ensureRooted(q.getTupleExpr());
 		interpreter.optimize(expr, null, null);
@@ -60,12 +55,10 @@ public class SpinInterpreterTest {
 		SailRepository repo = new SailRepository(sail);
 		repo.init();
 		SailRepositoryConnection repoConn = repo.getConnection();
-		ValueFactory vf = repoConn.getValueFactory();
 		SpinInferencing.insertSchema(repoConn);
 
-		TripleSource tripleSource = new SailTripleSource(repoConn.getSailConnection(), true, vf);
-		TupleFunctionContext.Factory tfContextFactory = new SimpleTupleFunctionContextFactory(tripleSource, new TupleFunctionRegistry());
-		SpinMagicPropertyInterpreter interpreter = new SpinMagicPropertyInterpreter(new SpinParser(), tripleSource, tfContextFactory, sail.getFederatedServiceResolver(), false);
+		Supplier<CloseableTripleSource> tsFactory = () -> new SailConnectionTripleSource(sail.getConnection(), true, sail.getValueFactory());
+		SpinMagicPropertyInterpreter interpreter = new SpinMagicPropertyInterpreter(new SpinParser(), tsFactory.get(), new TupleFunctionRegistry(), sail.getFederatedServiceResolver(), tsFactory, true);
 		ParsedTupleQuery q = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "select ?str {?str spif:split (\"Hello World\" \" \")}", null);
 		TupleExpr expr = Algebra.ensureRooted(q.getTupleExpr());
 		interpreter.optimize(expr, null, null);
@@ -86,9 +79,7 @@ public class SpinInterpreterTest {
 		SpinInferencing.insertSchema(repoConn);
 		repoConn.add(vf.createBNode(), vf.createIRI(SPIF.NAMESPACE, "split"), vf.createLiteral("decoy"));
 
-		TripleSource tripleSource = new SailTripleSource(repoConn.getSailConnection(), true, vf);
-		TupleFunctionContext.Factory tfContextFactory = new SimpleTupleFunctionContextFactory(tripleSource, new TupleFunctionRegistry());
-		SpinMagicPropertyInterpreter interpreter = new SpinMagicPropertyInterpreter(new SpinParser(), tripleSource, tfContextFactory, sail.getFederatedServiceResolver(), true);
+		SpinMagicPropertyInterpreter interpreter = new SpinMagicPropertyInterpreter(new SpinParser(), new SailConnectionTripleSource(sail.getConnection(), true, sail.getValueFactory()), new TupleFunctionRegistry(), sail.getFederatedServiceResolver());
 		ParsedTupleQuery q = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "select ?str {?str spif:split (\"Hello World\" \" \")}", null);
 		TupleExpr expr = Algebra.ensureRooted(q.getTupleExpr());
 		interpreter.optimize(expr, null, null);
@@ -108,9 +99,8 @@ public class SpinInterpreterTest {
 		SpinInferencing.insertSchema(repoConn);
 		repoConn.add(vf.createBNode(), vf.createIRI(SPIF.NAMESPACE, "split"), vf.createLiteral("decoy"));
 
-		TripleSource tripleSource = new SailTripleSource(repoConn.getSailConnection(), true, vf);
-		TupleFunctionContext.Factory tfContextFactory = new SimpleTupleFunctionContextFactory(tripleSource, new TupleFunctionRegistry());
-		SpinMagicPropertyInterpreter interpreter = new SpinMagicPropertyInterpreter(new SpinParser(), tripleSource, tfContextFactory, sail.getFederatedServiceResolver(), false);
+		Supplier<CloseableTripleSource> tsFactory = () -> new SailConnectionTripleSource(sail.getConnection(), true, sail.getValueFactory());
+		SpinMagicPropertyInterpreter interpreter = new SpinMagicPropertyInterpreter(new SpinParser(), tsFactory.get(), new TupleFunctionRegistry(), sail.getFederatedServiceResolver(), tsFactory, true);
 		ParsedTupleQuery q = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "select ?str {?str spif:split (\"Hello World\" \" \")}", null);
 		TupleExpr expr = Algebra.ensureRooted(q.getTupleExpr());
 		interpreter.optimize(expr, null, null);

@@ -57,7 +57,7 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 	}
 
 	@Override
-	public FederatedService createPrivateInstance(HalyardEvaluationStrategy strategy) {
+	public FederatedService createEvaluationInstance(HalyardEvaluationStrategy strategy) {
 		return new HBaseFederatedService(sail) {
 			@Override
 			protected SailConnection getConnection() {

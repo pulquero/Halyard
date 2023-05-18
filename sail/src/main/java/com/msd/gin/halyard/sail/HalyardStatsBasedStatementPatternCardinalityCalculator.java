@@ -18,12 +18,12 @@ package com.msd.gin.halyard.sail;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
 import com.msd.gin.halyard.vocab.HALYARD;
 import com.msd.gin.halyard.vocab.VOID_EXT;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -41,7 +41,6 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.Var;
-import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +60,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		return Collections.unmodifiableMap(mapping);
 	}
 
-	private final TripleSource statsSource;
+	private final CloseableTripleSource statsSource;
 	private final RDFFactory rdfFactory;
 	private final Cache<IRI, Long> stmtCountCache;
 
@@ -69,7 +68,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		return CacheBuilder.newBuilder().maximumSize(100).expireAfterWrite(1L, TimeUnit.DAYS).build();
 	}
 
-	public HalyardStatsBasedStatementPatternCardinalityCalculator(TripleSource statsSource, RDFFactory rdfFactory, Cache<IRI, Long> stmtCountCache) {
+	public HalyardStatsBasedStatementPatternCardinalityCalculator(CloseableTripleSource statsSource, RDFFactory rdfFactory, Cache<IRI, Long> stmtCountCache) {
 		this.statsSource = statsSource;
 		this.rdfFactory = rdfFactory;
 		this.stmtCountCache = stmtCountCache;
@@ -200,9 +199,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 
 	@Override
 	public void close() throws IOException {
-		if (statsSource instanceof Closeable) {
-			((Closeable) statsSource).close();
-		}
+		statsSource.close();
 	}
 
 	public static IRI createPartitionIRI(IRI graph, IRI partitionType, Value partitionId, RDFFactory rdfFactory, ValueFactory vf) {

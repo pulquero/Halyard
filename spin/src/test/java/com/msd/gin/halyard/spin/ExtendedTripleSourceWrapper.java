@@ -16,10 +16,11 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 
+import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 
-class ExtendedTripleSourceWrapper implements ExtendedTripleSource {
+class ExtendedTripleSourceWrapper implements ExtendedTripleSource, CloseableTripleSource {
 	private final TripleSource delegate;
 	private final QueryPreparer.Factory queryPreparerFactory;
 
@@ -42,4 +43,12 @@ class ExtendedTripleSourceWrapper implements ExtendedTripleSource {
 	public ValueFactory getValueFactory() {
 		return delegate.getValueFactory();
 	}
+
+	@Override
+	public void close() {
+		if (delegate instanceof CloseableTripleSource) {
+			((CloseableTripleSource)delegate).close();
+		}
+	}
+
 }

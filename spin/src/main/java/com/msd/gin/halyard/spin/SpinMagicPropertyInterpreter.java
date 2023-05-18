@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -55,7 +56,7 @@ import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.BGPCollector;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.algebra.StarJoin;
-import com.msd.gin.halyard.algebra.evaluation.TupleFunctionContext;
+import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.federation.SailFederatedService;
 import com.msd.gin.halyard.federation.TupleFunctionFederatedService;
 import com.msd.gin.halyard.spin.function.ConstructTupleFunction;
@@ -79,29 +80,58 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 
 	private final SpinParser parser;
 	private final TripleSource tripleSource;
-	private final TupleFunctionContext.Factory tfContextFactory;
+	private final TupleFunctionRegistry tupleFunctionRegistry;
 	private final FederatedServiceResolver serviceResolver;
-	private final boolean nativeEvaluation;
+	private final Supplier<CloseableTripleSource> tripleSourceFactory;
 	private final boolean includeMatchingTriples;
 
+	/**
+	 * Constructs a SpinMagicPropertyInterpreter using native evaluation.
+	 * @param parser
+	 * @param tripleSource
+	 * @param tupleFunctionRegistry
+	 * @param serviceResolver
+	 */
 	public SpinMagicPropertyInterpreter(SpinParser parser, TripleSource tripleSource,
-			TupleFunctionContext.Factory tfContextFactory, FederatedServiceResolver serviceResolver, boolean nativeEvaluation) {
-		this(parser, tripleSource, tfContextFactory, serviceResolver, nativeEvaluation, true);
+			TupleFunctionRegistry tupleFunctionRegistry, FederatedServiceResolver serviceResolver) {
+		this(parser, tripleSource, tupleFunctionRegistry, serviceResolver, true);
 	}
 
-	public SpinMagicPropertyInterpreter(SpinParser parser, TripleSource tripleSource, TupleFunctionContext.Factory tfContextFactory, FederatedServiceResolver serviceResolver, boolean nativeEvaluation, boolean includeTriples) {
+	/**
+	 * Constructs a SpinMagicPropertyInterpreter using native evaluation.
+	 * @param parser
+	 * @param tripleSource
+	 * @param tupleFunctionRegistry
+	 * @param serviceResolver
+	 * @param includeTriples
+	 */
+	public SpinMagicPropertyInterpreter(SpinParser parser, TripleSource tripleSource,
+			TupleFunctionRegistry tupleFunctionRegistry, FederatedServiceResolver serviceResolver, boolean includeTriples) {
+		this(parser, tripleSource, tupleFunctionRegistry, serviceResolver, null, includeTriples);
+	}
+
+	/**
+	 * Constructs a SpinMagicPropertyInterpreter.
+	 * @param parser
+	 * @param tripleSource
+	 * @param tupleFunctionRegistry
+	 * @param serviceResolver
+	 * @param tripleSourceFactory non-null to use the SPIN federated service for evaluation.
+	 * @param includeTriples
+	 */
+	public SpinMagicPropertyInterpreter(SpinParser parser, TripleSource tripleSource, TupleFunctionRegistry tupleFunctionRegistry, FederatedServiceResolver serviceResolver, Supplier<CloseableTripleSource> tripleSourceFactory, boolean includeTriples) {
 		this.parser = parser;
 		this.tripleSource = tripleSource;
-		this.tfContextFactory = tfContextFactory;
+		this.tupleFunctionRegistry = tupleFunctionRegistry;
 		this.serviceResolver = serviceResolver;
-		this.nativeEvaluation = nativeEvaluation;
+		this.tripleSourceFactory = tripleSourceFactory;
 		this.includeMatchingTriples = includeTriples;
 	}
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
 		try {
-			tupleExpr.visit(new MagicPropertyScanner(parser, tripleSource, tfContextFactory, serviceResolver, nativeEvaluation, includeMatchingTriples));
+			tupleExpr.visit(new MagicPropertyScanner(parser, tripleSource, tupleFunctionRegistry, serviceResolver, tripleSourceFactory, includeMatchingTriples));
 		} catch (RDF4JException e) {
 			logger.warn("Failed to parse tuple function");
 		}
@@ -111,18 +141,18 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 	private static class MagicPropertyScanner extends AbstractExtendedQueryModelVisitor<RDF4JException> {
 		private final SpinParser parser;
 		private final TripleSource tripleSource;
-		private final TupleFunctionContext.Factory tfContextFactory;
+		private final TupleFunctionRegistry tupleFunctionRegistry;
 		private final FederatedServiceResolver serviceResolver;
-		private final boolean nativeEvaluation;
+		private final Supplier<CloseableTripleSource> tripleSourceFactory;
 		private final boolean includeMatchingTriples;
 		private final IRI spinServiceUri;
 
-		MagicPropertyScanner(SpinParser parser, TripleSource tripleSource, TupleFunctionContext.Factory tfContextFactory, FederatedServiceResolver serviceResolver, boolean nativeEvaluation, boolean includeTriples) {
+		MagicPropertyScanner(SpinParser parser, TripleSource tripleSource, TupleFunctionRegistry tupleFunctionRegistry, FederatedServiceResolver serviceResolver, Supplier<CloseableTripleSource> tripleSourceFactory, boolean includeTriples) {
 			this.parser = parser;
 			this.tripleSource = tripleSource;
-			this.tfContextFactory = tfContextFactory;
+			this.tupleFunctionRegistry = tupleFunctionRegistry;
 			this.serviceResolver = serviceResolver;
-			this.nativeEvaluation = nativeEvaluation;
+			this.tripleSourceFactory = tripleSourceFactory;
 			this.includeMatchingTriples = includeTriples;
 			this.spinServiceUri = tripleSource.getValueFactory().createIRI(SPIN_SERVICE);
 		}
@@ -131,7 +161,6 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 			Map<StatementPattern, TupleFunction> magicProperties = new LinkedHashMap<>();
 			Map<String, Map<IRI, List<StatementPattern>>> spIndex = new HashMap<>();
 
-			TupleFunctionRegistry tupleFunctionRegistry = tfContextFactory.getTupleFunctionRegistry();
 			for (StatementPattern sp : sps) {
 				IRI pred = (IRI) sp.getPredicateVar().getValue();
 				if (pred != null) {
@@ -188,13 +217,14 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 					}
 
 					TupleExpr magicPropertyNode;
-					if (nativeEvaluation) {
+					if (tripleSourceFactory == null) {
+						// native evaluation
 						magicPropertyNode = funcCall;
 					} else {
 						// use SERVICE evaluation
 						AbstractFederatedServiceResolver fedResolver = (AbstractFederatedServiceResolver) serviceResolver;
 						if (!fedResolver.hasService(SPIN_SERVICE)) {
-							fedResolver.registerService(SPIN_SERVICE, new TupleFunctionFederatedService(tfContextFactory));
+							fedResolver.registerService(SPIN_SERVICE, new TupleFunctionFederatedService(tripleSourceFactory, tupleFunctionRegistry));
 						}
 
 						Var serviceRef = TupleExprs.createConstVar(spinServiceUri);
@@ -318,9 +348,9 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 					Sail sail = sfs.getSail();
 					if (sail instanceof SpinSail) {
 						SpinSail spinSail = (SpinSail) sail;
-						TupleFunctionContext.Factory serviceContextFactory = spinSail.getTupleFunctionContextFactory();
-						try (TupleFunctionContext serviceContext = serviceContextFactory.create()) {
-							MagicPropertyScanner serviceScanner = new MagicPropertyScanner(spinSail.getSpinParser(), serviceContext.getTripleSource(), serviceContextFactory, spinSail.getFederatedServiceResolver(), nativeEvaluation, includeMatchingTriples);
+						TupleFunctionRegistry serviceTFRegistry = spinSail.getTupleFunctionRegistry();
+						try (CloseableTripleSource serviceTripleSource = spinSail.newTripleSource()) {
+							MagicPropertyScanner serviceScanner = new MagicPropertyScanner(spinSail.getSpinParser(), serviceTripleSource, serviceTFRegistry, spinSail.getFederatedServiceResolver(), null, includeMatchingTriples);
 							node.getServiceExpr().visit(serviceScanner);
 						}
 					}

@@ -16,6 +16,7 @@
  */
 package com.msd.gin.halyard.sail;
 
+import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
@@ -32,7 +33,6 @@ import com.msd.gin.halyard.common.ValueConstraint;
 import com.msd.gin.halyard.common.ValueIO;
 import com.msd.gin.halyard.vocab.HALYARD;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -66,7 +66,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSource, ConstrainedTripleSourceFactory, Closeable {
+public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSource, ConstrainedTripleSourceFactory, CloseableTripleSource {
 	private static final Logger LOG = LoggerFactory.getLogger(HBaseTripleSource.class);
 
 	protected final KeyspaceConnection keyspaceConn;
@@ -231,8 +231,12 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	@Override
-	public final void close() throws IOException {
-		keyspaceConn.close();
+	public final void close() {
+		try {
+			keyspaceConn.close();
+		} catch (IOException ioe) {
+			throw new QueryEvaluationException(ioe);
+		}
 	}
 
 	@Override

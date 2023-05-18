@@ -21,8 +21,6 @@ import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import org.eclipse.rdf4j.sail.memory.MemoryStoreConnection;
 
 import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
-import com.msd.gin.halyard.algebra.evaluation.SimpleTupleFunctionContextFactory;
-import com.msd.gin.halyard.algebra.evaluation.TupleFunctionContext;
 import com.msd.gin.halyard.sail.connection.SailConnectionQueryPreparer;
 import com.msd.gin.halyard.strategy.TupleFunctionEvaluationStrategy;
 
@@ -56,7 +54,6 @@ public class SpinMemoryStore extends MemoryStore {
 			boolean includeInferred = this.includeInferred;
 			QueryPreparer.Factory queryPreparerFactory = () -> new SailConnectionQueryPreparer(getConnection(), includeInferred, getValueFactory());
 			ExtendedTripleSourceWrapper extTripleSource = new ExtendedTripleSourceWrapper(tripleSource, queryPreparerFactory);
-			TupleFunctionContext.Factory tfContextFactory = new SimpleTupleFunctionContextFactory(extTripleSource, tupleFunctionRegistry);
 			EvaluationStatistics stats = new EvaluationStatistics();
 			TupleFunctionEvaluationStrategy evalStrat = new TupleFunctionEvaluationStrategy(extTripleSource, dataset, getFederatedServiceResolver(), tupleFunctionRegistry, 0, stats);
 			evalStrat.setOptimizerPipeline(new StandardQueryOptimizerPipeline(evalStrat, extTripleSource, stats) {
@@ -64,7 +61,7 @@ public class SpinMemoryStore extends MemoryStore {
 				public Iterable<QueryOptimizer> getOptimizers() {
 					List<QueryOptimizer> optimizers = new ArrayList<>();
 					optimizers.add(new SpinFunctionInterpreter(spinParser, extTripleSource, functionRegistry));
-					optimizers.add(new SpinMagicPropertyInterpreter(spinParser, extTripleSource, tfContextFactory, getFederatedServiceResolver(), true));
+					optimizers.add(new SpinMagicPropertyInterpreter(spinParser, extTripleSource, tupleFunctionRegistry, getFederatedServiceResolver()));
 					for (QueryOptimizer optimizer : super.getOptimizers()) {
 						optimizers.add(optimizer);
 					}

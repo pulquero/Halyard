@@ -218,7 +218,7 @@ public class HBaseUpdate extends SailUpdate {
 			LOGGER.debug("Update TupleExpr before interpretation:\n{}", tupleExpr);
 			SpinParser spinParser = sail.getSpinParser();
 			TripleSource source = new EmptyTripleSource(vf);
-			new SpinMagicPropertyInterpreter(spinParser, source, sail.getTupleFunctionContextFactory(), sail.getFederatedServiceResolver(), true, includeMatchingTriples).optimize(tupleExpr, dataset, bindings);
+			new SpinMagicPropertyInterpreter(spinParser, source, sail.getTupleFunctionRegistry(), sail.getFederatedServiceResolver(), includeMatchingTriples).optimize(tupleExpr, dataset, bindings);
 			LOGGER.debug("Update TupleExpr after interpretation:\n{}", tupleExpr);
 			return tupleExpr;
 		}

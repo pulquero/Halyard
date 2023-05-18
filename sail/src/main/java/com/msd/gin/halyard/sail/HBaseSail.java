@@ -19,8 +19,8 @@ package com.msd.gin.halyard.sail;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalNotification;
+import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
-import com.msd.gin.halyard.algebra.evaluation.TupleFunctionContext;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
@@ -78,7 +78,6 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.MutableBindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
-import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.AbstractFederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
@@ -603,6 +602,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		return functionRegistry;
 	}
 
+	@Override
 	public TupleFunctionRegistry getTupleFunctionRegistry() {
 		return tupleFunctionRegistry;
 	}
@@ -618,38 +618,12 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	}
 
 	@Override
-	public TupleFunctionContext.Factory getTupleFunctionContextFactory() {
-		return new TupleFunctionContext.Factory() {
-			@Override
-			public TupleFunctionContext create() {
-				try {
-					return new TupleFunctionContext() {
-						private KeyspaceConnection keyspaceConn = keyspace.getConnection();
-
-						@Override
-						public TripleSource getTripleSource() {
-							return createTripleSource(keyspaceConn, true);
-						}
-
-						@Override
-						public void close() {
-							try {
-								keyspaceConn.close();
-							} catch (IOException ioe) {
-								throw new QueryEvaluationException(ioe);
-							}
-						}
-					};
-				} catch (IOException ioe) {
-					throw new QueryEvaluationException(ioe);
-				}
-			}
-
-			@Override
-			public TupleFunctionRegistry getTupleFunctionRegistry() {
-				return tupleFunctionRegistry;
-			}
-		};
+	public CloseableTripleSource newTripleSource() {
+		try {
+			return createTripleSource(keyspace.getConnection(), true);
+		} catch (IOException ioe) {
+			throw new QueryEvaluationException(ioe);
+		}
 	}
 
 	HBaseTripleSource createTripleSource(KeyspaceConnection keyspaceConn, boolean includeInferred) {
