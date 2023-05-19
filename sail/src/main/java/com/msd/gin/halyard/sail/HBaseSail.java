@@ -16,9 +16,9 @@
  */
 package com.msd.gin.halyard.sail;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.RemovalNotification;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.common.HalyardTableUtils;
@@ -226,9 +226,9 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private HalyardEvaluationStatistics statistics;
 	String owner;
 	private MBeanManager<HBaseSail> mbeanManager;
-	private final Cache<HBaseSailConnection, Object> connInfos = CacheBuilder.newBuilder().weakKeys().removalListener((RemovalNotification<HBaseSailConnection, Object> notif) -> {
-		HBaseSailConnection conn = notif.getKey();
-		if (notif.wasEvicted()) {
+	private final Cache<HBaseSailConnection, Object> connInfos = Caffeine.newBuilder().weakKeys().removalListener((HBaseSailConnection conn, Object value, RemovalCause cause) ->
+	{
+		if (cause.wasEvicted()) {
 			LOGGER.warn("Closing unreferenced connection {}", conn);
 			conn.close();
 		} else if (conn.isOpen()) {
@@ -389,7 +389,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	@Override
 	public int getConnectionCount() {
-		return (int) connInfos.size();
+		return (int) connInfos.estimatedSize();
 	}
 
 	@Override

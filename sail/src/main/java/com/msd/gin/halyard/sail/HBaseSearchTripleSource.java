@@ -16,8 +16,8 @@
  */
 package com.msd.gin.halyard.sail;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFObject;
@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.hadoop.hbase.client.Result;
@@ -82,7 +81,7 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 		}
 	}
 
-	private static final Cache<String, List<RDFObject>> SEARCH_CACHE = CacheBuilder.newBuilder().maximumSize(25).expireAfterAccess(1, TimeUnit.MINUTES).build();
+	private static final Cache<String, List<RDFObject>> SEARCH_CACHE = Caffeine.newBuilder().maximumSize(25).expireAfterAccess(1, TimeUnit.MINUTES).build();
 
 	// Scans the Halyard table for statements that match the specified pattern
 	private class LiteralSearchStatementScanner extends StatementScanner {
@@ -100,23 +99,23 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 			while (true) {
 				if (obj == null) {
 					if (objects == null) { // perform ES query and parse results
-						try {
-							List<RDFObject> objectList = SEARCH_CACHE.get(literalSearchQuery, () -> {
-								ArrayList<RDFObject> objList = new ArrayList<>();
-								SearchResponse<SearchDocument> response = searchClient.search(literalSearchQuery, SearchClient.DEFAULT_RESULT_SIZE, SearchClient.DEFAULT_MIN_SCORE, SearchClient.DEFAULT_FUZZINESS,
-										SearchClient.DEFAULT_PHRASE_SLOP);
-								for (Hit<SearchDocument> hit : response.hits().hits()) {
-									SearchDocument source = hit.source();
-									Literal literal = source.createLiteral(vf, rdfFactory);
-									objList.add(rdfFactory.createObject(literal));
-								}
-								objList.trimToSize();
-								return objList;
-							});
-							objects = objectList.iterator();
-						} catch (ExecutionException ex) {
-							throw new IOException(ex.getCause());
-						}
+						List<RDFObject> objectList = SEARCH_CACHE.get(literalSearchQuery, query -> {
+							ArrayList<RDFObject> objList = new ArrayList<>();
+							SearchResponse<SearchDocument> response;
+							try {
+								response = searchClient.search(query, SearchClient.DEFAULT_RESULT_SIZE, SearchClient.DEFAULT_MIN_SCORE, SearchClient.DEFAULT_FUZZINESS, SearchClient.DEFAULT_PHRASE_SLOP);
+							} catch (IOException ioe) {
+								throw new QueryEvaluationException(ioe);
+							}
+							for (Hit<SearchDocument> hit : response.hits().hits()) {
+								SearchDocument source = hit.source();
+								Literal literal = source.createLiteral(vf, rdfFactory);
+								objList.add(rdfFactory.createObject(literal));
+							}
+							objList.trimToSize();
+							return objList;
+						});
+						objects = objectList.iterator();
 					}
 					if (objects.hasNext()) {
 						obj = objects.next();

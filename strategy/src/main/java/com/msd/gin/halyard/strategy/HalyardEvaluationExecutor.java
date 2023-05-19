@@ -16,8 +16,8 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.ServiceRoot;
@@ -77,7 +77,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
     // a map of query model nodes and their priority
-    private final Cache<TupleExpr, Integer> priorityMapCache = CacheBuilder.newBuilder().weakKeys().build();
+    private final Cache<TupleExpr, Integer> priorityMapCache = Caffeine.newBuilder().weakKeys().build();
     private final Configuration conf;
 
     private volatile RateTracker taskRateTracker;

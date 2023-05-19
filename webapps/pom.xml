@@ -93,6 +93,11 @@
 						<configuration>
 							<artifactItems>
 								<artifactItem>
+									<groupId>com.github.ben-manes.caffeine</groupId>
+									<artifactId>caffeine</artifactId>
+									<version>${caffeine.version}</version>
+								</artifactItem>
+								<artifactItem>
 									<groupId>net.sf.saxon</groupId>
 									<artifactId>Saxon-HE</artifactId>
 									<version>${saxon.version}</version>

@@ -1,8 +1,7 @@
 package com.msd.gin.halyard.function;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.msd.gin.halyard.common.XMLLiteral;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
 import com.msd.gin.halyard.vocab.HALYARD;
@@ -14,7 +13,6 @@ import java.util.concurrent.TimeUnit;
 import javax.xml.namespace.QName;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
-import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -38,14 +36,7 @@ import org.w3c.dom.ls.LSSerializer;
 
 @MetaInfServices(TupleFunction.class)
 public class XPathTupleFunction implements TupleFunction, InverseMagicProperty {
-	private static final class XPathCacheLoader extends CacheLoader<String, XPathExpression> {
-		@Override
-		public XPathExpression load(String query) throws XPathExpressionException {
-			return XPathFactory.newInstance().newXPath().compile(query);
-		}
-	}
-
-	private static final LoadingCache<String, XPathExpression> XPATH_CACHE = CacheBuilder.newBuilder().maximumSize(100).expireAfterAccess(10, TimeUnit.SECONDS).concurrencyLevel(1).build(new XPathCacheLoader());
+	private static final LoadingCache<String, XPathExpression> XPATH_CACHE = Caffeine.newBuilder().maximumSize(100).expireAfterAccess(10, TimeUnit.SECONDS).build(query -> XPathFactory.newInstance().newXPath().compile(query));
 
 	@Override
 	public String getURI() {

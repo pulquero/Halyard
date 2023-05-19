@@ -1,8 +1,7 @@
 package com.msd.gin.halyard.common;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -30,7 +29,7 @@ public final class CachingValueFactory implements ValueFactory {
 
 	public CachingValueFactory(ValueFactory vf, int cacheSize) {
 		delegate = vf;
-		iriCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build(CacheLoader.from(delegate::createIRI));
+		iriCache = Caffeine.newBuilder().maximumSize(cacheSize).build(delegate::createIRI);
 	}
 
 	public void setDefaultContext(IRI defaultContext, boolean overrideContext) {
@@ -39,7 +38,7 @@ public final class CachingValueFactory implements ValueFactory {
 	}
 
 	private IRI getOrCreateIRI(String v) {
-		return iriCache.getUnchecked(v);
+		return iriCache.get(v);
 	}
 
 	@Override

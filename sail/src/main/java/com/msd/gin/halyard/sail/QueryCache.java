@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.sail;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -11,7 +11,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nonnull;
@@ -29,25 +28,16 @@ final class QueryCache {
 	private final Cache<PreparedQueryKey, PreparedQuery> cache;
 
 	QueryCache(int queryCacheMaxSize) {
-		cache = CacheBuilder.newBuilder().maximumSize(queryCacheMaxSize).expireAfterWrite(1L, TimeUnit.DAYS).build();
+		cache = Caffeine.newBuilder().maximumSize(queryCacheMaxSize).expireAfterWrite(1L, TimeUnit.DAYS).build();
 	}
 
 	TupleExpr getOptimizedQuery(HBaseSailConnection conn, String sourceString, int updatePart, TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, final boolean includeInferred, TripleSource tripleSource,
 			EvaluationStrategy strategy) {
 		PreparedQueryKey pqkey = new PreparedQueryKey(sourceString, updatePart, dataset, bindings, includeInferred);
-		PreparedQuery preparedQuery;
-		try {
-			preparedQuery = cache.get(pqkey, () -> {
-				TupleExpr optimizedTupleExpr = conn.optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
-				return new PreparedQuery(optimizedTupleExpr);
-			});
-		} catch (ExecutionException e) {
-			if (e.getCause() instanceof RuntimeException) {
-				throw (RuntimeException) e.getCause();
-			} else {
-				throw new AssertionError(e);
-			}
-		}
+		PreparedQuery preparedQuery = cache.get(pqkey, key -> {
+			TupleExpr optimizedTupleExpr = conn.optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
+			return new PreparedQuery(optimizedTupleExpr);
+		});
 		return preparedQuery.getTupleExpression();
 	}
 
