@@ -355,7 +355,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		trackResultSize = config.getBoolean(EvaluationConfig.TRACK_RESULT_SIZE, false);
 		trackResultTime = config.getBoolean(EvaluationConfig.TRACK_RESULT_TIME, false);
 		queryCache = new QueryCache(queryCacheSize);
-		statisticsCache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache();
+		statisticsCache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatisticsCache();
 	}
 
 	@Override

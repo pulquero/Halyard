@@ -37,7 +37,6 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.Var;
@@ -60,17 +59,29 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		return Collections.unmodifiableMap(mapping);
 	}
 
+	public static interface PartitionIriTransformer {
+		String apply(IRI graph, IRI partitionType, Value partitionId);
+	}
+
+	public static PartitionIriTransformer createPartitionIriTransformer(RDFFactory rdfFactory) {
+		return (graph, partitionType, partitionId) -> graph.stringValue() + "_" + partitionType.getLocalName() + "_" + rdfFactory.id(partitionId).toString();
+	}
+
 	private final CloseableTripleSource statsSource;
-	private final RDFFactory rdfFactory;
+	private final PartitionIriTransformer partitionIriTransformer;
 	private final Cache<Pair<IRI, IRI>, Long> stmtCountCache;
 
-	static Cache<Pair<IRI, IRI>, Long> newStatementCountCache() {
+	static Cache<Pair<IRI, IRI>, Long> newStatisticsCache() {
 		return Caffeine.newBuilder().maximumSize(100).expireAfterWrite(1L, TimeUnit.DAYS).build();
 	}
 
 	public HalyardStatsBasedStatementPatternCardinalityCalculator(CloseableTripleSource statsSource, RDFFactory rdfFactory, Cache<Pair<IRI, IRI>, Long> stmtCountCache) {
+		this(statsSource, createPartitionIriTransformer(rdfFactory), stmtCountCache);
+	}
+
+	public HalyardStatsBasedStatementPatternCardinalityCalculator(CloseableTripleSource statsSource, PartitionIriTransformer partitionIriTransformer, Cache<Pair<IRI, IRI>, Long> stmtCountCache) {
 		this.statsSource = statsSource;
-		this.rdfFactory = rdfFactory;
+		this.partitionIriTransformer = partitionIriTransformer;
 		this.stmtCountCache = stmtCountCache;
 	}
 
@@ -186,7 +197,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	 */
 	private double subsetTriplesPart(IRI graph, IRI partitionType, Var partitionVar, long totalTriples, long defaultCardinality) {
 		if (partitionVar.hasValue()) {
-			IRI partitionIri = createPartitionIRI(graph, partitionType, partitionVar.getValue(), rdfFactory, statsSource.getValueFactory());
+			IRI partitionIri = statsSource.getValueFactory().createIRI(partitionIriTransformer.apply(graph, partitionType, partitionVar.getValue()));
 			return getTriplesCount(partitionIri, defaultCardinality);
 		} else {
 			long distinctCount = getCount(graph, DISTINCT_PREDICATES.get(partitionType), -1L);
@@ -202,9 +213,5 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	@Override
 	public void close() throws IOException {
 		statsSource.close();
-	}
-
-	public static IRI createPartitionIRI(IRI graph, IRI partitionType, Value partitionId, RDFFactory rdfFactory, ValueFactory vf) {
-		return vf.createIRI(graph.stringValue() + "_" + partitionType.getLocalName() + "_" + rdfFactory.id(partitionId).toString());
 	}
 }

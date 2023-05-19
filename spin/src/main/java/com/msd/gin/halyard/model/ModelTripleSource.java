@@ -20,14 +20,21 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 
-public class ModelTripleSource implements TripleSource {
+import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
+
+public class ModelTripleSource implements CloseableTripleSource {
 
 	private final Model model;
+	private final ValueFactory vf;
 
 	public ModelTripleSource(Model m) {
+		this(m, SimpleValueFactory.getInstance());
+	}
+
+	public ModelTripleSource(Model m, ValueFactory vf) {
 		this.model = m;
+		this.vf = vf;
 	}
 
 	@Override
@@ -38,7 +45,10 @@ public class ModelTripleSource implements TripleSource {
 
 	@Override
 	public ValueFactory getValueFactory() {
-		return SimpleValueFactory.getInstance();
+		return vf;
 	}
 
+	@Override
+	public void close() {
+	}
 }

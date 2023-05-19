@@ -391,11 +391,13 @@ public final class HalyardStats extends AbstractHalyardTool {
 		HBaseSailConnection conn;
         long removed = 0, added = 0;
         Map<IRI,IRI> partitionPredicates;
+        HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer partitionIriTransformer;
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
+            partitionIriTransformer = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIriTransformer(rdfFactory);
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
             statsGraphContext = vf.createIRI(conf.get(STATS_GRAPH));
             String targetUrl = conf.get(TARGET);
@@ -472,7 +474,7 @@ public final class HalyardStats extends AbstractHalyardTool {
                 }
                 Literal countLiteral = vf.createLiteral(count);
                 if (partitionId != null) {
-					IRI subsetNode = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIRI(statsNode, predicate, partitionId, rdfFactory, vf);
+					IRI subsetNode = vf.createIRI(partitionIriTransformer.apply(statsNode, predicate, partitionId));
                     writeStatement(statsNode, partitionPredicates.get(predicate), subsetNode);
                     writeStatement(subsetNode, RDF.TYPE, VOID.DATASET);
 					writeStatement(subsetNode, predicate, partitionId);
