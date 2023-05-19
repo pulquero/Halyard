@@ -96,11 +96,38 @@ public final class HalyardStats extends AbstractHalyardTool {
     private static final String NAMED_GRAPH_PROPERTY = confProperty(TOOL_NAME, "named-graph");
     private static final String TIMESTAMP_PROPERTY = confProperty(TOOL_NAME, "timestamp");
 
-    private static final long DEFAULT_THRESHOLD = 1000;
+    private static final long DEFAULT_GRAPH_THRESHOLD = 1000;
+    private static final long DEFAULT_PARTITION_THRESHOLD = 5000;
 
     enum Counters {
 		KEYS
 	}
+
+    static final class HashTracker {
+		final int offset;
+		final int len;
+		final int end;
+		byte[] lastHash;
+
+		HashTracker(int offset, int len) {
+			this.offset = offset;
+			this.len = len;
+			this.end = offset + len;
+			this.lastHash = new byte[0];
+		}
+
+		boolean equals(byte[] key) {
+            if (!Arrays.equals(key, offset, end, lastHash, 0, lastHash.length)) {
+            	if (lastHash.length != len) {
+            		lastHash = new byte[len];
+            	}
+            	System.arraycopy(key, offset, lastHash, 0, len);
+            	return false;
+            } else {
+            	return true;
+            }
+		}
+    }
 
     static final class StatsMapper extends RdfTableMapper<ImmutableBytesWritable, LongWritable>  {
         private static final long STATUS_UPDATE_INTERVAL = 100000L;
@@ -123,9 +150,11 @@ public final class HalyardStats extends AbstractHalyardTool {
         IRI subsetType;
 		Value subsetId;
 		Set<Value> lastSubsetIds;
-		byte[] lastHash;
-		int hashOffset;
-		int hashLen;
+		HashTracker hashTracker;
+        long subsetDistincts;
+        Set<Value> lastSubsetDistincts;
+        IRI subsetDistinctType;
+		HashTracker subhashTracker;
         long setThreshold, setCounter, subsetThreshold, subsetCounter;
         HBaseSail sail;
 		HBaseSailConnection sailConn;
@@ -136,8 +165,8 @@ public final class HalyardStats extends AbstractHalyardTool {
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
             update = (conf.get(TARGET) == null);
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
-            setThreshold = conf.getLong(GRAPH_THRESHOLD, DEFAULT_THRESHOLD);
-            subsetThreshold = conf.getLong(PARTITION_THRESHOLD, DEFAULT_THRESHOLD);
+            setThreshold = conf.getLong(GRAPH_THRESHOLD, DEFAULT_GRAPH_THRESHOLD);
+            subsetThreshold = conf.getLong(PARTITION_THRESHOLD, DEFAULT_PARTITION_THRESHOLD);
             statsContext = vf.createIRI(conf.get(STATS_GRAPH));
             String namedGraph = conf.get(NAMED_GRAPH_PROPERTY);
             if (namedGraph != null) {
@@ -174,36 +203,45 @@ public final class HalyardStats extends AbstractHalyardTool {
             StatementIndex<?,?,?,?> index = stmtIndices.toIndex(key[rowKey.getOffset()]);
             if (index != lastIndex) {
             	lastIndex = index;
-            	lastHash = new byte[0];
             	lastGraph = null;
-            	hashOffset = index.getName().isQuadIndex() ? 1 + index.getRole(RDFRole.Name.CONTEXT).keyHashSize() : 1;
+            	int hashLen, subhashLen;
                 switch (index.getName()) {
                     case SPO:
                     case CSPO:
                         hashLen = index.getRole(RDFRole.Name.SUBJECT).keyHashSize();
+                        subhashLen = index.getRole(RDFRole.Name.PREDICATE).keyHashSize();
                         subsetType = VOID_EXT.SUBJECT;
+                        subsetDistinctType = VOID.PROPERTIES;
                         break;
                     case POS:
                     case CPOS:
                         hashLen = index.getRole(RDFRole.Name.PREDICATE).keyHashSize();
+                        subhashLen = index.getRole(RDFRole.Name.OBJECT).keyHashSize();
                         subsetType = VOID.PROPERTY;
+                        subsetDistinctType = VOID.DISTINCT_OBJECTS;
                         break;
                     case OSP:
                     case COSP:
                         hashLen = index.getRole(RDFRole.Name.OBJECT).keyHashSize();
+                        subhashLen = index.getRole(RDFRole.Name.SUBJECT).keyHashSize();
                         subsetType = VOID_EXT.OBJECT;
+                        subsetDistinctType = VOID.DISTINCT_SUBJECTS;
                         break;
                     default:
-                        throw new IOException("Unknown region #" + index);
+                        throw new IOException("Unknown index #" + index);
                 }
+            	int offset = index.getName().isQuadIndex() ? 1 + index.getRole(RDFRole.Name.CONTEXT).keyHashSize() : 1;
+            	hashTracker = new HashTracker(offset, hashLen);
+            	subhashTracker = new HashTracker(hashTracker.end, subhashLen);
             }
 
-            if (!Arrays.equals(key, hashOffset, hashOffset + hashLen, lastHash, 0, lastHash.length)) {
-            	if (lastHash.length != hashLen) {
-            		lastHash = new byte[hashLen];
-            	}
-            	System.arraycopy(key, hashOffset, lastHash, 0, hashLen);
+            if (!hashTracker.equals(key)) {
             	lastSubsetIds = new HashSet<>();
+            	lastSubsetDistincts = new HashSet<>();
+            }
+
+            if (!subhashTracker.equals(key)) {
+            	lastSubsetDistincts = new HashSet<>();
             }
 
             Statement[] stmts = stmtIndices.parseStatements(null, null, null, null, value, valueReader, vf);
@@ -239,6 +277,10 @@ public final class HalyardStats extends AbstractHalyardTool {
 			                        }
 			                        subsetId = subj;
 		                        }
+	                			IRI pred = stmt.getPredicate();
+	                			if (lastSubsetDistincts.add(pred)) {
+	                				subsetDistincts++;
+	                			}
 		                		triples++;
 		                	}
 		                    break;
@@ -251,8 +293,11 @@ public final class HalyardStats extends AbstractHalyardTool {
 			                        properties++;
 			                        subsetId = pred;
 	                			}
-	                    		if (RDF.TYPE.equals(stmt.getPredicate())) {
-	                    			Value obj = stmt.getObject();
+                    			Value obj = stmt.getObject();
+	                			if (lastSubsetDistincts.add(obj)) {
+	                				subsetDistincts++;
+	                			}
+	                    		if (RDF.TYPE.equals(pred)) {
 	                    			if (!obj.equals(rdfClass)) {
 		                    			rdfClass = obj;
 		                    			classes++;
@@ -278,10 +323,14 @@ public final class HalyardStats extends AbstractHalyardTool {
 			                        }
 			                        subsetId = obj;
 		                        }
+                    			Value subj = stmt.getSubject();
+	                			if (lastSubsetDistincts.add(subj)) {
+	                				subsetDistincts++;
+	                			}
 		                	}
 		                    break;
 		                default:
-		                    throw new AssertionError("Unknown region #" + index);
+		                    throw new AssertionError("Unknown index #" + index);
 		            }
 	                setCounter++;
 	                subsetCounter++;
@@ -294,15 +343,34 @@ public final class HalyardStats extends AbstractHalyardTool {
             }
         }
 
-        private void report(Context output, IRI property, Value partitionId, long count) throws IOException, InterruptedException {
+        private void report(Context output, IRI property, long count) throws IOException, InterruptedException {
+        	report(output, property, null, null, count);
+        }
+
+        /**
+         * Reports a count.
+         * @param output context
+         * @param property null for VOID.TRIPLES
+         * @param partitionId if count is for a partition else null
+         * @param subsetProperty null for VOID.TRIPLES
+         * @param count count
+         * @throws IOException
+         * @throws InterruptedException
+         */
+        private void report(Context output, IRI property, Value partitionId, IRI subsetProperty, long count) throws IOException, InterruptedException {
             if (count > 0 && (namedGraphContext == null || namedGraphContext.equals(graph))) {
             	ValueIO.Writer writer = rdfFactory.valueWriter;
             	bb.clear();
             	bb = writer.writeValueWithSizeHeader(graph, bb, Short.BYTES);
-            	bb = writer.writeValueWithSizeHeader(property, bb, Short.BYTES);
-                if (partitionId != null) {
-					bb = writer.writeTo(partitionId, bb);
-                }
+            	if (property != null) {
+	            	bb = writer.writeValueWithSizeHeader(property, bb, Short.BYTES);
+	                if (partitionId != null) {
+						bb = writer.writeValueWithSizeHeader(partitionId, bb, Short.BYTES);
+						if (subsetProperty != null) {
+							bb = writer.writeTo(subsetProperty, bb);
+						}
+	                }
+            	}
 				bb.flip();
                 outputKey.set(bb.array(), bb.arrayOffset(), bb.limit());
                 outputValue.set(count);
@@ -311,21 +379,33 @@ public final class HalyardStats extends AbstractHalyardTool {
         }
 
 		private void reset(Context output) throws IOException, InterruptedException {
+			assert setCounter <= triples;
+			assert distinctSubjects <= triples;
+			assert properties <= triples;
+			assert distinctObjects <= triples;
+			assert classes < distinctObjects;
+			assert distinctBlankNodeObjects < distinctObjects;
+			assert distinctBlankNodeSubjects < distinctSubjects;
+			assert distinctIRIReferenceObjects < distinctObjects;
+			assert distinctIRIReferenceSubjects < distinctSubjects;
+			assert distinctLiterals < distinctObjects;
+			assert distinctTripleObjects < distinctObjects;
+			assert distinctTripleSubjects < distinctSubjects;
             if (graph == DEFAULT_GRAPH_NODE || setCounter >= setThreshold) {
-                report(output, VOID.TRIPLES, null, triples);
-                report(output, VOID.DISTINCT_SUBJECTS, null, distinctSubjects);
-                report(output, VOID.PROPERTIES, null, properties);
-                report(output, VOID.DISTINCT_OBJECTS, null, distinctObjects);
-                report(output, VOID.CLASSES, null, classes);
-                report(output, VOID_EXT.DISTINCT_IRI_REFERENCE_OBJECTS, null, distinctIRIReferenceObjects);
-                report(output, VOID_EXT.DISTINCT_IRI_REFERENCE_SUBJECTS, null, distinctIRIReferenceSubjects);
-                report(output, VOID_EXT.DISTINCT_BLANK_NODE_OBJECTS, null, distinctBlankNodeObjects);
-                report(output, VOID_EXT.DISTINCT_BLANK_NODE_SUBJECTS, null, distinctBlankNodeSubjects);
-                report(output, VOID_EXT.DISTINCT_LITERALS, null, distinctLiterals);
-                report(output, VOID_EXT.DISTINCT_TRIPLE_OBJECTS, null, distinctTripleObjects);
-                report(output, VOID_EXT.DISTINCT_TRIPLE_SUBJECTS, null, distinctTripleSubjects);
+                report(output, null, triples);
+                report(output, VOID.DISTINCT_SUBJECTS, distinctSubjects);
+                report(output, VOID.PROPERTIES, properties);
+                report(output, VOID.DISTINCT_OBJECTS, distinctObjects);
+                report(output, VOID.CLASSES, classes);
+                report(output, VOID_EXT.DISTINCT_IRI_REFERENCE_OBJECTS, distinctIRIReferenceObjects);
+                report(output, VOID_EXT.DISTINCT_IRI_REFERENCE_SUBJECTS, distinctIRIReferenceSubjects);
+                report(output, VOID_EXT.DISTINCT_BLANK_NODE_OBJECTS, distinctBlankNodeObjects);
+                report(output, VOID_EXT.DISTINCT_BLANK_NODE_SUBJECTS, distinctBlankNodeSubjects);
+                report(output, VOID_EXT.DISTINCT_LITERALS, distinctLiterals);
+                report(output, VOID_EXT.DISTINCT_TRIPLE_OBJECTS, distinctTripleObjects);
+                report(output, VOID_EXT.DISTINCT_TRIPLE_SUBJECTS, distinctTripleSubjects);
             } else {
-                report(output, SD.NAMED_GRAPH_PROPERTY, null, 1);
+                report(output, SD.NAMED_GRAPH_PROPERTY, 1L);
             }
             setCounter = 0;
             triples = 0;
@@ -344,10 +424,14 @@ public final class HalyardStats extends AbstractHalyardTool {
 		}
 
 		private void resetSubset(Context output) throws IOException, InterruptedException {
+			assert subsetDistincts <= subsetCounter;
             if (subsetCounter >= subsetThreshold) {
-                report(output, subsetType, subsetId, subsetCounter);
+                report(output, subsetType, subsetId, null, subsetCounter);
+                report(output, subsetType, subsetId, subsetDistinctType, subsetDistincts);
             }
             subsetCounter = 0;
+            subsetDistincts = 0;
+            lastSubsetDistincts = new HashSet<>();
         }
 
         @Override
@@ -384,7 +468,6 @@ public final class HalyardStats extends AbstractHalyardTool {
 
         OutputStream out;
         RDFWriter writer;
-        Map<Resource, Boolean> graphs;
         IRI statsGraphContext;
         long timestamp;
         HBaseSail sail;
@@ -440,7 +523,6 @@ public final class HalyardStats extends AbstractHalyardTool {
                 writeStatement(HALYARD.STATS_ROOT_NODE, RDF.TYPE, SD.GRAPH_CLASS);
                 writeStatement(HALYARD.STATS_ROOT_NODE, SD.DEFAULT_GRAPH, HALYARD.STATS_ROOT_NODE);
             }
-            graphs = new HashMap<>();
             partitionPredicates = new HashMap<>();
             partitionPredicates.put(VOID_EXT.SUBJECT, VOID_EXT.SUBJECT_PARTITION);
             partitionPredicates.put(VOID.PROPERTY, VOID.PROPERTY_PARTITION);
@@ -457,14 +539,16 @@ public final class HalyardStats extends AbstractHalyardTool {
         	ValueIO.Reader reader = rdfFactory.valueReader;
         	ByteBuffer bb = ByteBuffer.wrap(key.get(), key.getOffset(), key.getLength());
         	IRI graph = (IRI) reader.readValueWithSizeHeader(bb, vf, Short.BYTES);
-        	IRI predicate = (IRI) reader.readValueWithSizeHeader(bb, vf, Short.BYTES);
-            Value partitionId = bb.hasRemaining() ? reader.readValue(bb, vf) : null;
+        	IRI predicate = bb.hasRemaining() ? (IRI) reader.readValueWithSizeHeader(bb, vf, Short.BYTES) : VOID.TRIPLES;
+            Value partitionId = bb.hasRemaining() ? reader.readValueWithSizeHeader(bb, vf, Short.BYTES) : null;
+            IRI subsetPredicate = bb.hasRemaining() ? (IRI) reader.readValue(bb, vf) : VOID.TRIPLES;
 
             if (SD.NAMED_GRAPH_PROPERTY.equals(predicate)) { //workaround to at least count all small named graph that are below the threshold
                 writeStatement(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, graph);
             } else {
                 IRI statsNode = graph;
-                if (!HALYARD.STATS_ROOT_NODE.equals(graph) && graphs.putIfAbsent(graph, Boolean.TRUE) == null) {
+                // VOID.TRIPLES is always the first predicate
+                if (!HALYARD.STATS_ROOT_NODE.equals(graph) && VOID.TRIPLES.equals(predicate)) {
                     writeStatement(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, statsNode);
                     writeStatement(statsNode, SD.NAME, statsNode);
                     writeStatement(statsNode, SD.GRAPH_PROPERTY, statsNode);
@@ -475,10 +559,13 @@ public final class HalyardStats extends AbstractHalyardTool {
                 Literal countLiteral = vf.createLiteral(count);
                 if (partitionId != null) {
 					IRI subsetNode = vf.createIRI(partitionIriTransformer.apply(statsNode, predicate, partitionId));
-                    writeStatement(statsNode, partitionPredicates.get(predicate), subsetNode);
-                    writeStatement(subsetNode, RDF.TYPE, VOID.DATASET);
-					writeStatement(subsetNode, predicate, partitionId);
-                    writeStatement(subsetNode, VOID.TRIPLES, countLiteral);
+	                // VOID.TRIPLES is always the first subpredicate
+					if (VOID.TRIPLES.equals(subsetPredicate)) {
+	                    writeStatement(statsNode, partitionPredicates.get(predicate), subsetNode);
+	                    writeStatement(subsetNode, RDF.TYPE, VOID.DATASET);
+						writeStatement(subsetNode, predicate, partitionId);
+					}
+                    writeStatement(subsetNode, subsetPredicate, countLiteral);
                 } else {
                     writeStatement(statsNode, predicate, countLiteral);
                 }
@@ -526,7 +613,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             "Halyard Stats is a MapReduce application that calculates dataset statistics and stores them in the named graph within the dataset or exports them into a file. The generated statistics are described by the VoID vocabulary, its extensions, and the SPARQL 1.1 Service Description.",
             "Example: halyard stats -s my_dataset [-g 'http://whatever/mystats'] [-t hdfs:/my_folder/my_stats.trig]");
         addOption("s", "source-dataset", "dataset_table", SOURCE_NAME_PROPERTY, "Source HBase table with Halyard RDF store", true, true);
-        addOption("t", "target-file", "target_url", TARGET, "Optional target file to export the statistics (instead of update)) hdfs://<path>/<file_name>[{0}].<RDF_ext>[.<compression>]", false, true);
+        addOption("t", "target-file", "target_url", TARGET, "Optional target file to export the statistics (instead of update) hdfs://<path>/<file_name>[{0}].<RDF_ext>[.<compression>]", false, true);
         addOption("R", "graph-threshold", "size", GRAPH_THRESHOLD, "Optional minimal size of a named graph to calculate statistics for (default is 1000)", false, true);
         addOption("r", "partition-threshold", "size", PARTITION_THRESHOLD, "Optional minimal size of a graph partition to calculate statistics for (default is 1000)", false, true);
         addOption("g", "named-graph", "named_graph", NAMED_GRAPH_PROPERTY, "Optional restrict stats calculation to the given named graph only", false, true);
@@ -545,8 +632,8 @@ public final class HalyardStats extends AbstractHalyardTool {
         configureIRI(cmd, 'g', null);
         configureIRI(cmd, 'o', HALYARD.STATS_GRAPH_CONTEXT.stringValue());
         configureString(cmd, 'u', null);
-        configureLong(cmd, 'R', DEFAULT_THRESHOLD);
-        configureLong(cmd, 'r', DEFAULT_THRESHOLD);
+        configureLong(cmd, 'R', DEFAULT_GRAPH_THRESHOLD);
+        configureLong(cmd, 'r', DEFAULT_PARTITION_THRESHOLD);
         configureLong(cmd, 'e', System.currentTimeMillis());
         String source = getConf().get(SOURCE_NAME_PROPERTY);
         String target = getConf().get(TARGET);
@@ -604,7 +691,10 @@ public final class HalyardStats extends AbstractHalyardTool {
 	        ImmutableBytesWritable.class,
 	        LongWritable.class,
 	        job);
-        job.setPartitionerClass(StatsPartitioner.class);
+        // if writing to files then partition a graph per file
+        if (target != null) {
+        	job.setPartitionerClass(StatsPartitioner.class);
+        }
         job.setReducerClass(StatsReducer.class);
         job.setOutputFormatClass(NullOutputFormat.class);
         try {

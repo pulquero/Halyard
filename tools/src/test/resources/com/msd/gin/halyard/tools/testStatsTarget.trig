@@ -39,7 +39,8 @@ halyard:statsContext {
 
 	:graph0_property_eRg5UlsxjZuh-4meqlYQe3-J8X8 a void:Dataset ;
 		void:property rdf:type ;
-		void:triples "450"^^xsd:long .
+		void:triples "450"^^xsd:long ;
+		void:distinctObjects "450"^^xsd:long .
 
 	:graph1 sd:name :graph1 ;
 		sd:graph :graph1 ;
@@ -58,9 +59,11 @@ halyard:statsContext {
 
 	:graph1_property_eRg5UlsxjZuh-4meqlYQe3-J8X8 a void:Dataset ;
 		void:property rdf:type ;
-		void:triples "450"^^xsd:long .
+		void:triples "450"^^xsd:long ;
+		void:distinctObjects "450"^^xsd:long .
 
 	halyard:statsRoot_property_eRg5UlsxjZuh-4meqlYQe3-J8X8 a void:Dataset ;
 		void:property rdf:type ;
-		void:triples "1000"^^xsd:long .
+		void:triples "1000"^^xsd:long ;
+		void:distinctObjects "1000"^^xsd:long .
 }

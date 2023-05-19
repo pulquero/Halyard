@@ -26,5 +26,6 @@ halyard:statsContext {
 
 	:graph0_property_eRg5UlsxjZuh-4meqlYQe3-J8X8 a void:Dataset ;
 		void:property rdf:type ;
-		void:triples "450"^^xsd:long .
+		void:triples "450"^^xsd:long ;
+		void:distinctObjects "450"^^xsd:long .
 }
