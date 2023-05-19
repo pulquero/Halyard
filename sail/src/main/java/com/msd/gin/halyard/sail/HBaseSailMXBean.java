@@ -23,5 +23,5 @@ public interface HBaseSailMXBean {
 
 	void clearQueryCache();
 
-	void clearStatementCountCache();
+	void clearStatisticsCache();
 }

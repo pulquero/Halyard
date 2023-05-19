@@ -59,6 +59,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.TableName;
@@ -222,7 +223,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	Keyspace keyspace;
 	volatile Optional<SearchClient> searchClient;
 	QueryCache queryCache;
-	private Cache<IRI, Long> stmtCountCache;
+	private Cache<Pair<IRI, IRI>, Long> statisticsCache;
 	private HalyardEvaluationStatistics statistics;
 	String owner;
 	private MBeanManager<HBaseSail> mbeanManager;
@@ -354,7 +355,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		trackResultSize = config.getBoolean(EvaluationConfig.TRACK_RESULT_SIZE, false);
 		trackResultTime = config.getBoolean(EvaluationConfig.TRACK_RESULT_TIME, false);
 		queryCache = new QueryCache(queryCacheSize);
-		stmtCountCache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache();
+		statisticsCache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatementCountCache();
 	}
 
 	@Override
@@ -423,8 +424,8 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	}
 
 	@Override
-	public void clearStatementCountCache() {
-		stmtCountCache.invalidateAll();
+	public void clearStatisticsCache() {
+		statisticsCache.invalidateAll();
 	}
 
 	public HalyardEvaluationStatistics getStatistics() {
@@ -471,7 +472,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	private HalyardEvaluationStatistics newStatistics() {
 		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs, null),
-				rdfFactory, stmtCountCache);
+				rdfFactory, statisticsCache);
 		ServiceStatisticsProvider srvStatsProvider = new ServiceStatisticsProvider() {
 			final Map<String, Optional<HalyardEvaluationStatistics>> serviceToStats = new HashMap<>();
 

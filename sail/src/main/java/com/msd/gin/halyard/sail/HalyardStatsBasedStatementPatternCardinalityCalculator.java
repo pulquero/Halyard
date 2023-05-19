@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -61,13 +62,13 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 
 	private final CloseableTripleSource statsSource;
 	private final RDFFactory rdfFactory;
-	private final Cache<IRI, Long> stmtCountCache;
+	private final Cache<Pair<IRI, IRI>, Long> stmtCountCache;
 
-	static Cache<IRI, Long> newStatementCountCache() {
+	static Cache<Pair<IRI, IRI>, Long> newStatementCountCache() {
 		return Caffeine.newBuilder().maximumSize(100).expireAfterWrite(1L, TimeUnit.DAYS).build();
 	}
 
-	public HalyardStatsBasedStatementPatternCardinalityCalculator(CloseableTripleSource statsSource, RDFFactory rdfFactory, Cache<IRI, Long> stmtCountCache) {
+	public HalyardStatsBasedStatementPatternCardinalityCalculator(CloseableTripleSource statsSource, RDFFactory rdfFactory, Cache<Pair<IRI, IRI>, Long> stmtCountCache) {
 		this.statsSource = statsSource;
 		this.rdfFactory = rdfFactory;
 		this.stmtCountCache = stmtCountCache;
@@ -153,23 +154,25 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 
 	private long getCount(IRI subjectNode, IRI countPredicate, long defaultValue) {
 		try {
-			return stmtCountCache.get(subjectNode, node -> {
-				try (CloseableIteration<? extends Statement, QueryEvaluationException> ci = statsSource.getStatements(node, countPredicate, null, HALYARD.STATS_GRAPH_CONTEXT)) {
+			return stmtCountCache.get(Pair.of(subjectNode, countPredicate), sp -> {
+				IRI statsNode = sp.getLeft();
+				IRI statsPred = sp.getRight();
+				try (CloseableIteration<? extends Statement, QueryEvaluationException> ci = statsSource.getStatements(statsNode, statsPred, null, HALYARD.STATS_GRAPH_CONTEXT)) {
 					if (ci.hasNext()) {
 						Value v = ci.next().getObject();
 						if (v.isLiteral()) {
 							try {
 								long l = ((Literal) v).longValue();
-								LOG.trace("{} statistics for {} = {}", countPredicate, node, l);
+								LOG.trace("{} statistics for {} = {}", statsPred, statsNode, l);
 								return l;
 							} catch (NumberFormatException ignore) {
-								LOG.warn("Invalid {} statistics for {}: {}", countPredicate, node, v, ignore);
+								LOG.warn("Invalid {} statistics for {}: {}", statsPred, statsNode, v, ignore);
 							}
 						}
-						LOG.warn("Invalid {} statistics for {}: {}", countPredicate, node, v);
+						LOG.warn("Invalid {} statistics for {}: {}", statsPred, statsNode, v);
 					}
 				}
-				LOG.trace("{} statistics for {} are not available", countPredicate, node);
+				LOG.trace("{} statistics for {} are not available", statsPred, statsNode);
 				return defaultValue;
 			});
 		} catch (Exception e) {
