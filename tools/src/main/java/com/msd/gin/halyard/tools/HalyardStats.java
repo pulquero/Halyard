@@ -64,6 +64,7 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Partitioner;
+import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -450,6 +451,20 @@ public final class HalyardStats extends AbstractHalyardTool {
 
     }
 
+    static final class StatsCombiner extends Reducer<ImmutableBytesWritable, LongWritable, ImmutableBytesWritable, LongWritable> {
+        final LongWritable outputValue = new LongWritable();
+
+        @Override
+        public void reduce(ImmutableBytesWritable key, Iterable<LongWritable> values, Context context) throws IOException, InterruptedException {
+            long count = 0;
+            for (LongWritable val : values) {
+                count += val.get();
+            }
+            outputValue.set(count);
+            context.write(key, outputValue);
+        }
+    }
+
     static final class StatsPartitioner extends Partitioner<ImmutableBytesWritable, LongWritable> {
 
     	@Override
@@ -463,7 +478,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         }
     }
 
-    static final class StatsReducer extends RdfReducer<ImmutableBytesWritable, LongWritable, NullWritable, NullWritable>  {
+    static final class StatsReducer extends RdfReducer<ImmutableBytesWritable, LongWritable, NullWritable, NullWritable> {
         private static final long STATUS_UPDATE_INTERVAL = 1000L;
 
         OutputStream out;
@@ -695,6 +710,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         if (target != null) {
         	job.setPartitionerClass(StatsPartitioner.class);
         }
+        job.setCombinerClass(StatsCombiner.class);
         job.setReducerClass(StatsReducer.class);
         job.setOutputFormatClass(NullOutputFormat.class);
         try {
