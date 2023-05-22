@@ -16,7 +16,6 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import com.google.common.base.Stopwatch;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
@@ -31,6 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.hadoop.conf.Configuration;
@@ -90,9 +90,11 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
     /** Track the results size that each node in the query plan produces during execution. */
 	private boolean trackResultSize;
+	private final long trackResultSizeUpdateInterval;
 
 	/** Track the exeution time of each node in the plan. */
-	private boolean trackTime;
+	private boolean trackResultTime;
+	private final long trackResultTimeUpdateInterval;
 
 	private QueryOptimizerPipeline pipeline;
 
@@ -123,6 +125,8 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 				executor);
 		this.valueEval = new HalyardValueExprEvaluation(this, functionRegistry, tripleSource, executor.getQueuePollTimeoutMillis());
 		this.pipeline = new HalyardQueryOptimizerPipeline(this, tripleSource.getValueFactory(), statistics);
+		this.trackResultSizeUpdateInterval = conf.getLong(StrategyConfig.HALYARD_EVALUATION_TRACK_RESULT_SIZE_UPDATE_INTERVAL, Long.MAX_VALUE);
+		this.trackResultTimeUpdateInterval = conf.getLong(StrategyConfig.HALYARD_EVALUATION_TRACK_RESULT_TIME_UPDATE_INTERVAL, Long.MAX_VALUE);
 	}
 
 	HalyardEvaluationStrategy(Configuration conf, TripleSource tripleSource, Dataset dataset,
@@ -143,11 +147,11 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	@Override
 	public void setTrackTime(boolean trackTime) {
-		this.trackTime = trackTime;
+		this.trackResultTime = trackTime;
 	}
 
 	public boolean isTrackTime() {
-		return trackTime;
+		return trackResultTime;
 	}
 
 	boolean isStrict() {
@@ -233,7 +237,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	}
 
 	CloseableIteration<BindingSet, QueryEvaluationException> track(CloseableIteration<BindingSet, QueryEvaluationException> iter, TupleExpr expr) {
-		if (trackTime) {
+		if (trackResultTime) {
 			iter = new TimedIterator(iter, expr);
 		}
 	
@@ -245,35 +249,15 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	}
 
 	BindingSetPipe track(BindingSetPipe parent, TupleExpr expr) {
-		if (trackResultSize) {
-			initTracking(expr);
-			return new BindingSetPipe(parent) {
-				@Override
-				protected boolean next(BindingSet bs) {
-					incrementResultSizeActual(expr);
-					return super.next(bs);
-				}
-			};
-		} else {
-			return parent;
+		if (trackResultTime) {
+			parent = new TimedBindingSetPipe(parent, expr);
 		}
-	}
 
-	void initTracking(TupleExpr queryNode) {
 		if (trackResultSize) {
-			synchronized (queryNode) {
-				// set resultsSizeActual to at least be 0 so we can track iterations that don't produce anything
-				queryNode.setResultSizeActual(Math.max(0, queryNode.getResultSizeActual()));
-			}
+			parent = new ResultSizeCountingBindingSetPipe(parent, expr);
 		}
-	}
 
-	void incrementResultSizeActual(TupleExpr queryNode) {
-		if (trackResultSize) {
-			synchronized (queryNode) {
-				queryNode.setResultSizeActual(queryNode.getResultSizeActual() + 1L);
-			}
-		}
+		return parent;
 	}
 
     @Override
@@ -331,70 +315,183 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	}
 
 
+	private final class ResultSizeCountingBindingSetPipe extends BindingSetPipe {
+		private final AtomicLong counter = new AtomicLong();
+		private final TupleExpr queryNode;
+		private volatile long lastCount;
+
+		private ResultSizeCountingBindingSetPipe(BindingSetPipe parent, TupleExpr expr) {
+			super(parent);
+			this.queryNode = expr;
+			synchronized (queryNode) {
+				// set resultsSizeActual to at least be 0 so we can track iterations that don't produce anything
+				queryNode.setResultSizeActual(Math.max(0, queryNode.getResultSizeActual()));
+			}
+		}
+
+		@Override
+		protected boolean next(BindingSet bs) {
+			long count = counter.incrementAndGet();
+			if ((count - lastCount) > trackResultSizeUpdateInterval) {
+				updateResultSize();
+			}
+			return super.next(bs);
+		}
+
+		@Override
+		public boolean handleException(Throwable e) {
+			updateResultSize();
+			return super.handleException(e);
+		}
+
+		@Override
+		protected void doClose() {
+			updateResultSize();
+			super.doClose();
+		}
+
+		private void updateResultSize() {
+			synchronized (queryNode) {
+				long count = counter.get();
+				queryNode.setResultSizeActual(queryNode.getResultSizeActual() + count - lastCount);
+				lastCount = count;
+			}
+		}
+	}
+
+	private final class TimedBindingSetPipe extends BindingSetPipe {
+		private final AtomicLong elapsed = new AtomicLong();
+		private final TupleExpr queryNode;
+		private volatile long lastNanos;
+
+		private TimedBindingSetPipe(BindingSetPipe parent, TupleExpr expr) {
+			super(parent);
+			this.queryNode = expr;
+		}
+
+		@Override
+		protected boolean next(BindingSet bs) {
+			long start = System.nanoTime();
+			boolean pushMore = super.next(bs);
+			long end = System.nanoTime();
+			long nanos = elapsed.addAndGet(start - end);
+			if ((nanos - lastNanos) > trackResultTimeUpdateInterval) {
+				updateResultTime();
+			}
+			return pushMore;
+		}
+
+		@Override
+		public boolean handleException(Throwable e) {
+			updateResultTime();
+			return super.handleException(e);
+		}
+
+		@Override
+		protected void doClose() {
+			updateResultTime();
+			super.doClose();
+		}
+
+		private void updateResultTime() {
+			synchronized (queryNode) {
+				long nanos = elapsed.get();
+				queryNode.setTotalTimeNanosActual(queryNode.getTotalTimeNanosActual() + nanos - lastNanos);
+				lastNanos = nanos;
+			}
+		}
+	}
+
 	/**
 	 * This class wraps an iterator and increments the "resultSizeActual" of the query model node that the iterator
 	 * represents. This means we can track the number of tuples that have been retrieved from this node.
 	 */
-	private static final class ResultSizeCountingIterator extends IterationWrapper<BindingSet, QueryEvaluationException> {
+	private final class ResultSizeCountingIterator extends IterationWrapper<BindingSet, QueryEvaluationException> {
 
 		private final CloseableIteration<BindingSet, QueryEvaluationException> iterator;
 		private final QueryModelNode queryModelNode;
+		private long counter;
 
-		public ResultSizeCountingIterator(CloseableIteration<BindingSet, QueryEvaluationException> iterator,
+		private ResultSizeCountingIterator(CloseableIteration<BindingSet, QueryEvaluationException> iterator,
 				QueryModelNode queryModelNode) {
 			super(iterator);
 			this.iterator = iterator;
 			this.queryModelNode = queryModelNode;
-			// set resultsSizeActual to at least be 0 so we can track iterations that don't procude anything
+			// set resultsSizeActual to at least be 0 so we can track iterations that don't produce anything
 			queryModelNode.setResultSizeActual(Math.max(0, queryModelNode.getResultSizeActual()));
 		}
 
 		@Override
 		public BindingSet next() throws QueryEvaluationException {
-			queryModelNode.setResultSizeActual(queryModelNode.getResultSizeActual() + 1);
+			counter++;
+			if (counter > trackResultSizeUpdateInterval) {
+				updateResultSize();
+			}
 			return iterator.next();
+		}
+
+		@Override
+		protected void handleClose() throws QueryEvaluationException {
+			updateResultSize();
+			super.handleClose();
+		}
+
+		private void updateResultSize() {
+			queryModelNode.setResultSizeActual(queryModelNode.getResultSizeActual() + counter);
+			counter = 0;
 		}
 	}
 
 	/**
 	 * This class wraps an iterator and tracks the time used to execute next() and hasNext()
 	 */
-	private static final class TimedIterator extends IterationWrapper<BindingSet, QueryEvaluationException> {
+	private final class TimedIterator extends IterationWrapper<BindingSet, QueryEvaluationException> {
 
 		private final CloseableIteration<BindingSet, QueryEvaluationException> iterator;
 		private final QueryModelNode queryModelNode;
+		private long elapsed;
 
-		private final Stopwatch stopwatch = Stopwatch.createUnstarted();
-
-		public TimedIterator(CloseableIteration<BindingSet, QueryEvaluationException> iterator,
+		private TimedIterator(CloseableIteration<BindingSet, QueryEvaluationException> iterator,
 				QueryModelNode queryModelNode) {
 			super(iterator);
 			this.iterator = iterator;
 			this.queryModelNode = queryModelNode;
-			// set resultsSizeActual to at least be 0 so we can track iterations that don't procude anything
-			queryModelNode.setTotalTimeNanosActual(Math.max(0, queryModelNode.getTotalTimeNanosActual()));
 		}
 
 		@Override
 		public BindingSet next() throws QueryEvaluationException {
-			stopwatch.reset();
-			stopwatch.start();
+			long start = System.nanoTime();
 			BindingSet next = iterator.next();
-			stopwatch.stop();
-			queryModelNode.setTotalTimeNanosActual(
-					queryModelNode.getTotalTimeNanosActual() + stopwatch.elapsed(TimeUnit.NANOSECONDS));
+			long end = System.nanoTime();
+			elapsed += start - end;
+			if (elapsed > trackResultTimeUpdateInterval) {
+				updateResultTime();
+			}
 			return next;
 		}
 
 		@Override
 		public boolean hasNext() throws QueryEvaluationException {
-			stopwatch.reset();
-			stopwatch.start();
+			long start = System.nanoTime();
 			boolean hasNext = super.hasNext();
-			stopwatch.stop();
-			queryModelNode.setTotalTimeNanosActual(
-					queryModelNode.getTotalTimeNanosActual() + stopwatch.elapsed(TimeUnit.NANOSECONDS));
+			long end = System.nanoTime();
+			elapsed += start - end;
+			if (elapsed > trackResultTimeUpdateInterval) {
+				updateResultTime();
+			}
 			return hasNext;
+		}
+
+		@Override
+		protected void handleClose() throws QueryEvaluationException {
+			updateResultTime();
+			super.handleClose();
+		}
+
+		private void updateResultTime() {
+			queryModelNode.setTotalTimeNanosActual(
+				queryModelNode.getTotalTimeNanosActual() + elapsed);
+			elapsed = 0L;
 		}
 	}
 }

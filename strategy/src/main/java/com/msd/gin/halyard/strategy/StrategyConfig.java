@@ -19,6 +19,8 @@ public final class StrategyConfig {
 	public static final String HALYARD_EVALUATION_TASK_RATE_UPDATE_MILLIS = "halyard.evaluation.taskRate.updateMillis";
 	public static final String HALYARD_EVALUATION_TASK_RATE_WINDOW_SIZE = "halyard.evaluation.taskRate.windowSize";
 	public static final String HALYARD_EVALUATION_THREAD_POOL_CHECK_PERIOD_SECS = "halyard.evaluation.threadPoolCheckPeriodSecs";
+	public static final String HALYARD_EVALUATION_TRACK_RESULT_SIZE_UPDATE_INTERVAL = "halyard.evaluation.trackResultSize.updateInterval";
+	public static final String HALYARD_EVALUATION_TRACK_RESULT_TIME_UPDATE_INTERVAL = "halyard.evaluation.trackResultTime.updateInterval";
 
 	static final int DEFAULT_HASH_JOIN_LIMIT = 50000;
 	static final int DEFAULT_STAR_JOIN_MIN_JOINS = 3;
