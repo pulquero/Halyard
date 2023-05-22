@@ -198,7 +198,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         			evaluateUpdate(sparqlQuery, exchange);
         		}
         	}
-        } catch (IllegalArgumentException | RDF4JException e) {
+        } catch (IllegalArgumentException | MalformedQueryException e) {
             LOGGER.debug("Bad request", e);
             sendErrorResponse(exchange, HttpURLConnection.HTTP_BAD_REQUEST, e);
         } catch (IOException | RuntimeException e) {
