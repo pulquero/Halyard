@@ -515,7 +515,7 @@ final class HalyardTupleExprEvaluation {
 		                Value obj = st.getObject();
 		                Resource context = st.getContext();
 		
-		                if (subjVar != null && nq.subj == null) {
+		                if (nq.subj == null) {
 		                    if (subjVar.equals(predVar) && !subj.equals(pred)) {
 		                        return false;
 		                    }
@@ -527,7 +527,7 @@ final class HalyardTupleExprEvaluation {
 		                    }
 		                }
 		
-		                if (predVar != null && nq.pred == null) {
+		                if (nq.pred == null) {
 		                    if (predVar.equals(objVar) && !pred.equals(obj)) {
 		                        return false;
 		                    }
@@ -536,7 +536,7 @@ final class HalyardTupleExprEvaluation {
 		                    }
 		                }
 		
-		                if (objVar != null && nq.obj == null) {
+		                if (nq.obj == null) {
 		                    if (objVar.equals(conVar) && !obj.equals(context)) {
 		                        return false;
 		                    }
@@ -557,13 +557,13 @@ final class HalyardTupleExprEvaluation {
 	            @Override
 	            protected BindingSet convert(Statement st) {
 	                QueryBindingSet result = new QueryBindingSet(bs);
-	                if (subjVar != null && !subjVar.isConstant() && !result.hasBinding(subjName)) {
+	                if (!subjVar.isConstant() && !result.hasBinding(subjName)) {
 	                    result.addBinding(subjName, st.getSubject());
 	                }
-	                if (predVar != null && !predVar.isConstant() && !result.hasBinding(predName)) {
+	                if (!predVar.isConstant() && !result.hasBinding(predName)) {
 	                    result.addBinding(predName, st.getPredicate());
 	                }
-	                if (objVar != null && !objVar.isConstant()) {
+	                if (!objVar.isConstant()) {
 	                    if (!result.hasBinding(objName)) {
 	                        result.addBinding(objVar.getName(), st.getObject());
 	                    } else {
