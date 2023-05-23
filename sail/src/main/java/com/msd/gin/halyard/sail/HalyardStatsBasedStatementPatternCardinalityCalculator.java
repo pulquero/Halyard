@@ -153,7 +153,8 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		} else {
 			card = triples;
 		}
-		return card;
+		// round-up to a whole number
+		return Math.ceil(card);
 	}
 
 	/**

@@ -58,7 +58,7 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 	@Test
 	public void testDoubleValue() {
 		double card = calc.getStatementCardinality(new Var("s", subj), new Var("p", pred), new Var("o"), null, Collections.emptySet());
-		assertEquals(6.0 * 4.0 / 13.0, card);
+		assertEquals(Math.ceil(6.0 * 4.0 / 13.0), card);
 	}
 
 	@Test
@@ -66,7 +66,7 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 		Set<String> boundVars = new HashSet<>();
 		boundVars.add("s");
 		double card = calc.getStatementCardinality(new Var("s"), new Var("p"), new Var("o", obj), null, boundVars);
-		assertEquals((13.0 / 3.0) * (3.0 / 2.0), card);
+		assertEquals(Math.ceil((13.0 / 3.0) * (3.0 / 2.0)), card);
 	}
 
 	@Test
@@ -74,7 +74,7 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 		Set<String> boundVars = new HashSet<>();
 		boundVars.add("s");
 		double card = calc.getStatementCardinality(new Var("s"), new Var("p"), new Var("o"), null, boundVars);
-		assertEquals(13.0 / 3.0, card);
+		assertEquals(Math.ceil(13.0 / 3.0), card);
 	}
 
 	@Test
@@ -83,7 +83,7 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 		boundVars.add("s");
 		boundVars.add("p");
 		double card = calc.getStatementCardinality(new Var("s"), new Var("p"), new Var("o"), null, boundVars);
-		assertEquals((13.0 / 3.0 * 13.0 / 5.0) / 13.0, card);
+		assertEquals(Math.ceil((13.0 / 3.0 * 13.0 / 5.0) / 13.0), card);
 	}
 
 	@Test
@@ -91,7 +91,7 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 		Set<String> boundVars = new HashSet<>();
 		boundVars.add("s");
 		double card = calc.getStatementCardinality(new Var("s"), new Var("p"), new Var("o"), new Var("c", vf.createIRI("http://graph1")), boundVars);
-		assertEquals(Math.sqrt(25), card);
+		assertEquals(Math.sqrt(25.0), card);
 	}
 
 	@Test
