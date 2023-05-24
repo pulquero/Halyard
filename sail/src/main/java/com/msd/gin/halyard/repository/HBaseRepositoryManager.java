@@ -27,25 +27,38 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.http.client.HttpClient;
+import org.eclipse.rdf4j.common.iteration.Iterations;
 import org.eclipse.rdf4j.http.client.HttpClientDependent;
 import org.eclipse.rdf4j.http.client.SessionManagerDependent;
 import org.eclipse.rdf4j.http.client.SharedHttpClientSessionManager;
+import org.eclipse.rdf4j.model.Literal;
+import org.eclipse.rdf4j.model.Model;
+import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.impl.LinkedHashModel;
+import org.eclipse.rdf4j.model.vocabulary.CONFIG;
+import org.eclipse.rdf4j.query.QueryResults;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolverClient;
 import org.eclipse.rdf4j.repository.DelegatingRepository;
 import org.eclipse.rdf4j.repository.Repository;
+import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.RepositoryResolverClient;
+import org.eclipse.rdf4j.repository.RepositoryResult;
 import org.eclipse.rdf4j.repository.config.DelegatingRepositoryImplConfig;
 import org.eclipse.rdf4j.repository.config.RepositoryConfig;
 import org.eclipse.rdf4j.repository.config.RepositoryConfigException;
-import org.eclipse.rdf4j.repository.config.RepositoryConfigUtil;
+import org.eclipse.rdf4j.repository.config.RepositoryConfigSchema;
 import org.eclipse.rdf4j.repository.config.RepositoryFactory;
 import org.eclipse.rdf4j.repository.config.RepositoryImplConfig;
 import org.eclipse.rdf4j.repository.config.RepositoryRegistry;
@@ -237,7 +250,7 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 			return new RepositoryConfig(SYSTEM_ID, "System repository");
 		} else {
 			Repository systemRepository = getSystemRepository();
-			return RepositoryConfigUtil.getRepositoryConfig(systemRepository, repositoryID);
+			return getRepositoryConfig(systemRepository, repositoryID);
 		}
 	}
 
@@ -257,7 +270,7 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 	public void addRepositoryConfig(RepositoryConfig repoConfig) throws RepositoryException, RepositoryConfigException {
 		if (!SYSTEM_ID.equals(repoConfig.getID())) {
 			Repository systemRepository = getSystemRepository();
-			RepositoryConfigUtil.updateRepositoryConfigs(systemRepository, repoConfig);
+			updateRepositoryConfig(systemRepository, repoConfig);
 		}
 	}
 
@@ -267,7 +280,7 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 		if (!SYSTEM_ID.equals(repositoryID)) {
 			removed = super.removeRepository(repositoryID);
 			Repository systemRepository = getSystemRepository();
-			RepositoryConfigUtil.removeRepositoryConfigs(systemRepository, repositoryID);
+			removeRepositoryConfig(systemRepository, repositoryID);
 		}
 		return removed;
 	}
@@ -276,11 +289,129 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 	public Collection<RepositoryInfo> getAllRepositoryInfos() throws RepositoryException {
 		List<RepositoryInfo> result = new ArrayList<>();
 		result.add(getRepositoryInfo(SYSTEM_ID));
-		for (String id : RepositoryConfigUtil.getRepositoryIDs(getSystemRepository())) {
+		for (String id : getRepositoryIDs(getSystemRepository())) {
 			RepositoryInfo repInfo = getRepositoryInfo(id);
 			result.add(repInfo);
 		}
 		Collections.sort(result);
 		return result;
+	}
+
+	private static RepositoryConfig getRepositoryConfig(Repository repository, String repositoryID) throws RepositoryConfigException, RepositoryException {
+		try (RepositoryConnection con = repository.getConnection()) {
+			Statement idStatement = getIDStatement(con, repositoryID);
+			if (idStatement == null) {
+				// No such config
+				return null;
+			}
+
+			Resource repositoryNode = idStatement.getSubject();
+			Resource context = idStatement.getContext();
+
+			if (context == null) {
+				throw new RepositoryException("No configuration context for repository " + repositoryID);
+			}
+
+			Model contextGraph = QueryResults.asModel(con.getStatements(null, null, null, true, context));
+
+			return RepositoryConfig.create(contextGraph, repositoryNode);
+		}
+	}
+
+	private static Set<String> getRepositoryIDs(Repository repository) throws RepositoryException {
+		try (RepositoryConnection con = repository.getConnection()) {
+			Set<String> idSet = new LinkedHashSet<>();
+
+			try (RepositoryResult<Statement> idStatementIter = con.getStatements(null, CONFIG.Rep.id, null, true)) {
+				while (idStatementIter.hasNext()) {
+					Statement idStatement = idStatementIter.next();
+
+					if (idStatement.getObject() instanceof Literal) {
+						Literal idLiteral = (Literal) idStatement.getObject();
+						idSet.add(idLiteral.getLabel());
+					}
+				}
+			}
+
+			try (RepositoryResult<Statement> idStatementIter = con.getStatements(null, RepositoryConfigSchema.REPOSITORYID, null, true)) {
+				while (idStatementIter.hasNext()) {
+					Statement idStatement = idStatementIter.next();
+
+					if (idStatement.getObject() instanceof Literal) {
+						Literal idLiteral = (Literal) idStatement.getObject();
+						idSet.add(idLiteral.getLabel());
+					}
+				}
+			}
+
+			return idSet;
+		}
+	}
+
+	private static void updateRepositoryConfig(Repository repository, RepositoryConfig config) throws RepositoryException, RepositoryConfigException {
+		ValueFactory vf = repository.getValueFactory();
+
+		try (RepositoryConnection con = repository.getConnection()) {
+			con.begin();
+
+			Resource context = getContext(con, config.getID());
+
+			if (context != null) {
+				con.clear(context);
+			} else {
+				context = vf.createBNode();
+			}
+
+			Model graph = new LinkedHashModel();
+			config.export(graph);
+			con.add(graph, context);
+
+			con.commit();
+		}
+	}
+
+	private static boolean removeRepositoryConfig(Repository repository, String repositoryID) throws RepositoryException, RepositoryConfigException {
+		boolean changed = false;
+
+		try (RepositoryConnection con = repository.getConnection()) {
+			con.begin();
+
+			Resource context = getContext(con, repositoryID);
+			if (context != null) {
+				con.clear(context);
+				changed = true;
+			}
+
+			con.commit();
+		}
+
+		return changed;
+	}
+
+	private static Resource getContext(RepositoryConnection con, String repositoryID) throws RepositoryException, RepositoryConfigException {
+		Resource context = null;
+
+		Statement idStatement = getIDStatement(con, repositoryID);
+		if (idStatement != null) {
+			context = idStatement.getContext();
+		}
+
+		return context;
+	}
+
+	private static Statement getIDStatement(RepositoryConnection con, String repositoryID) throws RepositoryException, RepositoryConfigException {
+		Literal idLiteral = con.getRepository().getValueFactory().createLiteral(repositoryID);
+		List<Statement> idStatementList = Iterations.asList(con.getStatements(null, CONFIG.Rep.id, idLiteral, true));
+		if (idStatementList.isEmpty()) {
+			idStatementList = Iterations.asList(con.getStatements(null, RepositoryConfigSchema.REPOSITORYID, idLiteral, true));
+		}
+
+		if (idStatementList.size() == 1) {
+			return idStatementList.get(0);
+		} else if (idStatementList.isEmpty()) {
+			return null;
+		} else {
+			throw new RepositoryConfigException("Multiple ID-statements for repository ID " + repositoryID);
+		}
 	}
 }

@@ -1143,7 +1143,7 @@ class HalyardValueExprEvaluation {
 	    			Value leftVal = leftValue.get();
 	    			Value rightVal = rightValue.get();
 	    	        if (leftVal instanceof Literal && rightVal instanceof Literal) {
-	    				return ValueOrError.of(() -> XMLDatatypeMathUtil.compute((Literal)leftVal, (Literal)rightVal, node.getOperator()));
+	    				return ValueOrError.of(() -> XMLDatatypeMathUtil.compute((Literal)leftVal, (Literal)rightVal, node.getOperator(), valueFactory));
 	    	        } else {
 	    	        	return ValueOrError.fail("Both arguments must be numeric literals");
 	    	        }
