@@ -61,10 +61,10 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
 	private final int optHashJoinLimit;
 	private final int evalHashJoinLimit;
 	private final float cardinalityRatio;
-	private final int minJoins = 1;
+	private final int minJoins;
 
 	MemoryStoreWithHalyardStrategy() {
-		this(0, 0, Float.MAX_VALUE);
+		this(0, 0, Float.MAX_VALUE, 1);
 		SPARQLServiceResolver fsr = new SPARQLServiceResolver();
 		fsr.registerService("repository:memory", new SailFederatedService(new MemoryStore()));
 		fsr.registerService("repository:pushOnly", new SailFederatedService(new PushOnlyMemoryStore()));
@@ -92,10 +92,11 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
 		setFederatedServiceResolver(fsr);
 	}
 
-	MemoryStoreWithHalyardStrategy(int optHashJoinLimit, int evalHashJoinLimit, float cardinalityRatio) {
+	MemoryStoreWithHalyardStrategy(int optHashJoinLimit, int evalHashJoinLimit, float cardinalityRatio, int starJoinMin) {
 		this.optHashJoinLimit = optHashJoinLimit;
 		this.evalHashJoinLimit = evalHashJoinLimit;
 		this.cardinalityRatio = cardinalityRatio;
+		this.minJoins = starJoinMin;
 	}
 
 	LinkedList<TupleExpr> getQueryHistory() {

@@ -10,14 +10,14 @@ import org.eclipse.rdf4j.testsuite.sparql.RepositorySPARQLComplianceTestSuite;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
-public class HashJoinComplianceTest extends RepositorySPARQLComplianceTestSuite {
+public class StarJoinComplianceTest extends RepositorySPARQLComplianceTestSuite {
 
 	@BeforeClass
 	public static void setUpFactory() throws Exception {
 		setRepositoryFactory(new SailRepositoryFactory() {
 			@Override
 			public Repository getRepository(RepositoryImplConfig config) throws RepositoryConfigException {
-				Sail sail = new MemoryStoreWithHalyardStrategy(Integer.MAX_VALUE, 1, 0.0f, Integer.MAX_VALUE);
+				Sail sail = new MemoryStoreWithHalyardStrategy(0, 0, Float.MAX_VALUE, 1);
 				return new SailRepository(sail);
 			}
 		});

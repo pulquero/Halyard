@@ -44,6 +44,9 @@ public class StarJoinOptimizer implements QueryOptimizer {
 	private final int minJoins;
 
 	public StarJoinOptimizer(int minJoins) {
+		if (minJoins < 1) {
+			throw new IllegalArgumentException("Minimum joins must be greater than or equal to one");
+		}
 		this.minJoins = minJoins;
 	}
 

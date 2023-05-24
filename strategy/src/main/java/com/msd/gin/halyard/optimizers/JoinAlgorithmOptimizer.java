@@ -18,7 +18,7 @@ import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 
 public class JoinAlgorithmOptimizer implements QueryOptimizer {
-	private static double INDEX_LOOKUP_COST = 10;
+	private static double INDEX_SCAN_COST = 1.0;
 	private static double HASH_LOOKUP_COST = 0.1;
 	private static double HASH_BUILD_COST = 0.3;
 
@@ -68,7 +68,7 @@ public class JoinAlgorithmOptimizer implements QueryOptimizer {
 			Set<String> nestedBoundVars = new HashSet<>(boundVars);
 			nestedBoundVars.addAll(left.getBindingNames());
 			double nestedRightCard = statistics.getCardinality(right, nestedBoundVars);
-			double nestedCost = leftCard * nestedRightCard * INDEX_LOOKUP_COST;
+			double nestedCost = leftCard * nestedRightCard * INDEX_SCAN_COST;
 			double hashCost = leftCard*HASH_LOOKUP_COST + rightCard*HASH_BUILD_COST;
 			boolean useHash = rightCard <= hashJoinLimit && costRatio*hashCost < nestedCost;
 			if (useHash) {

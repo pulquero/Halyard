@@ -1,44 +1,27 @@
 package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
-import com.msd.gin.halyard.common.HalyardTableUtils;
 
-import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.testsuite.sail.RDFStoreTest;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class HBaseStoreTest extends RDFStoreTest {
 	private static int uid = 1;
 
-	private Connection hconn;
+	private static Configuration conf;
 
-	@Before
-	public void initConn() throws Exception {
-		hconn = HalyardTableUtils.getConnection(HBaseServerTestInstance.getInstanceConfig());
-	}
-
-	@Before
-	public void setUp() throws Exception {
-		super.setUp();
-	}
-
-	@After
-	public void tearDown() throws Exception {
-		super.tearDown();
-	}
-
-	@After
-	public void closeConn() throws Exception {
-		hconn.close();
+	@BeforeAll
+	public static void init() throws Exception {
+		conf = HBaseServerTestInstance.getInstanceConfig();
 	}
 
 	@Override
 	protected Sail createSail() {
-		Sail sail = new HBaseSail(hconn, "storetesttable" + uid++, true, 0, true, 5, null, null);
+		Sail sail = new HBaseSail(conf, "storetesttable" + uid++, true, 0, true, 5, null, null);
 		sail.init();
 		return sail;
 	}

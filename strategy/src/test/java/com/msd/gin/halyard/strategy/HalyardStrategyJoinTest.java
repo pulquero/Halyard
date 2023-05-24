@@ -2,6 +2,7 @@ package com.msd.gin.halyard.strategy;
 
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algorithms;
+import com.msd.gin.halyard.algebra.StarJoin;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -32,32 +33,36 @@ import static org.junit.Assert.assertEquals;
 
 @RunWith(Parameterized.class)
 public class HalyardStrategyJoinTest {
+	private static final String STAR_JOIN_ALGORITHM_NAME = "Star join";
 
 	@Parameterized.Parameters(name = "{0}")
 	public static Collection<Object[]> data() {
 		List<Object[]> testValues = new ArrayList<>();
-		testValues.add(new Object[] {"Nested", 0, 0, Float.MAX_VALUE});
-		testValues.add(new Object[] {"Hash", Integer.MAX_VALUE, Integer.MAX_VALUE, 0.0f});
-		testValues.add(new Object[] {"Partitioned hash", Integer.MAX_VALUE, 1, 0.0f});
+		testValues.add(new Object[] {"Nested", 0, 0, Float.MAX_VALUE, Integer.MAX_VALUE});
+		testValues.add(new Object[] {"Hash", Integer.MAX_VALUE, Integer.MAX_VALUE, 0.0f, Integer.MAX_VALUE});
+		testValues.add(new Object[] {"Partitioned hash", Integer.MAX_VALUE, 1, 0.0f, Integer.MAX_VALUE});
+		testValues.add(new Object[] {"Star", 0, 0, Float.MAX_VALUE, 1});
 		return testValues;
 	}
 
 	private final int optHashJoinLimit;
 	private final int evalHashJoinLimit;
     private final float cardinalityRatio;
+    private final int starJoinMin;
     private Repository repo;
     private RepositoryConnection con;
     private MemoryStoreWithHalyardStrategy strategy;
 
-    public HalyardStrategyJoinTest(String algo, int optHashJoinLimit, int evalHashJoinLimit, float cardinalityRatio) {
+    public HalyardStrategyJoinTest(String algo, int optHashJoinLimit, int evalHashJoinLimit, float cardinalityRatio, int starJoinMin) {
 		this.optHashJoinLimit = optHashJoinLimit;
 		this.evalHashJoinLimit = evalHashJoinLimit;
 		this.cardinalityRatio = cardinalityRatio;
+		this.starJoinMin = starJoinMin;
     }
 
     @Before
     public void setUp() throws Exception {
-    	strategy = new MemoryStoreWithHalyardStrategy(optHashJoinLimit, evalHashJoinLimit, cardinalityRatio);
+    	strategy = new MemoryStoreWithHalyardStrategy(optHashJoinLimit, evalHashJoinLimit, cardinalityRatio, starJoinMin);
         repo = new SailRepository(strategy);
         repo.init();
         con = repo.getConnection();
@@ -85,16 +90,14 @@ public class HalyardStrategyJoinTest {
 
     @Test
     public void testJoin_2var() throws Exception {
-        // star join
         String q = "prefix : <http://example/> select ?x ?y where {?x :p ?y. ?x :t ?y}";
-        joinTest(q, "/test-cases/join-results-2.srx", 0, null);
+        joinTest(q, "/test-cases/join-results-2.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
     }
 
     @Test
     public void testJoin_2var_constant() throws Exception {
-        // star join
         String q = "prefix : <http://example/> select ?x ?y where {:y3 :s ?x, ?y}";
-        joinTest(q, "/test-cases/join-results-2-constant.srx", 0, null);
+        joinTest(q, "/test-cases/join-results-2-constant.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
     }
 
     @Test
@@ -140,7 +143,6 @@ public class HalyardStrategyJoinTest {
 
     @Test
     public void testLeftJoin_2var() throws Exception {
-        // star join
         String q = "prefix : <http://example/> select ?x ?y where {?x :p ?y. optional {?x :t ?y} }";
         joinTest(q, "/test-cases/left-join-results-2.srx", 1, expectedAlgo());
     }
@@ -230,7 +232,7 @@ public class HalyardStrategyJoinTest {
         TupleExpr expr = strategy.getQueryHistory().getLast();
         assertEquals(expr.toString(), expectedResults, results);
 
-        List<BinaryTupleOperator> joins = new ArrayList<>();
+        List<TupleExpr> joins = new ArrayList<>();
         expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {
 			@Override
 			public void meet(Join node) {
@@ -242,15 +244,30 @@ public class HalyardStrategyJoinTest {
 				joins.add(node);
 				super.meet(node);
 			}
+        	@Override
+        	public void meet(StarJoin node) {
+				joins.add(node);
+				super.meet(node);
+        	}
         });
         assertEquals(expectedJoins, joins.size());
         if (!joins.isEmpty()) {
 	        for (int i=0; i<joins.size(); i++) {
-	        	BinaryTupleOperator join = joins.get(i);
-	        	assertEquals(expr.toString(), expectedAlgos[i], join.getAlgorithmName());
+	        	TupleExpr join = joins.get(i);
+	        	assertEquals(expr.toString(), expectedAlgos[i], getJoinAlgorithm(join));
 	        }
 	        assertEquals(expectedResults.size(), joins.get(0).getResultSizeActual());
         }
+    }
+
+    private static String getJoinAlgorithm(TupleExpr join) {
+    	if (join instanceof BinaryTupleOperator) {
+    		return ((BinaryTupleOperator) join).getAlgorithmName();
+    	} else if (join instanceof StarJoin) {
+    		return STAR_JOIN_ALGORITHM_NAME;
+    	} else {
+    		throw new AssertionError();
+    	}
     }
 
     private static Set<BindingSet> toSet(TupleQueryResult res) {

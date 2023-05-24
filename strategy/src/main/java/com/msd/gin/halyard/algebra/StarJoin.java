@@ -55,14 +55,14 @@ public class StarJoin extends NAryTupleOperator {
 		return commonVar;
 	}
 
-	public void setContextVar(Var var) {
+	public void setContextVar(@Nullable Var var) {
 		if (var != null) {
 			var.setParentNode(this);
 		}
 		contextVar = var;
 	}
 
-	public Var getContextVar() {
+	public @Nullable Var getContextVar() {
 		return contextVar;
 	}
 

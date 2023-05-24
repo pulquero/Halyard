@@ -2029,7 +2029,7 @@ final class HalyardTupleExprEvaluation {
 	            		hashTable.put(buildBs);
 	            	}
 	            	if (partition != null) {
-	            		startJoin(partition, bindings, false);
+	            		startJoin(partition, false);
 	            	}
 	            	return true;
 	            }
@@ -2037,7 +2037,7 @@ final class HalyardTupleExprEvaluation {
 				protected void doClose() {
 	            	synchronized (this) {
 	            		if (hashTable != null) {
-	                   		startJoin(hashTable, bindings, true);
+	                   		startJoin(hashTable, true);
 	            			hashTable = null;
 	            		}
 	            	}
@@ -2045,10 +2045,9 @@ final class HalyardTupleExprEvaluation {
 	        	/**
 	        	 * Performs a hash-join.
 	        	 * @param hashTablePartition hash table to join against.
-	        	 * @param bindings
 	        	 * @param isLast true if this is the last time doJoin() will be called for the current join operation.
 	        	 */
-	        	private void startJoin(HashJoinTable hashTablePartition, BindingSet bindings, boolean isLast) {
+	        	private void startJoin(HashJoinTable hashTablePartition, boolean isLast) {
 	        		if (hashTablePartition.entryCount() == 0) {
 	        			if (isLast) {
 	        				parent.close();
