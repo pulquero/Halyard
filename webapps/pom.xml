@@ -12,6 +12,8 @@
 		<jminix.version>1.3.5</jminix.version>
 		<restlet.version>2.4.3</restlet.version>
 		<servlet.version>3.1.0</servlet.version>
+		<jstl.version>1.2</jstl.version>
+		<logback.version>1.2.11</logback.version>
 	</properties>
 	<repositories>
 		<repository>
@@ -114,6 +116,30 @@
 								</artifactItem>
 
 								<artifactItem>
+									<groupId>javax.servlet</groupId>
+									<artifactId>jstl</artifactId>
+									<version>${jstl.version}</version>
+								</artifactItem>
+								<artifactItem>
+									<groupId>taglibs</groupId>
+									<artifactId>standard</artifactId>
+									<version>1.1.2</version>
+								</artifactItem>
+
+								<!-- logging -->
+								<artifactItem>
+									<groupId>ch.qos.logback</groupId>
+									<artifactId>logback-core</artifactId>
+									<version>${logback.version}</version>
+								</artifactItem>
+								<artifactItem>
+									<groupId>ch.qos.logback</groupId>
+									<artifactId>logback-classic</artifactId>
+									<version>${logback.version}</version>
+								</artifactItem>
+
+								<!-- Elastic -->
+								<artifactItem>
 									<groupId>co.elastic.clients</groupId>
 									<artifactId>elasticsearch-java</artifactId>
 									<version>${elasticsearch.version}</version>
@@ -144,6 +170,7 @@
 									<version>2.0.1</version>
 								</artifactItem>
 
+								<!-- JMiniX -->
 								<artifactItem>
 									<groupId>org.jminix</groupId>
 									<artifactId>jminix</artifactId>
@@ -176,11 +203,6 @@
 									<classifier>jdk15</classifier>
 								</artifactItem>
 								<artifactItem>
-									<groupId>commons-lang</groupId>
-									<artifactId>commons-lang</artifactId>
-									<version>2.5</version>
-								</artifactItem>
-								<artifactItem>
 									<groupId>commons-collections</groupId>
 									<artifactId>commons-collections</artifactId>
 									<version>3.2.2</version>
@@ -195,11 +217,11 @@
 									<artifactId>ezmorph</artifactId>
 									<version>1.0.6</version>
 								</artifactItem>
-								<dependency>
+								<artifactItem>
 									<groupId>org.json</groupId>
 									<artifactId>json</artifactId>
 									<version>${json.version}</version>
-								</dependency>
+								</artifactItem>
 							</artifactItems>
 							<outputDirectory>${project.build.directory}/extra-libs</outputDirectory>
 							<overWriteReleases>true</overWriteReleases>
@@ -219,6 +241,10 @@
 								<unzip src="${project.build.directory}/rdf4j-server.war" dest="${project.build.directory}/rdf4j-server-patch" overwrite="true">
 									<patternset>
 										<exclude name="WEB-INF/lib/rdf4j-spin-${rdf4j.version}.jar" />
+										<!-- exclude unused SAILs -->
+										<exclude name="WEB-INF/lib/lucene-*.jar" />
+										<exclude name="WEB-INF/lib/solr-*.jar" />
+										<exclude name="WEB-INF/lib/lwjgl-*.jar" />
 									</patternset>
 								</unzip>
 								<replace file="${project.build.directory}/rdf4j-server-patch/WEB-INF/rdf4j-http-server-servlet.xml" token="org.eclipse.rdf4j.repository.manager.LocalRepositoryManager" value="com.msd.gin.halyard.repository.HBaseRepositoryManager" />
@@ -241,6 +267,10 @@
 								<unzip src="${project.build.directory}/rdf4j-workbench.war" dest="${project.build.directory}/rdf4j-workbench-patch" overwrite="true">
 									<patternset>
 										<exclude name="WEB-INF/lib/rdf4j-spin-${rdf4j.version}.jar" />
+										<!-- exclude unused SAILs -->
+										<exclude name="WEB-INF/lib/lucene-*.jar" />
+										<exclude name="WEB-INF/lib/solr-*.jar" />
+										<exclude name="WEB-INF/lib/lwjgl-*.jar" />
 									</patternset>
 								</unzip>
 								<replace file="${project.build.directory}/rdf4j-workbench-patch/transformations/create.xsl" token="&lt;select id=&quot;type&quot; name=&quot;type&quot;&gt;" value="&lt;select id=&quot;type&quot; name=&quot;type&quot;&gt;&lt;option value=&quot;hbase&quot;&gt;Halyard HBase Store&lt;/option&gt;" />

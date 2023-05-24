@@ -29,13 +29,13 @@ import com.msd.gin.halyard.vocab.HALYARD;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.IterationWrapper;
+import org.eclipse.rdf4j.common.transaction.QueryEvaluationMode;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -134,6 +134,16 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			FederatedServiceResolver serviceResolver, HalyardEvaluationStatistics statistics) {
 		this(conf, tripleSource, TupleFunctionRegistry.getInstance(), FunctionRegistry.getInstance(),
 				dataset, serviceResolver, statistics, new HalyardEvaluationExecutor(conf));
+	}
+
+	@Override
+	public void setQueryEvaluationMode(QueryEvaluationMode mode) {
+		// always STANDARD
+	}
+
+	@Override
+	public QueryEvaluationMode getQueryEvaluationMode() {
+		return QueryEvaluationMode.STANDARD;
 	}
 
 	@Override

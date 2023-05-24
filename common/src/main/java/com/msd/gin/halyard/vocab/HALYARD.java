@@ -75,8 +75,6 @@ public final class HALYARD implements Vocabulary {
     public final static IRI ELASTIC_TRUSTSTORE_PASSWORD_PROPERTY = SVF.createIRI(NAMESPACE, "elasticTruststorePassword");
 
     public final static IRI ENDPOINTS_GRAPH_CONTEXT = SVF.createIRI(NAMESPACE, "endpoints");
-    public final static IRI USERNAME_PROPERTY = SVF.createIRI(NAMESPACE, "username");
-    public final static IRI PASSWORD_PROPERTY = SVF.createIRI(NAMESPACE, "password");
 
     public final static IRI SEARCH = SVF.createIRI(NAMESPACE, "search");
 

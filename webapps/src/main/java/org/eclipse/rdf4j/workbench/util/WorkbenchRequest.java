@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.workbench.util;
 
@@ -16,17 +19,17 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
+import javax.servlet.ServletException;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
+import javax.servlet.http.Part;
 
-import org.apache.commons.fileupload.FileItemIterator;
-import org.apache.commons.fileupload.FileItemStream;
-import org.apache.commons.fileupload.FileUploadException;
-import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
@@ -36,11 +39,9 @@ import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.workbench.exceptions.BadRequestException;
 
 /**
- * Request wrapper used by {@link org.eclipse.rdf4j.workbench.base TransformationServlet}.
+ * Request wrapper used by {@link org.eclipse.rdf4j.workbench.base.TransformationServlet}.
  */
 public class WorkbenchRequest extends HttpServletRequestWrapper {
-
-	private static final String UTF_8 = "UTF-8";
 
 	private Map<String, String> parameters;
 
@@ -60,20 +61,34 @@ public class WorkbenchRequest extends HttpServletRequestWrapper {
 	 * @param defaults   application default parameter values
 	 * @throws RepositoryException if there is an issue retrieving the parameter map
 	 * @throws IOException         if there is an issue retrieving the parameter map
-	 * @throws FileUploadException if there is an issue retrieving the parameter map
+	 * @throws ServletException    if there is an issue retrieving the parameter map
 	 */
 	public WorkbenchRequest(Repository repository, HttpServletRequest request, Map<String, String> defaults)
-			throws RepositoryException, IOException, FileUploadException {
+			throws RepositoryException, IOException, ServletException {
 		super(request);
 		this.defaults = defaults;
 		this.decoder = new ValueDecoder(repository,
 				(repository == null) ? SimpleValueFactory.getInstance() : repository.getValueFactory());
 		String url = request.getRequestURL().toString();
-		if (ServletFileUpload.isMultipartContent(this)) {
+		if (isMultipartContent(this)) {
 			parameters = getMultipartParameterMap();
 		} else if (request.getQueryString() == null && url.contains(";")) {
 			parameters = getUrlParameterMap(url);
 		}
+	}
+
+	private static boolean isMultipartContent(HttpServletRequest request) {
+		if (!"POST".equalsIgnoreCase(request.getMethod())) {
+			return false;
+		}
+		String contentType = request.getContentType();
+		if (contentType == null) {
+			return false;
+		}
+		if (contentType.toLowerCase(Locale.ENGLISH).startsWith("multipart/")) {
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -117,7 +132,7 @@ public class WorkbenchRequest extends HttpServletRequestWrapper {
 
 	@Override
 	public String getParameter(String name) {
-		String result = null;
+		String result;
 		if (parameters != null && parameters.containsKey(name)) {
 			result = parameters.get(name);
 		} else {
@@ -263,26 +278,21 @@ public class WorkbenchRequest extends HttpServletRequestWrapper {
 		return decoder.decodeValue(getParameter(name));
 	}
 
-	private String firstLine(FileItemStream item) throws IOException {
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(item.openStream()))) {
-			return reader.readLine();
-		}
-	}
-
 	private Map<String, String> getMultipartParameterMap()
-			throws RepositoryException, IOException, FileUploadException {
+			throws RepositoryException, IOException, ServletException {
 		Map<String, String> parameters = new HashMap<>();
-		ServletFileUpload upload = new ServletFileUpload();
-		FileItemIterator iter = upload.getItemIterator(this);
-		while (iter.hasNext()) {
-			FileItemStream item = iter.next();
-			String name = item.getFieldName();
+		for (Part part : getParts()) {
+			String name = part.getName();
 			if ("content".equals(name)) {
-				content = item.openStream();
-				contentFileName = item.getName();
+				content = part.getInputStream();
+				contentFileName = part.getSubmittedFileName();
 				break;
 			} else {
-				parameters.put(name, firstLine(item));
+				String firstLine;
+				try (BufferedReader reader = new BufferedReader(new InputStreamReader(part.getInputStream()))) {
+					firstLine = reader.readLine();
+				}
+				parameters.put(name, firstLine);
 			}
 		}
 		return parameters;
@@ -293,8 +303,8 @@ public class WorkbenchRequest extends HttpServletRequestWrapper {
 		Map<String, String> parameters = new HashMap<>();
 		for (String param : qry.split("&")) {
 			int idx = param.indexOf('=');
-			String name = decode(param.substring(0, idx), UTF_8);
-			String value = decode(param.substring(idx + 1), UTF_8);
+			String name = decode(param.substring(0, idx), StandardCharsets.UTF_8);
+			String value = decode(param.substring(idx + 1), StandardCharsets.UTF_8);
 			parameters.put(name, value);
 		}
 		return parameters;

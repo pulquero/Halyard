@@ -18,11 +18,11 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.util.Literals;
-import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.model.util.Models;
+import org.eclipse.rdf4j.model.vocabulary.CONFIG;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.TupleQuery;
-import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
@@ -35,7 +35,6 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 	private static final String MIN_TIMESTAMP_QUERY_PARAM = "minTimestamp";
 	private static final String MAX_TIMESTAMP_QUERY_PARAM = "maxTimestamp";
 	private static final String MAX_VERSIONS_QUERY_PARAM = "maxVersions";
-	private static final String ENDPOINT_QUERY = "PREFIX halyard: <" + HALYARD.NAMESPACE + ">\n" + "SELECT ?user ?pass WHERE { GRAPH halyard:endpoints {?url halyard:username ?user; halyard:password ?pass} }";
 
 	private final Connection hConnection;
 	private final Configuration config;
@@ -115,16 +114,11 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 					}
 					// check for stored authentication info
 					try (RepositoryConnection conn = systemRepo.getConnection()) {
-						TupleQuery query = conn.prepareTupleQuery(ENDPOINT_QUERY);
-						query.setBinding("url", systemRepo.getValueFactory().createIRI(serviceUrl));
-						try (TupleQueryResult res = query.evaluate()) {
-							for (BindingSet bs : res) {
-								String user = Literals.getLabel(bs.getValue("user"), null);
-								if (user != null) {
-									String pass = Literals.getLabel(bs.getValue("pass"), null);
-									sparqlRepo.setUsernameAndPassword(user, pass);
-								}
-							}
+						IRI urlIri = systemRepo.getValueFactory().createIRI(serviceUrl);
+						String user = Literals.getLabel(Models.object(conn.getStatements(urlIri, CONFIG.Http.username, null, HALYARD.ENDPOINTS_GRAPH_CONTEXT)), null);
+						if (user != null) {
+							String pass = Literals.getLabel(Models.object(conn.getStatements(urlIri, CONFIG.Http.password, null, HALYARD.ENDPOINTS_GRAPH_CONTEXT)), null);
+							sparqlRepo.setUsernameAndPassword(user, pass);
 						}
 					}
 				}

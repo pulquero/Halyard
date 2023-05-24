@@ -24,6 +24,16 @@
             <artifactId>halyard-spin</artifactId>
             <version>${project.version}</version>
         </dependency>
+		<dependency>
+			<groupId>org.eclipse.rdf4j</groupId>
+			<artifactId>rdf4j-queryalgebra-geosparql</artifactId>
+			<version>${rdf4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.rdf4j</groupId>
+			<artifactId>rdf4j-repository-manager</artifactId>
+			<version>${rdf4j.version}</version>
+		</dependency>
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-server</artifactId>
