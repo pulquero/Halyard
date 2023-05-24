@@ -49,6 +49,7 @@ public class Sorter <E extends Comparable<E> & Serializable> implements Iterable
      * Constructs Sorter with optional limit and optional distinct filtering
      * @param limit long limit, where Long.MAXLONG means no limit
      * @param distinct optional boolean switch to do not preserve multiple equal elements
+     * @param memoryThreshold memory usage threshold at which to swap to disk
      */
     public Sorter(long limit, boolean distinct, int memoryThreshold) {
         this.map = new TreeMap<>();

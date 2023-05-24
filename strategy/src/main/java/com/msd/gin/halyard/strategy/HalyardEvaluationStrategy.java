@@ -103,14 +103,15 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	/**
 	 * Default constructor of HalyardEvaluationStrategy
 	 * 
+	 * @param conf configuration
 	 * @param tripleSource {@code TripleSource} to be queried for the existence of triples in a context
-	 * @param queryContext {@code QueryContext} to use for query evaluation
 	 * @param tupleFunctionRegistry {@code TupleFunctionRegistry} to use for {@code TupleFunctionCall} evaluation.
 	 * @param functionRegistry {@code FunctionRegistry} to use for {@code FunctionCall} evaluation.
 	 * @param dataset {@code Dataset} A dataset consists of a default graph for read and using operations, which is the RDF merge of one or more graphs, a set of named graphs, and
 	 * a single update graph for INSERT and DELETE
 	 * @param serviceResolver {@code FederatedServiceResolver} resolver for any federated services (graphs) required for the evaluation
 	 * @param statistics statistics to use
+	 * @param executor executor to use
 	 */
 	public HalyardEvaluationStrategy(Configuration conf, TripleSource tripleSource,
 			TupleFunctionRegistry tupleFunctionRegistry,
