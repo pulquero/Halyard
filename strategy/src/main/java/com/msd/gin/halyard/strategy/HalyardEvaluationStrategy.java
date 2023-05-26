@@ -342,13 +342,13 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		@Override
 		public boolean handleException(Throwable e) {
 			updateResultSize();
-			return super.handleException(e);
+			return parent.handleException(e);
 		}
 
 		@Override
 		protected void doClose() {
 			updateResultSize();
-			super.doClose();
+			parent.close();
 		}
 
 		private void updateResultSize() {
@@ -385,13 +385,13 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		@Override
 		public boolean handleException(Throwable e) {
 			updateResultTime();
-			return super.handleException(e);
+			return parent.handleException(e);
 		}
 
 		@Override
 		protected void doClose() {
 			updateResultTime();
-			super.doClose();
+			parent.close();
 		}
 
 		private void updateResultTime() {

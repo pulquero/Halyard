@@ -1817,6 +1817,7 @@ final class HalyardTupleExprEvaluation {
         BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(leftJoin.getRightArg(), evalContext);
         ValuePipeQueryValueEvaluationStep conditionStep = leftJoin.hasCondition() ? parentStrategy.precompile(leftJoin.getCondition(), evalContext) : null;
     	return (parentPipe, bindings) -> {
+	        parentPipe = parentStrategy.track(parentPipe, leftJoin);
 	    	// Check whether optional join is "well designed" as defined in section
 	        // 4.2 of "Semantics and Complexity of SPARQL", 2006, Jorge Pérez et al.
 	        VarNameCollector optionalVarCollector = new VarNameCollector();
@@ -1859,8 +1860,7 @@ final class HalyardTupleExprEvaluation {
 		            }
 		        };
 	        }
-	        BindingSetPipe topPipe = parentStrategy.track(parentPipe, leftJoin);
-	        leftStep.evaluate(new PipeJoin(topPipe) {
+	        leftStep.evaluate(new PipeJoin(parentPipe) {
 	        	@Override
 	            protected boolean next(final BindingSet leftBindings) {
 	        		startSecondaryPipe();

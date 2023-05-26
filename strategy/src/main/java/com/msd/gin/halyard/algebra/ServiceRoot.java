@@ -20,4 +20,18 @@ public final class ServiceRoot extends QueryRoot {
     public Service getService() {
     	return service;
     }
+
+    @Override
+	public long getResultSizeActual() {
+    	synchronized (service) {
+    		return service.getResultSizeActual();
+    	}
+	}
+
+	@Override
+	public void setResultSizeActual(long resultSizeActual) {
+    	synchronized (service) {
+    		service.setResultSizeActual(resultSizeActual);
+    	}
+	}
 }
