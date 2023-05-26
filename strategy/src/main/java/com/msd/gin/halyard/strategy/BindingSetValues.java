@@ -52,18 +52,28 @@ final class BindingSetValues implements Serializable {
 		return result;
 	}
 
-	boolean canJoin(String[] names, Set<String> joinNames, BindingSet bs) {
+	BindingSet tryJoin(String[] names, Set<String> joinNames, BindingSet bs) {
+		QueryBindingSet result = null;
 		for (int i=0; i<names.length; i++) {
 			String name = names[i];
 			if (joinNames.contains(name)) {
 				Value value = values[i];
 				Value bsValue = bs.getValue(name);
 				if (value != null && bsValue != null && !value.equals(bsValue)) {
-					return false;
+					return null;
+				}
+			}
+			if (result == null) {
+				result = new QueryBindingSet(bs);
+			}
+			if (!result.hasBinding(name)) {
+				Value v = values[i];
+				if (v != null) {
+					result.setBinding(name, v);
 				}
 			}
 		}
-		return true;
+		return result;
 	}
 
 	BindingSet joinTo(String[] names, BindingSet bs) {
