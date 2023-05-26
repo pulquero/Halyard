@@ -8,11 +8,12 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.MutableBindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 
 public final class ValueFactories {
 
-    public static BindingSet convertValues(BindingSet srcBs, ValueFactory tgtVf) {
+    public static MutableBindingSet convertValues(BindingSet srcBs, ValueFactory tgtVf) {
 		Set<String> bindingNames = srcBs.getBindingNames();
 		QueryBindingSet tgtBs = new QueryBindingSet(bindingNames.size());
 		for (String bn : bindingNames) {

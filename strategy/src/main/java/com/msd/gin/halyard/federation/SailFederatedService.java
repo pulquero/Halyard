@@ -21,8 +21,10 @@ import org.eclipse.rdf4j.common.iteration.EmptyIteration;
 import org.eclipse.rdf4j.common.iteration.SilentIteration;
 import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.MutableBindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.Service;
+import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 import org.eclipse.rdf4j.repository.sparql.federation.JoinExecutorBase;
 import org.eclipse.rdf4j.repository.sparql.query.InsertBindingSetCursor;
@@ -67,7 +69,7 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 	@Override
 	public boolean ask(Service service, BindingSet bindings, String baseUri) throws QueryEvaluationException {
 		try (SailConnection conn = getConnection()) {
-			try (CloseableIteration<? extends BindingSet, QueryEvaluationException> res = conn.evaluate(ServiceRoot.create(service), null, ValueFactories.convertValues(bindings, sail.getValueFactory()), true)) {
+			try (CloseableIteration<? extends BindingSet, QueryEvaluationException> res = evaluateInternal((expr, bs) -> conn.evaluate(expr, null, bs, true), service, null, bindings, baseUri)) {
 				return res.hasNext();
 			}
 		}
@@ -77,7 +79,7 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 	public CloseableIteration<BindingSet, QueryEvaluationException> select(Service service, Set<String> projectionVars,
 			BindingSet bindings, String baseUri) throws QueryEvaluationException {
 		SailConnection conn = getConnection();
-		CloseableIteration<? extends BindingSet, QueryEvaluationException> iter = conn.evaluate(ServiceRoot.create(service), null, ValueFactories.convertValues(bindings, sail.getValueFactory()), true);
+		CloseableIteration<? extends BindingSet, QueryEvaluationException> iter = evaluateInternal((expr, bs) -> conn.evaluate(expr, null, bs, true), service, projectionVars, bindings, baseUri);
 		CloseableIteration<BindingSet, QueryEvaluationException> result = new InsertBindingSetCursor((CloseableIteration<BindingSet, QueryEvaluationException>) iter, bindings);
 		result = new CloseConnectionIteration(result, conn);
 		if (service.isSilent()) {
@@ -90,8 +92,8 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 	public void select(Consumer<BindingSet> handler, Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
 		if (sail instanceof BindingSetConsumerSail) {
 			try (BindingSetConsumerSailConnection conn = (BindingSetConsumerSailConnection) getConnection()) {
-				handler = new InsertBindingSetCallback(handler, bindings);
-				conn.evaluate(handler, ServiceRoot.create(service), null, ValueFactories.convertValues(bindings, sail.getValueFactory()), true);
+				Consumer<BindingSet> serviceHandler = new InsertBindingSetCallback(handler, bindings);
+				evaluateInternal((expr, bs) -> {conn.evaluate(serviceHandler, expr, null, bs, true); return null;}, service, projectionVars, bindings, baseUri);
 			}
 		} else {
 			try (CloseableIteration<BindingSet, QueryEvaluationException> result = select(service, projectionVars, bindings, baseUri)) {
@@ -104,8 +106,8 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 	public void select(BindingSetPipe pipe, Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
 		if (sail instanceof BindingSetPipeSail) {
 			try (BindingSetPipeSailConnection conn = (BindingSetPipeSailConnection) getConnection()) {
-				pipe = new InsertBindingSetPipe(pipe, bindings);
-				conn.evaluate(pipe, ServiceRoot.create(service), null, ValueFactories.convertValues(bindings, sail.getValueFactory()), true);
+				BindingSetPipe servicePipe = new InsertBindingSetPipe(pipe, bindings);
+				evaluateInternal((expr, bs) -> {conn.evaluate(servicePipe, expr, null, bs, true); return null;}, service, projectionVars, bindings, baseUri);
 			}
 		} else {
 			try (CloseableIteration<BindingSet, QueryEvaluationException> result = select(service, projectionVars, bindings, baseUri)) {
@@ -135,6 +137,18 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 		return result;
 	}
 
+	protected <E> E evaluateInternal(ServiceEvaluator<E> evaluator, Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) {
+		return evaluator.evaluate(ServiceRoot.create(service), createBindings(service, projectionVars, bindings));
+	}
+
+	protected MutableBindingSet createBindings(Service service, Set<String> projectionVars, BindingSet bindings) {
+		return ValueFactories.convertValues(bindings, sail.getValueFactory());
+	}
+
+	@FunctionalInterface
+	private static interface ServiceEvaluator<E> {
+		E evaluate(TupleExpr tupleExpr, BindingSet bindings);
+	}
 
 	private static class SimpleServiceIteration extends JoinExecutorBase<BindingSet> {
 

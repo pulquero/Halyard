@@ -844,7 +844,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	}
 
 	@FunctionalInterface
-	static interface QueryEvaluator<E> {
+	private static interface QueryEvaluator<E> {
 		E evaluate(TupleExpr optimizedTree, QueryEvaluationStep step, HBaseSail.QueryInfo queryInfo);
 	}
 }

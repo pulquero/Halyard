@@ -2,17 +2,13 @@ package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.federation.SailFederatedService;
-import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 
 import java.util.Set;
-import java.util.function.Consumer;
 
-import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.query.BindingSet;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
+import org.eclipse.rdf4j.query.MutableBindingSet;
 import org.eclipse.rdf4j.query.algebra.Service;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.sail.SailConnection;
 
@@ -25,35 +21,16 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 	}
 
 	@Override
-	public boolean ask(Service service, BindingSet bs, String baseUri) throws QueryEvaluationException {
-		String queryString = service.getAskQueryString();
-		QueryBindingSet bindings = new QueryBindingSet(bs);
-		sail.addQueryString(bindings, queryString);
-		return super.ask(service, bindings, baseUri);
-	}
-
-	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> select(Service service, Set<String> projectionVars, BindingSet bs, String baseUri) throws QueryEvaluationException {
-		String queryString = service.getSelectQueryString(projectionVars);
-		QueryBindingSet bindings = new QueryBindingSet(bs);
-		sail.addQueryString(bindings, queryString);
-		return super.select(service, projectionVars, bindings, baseUri);
-	}
-
-	@Override
-	public void select(Consumer<BindingSet> handler, Service service, Set<String> projectionVars, BindingSet bs, String baseUri) throws QueryEvaluationException {
-		String queryString = service.getSelectQueryString(projectionVars);
-		QueryBindingSet bindings = new QueryBindingSet(bs);
-		sail.addQueryString(bindings, queryString);
-		super.select(handler, service, projectionVars, bindings, baseUri);
-	}
-
-	@Override
-	public void select(BindingSetPipe pipe, Service service, Set<String> projectionVars, BindingSet bs, String baseUri) throws QueryEvaluationException {
-		String queryString = service.getSelectQueryString(projectionVars);
-		QueryBindingSet bindings = new QueryBindingSet(bs);
-		sail.addQueryString(bindings, queryString);
-		super.select(pipe, service, projectionVars, bindings, baseUri);
+	protected MutableBindingSet createBindings(Service service, Set<String> projectionVars, BindingSet bindings) {
+		MutableBindingSet bs = super.createBindings(service, projectionVars, bindings);
+		String queryString;
+		if (projectionVars != null) {
+			queryString = service.getSelectQueryString(projectionVars);
+		} else {
+			queryString = service.getAskQueryString();
+		}
+		sail.addQueryString(bs, queryString);
+		return bs;
 	}
 
 	@Override
