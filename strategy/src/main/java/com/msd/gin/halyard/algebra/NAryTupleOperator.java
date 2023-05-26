@@ -107,7 +107,7 @@ public abstract class NAryTupleOperator extends AbstractQueryModelNode implement
 	@Override
 	public NAryTupleOperator clone() {
 		NAryTupleOperator clone = (NAryTupleOperator) super.clone();
-
+		clone.args = new TupleExpr[args.length];
 		for (int i=0; i<args.length; i++) {
 			TupleExpr exprClone = args[i].clone();
 			clone.setArg(i, exprClone);
