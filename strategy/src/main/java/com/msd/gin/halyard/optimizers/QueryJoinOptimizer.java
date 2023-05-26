@@ -191,7 +191,10 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 					int i = orderedJoinArgs.size() - 1;
 					TupleExpr replacement = orderedJoinArgs.get(i);
 					for (i--; i >= 0; i--) {
-						replacement = new Join(orderedJoinArgs.get(i), replacement);
+						TupleExpr arg = orderedJoinArgs.get(i);
+						Join join = new Join(arg, replacement);
+						join.setResultSizeEstimate(arg.getResultSizeEstimate() * replacement.getResultSizeEstimate());
+						replacement = join;
 					}
 
 					if (priorityJoins != null) {
