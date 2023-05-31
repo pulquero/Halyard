@@ -45,6 +45,8 @@ import com.msd.gin.halyard.util.MBeanManager;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -53,7 +55,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -143,7 +146,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		}
 	}
 
-	public static final class QueryInfo {
+	public static final class QueryInfo implements Comparable<QueryInfo> {
 		private final long startTimestamp = System.currentTimeMillis();
 		private Long endTimestamp;
 		private final String queryString;
@@ -182,6 +185,11 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 		void end() {
 			endTimestamp = System.currentTimeMillis();
+		}
+
+		@Override
+		public int compareTo(QueryInfo o) {
+			return Long.compare(startTimestamp, o.startTimestamp);
 		}
 
 		@Override
@@ -237,7 +245,9 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 			conn.close();
 		}
 	}).build();
-	private final Queue<QueryInfo> queryHistory = new ArrayBlockingQueue<>(10, true);
+	private int maxQueryHistorySize;
+	private final AtomicInteger queryHistorySize = new AtomicInteger();
+	private final Queue<QueryInfo> queryHistory = new ConcurrentLinkedQueue<>();
 
 	/**
 	 * Property defining optional ElasticSearch index URL
@@ -354,6 +364,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		queryCacheSize = config.getInt(EvaluationConfig.QUERY_CACHE_MAX_SIZE, 100);
 		trackResultSize = config.getBoolean(EvaluationConfig.TRACK_RESULT_SIZE, false);
 		trackResultTime = config.getBoolean(EvaluationConfig.TRACK_RESULT_TIME, false);
+		maxQueryHistorySize = config.getInt(EvaluationConfig.QUERY_HISTORY_MAX_SIZE, 10);
 		queryCache = new QueryCache(queryCacheSize);
 		statisticsCache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatisticsCache();
 	}
@@ -415,7 +426,20 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	@Override
 	public QueryInfo[] getRecentQueries() {
-		return queryHistory.toArray(new QueryInfo[queryHistory.size()]);
+		if (maxQueryHistorySize > 0) {
+			List<QueryInfo> temp = new ArrayList<>(maxQueryHistorySize);
+			for (QueryInfo qi : queryHistory) {
+				temp.add(qi);
+				if (temp.size() == maxQueryHistorySize) {
+					break;
+				}
+			}
+			QueryInfo[] result = temp.toArray(new QueryInfo[temp.size()]);
+			Arrays.sort(result);
+			return result;
+		} else {
+			return new QueryInfo[0];
+		}
 	}
 
 	@Override
@@ -445,12 +469,9 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	QueryInfo trackQuery(String sourceString, TupleExpr rawExpr, TupleExpr optimizedExpr) {
 		QueryInfo query = new QueryInfo(sourceString, rawExpr, optimizedExpr);
-		synchronized (queryHistory) {
-			if (!queryHistory.offer(query)) {
-				// full - so remove and add
-				queryHistory.remove();
-				queryHistory.add(query);
-			}
+		queryHistory.add(query);
+		if (queryHistorySize.incrementAndGet() > maxQueryHistorySize) {
+			queryHistory.remove();
 		}
 		return query;
 	}
