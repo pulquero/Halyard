@@ -72,7 +72,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.ConvertingIteration;
 import org.eclipse.rdf4j.common.iteration.FilterIteration;
@@ -210,15 +209,15 @@ final class HalyardTupleExprEvaluation {
 		this.tripleSource = tripleSource;
 		this.dataset = dataset;
 		this.executor = executor;
-		Configuration conf = parentStrategy.getConfiguration();
+		StrategyConfig config = parentStrategy.getConfig();
 		JoinAlgorithmOptimizer algoOpt = parentStrategy.getJoinAlgorithmOptimizer();
     	if (algoOpt != null) {
     		hashJoinLimit = algoOpt.getHashJoinLimit();
     	} else {
-    		hashJoinLimit = conf.getInt(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_LIMIT, StrategyConfig.DEFAULT_HASH_JOIN_LIMIT);
+    		hashJoinLimit = config.hashJoinLimit;
     	}
-    	collectionMemoryThreshold = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MEMORY_THRESHOLD, StrategyConfig.DEFAULT_MEMORY_THRESHOLD);
-    	valueCacheSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_VALUE_CACHE_SIZE, StrategyConfig.DEFAULT_VALUE_CACHE_SIZE);
+    	collectionMemoryThreshold = config.collectionMemoryThreshold;
+    	valueCacheSize = config.valueCacheSize;
     }
 
     /**

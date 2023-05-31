@@ -51,10 +51,10 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 		this.strategy = strategy;
 		this.valueFactory = valueFactory;
 		this.statistics = statistics;
-		int minJoins = strategy.getConfiguration().getInt(StrategyConfig.HALYARD_EVALUATION_STAR_JOIN_MIN_JOINS, StrategyConfig.DEFAULT_STAR_JOIN_MIN_JOINS);
+		int minJoins = strategy.getConfig().starJoinMinJoins;
 		this.starJoinOptimizer = new StarJoinOptimizer(minJoins);
-		int hashJoinLimit = strategy.getConfiguration().getInt(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_LIMIT, StrategyConfig.DEFAULT_HASH_JOIN_LIMIT);
-		float costRatio = strategy.getConfiguration().getFloat(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_COST_RATIO, 2.0f);
+		int hashJoinLimit = strategy.getConfig().hashJoinLimit;
+		float costRatio = strategy.getConfig().hashJoinCostRatio;
 		this.joinAlgoOptimizer = new JoinAlgorithmOptimizer(statistics, hashJoinLimit, costRatio);
 	}
 

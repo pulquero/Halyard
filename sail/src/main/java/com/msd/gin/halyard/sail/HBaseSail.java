@@ -39,6 +39,7 @@ import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
 import com.msd.gin.halyard.spin.SpinParser;
 import com.msd.gin.halyard.spin.SpinParser.Input;
 import com.msd.gin.halyard.spin.SpinSail;
+import com.msd.gin.halyard.strategy.StrategyConfig;
 import com.msd.gin.halyard.util.MBeanDetails;
 import com.msd.gin.halyard.util.MBeanManager;
 
@@ -200,7 +201,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	private static final long STATUS_CACHING_TIMEOUT = 60000l;
 
-    private final Configuration config; //the configuration of the HBase database
+    private final Configuration conf; //the configuration of the HBase database
 	final TableName tableName;
 	final String snapshotName;
 	final Path snapshotRestorePath;
@@ -213,7 +214,6 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	final ElasticSettings esSettings;
 	ElasticsearchTransport esTransport;
 	boolean includeNamespaces = false;
-	int queryCacheSize;
 	private boolean trackResultSize;
 	private boolean trackResultTime;
     final Ticker ticker;
@@ -226,6 +226,8 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private final SpinParser spinParser = new SpinParser(Input.TEXT_FIRST, functionRegistry, tupleFunctionRegistry);
 	private final ScanSettings scanSettings = new ScanSettings();
 	final SailConnectionFactory connFactory;
+	private EvaluationConfig evaluationConfig;
+	StrategyConfig strategyConfig;
 	Connection hConnection;
 	final boolean hConnectionIsShared; //whether a Connection is provided or we need to create our own
 	Keyspace keyspace;
@@ -245,7 +247,6 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 			conn.close();
 		}
 	}).build();
-	private int maxQueryHistorySize;
 	private final AtomicInteger queryHistorySize = new AtomicInteger();
 	private final Queue<QueryInfo> queryHistory = new ConcurrentLinkedQueue<>();
 
@@ -277,7 +278,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 			SailConnectionFactory connFactory) {
 		this.hConnection = conn;
 		this.hConnectionIsShared = (conn != null);
-		this.config = Objects.requireNonNull(config);
+		this.conf = Objects.requireNonNull(config);
 		this.tableName = TableName.valueOf(tableName);
 		this.create = create;
 		this.splitBits = splitBits;
@@ -288,7 +289,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		this.esSettings = ElasticSettings.merge(config, elasticSettings);
 		this.ticker = ticker;
 		this.connFactory = connFactory;
-		initSettings(config);
+		initSettings();
 	}
 
 	HBaseSail(Configuration config, String snapshotName, String snapshotRestorePath, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings) {
@@ -312,7 +313,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	HBaseSail(Configuration config, String snapshotName, String snapshotRestorePath, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings, Ticker ticker, SailConnectionFactory connFactory) {
 		this.hConnection = null;
 		this.hConnectionIsShared = false;
-		this.config = Objects.requireNonNull(config);
+		this.conf = Objects.requireNonNull(config);
 		this.tableName = null;
 		this.create = false;
 		this.splitBits = -1;
@@ -323,7 +324,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		this.esSettings = ElasticSettings.merge(config, elasticSettings);
 		this.ticker = ticker;
 		this.connFactory = connFactory;
-		initSettings(config);
+		initSettings();
 	}
 
 	public HBaseSail(@Nonnull Connection conn, Configuration config, String tableName, boolean create, int splitBits, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings, Ticker ticker) {
@@ -360,12 +361,12 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		this(null, config, tableName, create, splitBits, pushStrategy, evaluationTimeout, elasticSettings, ticker, connFactory);
     }
 
-	private void initSettings(Configuration config) {
-		queryCacheSize = config.getInt(EvaluationConfig.QUERY_CACHE_MAX_SIZE, 100);
-		trackResultSize = config.getBoolean(EvaluationConfig.TRACK_RESULT_SIZE, false);
-		trackResultTime = config.getBoolean(EvaluationConfig.TRACK_RESULT_TIME, false);
-		maxQueryHistorySize = config.getInt(EvaluationConfig.QUERY_HISTORY_MAX_SIZE, 10);
-		queryCache = new QueryCache(queryCacheSize);
+	private void initSettings() {
+		evaluationConfig = new EvaluationConfig(conf);
+		strategyConfig = new StrategyConfig(conf);
+		trackResultSize = evaluationConfig.trackResultSize;
+		trackResultTime = evaluationConfig.trackResultTime;
+		queryCache = new QueryCache(evaluationConfig.queryCacheSize);
 		statisticsCache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatisticsCache();
 	}
 
@@ -426,11 +427,11 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	@Override
 	public QueryInfo[] getRecentQueries() {
-		if (maxQueryHistorySize > 0) {
-			List<QueryInfo> temp = new ArrayList<>(maxQueryHistorySize);
+		if (evaluationConfig.maxQueryHistorySize > 0) {
+			List<QueryInfo> temp = new ArrayList<>(evaluationConfig.maxQueryHistorySize);
 			for (QueryInfo qi : queryHistory) {
 				temp.add(qi);
-				if (temp.size() == maxQueryHistorySize) {
+				if (temp.size() == evaluationConfig.maxQueryHistorySize) {
 					break;
 				}
 			}
@@ -470,7 +471,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	QueryInfo trackQuery(String sourceString, TupleExpr rawExpr, TupleExpr optimizedExpr) {
 		QueryInfo query = new QueryInfo(sourceString, rawExpr, optimizedExpr);
 		queryHistory.add(query);
-		if (queryHistorySize.incrementAndGet() > maxQueryHistorySize) {
+		if (queryHistorySize.incrementAndGet() > evaluationConfig.maxQueryHistorySize) {
 			queryHistory.remove();
 		}
 		return query;
@@ -523,25 +524,25 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 					if (hConnection != null) {
 						throw new IllegalStateException("Sail has already been initialized");
 					}
-					hConnection = HalyardTableUtils.getConnection(config);
+					hConnection = HalyardTableUtils.getConnection(conf);
 				}
 				if (create) {
 					HalyardTableUtils.createTableIfNotExists(hConnection, tableName, splitBits);
 				}
 			}
 
-			keyspace = HalyardTableUtils.getKeyspace(config, hConnection, tableName, snapshotName, snapshotRestorePath);
+			keyspace = HalyardTableUtils.getKeyspace(conf, hConnection, tableName, snapshotName, snapshotRestorePath);
 			try (KeyspaceConnection keyspaceConn = keyspace.getConnection()) {
 				rdfFactory = RDFFactory.create(keyspaceConn);
 			}
 		} catch (IOException e) {
 			throw new SailException(e);
 		}
-		stmtIndices = new StatementIndices(config, rdfFactory);
+		stmtIndices = new StatementIndices(conf, rdfFactory);
 		valueFactory = new IdValueFactory(rdfFactory);
 
 		if (federatedServiceResolver == null) {
-			federatedServiceResolver = new HBaseFederatedServiceResolver(hConnection, config, tableName != null ? tableName.getNameAsString() : null, pushStrategy, evaluationTimeoutSecs, ticker);
+			federatedServiceResolver = new HBaseFederatedServiceResolver(hConnection, conf, tableName != null ? tableName.getNameAsString() : null, pushStrategy, evaluationTimeoutSecs, ticker);
 		}
 
 		statistics = newStatistics();
@@ -617,7 +618,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	}
 
 	public Configuration getConfiguration() {
-		return config;
+		return conf;
 	}
 
 	public FunctionRegistry getFunctionRegistry() {

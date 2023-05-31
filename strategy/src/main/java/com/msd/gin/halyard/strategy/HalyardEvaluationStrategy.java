@@ -67,7 +67,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
  * @author Adam Sotona (MSD)
  */
 public class HalyardEvaluationStrategy implements EvaluationStrategy {
-	private final Configuration conf;
+	private final StrategyConfig config;
 	/**
 	 * Used to allow queries across more than one Halyard datasets
 	 */
@@ -90,11 +90,9 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
     /** Track the results size that each node in the query plan produces during execution. */
 	private boolean trackResultSize;
-	private final long trackResultSizeUpdateInterval;
 
 	/** Track the exeution time of each node in the plan. */
 	private boolean trackResultTime;
-	private final long trackResultTimeUpdateInterval;
 
 	private QueryOptimizerPipeline pipeline;
 
@@ -103,7 +101,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	/**
 	 * Default constructor of HalyardEvaluationStrategy
 	 * 
-	 * @param conf configuration
+	 * @param config configuration
 	 * @param tripleSource {@code TripleSource} to be queried for the existence of triples in a context
 	 * @param tupleFunctionRegistry {@code TupleFunctionRegistry} to use for {@code TupleFunctionCall} evaluation.
 	 * @param functionRegistry {@code FunctionRegistry} to use for {@code FunctionCall} evaluation.
@@ -113,11 +111,11 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	 * @param statistics statistics to use
 	 * @param executor executor to use
 	 */
-	public HalyardEvaluationStrategy(Configuration conf, TripleSource tripleSource,
+	public HalyardEvaluationStrategy(StrategyConfig config, TripleSource tripleSource,
 			TupleFunctionRegistry tupleFunctionRegistry,
 			FunctionRegistry functionRegistry, Dataset dataset, FederatedServiceResolver serviceResolver,
 			HalyardEvaluationStatistics statistics, HalyardEvaluationExecutor executor) {
-		this.conf = conf;
+		this.config = config;
 		this.tripleSource = tripleSource;
 		this.dataset = dataset;
 		this.serviceResolver = serviceResolver;
@@ -126,13 +124,11 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 				executor);
 		this.valueEval = new HalyardValueExprEvaluation(this, functionRegistry, tripleSource, executor.getQueuePollTimeoutMillis());
 		this.pipeline = new HalyardQueryOptimizerPipeline(this, tripleSource.getValueFactory(), statistics);
-		this.trackResultSizeUpdateInterval = conf.getLong(StrategyConfig.HALYARD_EVALUATION_TRACK_RESULT_SIZE_UPDATE_INTERVAL, Long.MAX_VALUE);
-		this.trackResultTimeUpdateInterval = conf.getLong(StrategyConfig.HALYARD_EVALUATION_TRACK_RESULT_TIME_UPDATE_INTERVAL, Long.MAX_VALUE);
 	}
 
 	HalyardEvaluationStrategy(Configuration conf, TripleSource tripleSource, Dataset dataset,
 			FederatedServiceResolver serviceResolver, HalyardEvaluationStatistics statistics) {
-		this(conf, tripleSource, TupleFunctionRegistry.getInstance(), FunctionRegistry.getInstance(),
+		this(new StrategyConfig(conf), tripleSource, TupleFunctionRegistry.getInstance(), FunctionRegistry.getInstance(),
 				dataset, serviceResolver, statistics, new HalyardEvaluationExecutor(conf));
 	}
 
@@ -169,8 +165,8 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		return isStrict;
 	}
 
-	Configuration getConfiguration() {
-		return conf;
+	StrategyConfig getConfig() {
+		return config;
 	}
 
 	TripleSource getTripleSource() {
@@ -343,7 +339,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		@Override
 		protected boolean next(BindingSet bs) {
 			long count = counter.incrementAndGet();
-			if ((count - lastCount) > trackResultSizeUpdateInterval) {
+			if ((count - lastCount) > config.trackResultSizeUpdateInterval) {
 				updateResultSize();
 			}
 			return super.next(bs);
@@ -386,7 +382,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			boolean pushMore = super.next(bs);
 			long end = System.nanoTime();
 			long nanos = elapsed.addAndGet(start - end);
-			if ((nanos - lastNanos) > trackResultTimeUpdateInterval) {
+			if ((nanos - lastNanos) > config.trackResultTimeUpdateInterval) {
 				updateResultTime();
 			}
 			return pushMore;
@@ -435,7 +431,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		@Override
 		public BindingSet next() throws QueryEvaluationException {
 			counter++;
-			if (counter > trackResultSizeUpdateInterval) {
+			if (counter > config.trackResultSizeUpdateInterval) {
 				updateResultSize();
 			}
 			return iterator.next();
@@ -475,7 +471,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			BindingSet next = iterator.next();
 			long end = System.nanoTime();
 			elapsed += start - end;
-			if (elapsed > trackResultTimeUpdateInterval) {
+			if (elapsed > config.trackResultTimeUpdateInterval) {
 				updateResultTime();
 			}
 			return next;
@@ -487,7 +483,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			boolean hasNext = super.hasNext();
 			long end = System.nanoTime();
 			elapsed += start - end;
-			if (elapsed > trackResultTimeUpdateInterval) {
+			if (elapsed > config.trackResultTimeUpdateInterval) {
 				updateResultTime();
 			}
 			return hasNext;

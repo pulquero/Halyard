@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.strategy;
 
+import org.apache.hadoop.conf.Configuration;
+
 public final class StrategyConfig {
 
 	public static final String HALYARD_EVALUATION_HASH_JOIN_LIMIT = "halyard.evaluation.hashJoin.limit";
@@ -22,4 +24,22 @@ public final class StrategyConfig {
 	static final int DEFAULT_MEMORY_THRESHOLD = 100000;
 	static final int DEFAULT_VALUE_CACHE_SIZE = 1000;
 	public static final String JMX_DOMAIN = "com.msd.gin.halyard";
+
+	final long trackResultSizeUpdateInterval;
+	final long trackResultTimeUpdateInterval;
+	final int starJoinMinJoins;
+	final int hashJoinLimit;
+	final float hashJoinCostRatio;
+	final int collectionMemoryThreshold;
+	final int valueCacheSize;
+
+	public StrategyConfig(Configuration conf) {
+		this.trackResultSizeUpdateInterval = conf.getLong(HALYARD_EVALUATION_TRACK_RESULT_SIZE_UPDATE_INTERVAL, Long.MAX_VALUE);
+		this.trackResultTimeUpdateInterval = conf.getLong(HALYARD_EVALUATION_TRACK_RESULT_TIME_UPDATE_INTERVAL, Long.MAX_VALUE);
+		this.starJoinMinJoins = conf.getInt(HALYARD_EVALUATION_STAR_JOIN_MIN_JOINS, DEFAULT_STAR_JOIN_MIN_JOINS);
+		this.hashJoinLimit = conf.getInt(HALYARD_EVALUATION_HASH_JOIN_LIMIT, DEFAULT_HASH_JOIN_LIMIT);
+		this.hashJoinCostRatio = conf.getFloat(HALYARD_EVALUATION_HASH_JOIN_COST_RATIO, 2.0f);
+    	this.collectionMemoryThreshold = conf.getInt(HALYARD_EVALUATION_MEMORY_THRESHOLD, DEFAULT_MEMORY_THRESHOLD);
+    	this.valueCacheSize = conf.getInt(HALYARD_EVALUATION_VALUE_CACHE_SIZE, DEFAULT_VALUE_CACHE_SIZE);
+	}
 }
