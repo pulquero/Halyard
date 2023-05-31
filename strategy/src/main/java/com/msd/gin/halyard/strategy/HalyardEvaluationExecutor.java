@@ -38,6 +38,7 @@ import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -78,19 +79,14 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 
     // a map of query model nodes and their priority
     private final Cache<TupleExpr, Integer> priorityMapCache = Caffeine.newBuilder().weakKeys().build();
-    private final Configuration conf;
 
-    private volatile RateTracker taskRateTracker;
-	private volatile ThreadPoolReducer threadPoolReducerTask;
+    private final AtomicLong bindingsCount = new AtomicLong();
+    private RateTracker bindingsRateTracker;
 	private MBeanManager<HalyardEvaluationExecutor> mbeanManager;
 	private final TimerTask registerMBeanTask;
 
     private int threads;
     private int maxRetries;
-    private int retryLimit;
-    private int threadGain;
-    private int maxThreads;
-    private float minTaskRate;
 
 	private final TrackingThreadPoolExecutor executor;
 
@@ -99,13 +95,8 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	private int offerTimeoutMillis;
 
 	public HalyardEvaluationExecutor(String name, Configuration conf, Map<String,String> connAttrs) {
-		this.conf = conf;
 	    threads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREADS, 10);
-	    setMaxRetries(conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_RETRIES, 3));
-	    setRetryLimit(conf.getInt(StrategyConfig.HALYARD_EVALUATION_RETRY_LIMIT, 100));
-	    threadGain = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREAD_GAIN, 5);
-	    maxThreads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_THREADS, 100);
-	    minTaskRate = conf.getFloat(StrategyConfig.HALYARD_EVALUATION_MIN_TASK_RATE, 0.1f);
+	    setMaxRetries(conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_RETRIES, Integer.MAX_VALUE));
 		executor = createExecutor(name + " ", threads);
 
 	    maxQueueSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_QUEUE_SIZE, 5000);
@@ -137,6 +128,13 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 			}
 		};
 		TIMER.schedule(registerMBeanTask, TimeUnit.MINUTES.toMillis(1l));
+
+		int bindingsRateUpdateMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_BINDINGS_RATE_UPDATE_MILLIS, 100);
+		int bindingsRateWindowSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_BINDINGS_RATE_WINDOW_SIZE, 10);
+		if (bindingsRateWindowSize > 0) {
+			bindingsRateTracker = new RateTracker(TIMER, bindingsRateUpdateMillis, bindingsRateWindowSize, () -> bindingsCount.get());
+			bindingsRateTracker.start();
+		}
 	}
 
 	HalyardEvaluationExecutor(Configuration conf) {
@@ -144,11 +142,8 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
 	public void shutdown() {
-		if (threadPoolReducerTask != null) {
-			threadPoolReducerTask.cancel();
-		}
-		if (taskRateTracker != null) {
-			taskRateTracker.stop();
+		if (bindingsRateTracker != null) {
+			bindingsRateTracker.stop();
 		}
 		registerMBeanTask.cancel();
 		if (mbeanManager != null) {
@@ -165,16 +160,6 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	@Override
 	public int getMaxRetries() {
 		return maxRetries;
-	}
-
-	@Override
-	public void setRetryLimit(int limit) {
-		this.retryLimit = limit;
-	}
-
-	@Override
-	public int getRetryLimit() {
-		return retryLimit;
 	}
 
 	@Override
@@ -198,56 +183,13 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
 	@Override
-	public void setMinTaskRate(float rate) {
-		this.minTaskRate = rate;
-	}
-
-	@Override
-	public float getMinTaskRate() {
-		return minTaskRate;
-	}
-
-	@Override
-	public float getTaskRatePerSecond() {
-		return (taskRateTracker != null) ? taskRateTracker.getRatePerSecond() : Float.NaN;
+	public float getBindingsRatePerSecond() {
+		return (bindingsRateTracker != null) ? bindingsRateTracker.getRatePerSecond() : Float.NaN;
 	}
 
 	@Override
 	public TrackingThreadPoolExecutorMXBean getThreadPoolExecutor() {
 		return executor;
-	}
-
-	private RateTracker getTaskRateTracker() {
-		RateTracker localRef = taskRateTracker;
-		if (localRef == null) {
-			synchronized (this) {
-				localRef = taskRateTracker;
-				if (localRef == null) {
-					int taskRateUpdateMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_TASK_RATE_UPDATE_MILLIS, 100);
-					int taskRateWindowSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_TASK_RATE_WINDOW_SIZE, 10);
-					localRef = new RateTracker(TIMER, taskRateUpdateMillis, taskRateWindowSize, () -> executor.getCompletedTaskCount());
-					localRef.start();
-					taskRateTracker = localRef;
-				}
-			}
-		}
-		return localRef;
-	}
-
-	private ThreadPoolReducer getThreadPoolReducer() {
-		ThreadPoolReducer localRef = threadPoolReducerTask;
-		if (localRef == null) {
-			synchronized (this) {
-				localRef = threadPoolReducerTask;
-				if (localRef == null) {
-					long threadPoolCheckPeriodSecs = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREAD_POOL_CHECK_PERIOD_SECS, 5);
-					localRef = new ThreadPoolReducer();
-					TIMER.schedule(localRef, 1000L, TimeUnit.SECONDS.toMillis(threadPoolCheckPeriodSecs));
-					threadPoolReducerTask = localRef;
-				}
-			}
-		}
-		return localRef;
 	}
 
 	/**
@@ -496,6 +438,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
             		}
                 	if(iter.hasNext()) {
                         BindingSet bs = iter.next();
+                        bindingsCount.incrementAndGet();
                         if (pipe.push(bs)) { //true indicates more data is expected from this binding set, put it on the queue
                            	return true;
                         }
@@ -567,51 +510,12 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
             for (int retries = 0; bs == null && !isClosed(); retries++) {
         		bs = pipe.poll(pollTimeoutMillis, TimeUnit.MILLISECONDS);
 				if (bs == null) {
-					// no data available - see if we can improve things
-					if (checkThreads(retries)) {
-						retries = 0;
+					if (retries > maxRetries) {
+	        			throw new QueryEvaluationException(String.format("Retry limit exceeded: %d (active threads %d, queue size %d, binding set rate %f)", retries, executor.getActiveCount(), executor.getQueueSize(), bindingsRateTracker.getRatePerSecond()));
 					}
 				}
             }
             return pipe.isEndOfQueue(bs) ? null : (BindingSet) bs;
-        }
-
-    	private boolean checkThreads(int retries) {
-    		if (minTaskRate == 0.0f) {
-    			return true;
-    		}
-
-    		final RateTracker taskRateTracker = getTaskRateTracker();
-    		final boolean overallProgress = taskRateTracker.getRatePerSecond() >= minTaskRate;
-    		// if not making any progress overall
-    		if (!overallProgress) {
-        		final int maxPoolSize = executor.getMaximumPoolSize();
-        		// if we've been consistently blocked and are at full capacity and there are still more tasks queued
-        		if (retries > maxRetries && executor.getActiveCount() >= maxPoolSize && executor.getQueueSize() > 0) {
-        			// then try adding some emergency threads
-    				synchronized (executor) {
-    					// check thread pool hasn't been modified already in the meantime and still blocked
-    					if (maxPoolSize == executor.getMaximumPoolSize() && executor.getActiveCount() >= maxPoolSize && executor.getQueueSize() > 0 && taskRateTracker.getRatePerSecond() < minTaskRate) {
-    						if (maxPoolSize < maxThreads) {
-    							int newMaxPoolSize = Math.min(maxPoolSize + threadGain, maxThreads);
-    							LOGGER.warn("Iteration {}: all {} threads seem to be blocked (taskRate {}) - adding {} more", Integer.toHexString(this.hashCode()), executor.getPoolSize(), taskRateTracker.getRatePerSecond(), newMaxPoolSize - maxPoolSize);
-    							executor.setMaximumPoolSize(newMaxPoolSize);
-    							executor.setCorePoolSize(Math.min(executor.getCorePoolSize()+threadGain, newMaxPoolSize));
-    							// ensure ThreadPoolReducer is running
-    							getThreadPoolReducer();
-    						} else {
-    							// out of options
-    							throw new QueryEvaluationException(String.format("Maximum thread limit reached (%d)", maxThreads));
-    						}
-    					}
-    				}
-					return true;
-        		} else if (retries > retryLimit) {
-        			// something else is wrong
-        			throw new QueryEvaluationException(String.format("Retry limit exceeded: %d (active threads %d, queue size %d, task rate %f)", retries, executor.getActiveCount(), executor.getQueueSize(), taskRateTracker.getRatePerSecond()));
-        		}
-    		}
-    		return overallProgress;
         }
 
         @Override
@@ -625,33 +529,4 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
         	return "Iteration "+Integer.toHexString(this.hashCode())+" for pipe "+Integer.toHexString(pipe.hashCode());
         }
     }
-
-
-	final class ThreadPoolReducer extends TimerTask {
-		@Override
-		public void run() {
-    		RateTracker taskRateTracker = getTaskRateTracker();
-    		final boolean overallProgress = taskRateTracker.getRatePerSecond() > minTaskRate;
-    		if (overallProgress) {
-    			int active = executor.getActiveCount();
-    			if (active > threads) {
-    				// we are making good progress and have excess threads
-    				if (active <= executor.getMaximumPoolSize()) { // no outstanding threads to be reclaimed
-		    			synchronized (executor) {
-		    				int corePoolSize = executor.getCorePoolSize();
-		    				if (corePoolSize > threads) {
-		    					corePoolSize--;
-		    					executor.setCorePoolSize(corePoolSize);
-		    				}
-		    				int maxPoolSize = executor.getMaximumPoolSize();
-		    				if (maxPoolSize > threads) {
-		    					maxPoolSize--;
-		    					executor.setMaximumPoolSize(Math.max(maxPoolSize, corePoolSize));
-		    				}
-		    			}
-    				}
-    			}
-    		}
-		}
-	}
 }

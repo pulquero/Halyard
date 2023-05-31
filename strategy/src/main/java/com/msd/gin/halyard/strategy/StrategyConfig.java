@@ -10,15 +10,10 @@ public final class StrategyConfig {
 	public static final String HALYARD_EVALUATION_POLL_TIMEOUT_MILLIS = "halyard.evaluation.pollTimeoutMillis";
 	public static final String HALYARD_EVALUATION_OFFER_TIMEOUT_MILLIS = "halyard.evaluation.offerTimeoutMillis";
 	public static final String HALYARD_EVALUATION_MAX_QUEUE_SIZE = "halyard.evaluation.maxQueueSize";
-	public static final String HALYARD_EVALUATION_MAX_THREADS = "halyard.evaluation.maxThreads";
-	public static final String HALYARD_EVALUATION_THREAD_GAIN = "halyard.evaluation.threadGain";
-	public static final String HALYARD_EVALUATION_RETRY_LIMIT = "halyard.evaluation.retryLimit";
 	public static final String HALYARD_EVALUATION_MAX_RETRIES = "halyard.evaluation.maxRetries";
 	public static final String HALYARD_EVALUATION_THREADS = "halyard.evaluation.threads";
-	public static final String HALYARD_EVALUATION_MIN_TASK_RATE = "halyard.evaluation.taskRate.min";
-	public static final String HALYARD_EVALUATION_TASK_RATE_UPDATE_MILLIS = "halyard.evaluation.taskRate.updateMillis";
-	public static final String HALYARD_EVALUATION_TASK_RATE_WINDOW_SIZE = "halyard.evaluation.taskRate.windowSize";
-	public static final String HALYARD_EVALUATION_THREAD_POOL_CHECK_PERIOD_SECS = "halyard.evaluation.threadPoolCheckPeriodSecs";
+	public static final String HALYARD_EVALUATION_BINDINGS_RATE_UPDATE_MILLIS = "halyard.evaluation.bindingsRate.updateMillis";
+	public static final String HALYARD_EVALUATION_BINDINGS_RATE_WINDOW_SIZE = "halyard.evaluation.bindingsRate.windowSize";
 	public static final String HALYARD_EVALUATION_TRACK_RESULT_SIZE_UPDATE_INTERVAL = "halyard.evaluation.trackResultSize.updateInterval";
 	public static final String HALYARD_EVALUATION_TRACK_RESULT_TIME_UPDATE_INTERVAL = "halyard.evaluation.trackResultTime.updateInterval";
 
