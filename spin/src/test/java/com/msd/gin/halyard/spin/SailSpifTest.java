@@ -92,6 +92,18 @@ public class SailSpifTest {
 	}
 
 	@Test
+	public void testTitleCase() throws Exception {
+		BooleanQuery bq = conn.prepareBooleanQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "ask where {filter(spif:titleCase('foo bar') = 'Foo Bar')}");
+		assertTrue(bq.evaluate());
+	}
+
+	@Test
+	public void testTitleCaseWithPattern() throws Exception {
+		BooleanQuery bq = conn.prepareBooleanQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "ask where {filter(spif:titleCase('foo bar', 'o+') = 'fOo bar')}");
+		assertTrue(bq.evaluate());
+	}
+
+	@Test
 	public void testCast() throws Exception {
 		BooleanQuery bq = conn.prepareBooleanQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "ask where {filter(spif:cast(3.14, xsd:integer) = 3)}");
 		assertTrue(bq.evaluate());

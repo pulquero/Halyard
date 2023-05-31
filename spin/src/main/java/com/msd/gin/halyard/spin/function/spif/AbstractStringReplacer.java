@@ -44,7 +44,7 @@ abstract class AbstractStringReplacer implements Function {
 			throw new ValueExprEvaluationException("Second argument must be a string");
 		}
 		String s = ((Literal) args[0]).getLabel();
-		String regex = (args.length == 2) ? ((Literal) args[1]).getLabel() : ".";
+		String regex = (args.length == 2) ? ((Literal) args[1]).getLabel() : ".*";
 		StringBuffer buf = new StringBuffer(s.length());
 		Matcher matcher = Pattern.compile(regex).matcher(s);
 		while (matcher.find()) {
