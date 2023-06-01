@@ -18,9 +18,9 @@ import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 
 public class JoinAlgorithmOptimizer implements QueryOptimizer {
-	private static double INDEX_SCAN_COST = 1.0;
-	private static double HASH_LOOKUP_COST = 0.1;
-	private static double HASH_BUILD_COST = 0.3;
+	private static double INDEX_SCAN_COST = 1.0;  // HBase scan cost
+	private static double HASH_LOOKUP_COST = 0.001;
+	private static double HASH_BUILD_COST = 0.005;
 
 	private final ExtendedEvaluationStatistics statistics;
 	private final int hashJoinLimit;
@@ -65,11 +65,10 @@ public class JoinAlgorithmOptimizer implements QueryOptimizer {
 			Set<String> boundVars = getBoundVars(join);
 			double leftCard = statistics.getCardinality(left, boundVars);
 			double rightCard = statistics.getCardinality(right, boundVars);
-			Set<String> nestedBoundVars = new HashSet<>(boundVars);
-			nestedBoundVars.addAll(left.getBindingNames());
-			double nestedRightCard = statistics.getCardinality(right, nestedBoundVars);
-			double nestedCost = leftCard * nestedRightCard * INDEX_SCAN_COST;
-			double hashCost = leftCard*HASH_LOOKUP_COST + rightCard*HASH_BUILD_COST;
+			// nested loops: evaluate left, for each left bs, evaluate right (scan)
+			double nestedCost = leftCard * INDEX_SCAN_COST;
+			// hash join: evaluate right (scan), build hash, evaluate left, for each left bs, lookup right
+			double hashCost = INDEX_SCAN_COST + rightCard * HASH_BUILD_COST + leftCard * HASH_LOOKUP_COST;
 			boolean useHash = rightCard <= hashJoinLimit && costRatio*hashCost < nestedCost;
 			if (useHash) {
 				join.setAlgorithm(Algorithms.HASH_JOIN);
