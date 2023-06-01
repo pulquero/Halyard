@@ -127,12 +127,25 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 					priorityArgs.addAll(orderedSubselects);
 				}
 
-				// Reorder the (recursive) join arguments to a more optimal sequence
-				List<TupleExpr> orderedJoinArgs = new ArrayList<>(joinArgs.size());
+				// Build new join hierarchy
+				TupleExpr priorityJoins = null;
+				if (!priorityArgs.isEmpty()) {
+					priorityJoins = priorityArgs.get(0);
+					for (int i = 1; i < priorityArgs.size(); i++) {
+						priorityJoins = new Join(priorityJoins, priorityArgs.get(i));
+					}
+
+					// Halyard
+					// As these will be evaluated first, their bindings will be available for the remaining join args
+					boundVars.addAll(priorityJoins.getBindingNames());
+				}
 
 				// We order all remaining join arguments based on cardinality and
 				// variable frequency statistics
-				if (joinArgs.size() > 0) {
+				if (!joinArgs.isEmpty()) {
+					// Reorder the (recursive) join arguments to a more optimal sequence
+					List<TupleExpr> orderedJoinArgs = new ArrayList<>(joinArgs.size());
+
 					// Build maps of cardinalities and vars per tuple expression
 					Map<TupleExpr, Double> cardinalityMap = new HashMap<>();
 					Map<TupleExpr, List<Var>> varsMap = new HashMap<>();
@@ -168,23 +181,9 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 						joinArgs.remove(tupleExpr);
 						orderedJoinArgs.add(tupleExpr);
 
-						// Recursively optimize join arguments
-						tupleExpr.visit(this);
-
 						boundVars.addAll(tupleExpr.getBindingNames());
 					}
-				}
 
-				// Build new join hierarchy
-				TupleExpr priorityJoins = null;
-				if (priorityArgs.size() > 0) {
-					priorityJoins = priorityArgs.get(0);
-					for (int i = 1; i < priorityArgs.size(); i++) {
-						priorityJoins = new Join(priorityJoins, priorityArgs.get(i));
-					}
-				}
-
-				if (orderedJoinArgs.size() > 0) {
 					// Note: generated hierarchy is right-recursive to help the
 					// IterativeEvaluationOptimizer to factor out the left-most join
 					// argument
@@ -226,6 +225,9 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 				getJoinArgs(join.getLeftArg(), joinArgs);
 				getJoinArgs(join.getRightArg(), joinArgs);
 			} else {
+				// Halyard
+				// Recursively optimize join arguments
+				tupleExpr.visit(this);
 				joinArgs.add(tupleExpr);
 			}
 
@@ -461,7 +463,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 				Map<TupleExpr, List<Var>> varsMap, Map<Var, Integer> varFreqMap, Set<String> boundVars) {
 			if (expressions.size() == 1) {
 				TupleExpr tupleExpr = expressions.get(0);
-				if (tupleExpr.getCostEstimate() < 0) {
+				if (tupleExpr.getCostEstimate() < 0.0) {
 					tupleExpr.setCostEstimate(getTupleExprCost(tupleExpr, cardinalityMap, varsMap, varFreqMap, boundVars));
 				}
 				return tupleExpr;
@@ -479,7 +481,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 					// More specific path expression found
 					lowestCost = cost;
 					result = tupleExpr;
-					if (cost == 0)
+					if (cost == 0.0)
 						break;
 				}
 			}
@@ -504,7 +506,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 
 				for (String assuredBindingName : tupleExpr.getAssuredBindingNames()) {
 					if (varsUsedInOtherExpressions.contains(new Var(assuredBindingName))) {
-						return 0;
+						return 0.0;
 					}
 				}
 			}

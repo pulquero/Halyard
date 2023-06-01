@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
@@ -56,40 +57,37 @@ public class HalyardQueryJoinOptimizerTest {
     public void testQueryJoinOptimizerWithSimpleJoin() {
         final TupleExpr expr = new SPARQLParser().parseQuery("select * where {?a ?b ?c, \"1\".}", BASE_URI).getTupleExpr();
         new HalyardQueryJoinOptimizer(createStatistics()).optimize(expr, null, null);
-        expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
-            @Override
-            public void meet(Join node) {
-                assertTrue(expr.toString(), ((StatementPattern)node.getLeftArg()).getObjectVar().hasValue());
-                assertEquals(expr.toString(), "c", ((StatementPattern)node.getRightArg()).getObjectVar().getName());
-            }
-        });
+        JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
+        assertTrue(expr.toString(), joinOrder.list.get(0).getObjectVar().hasValue());
+        assertEquals(expr.toString(), "c", joinOrder.list.get(1).getObjectVar().getName());
     }
 
     @Test
     public void testQueryJoinOptimizerWithSplitFunction() {
         final TupleExpr expr = new SPARQLParser().parseQuery("select * where {?a a \"1\";?b ?d. filter (<" + HALYARD.PARALLEL_SPLIT_FUNCTION + ">(10, ?d))}", BASE_URI).getTupleExpr();
         new HalyardQueryJoinOptimizer(createStatistics()).optimize(expr, null, null);
-        expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
-            @Override
-            public void meet(Join node) {
-                assertEquals(expr.toString(), "d", ((StatementPattern)node.getLeftArg()).getObjectVar().getName());
-                assertTrue(expr.toString(), ((StatementPattern)node.getRightArg()).getObjectVar().hasValue());
-            }
-        });
+        JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
+        assertEquals(expr.toString(), "d", joinOrder.list.get(0).getObjectVar().getName());
+        assertTrue(expr.toString(), joinOrder.list.get(1).getObjectVar().hasValue());
     }
 
     @Test
     public void testQueryJoinOptimizerWithBind() {
-        final TupleExpr expr = new SPARQLParser().parseQuery("SELECT * WHERE { BIND (<http://whatever/obj> AS ?b)  ?a <http://whatever/pred> ?b , \"whatever\".}", BASE_URI).getTupleExpr();
+        final TupleExpr expr = new SPARQLParser().parseQuery("SELECT * WHERE { BIND (<http://whatever/obj> AS ?b)  ?a <http://whatever/pred> ?b, \"whatever\" .}", BASE_URI).getTupleExpr();
         new HalyardQueryJoinOptimizer(createStatistics()).optimize(expr, null, null);
-        expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
-            @Override
-            public void meet(Join node) {
-                if (node.getLeftArg() instanceof StatementPattern) {
-                    assertEquals(expr.toString(), "b", ((StatementPattern)node.getLeftArg()).getObjectVar().getName());
-                }
-            }
-        });
+        JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
+        assertEquals(expr.toString(), "b", joinOrder.list.get(0).getObjectVar().getName());
+    }
+
+    @Test
+    public void testQueryJoinOptimizerWithBind2() {
+    	ValueFactory vf = SimpleValueFactory.getInstance();
+        final TupleExpr expr = new SPARQLParser().parseQuery("SELECT * WHERE { BIND (<http://whatever/obj> AS ?c)  ?a <http://whatever/1> ?b . ?b <http://whatever/2> ?c.}", BASE_URI).getTupleExpr();
+        new HalyardQueryJoinOptimizer(createStatistics()).optimize(expr, null, null);
+        IRI pred1 = vf.createIRI("http://whatever/1");
+        IRI pred2 = vf.createIRI("http://whatever/2");
+        JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
+        assertEquals(expr.toString(), Arrays.asList(pred2, pred1), joinOrder.predicates);
     }
 
     @Test
@@ -104,20 +102,8 @@ public class HalyardQueryJoinOptimizerTest {
         predicateStats.put(pred2, 5.0);
         predicateStats.put(pred3, 25.0);
         new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null)).optimize(expr, null, null);
-        List<IRI> joinOrder = new ArrayList<>();
-        expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
-            @Override
-            public void meet(Join node) {
-                if (node.getLeftArg() instanceof StatementPattern) {
-                    joinOrder.add((IRI) ((StatementPattern)node.getLeftArg()).getPredicateVar().getValue());
-                }
-                if (node.getRightArg() instanceof StatementPattern) {
-                    joinOrder.add((IRI) ((StatementPattern)node.getRightArg()).getPredicateVar().getValue());
-                }
-                super.meet(node);
-            }
-        });
-        assertEquals(expr.toString(), Arrays.asList(pred2, pred3, pred1), joinOrder);
+        JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
+        assertEquals(expr.toString(), Arrays.asList(pred2, pred3, pred1), joinOrder.predicates);
     }
 
     @Test
@@ -134,20 +120,8 @@ public class HalyardQueryJoinOptimizerTest {
         predicateStats.put(preda, 2.0);
         predicateStats.put(predb, 45.0);
         new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null)).optimize(expr, null, null);
-        List<IRI> joinOrder = new ArrayList<>();
-        expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
-            @Override
-            public void meet(Join node) {
-                if (node.getLeftArg() instanceof StatementPattern) {
-                    joinOrder.add((IRI) ((StatementPattern)node.getLeftArg()).getPredicateVar().getValue());
-                }
-                if (node.getRightArg() instanceof StatementPattern) {
-                    joinOrder.add((IRI) ((StatementPattern)node.getRightArg()).getPredicateVar().getValue());
-                }
-                super.meet(node);
-            }
-        });
-        assertEquals(expr.toString(), Arrays.asList(preda, pred1, pred2, predb), joinOrder);
+        JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
+        assertEquals(expr.toString(), Arrays.asList(preda, pred1, pred2, predb), joinOrder.predicates);
     }
 
     @Test
@@ -178,6 +152,24 @@ public class HalyardQueryJoinOptimizerTest {
     @Test
     public void testQueryJoinOptimizerWithService() {
     	ValueFactory vf = SimpleValueFactory.getInstance();
+        final TupleExpr expr = new SPARQLParser().parseQuery("SELECT * WHERE { ?s a <http://whatever/Thing>. SERVICE <http://endpoint> { ?s <http://whatever/a> ?a; <http://whatever/b> ?b } }", BASE_URI).getTupleExpr();
+        IRI preda = vf.createIRI("http://whatever/a");
+        IRI predb = vf.createIRI("http://whatever/b");
+        Map<IRI, Double> predicateStats = new HashMap<>();
+        predicateStats.put(RDF.TYPE, 100.0);
+        predicateStats.put(preda, 5.0);
+        predicateStats.put(predb, 2.0);
+        new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), serviceUrl -> {
+        	assertEquals("http://endpoint", serviceUrl);
+        	return new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null);
+        })).optimize(expr, null, null);
+        JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
+        assertEquals(expr.toString(), Arrays.asList(predb, preda, RDF.TYPE), joinOrder.predicates);
+    }
+
+    @Test
+    public void testQueryJoinOptimizerWithServiceOnly() {
+    	ValueFactory vf = SimpleValueFactory.getInstance();
         final TupleExpr expr = new SPARQLParser().parseQuery("SELECT * WHERE { SERVICE <http://endpoint> { ?a <http://whatever/1>/<http://whatever/2> ?b. ?a <http://whatever/a>/<http://whatever/b> ?c } }", BASE_URI).getTupleExpr();
         IRI pred1 = vf.createIRI("http://whatever/1");
         IRI pred2 = vf.createIRI("http://whatever/2");
@@ -188,21 +180,12 @@ public class HalyardQueryJoinOptimizerTest {
         predicateStats.put(pred2, 5.0);
         predicateStats.put(preda, 2.0);
         predicateStats.put(predb, 45.0);
-        new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null)).optimize(expr, null, null);
-        List<IRI> joinOrder = new ArrayList<>();
-        expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
-            @Override
-            public void meet(Join node) {
-                if (node.getLeftArg() instanceof StatementPattern) {
-                    joinOrder.add((IRI) ((StatementPattern)node.getLeftArg()).getPredicateVar().getValue());
-                }
-                if (node.getRightArg() instanceof StatementPattern) {
-                    joinOrder.add((IRI) ((StatementPattern)node.getRightArg()).getPredicateVar().getValue());
-                }
-                super.meet(node);
-            }
-        });
-        assertEquals(expr.toString(), Arrays.asList(pred1, preda, pred2, predb), joinOrder);
+        new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(null), serviceUrl -> {
+        	assertEquals("http://endpoint", serviceUrl);
+        	return new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null);
+        })).optimize(expr, null, null);
+        JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
+        assertEquals(expr.toString(), Arrays.asList(preda, pred1, pred2, predb), joinOrder.predicates);
     }
 
     @Test
@@ -217,9 +200,12 @@ public class HalyardQueryJoinOptimizerTest {
         predicateStats.put(pred2, 5.0);
         predicateStats.put(pred3, 8.0);
         new StarJoinOptimizer(2).optimize(expr, null, null);
-        new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null)).optimize(expr, null, null);
+        new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(null), serviceUrl -> {
+        	assertEquals("http://endpoint", serviceUrl);
+        	return new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null);
+        })).optimize(expr, null, null);
         List<StarJoin> sjs = new ArrayList<>();
-        expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
+        expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {
             @Override
             public void meet(StarJoin node) {
             	sjs.add(node);
@@ -227,11 +213,39 @@ public class HalyardQueryJoinOptimizerTest {
             }
         });
         assertEquals(expr.toString(), 1, sjs.size());
-        assertEquals(expr.toString(), Arrays.asList(pred1, pred2, pred3),  sjs.get(0).getArgs().stream().map(sp -> ((StatementPattern)sp).getPredicateVar().getValue()).collect(Collectors.toList()));
+        assertEquals(expr.toString(), Arrays.asList(pred2, pred3, pred1),  sjs.get(0).getArgs().stream().map(sp -> ((StatementPattern)sp).getPredicateVar().getValue()).collect(Collectors.toList()));
     }
 
 
-	public static class MockStatementPatternCardinalityCalculator extends SimpleStatementPatternCardinalityCalculator {
+    private static class JoinOrderVisitor extends AbstractExtendedQueryModelVisitor<RuntimeException> {
+        final List<StatementPattern> list = new ArrayList<>();
+        final List<IRI> predicates = new ArrayList<>();
+
+        JoinOrderVisitor(TupleExpr expr) {
+        	expr.visit(this);
+        }
+
+        @Override
+        public void meet(Join node) {
+            if (node.getLeftArg() instanceof StatementPattern) {
+            	StatementPattern sp = (StatementPattern)node.getLeftArg();
+            	list.add(sp);
+                predicates.add((IRI) sp.getPredicateVar().getValue());
+            } else {
+            	node.getLeftArg().visit(this);
+            }
+            if (node.getRightArg() instanceof StatementPattern) {
+            	StatementPattern sp = (StatementPattern)node.getRightArg();
+            	list.add(sp);
+                predicates.add((IRI) sp.getPredicateVar().getValue());
+            } else {
+            	node.getRightArg().visit(this);
+            }
+        }
+    }
+
+
+    public static class MockStatementPatternCardinalityCalculator extends SimpleStatementPatternCardinalityCalculator {
 		final Map<IRI, Double> predicateStats;
 	
 		public MockStatementPatternCardinalityCalculator(Map<IRI, Double> predicateStats) {
