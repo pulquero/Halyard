@@ -922,7 +922,7 @@ final class HalyardTupleExprEvaluation {
                         scopeBindings.retainAll(scopeBindingNames);
                     }
                     startSecondaryPipe();
-	            	conditionStep.evaluate(new ValuePipe(null) {
+	            	conditionStep.evaluate(new BindingSetValuePipe(parent) {
 	            		@Override
 	            		protected void next(Value v) {
 	            			if (QueryEvaluationUtility.getEffectiveBooleanValue(v).orElse(false)) {
@@ -2831,4 +2831,17 @@ final class HalyardTupleExprEvaluation {
     		}
     	}
     }
+
+
+	static abstract class BindingSetValuePipe extends ValuePipe {
+		protected final BindingSetPipe parent;
+		protected BindingSetValuePipe(BindingSetPipe parent) {
+			super(null);
+			this.parent = parent;
+		}
+		@Override
+		public final void handleException(Throwable e) {
+			parent.handleException(e);
+		}
+	}
 }

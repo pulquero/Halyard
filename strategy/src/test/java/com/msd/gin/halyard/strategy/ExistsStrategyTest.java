@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.strategy;
 
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ExistsStrategyTest {
@@ -48,6 +50,22 @@ public class ExistsStrategyTest {
         ValueFactory vf = con.getValueFactory();
         con.add(vf.createIRI("http://whatever/subj"), vf.createIRI("http://whatever/pred"), vf.createIRI("http://whatever/obj"));
         assertFalse(con.prepareBooleanQuery("ask {filter exists {<http://whatever/subj1> ?p ?o}}").evaluate());
+    }
+
+    @Test
+    public void testDuplicateVars() {
+    	// can't optimise
+    	assertThrows(QueryEvaluationException.class, () -> {
+            con.prepareBooleanQuery("ask {filter exists {<http://whatever/subj1> ?p ?p}}").evaluate();
+    	});
+    }
+
+    @Test
+    public void testDuplicateVarsWithContext() {
+    	// can't optimise
+    	assertThrows(QueryEvaluationException.class, () -> {
+            con.prepareBooleanQuery("ask {filter exists { GRAPH ?s {?s <http://whatever/pred> ?o} }}").evaluate();
+    	});
     }
 
     @AfterEach

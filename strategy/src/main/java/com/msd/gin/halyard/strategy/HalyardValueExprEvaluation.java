@@ -1630,10 +1630,8 @@ class HalyardValueExprEvaluation {
 		public final boolean handleException(Throwable e) {
 			if (e instanceof ValueExprEvaluationException) {
 				parent.handleValueError(e.getMessage());
-			} else if (e instanceof RuntimeException) {
-				throw (RuntimeException) e;
 			} else {
-				throw new QueryEvaluationException(e);
+				parent.handleException(e);
 			}
 			return false;
 		}

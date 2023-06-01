@@ -3,6 +3,7 @@ package com.msd.gin.halyard.query;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 
 public abstract class ValuePipe {
@@ -31,6 +32,14 @@ public abstract class ValuePipe {
 			parent.handleValueError(msg);
 		} else {
 			throw new ValueExprEvaluationException(msg);
+		}
+	}
+
+	public void handleException(Throwable thr) {
+		if (parent != null) {
+			parent.handleException(thr);
+		} else {
+			throw new QueryEvaluationException(thr);
 		}
 	}
 }
