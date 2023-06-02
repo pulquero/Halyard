@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
@@ -29,7 +30,7 @@ public class GeoSPARQLSearchTest extends AbstractSearchTest {
 
     @Test
 	public void literalWithinDistance() throws Exception {
-		try (ServerSocket server = startElasticsearch(pos1, pos2)) {
+		try (ServerSocket server = startElasticsearch("{\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"277.98769933592183km\"}}}", pos1, pos2)) {
 			IRI whatever = vf.createIRI("http://whatever");
 			Repository hbaseRepo = createRepo("literalWithinDistance", server);
 			try (RepositoryConnection conn = hbaseRepo.getConnection()) {
@@ -53,7 +54,8 @@ public class GeoSPARQLSearchTest extends AbstractSearchTest {
 
 	@Test
 	public void varWithinDistance() throws Exception {
-		try (ServerSocket server = startElasticsearch(Arrays.asList(new Literal[] { pos1 }, new Literal[] { pos2 }))) {
+		try (ServerSocket server = startElasticsearch(Arrays.asList(Pair.of("{\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"111200.0m\"}}}", new Literal[] { pos1 }),
+				Pair.of("{\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"318.55043857000004km\"}}}", new Literal[] { pos1, pos2 })))) {
 			IRI from = vf.createIRI("http://from");
 			IRI whatever = vf.createIRI("http://whatever");
 			Repository hbaseRepo = createRepo("varWithinDistance", server);
@@ -71,7 +73,7 @@ public class GeoSPARQLSearchTest extends AbstractSearchTest {
 						actual.add(bs.getValue("to"));
 					}
 				}
-				assertThat(actual).containsExactlyInAnyOrder(pos1, pos2);
+				assertThat(actual).containsExactlyInAnyOrder(pos1, pos1, pos2);
 			}
 			hbaseRepo.shutDown();
 		}
@@ -79,7 +81,8 @@ public class GeoSPARQLSearchTest extends AbstractSearchTest {
 
 	@Test
 	public void bindWithinDistance() throws Exception {
-		try (ServerSocket server = startElasticsearch(Arrays.asList(new Literal[] { pos1 }, new Literal[] { pos2 }))) {
+		try (ServerSocket server = startElasticsearch(Arrays.asList(Pair.of("{\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"111200.0m\"}}}", new Literal[] { pos1 }),
+				Pair.of("{\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"318.55043857000004km\"}}}", new Literal[] { pos1, pos2 })))) {
 			IRI from = vf.createIRI("http://from");
 			IRI whatever = vf.createIRI("http://whatever");
 			Repository hbaseRepo = createRepo("bindWithinDistance", server);
@@ -97,7 +100,8 @@ public class GeoSPARQLSearchTest extends AbstractSearchTest {
 						actual.add(Arrays.asList(bs.getValue("to"), bs.getValue("distance")));
 					}
 				}
-				assertThat(actual).containsExactlyInAnyOrder(Arrays.asList(pos1, vf.createLiteral(111195.07973436874)), Arrays.asList(pos2, vf.createLiteral(0.03490658503988659)));
+				assertThat(actual).containsExactlyInAnyOrder(Arrays.asList(pos1, vf.createLiteral(111195.07973436874)), Arrays.asList(pos1, vf.createLiteral(0.017453292519943295)),
+						Arrays.asList(pos2, vf.createLiteral(0.03490658503988659)));
 			}
 			hbaseRepo.shutDown();
 		}

@@ -2,8 +2,10 @@ package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.vocab.HALYARD;
 
+import java.io.Serializable;
 import java.util.Objects;
 
+import org.apache.commons.lang3.SerializationUtils;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 
@@ -26,7 +28,7 @@ public class InternalObjectLiteral<T> extends AbstractDataLiteral implements Obj
 
 	@Override
 	public String getLabel() {
-		throw new IllegalArgumentException("Object content");
+		return Hashes.encode(SerializationUtils.serialize((Serializable)obj));
 	}
 
 	@Override

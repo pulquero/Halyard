@@ -17,9 +17,12 @@ import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.repository.Repository;
@@ -48,14 +51,21 @@ public abstract class AbstractSearchTest {
 		return hbaseRepo;
 	}
 
-	protected final ServerSocket startElasticsearch(Literal... response) throws IOException, InterruptedException {
-		return startElasticsearch(Collections.singletonList(response));
+	protected final ServerSocket startElasticsearch(String expectedRequest, Literal... response) throws IOException, InterruptedException {
+		return startElasticsearch(Collections.singletonMap(expectedRequest, response));
 	}
 
-	protected final ServerSocket startElasticsearch(List<Literal[]> responses) throws IOException, InterruptedException {
+	protected final ServerSocket startElasticsearch(List<Pair<String, Literal[]>> reqRespPairs) throws IOException, InterruptedException {
+		Map<String, Literal[]> requestResponses = new HashMap<>();
+		for (Pair<String, Literal[]> reqResp : reqRespPairs) {
+			requestResponses.put(reqResp.getKey(), reqResp.getValue());
+		}
+		return startElasticsearch(requestResponses);
+	}
+
+	protected final ServerSocket startElasticsearch(Map<String, Literal[]> requestResponses) throws IOException, InterruptedException {
 		final ServerSocket server = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
 		Thread t = new Thread(() -> {
-			int requestIdx = 0;
 			while (!server.isClosed()) {
 				try (Socket s = server.accept()) {
 					try (BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), "UTF-8"))) {
@@ -67,24 +77,24 @@ public abstract class AbstractSearchTest {
 							}
 							System.out.println(line);
 						}
-						char b[] = new char[length];
-						in.read(b);
-						System.out.println(b);
+						char[] body = new char[length];
+						in.read(body);
+						String request = new String(body);
+						System.out.println(request);
 
-						if (requestIdx < responses.size()) {
-							String response = createResponse(responses.get(requestIdx++));
+						Literal[] responseValues = requestResponses.get(request);
+						if (responseValues != null) {
+							String response = createResponse(responseValues);
 							try (OutputStream out = s.getOutputStream()) {
 								IOUtils.write(response, out, StandardCharsets.UTF_8);
 							}
 						} else {
-							fail("Unexpected request");
+							fail("Unexpected request: " + request);
 						}
 					}
 				} catch (IOException ex) {
 					if (!server.isClosed()) {
 						LoggerFactory.getLogger(getClass()).error("Error reading from socket", ex);
-					} else {
-						assertEquals("Expecting more requests", responses.size(), requestIdx);
 					}
 				}
 			}
