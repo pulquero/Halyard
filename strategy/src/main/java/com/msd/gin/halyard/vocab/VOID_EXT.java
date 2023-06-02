@@ -63,4 +63,9 @@ public final class VOID_EXT implements Vocabulary {
     public static final IRI DISTINCT_TRIPLE_SUBJECTS = SVF.createIRI(NAMESPACE, "distinctTripleSubjects");
 
     public static final IRI DISTINCT_TRIPLE_OBJECTS = SVF.createIRI(NAMESPACE, "distinctTripleObjects");
+
+    public static final IRI NAMED_GRAPH_THRESHOLD = SVF.createIRI(NAMESPACE, "namedGraphThreshold");
+    public static final IRI SUBJECT_PARTITION_THRESHOLD = SVF.createIRI(NAMESPACE, "subjectPartitionThreshold");
+    public static final IRI PROPERTY_PARTITION_THRESHOLD = SVF.createIRI(NAMESPACE, "propertyPartitionThreshold");
+    public static final IRI OBJECT_PARTITION_THRESHOLD = SVF.createIRI(NAMESPACE, "objectPartitionThreshold");
 }

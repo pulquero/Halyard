@@ -9,6 +9,10 @@
 halyard:statsContext {
 	halyard:statsRoot a void:Dataset , sd:Dataset , sd:Graph ;
 		sd:defaultGraph halyard:statsRoot ;
+		void-ext:subjectPartitionThreshold "100"^^xsd:long ;
+		void-ext:propertyPartitionThreshold "100"^^xsd:long ;
+		void-ext:objectPartitionThreshold "100"^^xsd:long ;
+		void-ext:namedGraphThreshold "100"^^xsd:long ;
 		sd:namedGraph :graph0 , :graph1 , :graph2 ;
 		void:classes "1000"^^xsd:long ;
 		void:triples "2001"^^xsd:long ;

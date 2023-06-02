@@ -93,6 +93,9 @@ public final class HalyardStats extends AbstractHalyardTool {
     private static final String TARGET = confProperty(TOOL_NAME, "target");
     private static final String GRAPH_THRESHOLD = confProperty(TOOL_NAME, "graph-threshold");
     private static final String PARTITION_THRESHOLD = confProperty(TOOL_NAME, "partition-threshold");
+    private static final String SUBJECT_PARTITION_THRESHOLD = confProperty(TOOL_NAME, "subject-partition-threshold");
+    private static final String PROPERTY_PARTITION_THRESHOLD = confProperty(TOOL_NAME, "property-partition-threshold");
+    private static final String OBJECT_PARTITION_THRESHOLD = confProperty(TOOL_NAME, "object-partition-threshold");
     private static final String STATS_GRAPH = confProperty(TOOL_NAME, "stats-graph");
     private static final String NAMED_GRAPH_PROPERTY = confProperty(TOOL_NAME, "named-graph");
     private static final String TIMESTAMP_PROPERTY = confProperty(TOOL_NAME, "timestamp");
@@ -157,6 +160,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         IRI subsetDistinctType;
 		HashTracker subhashTracker;
         long setThreshold, setCounter, subsetThreshold, subsetCounter;
+		Map<IRI,Long> partitionThresholds;
         HBaseSail sail;
 		HBaseSailConnection sailConn;
 
@@ -167,7 +171,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             update = (conf.get(TARGET) == null);
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
             setThreshold = conf.getLong(GRAPH_THRESHOLD, DEFAULT_GRAPH_THRESHOLD);
-            subsetThreshold = conf.getLong(PARTITION_THRESHOLD, DEFAULT_PARTITION_THRESHOLD);
+            partitionThresholds = getPartitionThresholds(conf);
             statsContext = vf.createIRI(conf.get(STATS_GRAPH));
             String namedGraph = conf.get(NAMED_GRAPH_PROPERTY);
             if (namedGraph != null) {
@@ -231,6 +235,7 @@ public final class HalyardStats extends AbstractHalyardTool {
                     default:
                         throw new IOException("Unknown index #" + index);
                 }
+                subsetThreshold = partitionThresholds.get(subsetType);
             	int offset = index.getName().isQuadIndex() ? 1 + index.getRole(RDFRole.Name.CONTEXT).keyHashSize() : 1;
             	hashTracker = new HashTracker(offset, hashLen);
             	subhashTracker = new HashTracker(hashTracker.end, subhashLen);
@@ -495,6 +500,10 @@ public final class HalyardStats extends AbstractHalyardTool {
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
+            partitionPredicates = new HashMap<>();
+            partitionPredicates.put(VOID_EXT.SUBJECT, VOID_EXT.SUBJECT_PARTITION);
+            partitionPredicates.put(VOID.PROPERTY, VOID.PROPERTY_PARTITION);
+            partitionPredicates.put(VOID_EXT.OBJECT, VOID_EXT.OBJECT_PARTITION);
             partitionIriTransformer = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIriTransformer(rdfFactory);
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
             statsGraphContext = vf.createIRI(conf.get(STATS_GRAPH));
@@ -537,11 +546,13 @@ public final class HalyardStats extends AbstractHalyardTool {
                 writeStatement(HALYARD.STATS_ROOT_NODE, RDF.TYPE, SD.DATASET);
                 writeStatement(HALYARD.STATS_ROOT_NODE, RDF.TYPE, SD.GRAPH_CLASS);
                 writeStatement(HALYARD.STATS_ROOT_NODE, SD.DEFAULT_GRAPH, HALYARD.STATS_ROOT_NODE);
+                Map<IRI,Long> partitionThresholds = getPartitionThresholds(conf);
+                writeStatement(HALYARD.STATS_ROOT_NODE, VOID_EXT.SUBJECT_PARTITION_THRESHOLD, vf.createLiteral(partitionThresholds.get(VOID_EXT.SUBJECT)));
+                writeStatement(HALYARD.STATS_ROOT_NODE, VOID_EXT.PROPERTY_PARTITION_THRESHOLD, vf.createLiteral(partitionThresholds.get(VOID.PROPERTY)));
+                writeStatement(HALYARD.STATS_ROOT_NODE, VOID_EXT.OBJECT_PARTITION_THRESHOLD, vf.createLiteral(partitionThresholds.get(VOID_EXT.OBJECT)));
+                long graphThreshold = conf.getLong(GRAPH_THRESHOLD, DEFAULT_GRAPH_THRESHOLD);
+                writeStatement(HALYARD.STATS_ROOT_NODE, VOID_EXT.NAMED_GRAPH_THRESHOLD, vf.createLiteral(graphThreshold));
             }
-            partitionPredicates = new HashMap<>();
-            partitionPredicates.put(VOID_EXT.SUBJECT, VOID_EXT.SUBJECT_PARTITION);
-            partitionPredicates.put(VOID.PROPERTY, VOID.PROPERTY_PARTITION);
-            partitionPredicates.put(VOID_EXT.OBJECT, VOID_EXT.OBJECT_PARTITION);
         }
 
         @Override
@@ -621,6 +632,16 @@ public final class HalyardStats extends AbstractHalyardTool {
             closeKeyspace();
         }
     }
+
+    private static Map<IRI,Long> getPartitionThresholds(Configuration conf) {
+    	Map<IRI,Long> thresholds = new HashMap<>();
+        long defaultSubsetThreshold = conf.getLong(PARTITION_THRESHOLD, DEFAULT_PARTITION_THRESHOLD);
+        thresholds.put(VOID_EXT.SUBJECT, conf.getLong(SUBJECT_PARTITION_THRESHOLD, defaultSubsetThreshold));
+        thresholds.put(VOID.PROPERTY, conf.getLong(PROPERTY_PARTITION_THRESHOLD, defaultSubsetThreshold));
+        thresholds.put(VOID_EXT.OBJECT, conf.getLong(OBJECT_PARTITION_THRESHOLD, defaultSubsetThreshold));
+        return thresholds;
+    }
+
 
     public HalyardStats() {
         super(

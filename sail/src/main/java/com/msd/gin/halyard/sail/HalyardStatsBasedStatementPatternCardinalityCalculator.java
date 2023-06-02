@@ -50,12 +50,21 @@ import org.slf4j.LoggerFactory;
 public final class HalyardStatsBasedStatementPatternCardinalityCalculator extends SimpleStatementPatternCardinalityCalculator {
 	private static final Logger LOG = LoggerFactory.getLogger(HalyardStatsBasedStatementPatternCardinalityCalculator.class);
 	private static final Map<IRI, IRI> DISTINCT_PREDICATES = createDistinctPredicateMapping();
+	private static final Map<IRI, IRI> PARTITION_THRESHOLD_PREDICATES = createPartitionThresholdPredicateMapping();
 
 	private static Map<IRI, IRI> createDistinctPredicateMapping() {
 		Map<IRI, IRI> mapping = new HashMap<>();
 		mapping.put(VOID_EXT.SUBJECT, VOID.DISTINCT_SUBJECTS);
 		mapping.put(VOID.PROPERTY, VOID.PROPERTIES);
 		mapping.put(VOID_EXT.OBJECT, VOID.DISTINCT_OBJECTS);
+		return Collections.unmodifiableMap(mapping);
+	}
+
+	private static Map<IRI, IRI> createPartitionThresholdPredicateMapping() {
+		Map<IRI, IRI> mapping = new HashMap<>();
+		mapping.put(VOID_EXT.SUBJECT, VOID_EXT.SUBJECT_PARTITION_THRESHOLD);
+		mapping.put(VOID.PROPERTY, VOID_EXT.PROPERTY_PARTITION_THRESHOLD);
+		mapping.put(VOID_EXT.OBJECT, VOID_EXT.OBJECT_PARTITION_THRESHOLD);
 		return Collections.unmodifiableMap(mapping);
 	}
 
@@ -161,10 +170,10 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	 * Get the triple count for a given subject from VOID statistics or return the default value.
 	 */
 	private long getTriplesCount(IRI subjectNode, long defaultValue) {
-		return getCount(subjectNode, VOID.TRIPLES, defaultValue);
+		return getValue(subjectNode, VOID.TRIPLES, defaultValue);
 	}
 
-	private long getCount(IRI subjectNode, IRI countPredicate, long defaultValue) {
+	private long getValue(IRI subjectNode, IRI countPredicate, long defaultValue) {
 		try {
 			Long count = stmtCountCache.get(Pair.of(subjectNode, countPredicate), sp -> {
 				IRI statsNode = sp.getLeft();
@@ -203,12 +212,12 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 			IRI partitionIri = statsSource.getValueFactory().createIRI(partitionIriTransformer.apply(graph, partitionType, partition));
 			return getTriplesCount(partitionIri, defaultCardinality);
 		} else {
-			long distinctCount = getCount(graph, DISTINCT_PREDICATES.get(partitionType), -1L);
+			long distinctCount = getValue(graph, DISTINCT_PREDICATES.get(partitionType), -1L);
 			if (distinctCount != -1L) {
 				// average cardinality for partitionType
 				return (double) totalTriples / (double) distinctCount;
 			} else {
-				return defaultCardinality;
+				return getValue(HALYARD.STATS_ROOT_NODE, PARTITION_THRESHOLD_PREDICATES.get(partitionType), defaultCardinality);
 			}
 		}
 	}
@@ -229,7 +238,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 
 	private double partitionRatio(IRI graph, IRI partitionType, Value partition, IRI ratioType, long totalTriples, long defaultCardinality) {
 		IRI partitionIri = statsSource.getValueFactory().createIRI(partitionIriTransformer.apply(graph, partitionType, partition));
-		long distinctCount = getCount(partitionIri, ratioType, -1L);
+		long distinctCount = getValue(partitionIri, ratioType, -1L);
 		long partitionCount = getTriplesCount(partitionIri, -1L);
 		if (distinctCount != -1L && partitionCount != -1L) {
 			return (double) distinctCount / (double) partitionCount;
