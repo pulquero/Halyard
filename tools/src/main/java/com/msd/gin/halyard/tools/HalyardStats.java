@@ -38,6 +38,7 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -72,6 +73,7 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.vocabulary.DCTERMS;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.SD;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
@@ -140,7 +142,9 @@ public final class HalyardStats extends AbstractHalyardTool {
         final ImmutableBytesWritable outputKey = new ImmutableBytesWritable();
         final LongWritable outputValue = new LongWritable();
         ByteBuffer bb = ByteBuffer.allocate(ValueIO.DEFAULT_BUFFER_SIZE);
-        IRI statsContext, namedGraphContext;
+        HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer partitionIriTransformer;
+        IRI statsContext;
+        Set<String> namedGraphContexts;
         StatementIndex<?,?,?,?> lastIndex;
         long counter = 0L;
         boolean update;
@@ -168,14 +172,18 @@ public final class HalyardStats extends AbstractHalyardTool {
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
+            partitionIriTransformer = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIriTransformer(rdfFactory);
             update = (conf.get(TARGET) == null);
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
             setThreshold = conf.getLong(GRAPH_THRESHOLD, DEFAULT_GRAPH_THRESHOLD);
             partitionThresholds = getPartitionThresholds(conf);
             statsContext = vf.createIRI(conf.get(STATS_GRAPH));
-            String namedGraph = conf.get(NAMED_GRAPH_PROPERTY);
-            if (namedGraph != null) {
-            	namedGraphContext = vf.createIRI(namedGraph);
+            String[] namedGraphs = conf.getTrimmedStrings(NAMED_GRAPH_PROPERTY);
+            if (namedGraphs.length > 0) {
+            	namedGraphContexts = new HashSet<>(namedGraphs.length + 1);
+	            for (String g : namedGraphs) {
+	            	namedGraphContexts.add(g);
+	            }
             }
         }
 
@@ -191,15 +199,12 @@ public final class HalyardStats extends AbstractHalyardTool {
             return sailConn;
         }
 
-        private boolean matchingGraphContext(Resource subject) {
-        	if (namedGraphContext == null || namedGraphContext.equals(subject)) {
+        private boolean isGraphContext(Resource subject) {
+        	if (namedGraphContexts == null || namedGraphContexts.contains(subject.stringValue())) {
         		return true;
         	}
-        	String subjValue = subject.stringValue();
-            String namedGraph = namedGraphContext.stringValue();
-            return subjValue.startsWith(namedGraph + "_subject_")
-                || subjValue.startsWith(namedGraph + "_property_")
-                || subjValue.startsWith(namedGraph + "_object_");
+        	String subjectGraph = partitionIriTransformer.getGraph(subject);
+        	return (subjectGraph != null) && namedGraphContexts.contains(subjectGraph);
         }
 
         @Override
@@ -261,7 +266,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             		graph = ctx;
             	}
             	if (update && index.getName() == StatementIndex.Name.CSPO && graph.equals(statsContext)) {
-                    if (matchingGraphContext(stmt.getSubject())) {
+                    if (isGraphContext(stmt.getSubject())) {
 						getConnection(output).removeSystemStatement(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
                         removed++;
                     }
@@ -364,7 +369,7 @@ public final class HalyardStats extends AbstractHalyardTool {
          * @throws InterruptedException
          */
         private void report(Context output, IRI property, Value partitionId, IRI subsetProperty, long count) throws IOException, InterruptedException {
-            if (count > 0 && (namedGraphContext == null || namedGraphContext.equals(graph))) {
+            if (count > 0 && (namedGraphContexts == null || namedGraphContexts.contains(graph.stringValue()))) {
             	ValueIO.Writer writer = rdfFactory.valueWriter;
             	bb.clear();
             	bb = writer.writeValueWithSizeHeader(graph, bb, Short.BYTES);
@@ -495,6 +500,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         long removed = 0, added = 0;
         Map<IRI,IRI> partitionPredicates;
         HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer partitionIriTransformer;
+        IRI datePredicate;
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
@@ -514,8 +520,10 @@ public final class HalyardStats extends AbstractHalyardTool {
 				conn = sail.getConnection();
 				conn.setNamespace(SD.PREFIX, SD.NAMESPACE);
 				conn.setNamespace(VOID.PREFIX, VOID.NAMESPACE);
+                conn.setNamespace(DCTERMS.PREFIX, DCTERMS.NAMESPACE);
 				conn.setNamespace(VOID_EXT.PREFIX, VOID_EXT.NAMESPACE);
 				conn.setNamespace(HALYARD.PREFIX, HALYARD.NAMESPACE);
+				datePredicate = DCTERMS.MODIFIED;
             } else {
                 targetUrl = MessageFormat.format(targetUrl, context.getTaskAttemptID().getTaskID().getId());
                 out = FileSystem.get(URI.create(targetUrl), conf).create(new Path(targetUrl));
@@ -538,14 +546,18 @@ public final class HalyardStats extends AbstractHalyardTool {
                 writer.startRDF();
                 writer.handleNamespace(SD.PREFIX, SD.NAMESPACE);
                 writer.handleNamespace(VOID.PREFIX, VOID.NAMESPACE);
+                writer.handleNamespace(DCTERMS.PREFIX, DCTERMS.NAMESPACE);
                 writer.handleNamespace(VOID_EXT.PREFIX, VOID_EXT.NAMESPACE);
                 writer.handleNamespace(HALYARD.PREFIX, HALYARD.NAMESPACE);
+				datePredicate = DCTERMS.CREATED;
             }
+
             if (conf.get(NAMED_GRAPH_PROPERTY) == null) {
                 writeStatement(HALYARD.STATS_ROOT_NODE, RDF.TYPE, VOID.DATASET);
                 writeStatement(HALYARD.STATS_ROOT_NODE, RDF.TYPE, SD.DATASET);
                 writeStatement(HALYARD.STATS_ROOT_NODE, RDF.TYPE, SD.GRAPH_CLASS);
                 writeStatement(HALYARD.STATS_ROOT_NODE, SD.DEFAULT_GRAPH, HALYARD.STATS_ROOT_NODE);
+                writeStatement(HALYARD.STATS_ROOT_NODE, datePredicate, vf.createLiteral(new Date(timestamp)));
                 Map<IRI,Long> partitionThresholds = getPartitionThresholds(conf);
                 writeStatement(HALYARD.STATS_ROOT_NODE, VOID_EXT.SUBJECT_PARTITION_THRESHOLD, vf.createLiteral(partitionThresholds.get(VOID_EXT.SUBJECT)));
                 writeStatement(HALYARD.STATS_ROOT_NODE, VOID_EXT.PROPERTY_PARTITION_THRESHOLD, vf.createLiteral(partitionThresholds.get(VOID.PROPERTY)));
@@ -576,11 +588,12 @@ public final class HalyardStats extends AbstractHalyardTool {
                 // VOID.TRIPLES is always the first predicate
                 if (!HALYARD.STATS_ROOT_NODE.equals(graph) && VOID.TRIPLES.equals(predicate)) {
                     writeStatement(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, statsNode);
-                    writeStatement(statsNode, SD.NAME, statsNode);
+                    writeStatement(statsNode, SD.NAME, graph);
                     writeStatement(statsNode, SD.GRAPH_PROPERTY, statsNode);
                     writeStatement(statsNode, RDF.TYPE, SD.NAMED_GRAPH_CLASS);
                     writeStatement(statsNode, RDF.TYPE, SD.GRAPH_CLASS);
                     writeStatement(statsNode, RDF.TYPE, VOID.DATASET);
+                    writeStatement(statsNode, datePredicate, vf.createLiteral(new Date(timestamp)));
                 }
                 Literal countLiteral = vf.createLiteral(count);
                 if (partitionId != null) {
@@ -652,7 +665,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         addOption("t", "target-file", "target_url", TARGET, "Optional target file to export the statistics (instead of update) hdfs://<path>/<file_name>[{0}].<RDF_ext>[.<compression>]", false, true);
         addOption("R", "graph-threshold", "size", GRAPH_THRESHOLD, "Optional minimal size of a named graph to calculate statistics for (default is 1000)", false, true);
         addOption("r", "partition-threshold", "size", PARTITION_THRESHOLD, "Optional minimal size of a graph partition to calculate statistics for (default is 1000)", false, true);
-        addOption("g", "named-graph", "named_graph", NAMED_GRAPH_PROPERTY, "Optional restrict stats calculation to the given named graph only", false, true);
+        addOption("g", "named-graph", "named_graph", NAMED_GRAPH_PROPERTY, "Optional restrict stats calculation to the given named graph only", false, false);
         addOption("o", "stats-named-graph", "target_graph", STATS_GRAPH, "Optional target named graph of the exported statistics (default value is '" + HALYARD.STATS_GRAPH_CONTEXT.stringValue() + "'), modification is recomended only for external export as internal Halyard optimizers expect the default value", false, true);
         addOption("u", "restore-dir", "restore_folder", SNAPSHOT_PATH_PROPERTY, "If specified then -s is a snapshot name and this is the restore folder on HDFS", false, true);
         addOption("e", "target-timestamp", "timestamp", TIMESTAMP_PROPERTY, "Optionally specify timestamp of stat statements (default is actual time of the operation)", false, true);
@@ -665,7 +678,7 @@ public final class HalyardStats extends AbstractHalyardTool {
     	}
         configureString(cmd, 's', null);
         configureString(cmd, 't', null);
-        configureIRI(cmd, 'g', null);
+        configureStrings(cmd, 'g', null);
         configureIRI(cmd, 'o', HALYARD.STATS_GRAPH_CONTEXT.stringValue());
         configureString(cmd, 'u', null);
         configureLong(cmd, 'R', DEFAULT_GRAPH_THRESHOLD);
@@ -674,7 +687,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         String source = getConf().get(SOURCE_NAME_PROPERTY);
         String target = getConf().get(TARGET);
         String statsGraph = getConf().get(STATS_GRAPH);
-        String namedGraph = getConf().get(NAMED_GRAPH_PROPERTY);
+        String[] namedGraphs = getConf().getTrimmedStrings(NAMED_GRAPH_PROPERTY);
         String snapshotPath = getConf().get(SNAPSHOT_PATH_PROPERTY);
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
                NTriplesUtil.class,
@@ -705,13 +718,15 @@ public final class HalyardStats extends AbstractHalyardTool {
 		}
         StatementIndices indices = new StatementIndices(getConf(), rdfFactory);
         List<Scan> scans;
-        if (namedGraph != null) {  //restricting stats to scan given graph context only
-            scans = new ArrayList<>(4);
+        if (namedGraphs.length > 0) {  //restricting stats to scan given graph context only
+            scans = new ArrayList<>(3*namedGraphs.length + 1);
             ValueFactory vf = new IdValueFactory(rdfFactory);
-            RDFContext rdfGraphCtx = rdfFactory.createContext(vf.createIRI(namedGraph));
-            scans.add(indices.getCSPOIndex().scan(rdfGraphCtx));
-            scans.add(indices.getCPOSIndex().scan(rdfGraphCtx));
-            scans.add(indices.getCOSPIndex().scan(rdfGraphCtx));
+            for (String namedGraph : namedGraphs) {
+	            RDFContext rdfGraphCtx = rdfFactory.createContext(vf.createIRI(namedGraph));
+	            scans.add(indices.getCSPOIndex().scan(rdfGraphCtx));
+	            scans.add(indices.getCPOSIndex().scan(rdfGraphCtx));
+	            scans.add(indices.getCOSPIndex().scan(rdfGraphCtx));
+            }
             if (target == null) {
                 // add stats context to the scanned row ranges (when in update mode) to delete the related stats during MapReduce
 				scans.add(indices.getCSPOIndex().scan(

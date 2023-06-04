@@ -6,6 +6,7 @@ import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculato
 import com.msd.gin.halyard.vocab.HALYARD;
 import com.msd.gin.halyard.vocab.VOID_EXT;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -13,6 +14,7 @@ import java.util.Set;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Model;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.LinkedHashModel;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
@@ -29,12 +31,17 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 	private final IRI subj = vf.createIRI("http://subject");
 	private final IRI pred = vf.createIRI("http://predicate");
 	private final IRI obj = vf.createIRI("http://object");
+	private HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer transformer;
 	private HalyardStatsBasedStatementPatternCardinalityCalculator calc;
 
 	@BeforeEach
 	public void setup() {
 		IRI graphNode = HALYARD.STATS_ROOT_NODE;
-		HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer transformer = (graph, partitionType, partitionId) -> graph.stringValue() + "_" + partitionType.getLocalName() + "_" + partitionId.stringValue();
+		transformer = new HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer() {
+			protected String id(Value partitionId) {
+				return partitionId.stringValue();
+			}
+		};
 		Model model = new LinkedHashModel();
 		model.add(graphNode, VOID.TRIPLES, vf.createLiteral(13), HALYARD.STATS_GRAPH_CONTEXT);
 		model.add(graphNode, VOID.DISTINCT_SUBJECTS, vf.createLiteral(3), HALYARD.STATS_GRAPH_CONTEXT);
@@ -47,6 +54,16 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 		ModelTripleSource ts = new ModelTripleSource(model, vf);
 		Cache<Pair<IRI, IRI>, Long> cache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatisticsCache();
 		calc = new HalyardStatsBasedStatementPatternCardinalityCalculator(ts, transformer, cache);
+	}
+
+	@Test
+	public void testPartitionIriTransformer() {
+		IRI graph = vf.createIRI("http://graph");
+		Value partitionId = vf.createLiteral(0);
+		for (IRI partitionType : Arrays.asList(VOID_EXT.SUBJECT, VOID.PROPERTY, VOID_EXT.OBJECT)) {
+			String graphPart = transformer.getGraph(vf.createIRI(transformer.apply(graph, partitionType, partitionId)));
+			assertEquals(graph.stringValue(), graphPart);
+		}
 	}
 
 	@Test

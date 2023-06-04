@@ -8,7 +8,7 @@
 
 halyard:statsContext {
 	halyard:statsRoot a void:Dataset , sd:Dataset , sd:Graph ;
-		dcterms:created "2000-01-01T00:00:00.000Z"^^xsd:dateTime ;
+		dcterms:modified "2000-01-01T00:00:00Z"^^xsd:dateTime ;
 		sd:defaultGraph halyard:statsRoot ;
 		void-ext:subjectPartitionThreshold "100"^^xsd:long ;
 		void-ext:propertyPartitionThreshold "100"^^xsd:long ;
@@ -30,7 +30,7 @@ halyard:statsContext {
 	:graph0 sd:name :graph0 ;
 		sd:graph :graph0 ;
 		a sd:NamedGraph , sd:Graph , void:Dataset ;
-		dcterms:created "2000-01-01T00:00:00.000Z"^^xsd:dateTime ;
+		dcterms:modified "2000-01-01T00:00:00Z"^^xsd:dateTime ;
 		void:classes "450"^^xsd:long ;
 		void:triples "900"^^xsd:long ;
 		void:propertyPartition :graph0_property_eRg5UlsxjZuh-4meqlYQe3-J8X8 ;
@@ -51,18 +51,18 @@ halyard:statsContext {
 	:graph1 sd:name :graph1 ;
 		sd:graph :graph1 ;
 		a sd:NamedGraph , sd:Graph , void:Dataset ;
-		dcterms:created "2000-01-01T00:00:00.000Z"^^xsd:dateTime ;
+		dcterms:modified "2000-01-02T00:00:00Z"^^xsd:dateTime ;
 		void:classes "450"^^xsd:long ;
-		void:triples "900"^^xsd:long ;
+		void:triples "901"^^xsd:long ;
 		void:propertyPartition :graph1_property_eRg5UlsxjZuh-4meqlYQe3-J8X8 ;
-		void:properties "14"^^xsd:long ;
-		void-ext:distinctLiterals "386"^^xsd:long ;
-		void:distinctObjects "886"^^xsd:long ;
-		void:distinctSubjects "90"^^xsd:long ;
+		void:properties "15"^^xsd:long ;
+		void-ext:distinctLiterals "387"^^xsd:long ;
+		void:distinctObjects "887"^^xsd:long ;
+		void:distinctSubjects "91"^^xsd:long ;
 		void-ext:distinctBlankNodeObjects "50"^^xsd:long ;
 		void-ext:distinctBlankNodeSubjects "40"^^xsd:long ;
 		void-ext:distinctIRIReferenceObjects "450"^^xsd:long ;
-		void-ext:distinctIRIReferenceSubjects "50"^^xsd:long .
+		void-ext:distinctIRIReferenceSubjects "51"^^xsd:long .
 
 	:graph1_property_eRg5UlsxjZuh-4meqlYQe3-J8X8 a void:Dataset ;
 		void:property rdf:type ;

@@ -64,6 +64,8 @@ import static org.junit.Assert.*;
  * @author Adam Sotona (MSD)
  */
 public class HalyardStatsTest extends AbstractHalyardToolTest {
+	private static final long TIMESTAMP = 946684800000l;
+	private static final String TIMESTAMP_ARG = Long.toString(TIMESTAMP);
 	private final ValueFactory vf = SimpleValueFactory.getInstance();
 
 	@Override
@@ -114,7 +116,7 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 
         File root = createTempDir("test_stats");
 
-        assertEquals(0, run(new String[]{"-s", tableName, "-t", root.toURI().toURL().toString() + "stats{0}.trig", "-R", "100", "-r", "100", "-o", "http://whatever/myStats"}));
+        assertEquals(0, run(new String[]{"-s", tableName, "-t", root.toURI().toURL().toString() + "stats{0}.trig", "-R", "100", "-r", "100", "-o", "http://whatever/myStats", "-e", TIMESTAMP_ARG}));
 
         File stats = new File(root, "stats0.trig");
         assertTrue(stats.isFile());
@@ -184,7 +186,7 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
         Sail sail = createData("statsTable2", conf);
 
 		// update stats
-		assertEquals(0, run(new String[] { "-s", "statsTable2", "-R", "100", "-r", "100" }));
+		assertEquals(0, run(new String[] { "-s", "statsTable2", "-R", "100", "-r", "100", "-e", TIMESTAMP_ARG }));
 
 		// verify with golden file
 		try (SailConnection conn = sail.getConnection()) {
@@ -194,7 +196,7 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 					statsM.add(it.next());
 				}
 			}
-			try (InputStream refStream = HalyardStatsTest.class.getResourceAsStream("testStatsTarget.trig")) {
+			try (InputStream refStream = HalyardStatsTest.class.getResourceAsStream("testStatsUpdate.trig")) {
 				Model refM = Rio.parse(refStream, "", RDFFormat.TRIG, new ParserConfig().set(BasicParserSettings.PRESERVE_BNODE_IDS, true), vf, new ParseErrorLogger());
 				assertEqualModels(refM, statsM);
 			}
@@ -212,8 +214,9 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 			}
 		}
 
+		String nextTimestampArg = Long.toString(TIMESTAMP + 24*3600*1000l);
 		// update stats only for graph1
-		assertEquals(0, run(new String[] { "-s", "statsTable2", "-R", "100", "-r", "100", "-g", "http://whatever/graph1" }));
+		assertEquals(0, run(new String[] { "-s", "statsTable2", "-R", "100", "-r", "100", "-g", "http://whatever/graph1", "-e", nextTimestampArg }));
 
 		// verify with golden file
 		try (SailConnection conn = sail.getConnection()) {
@@ -223,7 +226,7 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 					statsM.add(it.next());
 				}
 			}
-			try (InputStream refStream = HalyardStatsTest.class.getResourceAsStream("testStatsMoreTarget.trig")) {
+			try (InputStream refStream = HalyardStatsTest.class.getResourceAsStream("testStatsMoreUpdate.trig")) {
 				Model refM = Rio.parse(refStream, "", RDFFormat.TRIG, new ParserConfig().set(BasicParserSettings.PRESERVE_BNODE_IDS, true), vf, new ParseErrorLogger());
 				assertEqualModels(refM, statsM);
 			}
@@ -239,7 +242,7 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 
         File root = createTempDir("test_stats");
 
-        assertEquals(0, run(new String[]{"-s", "statsTable3", "-t", root.toURI().toURL().toString() + "stats{0}.trig", "-R", "100", "-r", "100", "-o", "http://whatever/myStats", "-g", "http://whatever/graph0"}));
+        assertEquals(0, run(new String[]{"-s", "statsTable3", "-t", root.toURI().toURL().toString() + "stats{0}.trig", "-R", "100", "-r", "100", "-o", "http://whatever/myStats", "-g", "http://whatever/graph0", "-e", TIMESTAMP_ARG}));
 
         File stats = new File(root, "stats0.trig");
         assertTrue(stats.isFile());
@@ -269,7 +272,7 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 
         File root = createTempDir("test_stats_snapshot");
         File restoredSnapshot = getTempSnapshotDir("restored_snapshot");
-        assertEquals(0, run(new String[]{"-s", snapshot, "-t", root.toURI().toURL().toString() + "stats{0}_snapshot.trig", "-R", "100", "-r", "100", "-o", "http://whatever/myStats", "-u", restoredSnapshot.toURI().toURL().toString()}));
+        assertEquals(0, run(new String[]{"-s", snapshot, "-t", root.toURI().toURL().toString() + "stats{0}_snapshot.trig", "-R", "100", "-r", "100", "-o", "http://whatever/myStats", "-u", restoredSnapshot.toURI().toURL().toString(), "-e", TIMESTAMP_ARG}));
 
         File stats = new File(root, "stats0_snapshot.trig");
         assertTrue(stats.isFile());

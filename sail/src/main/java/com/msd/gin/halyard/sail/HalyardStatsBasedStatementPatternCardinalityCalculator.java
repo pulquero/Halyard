@@ -35,6 +35,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
@@ -68,12 +69,36 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		return Collections.unmodifiableMap(mapping);
 	}
 
-	public static interface PartitionIriTransformer {
-		String apply(IRI graph, IRI partitionType, Value partitionId);
+	public static abstract class PartitionIriTransformer {
+		public String apply(IRI graph, IRI partitionType, Value partitionId) {
+			return graph.stringValue() + "_" + partitionType.getLocalName() + "_" + id(partitionId);
+		}
+
+		protected abstract String id(Value partitionId);
+
+		public String getGraph(Resource partitionIri) {
+			String partitionString = partitionIri.stringValue();
+			int endSepPos = partitionString.lastIndexOf("_");
+			if (endSepPos != -1) {
+				int startSepPos = partitionString.lastIndexOf("_", endSepPos - 1);
+				if (startSepPos != -1) {
+					int startPos = startSepPos + 1;
+					int len = endSepPos - startPos;
+					if (partitionString.regionMatches(startPos, "subject", 0, len) || partitionString.regionMatches(startPos, "property", 0, len) || partitionString.regionMatches(startPos, "object", 0, len)) {
+						return partitionString.substring(0, startSepPos);
+					}
+				}
+			}
+			return null;
+		}
 	}
 
 	public static PartitionIriTransformer createPartitionIriTransformer(RDFFactory rdfFactory) {
-		return (graph, partitionType, partitionId) -> graph.stringValue() + "_" + partitionType.getLocalName() + "_" + rdfFactory.id(partitionId).toString();
+		return new PartitionIriTransformer() {
+			protected String id(Value partitionId) {
+				return rdfFactory.id(partitionId).toString();
+			}
+		};
 	}
 
 	private final CloseableTripleSource statsSource;

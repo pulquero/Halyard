@@ -125,7 +125,7 @@ public abstract class AbstractHalyardTool implements Tool {
     }
 
     protected void configureIRI(CommandLine cmd, char opt, String defaultValue) {
-    	configureString(cmd, opt, defaultValue, v -> {
+    	configureStrings(cmd, opt, defaultValue, v -> {
     		validateIRIs(v);
     	});
     }
@@ -135,18 +135,28 @@ public abstract class AbstractHalyardTool implements Tool {
     }
 
     protected void configureString(CommandLine cmd, char opt, String defaultValue) {
-    	configureString(cmd, opt, defaultValue, null);
+    	configureStrings(cmd, opt, defaultValue, null);
     }
 
     protected void configureString(CommandLine cmd, char opt, String defaultValue, Consumer<String> valueChecker) {
+    	configureStrings(cmd, opt, defaultValue, valueChecker);
+    }
+
+    protected void configureStrings(CommandLine cmd, char opt, String defaultValue) {
+    	configureStrings(cmd, opt, defaultValue, null);
+    }
+
+    protected void configureStrings(CommandLine cmd, char opt, String defaultValue, Consumer<String> valueChecker) {
     	OrderedOption option = (OrderedOption) options.getOption(Character.toString(opt));
     	// command line args always override
     	if (cmd.hasOption(opt)) {
-    		String value = cmd.getOptionValue(opt);
+    		String[] values = cmd.getOptionValues(opt);
     		if (valueChecker != null) {
-    			valueChecker.accept(value);
+    			for (String value : values) {
+    				valueChecker.accept(value);
+    			}
     		}
-    		conf.set(option.confProperty, value);
+    		conf.setStrings(option.confProperty, values);
     	} else if (defaultValue != null) {
     		conf.setIfUnset(option.confProperty, String.valueOf(defaultValue));
     	}
