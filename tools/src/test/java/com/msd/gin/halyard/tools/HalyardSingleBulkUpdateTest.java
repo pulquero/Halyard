@@ -18,7 +18,6 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class HalyardSingleBulkUpdateTest extends AbstractHalyardToolTest {
-    private static final String TABLE = "singlebulkupdatetesttable";
 
 	@Override
 	protected AbstractHalyardTool createTool() {
@@ -27,9 +26,10 @@ public class HalyardSingleBulkUpdateTest extends AbstractHalyardToolTest {
 
     @Test
     public void testSingleBulkUpdate() throws Exception {
+        final String table = "singlebulkupdatetesttable";
         ValueFactory vf = SimpleValueFactory.getInstance();
         Configuration conf = HBaseServerTestInstance.getInstanceConfig();
-        HBaseSail sail = new HBaseSail(conf, TABLE, true, -1, true, 0, null, null);
+        HBaseSail sail = new HBaseSail(conf, table, true, -1, true, 0, null, null);
         sail.init();
 		try (SailConnection conn = sail.getConnection()) {
 			for (int i = 0; i < 5; i++) {
@@ -48,9 +48,9 @@ public class HalyardSingleBulkUpdateTest extends AbstractHalyardToolTest {
                 + "where {?s <http://whatever/reverse> ?o . FILTER (halyard:forkAndFilterBy(3, ?s, ?o))}";
         File htableDir = getTempHTableDir("test_htable");
 
-        assertEquals(0, run(new String[]{ "-q", query, "-w", htableDir.toURI().toURL().toString(), "-s", TABLE}));
+        assertEquals(0, run(new String[]{ "-q", query, "-w", htableDir.toURI().toURL().toString(), "-s", table}));
 
-        sail = new HBaseSail(conf, TABLE, false, 0, true, 0, null, null);
+        sail = new HBaseSail(conf, table, false, 0, true, 0, null, null);
         sail.init();
         try {
 			try (SailConnection conn = sail.getConnection()) {
@@ -66,6 +66,34 @@ public class HalyardSingleBulkUpdateTest extends AbstractHalyardToolTest {
 					}
 				}
 				Assert.assertEquals(50, count);
+			}
+        } finally {
+            sail.shutDown();
+        }
+    }
+
+    @Test
+    public void testSingleBulkUpdateWithBinding() throws Exception {
+        final String table = "singlebulkupdatewithbindingtesttable";
+        ValueFactory vf = SimpleValueFactory.getInstance();
+        Configuration conf = HBaseServerTestInstance.getInstanceConfig();
+        HBaseSail sail = new HBaseSail(conf, table, true, -1, true, 0, null, null);
+        sail.init();
+        sail.shutDown();
+
+        String query = "PREFIX halyard: <http://merck.github.io/Halyard/ns#>\n"
+                + "insert {<http://whatever/subj> <http://whatever/pred> ?v}\n"
+                + "where {bind(?arg as ?v)}";
+        File htableDir = getTempHTableDir("test_htable");
+
+        assertEquals(0, run(new String[]{ "-q", query, "-w", htableDir.toURI().toURL().toString(), "-s", table, "-$arg=\"foobar\""}));
+
+        sail = new HBaseSail(conf, table, false, 0, true, 0, null, null);
+        sail.init();
+        try {
+			try (SailConnection conn = sail.getConnection()) {
+				boolean actual = conn.hasStatement(vf.createIRI("http://whatever/subj"), vf.createIRI("http://whatever/pred"), vf.createLiteral("foobar"), true);
+				Assert.assertTrue(actual);
 			}
         } finally {
             sail.shutDown();

@@ -27,6 +27,7 @@ import com.msd.gin.halyard.sail.HBaseSailConnection;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -236,6 +237,10 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                         rep.init();
                         try(SailRepositoryConnection con = rep.getConnection()) {
 	                        Update upd = new HBaseUpdate(singleUpdate, sail, con);
+	                        Map<String,String> bindings = conf.getPropsWithPrefix(BINDING_PROPERTY_PREFIX);
+	                        for (Map.Entry<String,String> binding : bindings.entrySet()) {
+	                        	upd.setBinding(binding.getKey(), NTriplesUtil.parseValue(binding.getValue(), rep.getValueFactory()));
+	                        }
 	                        context.setStatus(queryName);
 	                        LOG.info("Executing update:\n{}", query);
 	                        upd.execute();
@@ -274,6 +279,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         addOption("w", "work-dir", "shared_folder", "Unique non-existent folder within shared filesystem to server as a working directory for the temporary HBase files,  the files are moved to their final HBase locations during the last stage of the load process", true, true);
         addOption("e", "target-timestamp", "timestamp", "Optionally specify timestamp of all updated records (default is actual time of the operation)", false, true);
         addOption("i", "elastic-index", "elastic_index_url", HBaseSail.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
+        addKeyValueOption("$", "binding=value", BINDING_PROPERTY_PREFIX, "Optionally specify bindings");
     }
 
 
@@ -282,6 +288,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         String queryFiles = cmd.getOptionValue('q');
         String workdir = cmd.getOptionValue('w');
         configureString(cmd, 'i', null);
+        configureBindings(cmd, '$');
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
                NTriplesUtil.class,
                Rio.class,

@@ -45,6 +45,7 @@ public final class HalyardSingleBulkUpdate extends AbstractHalyardTool {
         addOption("w", "work-dir", "shared_folder", "Unique non-existent folder within shared filesystem to server as a working directory for the temporary HBase files,  the files are moved to their final HBase locations during the last stage of the load process", true, true);
         addOption("e", "target-timestamp", "timestamp", "Optionally specify timestamp of all updated records (default is actual time of the operation)", false, true);
         addOption("i", "elastic-index", "elastic_index_url", HBaseSail.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
+        addKeyValueOption("$", "binding=value", BINDING_PROPERTY_PREFIX, "Optionally specify bindings");
     }
 
     public int run(CommandLine cmd) throws Exception {
@@ -52,6 +53,7 @@ public final class HalyardSingleBulkUpdate extends AbstractHalyardTool {
         String query = cmd.getOptionValue('q');
         String workdir = cmd.getOptionValue('w');
         configureString(cmd, 'i', null);
+        configureBindings(cmd, '$');
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
                NTriplesUtil.class,
                Rio.class,

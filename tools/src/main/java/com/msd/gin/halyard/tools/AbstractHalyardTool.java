@@ -67,6 +67,7 @@ public abstract class AbstractHalyardTool implements Tool {
     protected static final String SOURCE_PATHS_PROPERTY = confProperty(SOURCE_PROPERTIES, "paths");
     protected static final String SOURCE_NAME_PROPERTY = confProperty(SOURCE_PROPERTIES, "name");
     protected static final String SNAPSHOT_PATH_PROPERTY = confProperty(SOURCE_PROPERTIES, "snapshot");
+    protected static final String BINDING_PROPERTY_PREFIX = "halyard-tools.binding.";
 
     private Configuration conf;
     final String name, header, footer;
@@ -187,6 +188,13 @@ public abstract class AbstractHalyardTool implements Tool {
     	}
     }
 
+    protected void configureBindings(CommandLine cmd, char opt) {
+	    Properties bindings = cmd.getOptionProperties(Character.toString(opt));
+	    for (String key : bindings.stringPropertyNames()) {
+	    	getConf().set(BINDING_PROPERTY_PREFIX+key, bindings.getProperty(key));
+	    }
+    }
+
     protected final void addOption(String opt, String longOpt, String argName, String description, boolean required, boolean single) {
     	addOption(opt, longOpt, argName, null, description, required, single);
     }
@@ -197,6 +205,11 @@ public abstract class AbstractHalyardTool implements Tool {
         if (single) {
             singleOptions.add(opt == null ? longOpt : opt);
         }
+    }
+
+    protected final void addKeyValueOption(String opt, String argName, String confProperty, String description) {
+        Option o = new OrderedOption(opts++, opt, argName, confProperty, description);
+        options.addOption(o);
     }
 
     protected final Collection<Option> getOptions() {
@@ -223,6 +236,15 @@ public abstract class AbstractHalyardTool implements Tool {
             super(opt, longOpt, argName != null, buildDescription(description, confProperty));
             setArgName(argName);
             setRequired(required);
+            this.order = order;
+            this.confProperty = confProperty;
+        }
+
+        public OrderedOption(int order, String opt, String argName, String confProperty, String description) {
+            super(opt, buildDescription(description, confProperty));
+            setArgName(argName);
+            setArgs(Option.UNLIMITED_VALUES);
+            setValueSeparator('=');
             this.order = order;
             this.confProperty = confProperty;
         }
