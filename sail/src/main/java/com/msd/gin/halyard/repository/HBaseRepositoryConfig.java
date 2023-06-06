@@ -1,21 +1,21 @@
 package com.msd.gin.halyard.repository;
 
 import com.msd.gin.halyard.sail.HBaseSailConfig;
-import com.msd.gin.halyard.sail.HBaseSailFactory;
 
 import java.util.Optional;
 
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.util.Configurations;
 import org.eclipse.rdf4j.model.util.ModelException;
-import org.eclipse.rdf4j.model.util.Models;
+import org.eclipse.rdf4j.model.vocabulary.CONFIG;
 import org.eclipse.rdf4j.repository.config.AbstractRepositoryImplConfig;
 import org.eclipse.rdf4j.repository.config.RepositoryConfigException;
 import org.eclipse.rdf4j.sail.config.SailConfigException;
+import org.eclipse.rdf4j.sail.config.SailFactory;
+import org.eclipse.rdf4j.sail.config.SailRegistry;
 
 import static org.eclipse.rdf4j.repository.sail.config.SailRepositorySchema.*;
-import static org.eclipse.rdf4j.repository.sail.config.SailRepositorySchema.NAMESPACE;
 import static org.eclipse.rdf4j.sail.config.SailConfigSchema.*;
 
 public class HBaseRepositoryConfig extends AbstractRepositoryImplConfig {
@@ -57,9 +57,9 @@ public class HBaseRepositoryConfig extends AbstractRepositoryImplConfig {
 		Resource repImplNode = super.export(model);
 
 		if (sailImplConfig != null) {
-			model.setNamespace("sr", NAMESPACE);
+			model.setNamespace(CONFIG.NS);
 			Resource sailImplNode = sailImplConfig.export(model);
-			model.add(repImplNode, SAILIMPL, sailImplNode);
+			model.add(repImplNode, CONFIG.Sail.impl, sailImplNode);
 		}
 
 		return repImplNode;
@@ -68,14 +68,14 @@ public class HBaseRepositoryConfig extends AbstractRepositoryImplConfig {
 	@Override
 	public void parse(Model model, Resource repImplNode) throws RepositoryConfigException {
 		try {
-			Optional<Resource> sailImplNode = Models.objectResource(model.getStatements(repImplNode, SAILIMPL, null));
+			Optional<Resource> sailImplNode = Configurations.getResourceValue(model, repImplNode, CONFIG.Sail.impl, SAILIMPL);
 			if (sailImplNode.isPresent()) {
-				if (model.contains(sailImplNode.get(), SAILTYPE, SimpleValueFactory.getInstance().createLiteral(HBaseSailFactory.SAIL_TYPE))) {
-					sailImplConfig = (HBaseSailConfig) new HBaseSailFactory().getConfig();
+				Configurations.getLiteralValue(model, sailImplNode.get(), CONFIG.Sail.type, SAILTYPE).ifPresent(typeLit -> {
+					SailFactory factory = SailRegistry.getInstance().get(typeLit.getLabel()).orElseThrow(() -> new RepositoryConfigException("Unsupported Sail type: " + typeLit.getLabel()));
+
+					sailImplConfig = (HBaseSailConfig) factory.getConfig();
 					sailImplConfig.parse(model, sailImplNode.get());
-				} else {
-					throw new RepositoryConfigException("Missing/invalid sail type");
-				}
+				});
 			}
 		} catch (ModelException | SailConfigException e) {
 			throw new RepositoryConfigException(e.getMessage(), e);
