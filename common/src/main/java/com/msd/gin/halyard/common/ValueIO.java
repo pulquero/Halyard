@@ -5,7 +5,6 @@ import com.ibm.icu.text.UnicodeCompressor;
 import com.ibm.icu.text.UnicodeDecompressor;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -664,12 +663,12 @@ public class ValueIO {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				try {
-					byte[] wkb = WKTLiteral.writeWKB(l.getLabel());
+					byte[] wkb = WKTLiteral.writeWKB(l);
 					b = ensureCapacity(b, 2 + wkb.length);
 					b.put(WKT_LITERAL_TYPE);
 					b.put(WKT_LITERAL_TYPE); // mark as valid
 					return b.put(wkb);
-				} catch (ParseException | IOException e) {
+				} catch (ParseException e) {
 					ByteBuffer wktBytes = writeUncompressedString(l.getLabel());
 					b = ensureCapacity(b, 2 + wktBytes.remaining());
 					b.put(WKT_LITERAL_TYPE);
