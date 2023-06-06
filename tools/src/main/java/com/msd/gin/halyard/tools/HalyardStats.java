@@ -24,6 +24,7 @@ import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueIO;
+import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
 import com.msd.gin.halyard.sail.HalyardStatsBasedStatementPatternCardinalityCalculator;
@@ -77,6 +78,11 @@ import org.eclipse.rdf4j.model.vocabulary.DCTERMS;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.SD;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
+import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.TupleQuery;
+import org.eclipse.rdf4j.query.TupleQueryResult;
+import org.eclipse.rdf4j.repository.Repository;
+import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.RDFWriter;
@@ -687,8 +693,22 @@ public final class HalyardStats extends AbstractHalyardTool {
         String source = getConf().get(SOURCE_NAME_PROPERTY);
         String target = getConf().get(TARGET);
         String statsGraph = getConf().get(STATS_GRAPH);
-        String[] namedGraphs = getConf().getTrimmedStrings(NAMED_GRAPH_PROPERTY);
+        List<String> namedGraphs = Arrays.asList(getConf().getTrimmedStrings(NAMED_GRAPH_PROPERTY));
         String snapshotPath = getConf().get(SNAPSHOT_PATH_PROPERTY);
+
+        if (namedGraphs.size() == 1) {
+    		String namedGraph = namedGraphs.get(0);
+    		if (namedGraph.equals("CREATED")) {
+    			namedGraphs = getNewlyCreatedGraphs(source, statsGraph);
+    			if (namedGraphs.isEmpty()) {
+    	            LOG.info("No new named graphs found.");
+    				return 0;
+    			} else {
+    				LOG.info("Found {} new named graphs: {}", namedGraphs.size(), namedGraphs);
+    			}
+    		}
+    	}
+
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
                NTriplesUtil.class,
                Rio.class,
@@ -718,8 +738,8 @@ public final class HalyardStats extends AbstractHalyardTool {
 		}
         StatementIndices indices = new StatementIndices(getConf(), rdfFactory);
         List<Scan> scans;
-        if (namedGraphs.length > 0) {  //restricting stats to scan given graph context only
-            scans = new ArrayList<>(3*namedGraphs.length + 1);
+        if (!namedGraphs.isEmpty()) {  //restricting stats to scan given graph context only
+            scans = new ArrayList<>(3*namedGraphs.size() + 1);
             ValueFactory vf = new IdValueFactory(rdfFactory);
             for (String namedGraph : namedGraphs) {
 	            RDFContext rdfGraphCtx = rdfFactory.createContext(vf.createIRI(namedGraph));
@@ -760,5 +780,51 @@ public final class HalyardStats extends AbstractHalyardTool {
         } finally {
         	keyspace.destroy();
         }
+    }
+
+    private List<String> getNewlyCreatedGraphs(String table, String statsGraph) {
+        Repository repo = new HBaseRepository(new HBaseSail(getConf(), table, false, 0, true, 0, null, null));
+        repo.init();
+        List<String> graphs = new ArrayList<>();
+        try {
+			try (RepositoryConnection conn = repo.getConnection()) {
+				TupleQuery modifiedQuery = conn.prepareTupleQuery(
+						"PREFIX dc: <"+DCTERMS.NAMESPACE+">"
+						+ "select ?modified where {"
+						+ "graph ?statsContext { <"+HALYARD.STATS_ROOT_NODE+"> dc:modified ?modified}"
+						+ "}"
+						+ "order by desc(?modified)"
+						+ "limit 1");
+				modifiedQuery.setBinding("statsContext", repo.getValueFactory().createIRI(statsGraph));
+				Value lastUpdated;
+				try (TupleQueryResult tqr = modifiedQuery.evaluate()) {
+					if (tqr.hasNext()) {
+						lastUpdated = tqr.next().getValue("modified");
+						LOG.info("Stats last modified: {}", lastUpdated);
+					} else {
+						lastUpdated = null;
+					}
+				}
+				if (lastUpdated != null) {
+					TupleQuery graphQuery = conn.prepareTupleQuery(
+							"PREFIX sd: <"+SD.NAMESPACE+">"
+							+ "PREFIX void: <"+VOID.NAMESPACE+">"
+							+ "PREFIX dc: <"+DCTERMS.NAMESPACE+">"
+							+ "select ?graph where {"
+							+ "?graph ^sd:name/sd:graph/dc:created ?t . filter(?t > ?lastUpdated)"
+							+ "}");
+					graphQuery.setBinding("lastUpdated", lastUpdated);
+					try (TupleQueryResult tqr = graphQuery.evaluate()) {
+						for (BindingSet bs : tqr) {
+							IRI graph = (IRI) bs.getValue("graph");
+							graphs.add(NTriplesUtil.toNTriplesString(graph));
+						}
+					}
+				}
+			}
+        } finally {
+        	repo.shutDown();
+        }
+        return graphs;
     }
 }
