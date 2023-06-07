@@ -256,7 +256,12 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 
 	@Override
 	public boolean hasRepositoryConfig(String repositoryID) throws RepositoryException, RepositoryConfigException {
-		return getRepositoryConfig(repositoryID) != null;
+		if (SYSTEM_ID.equals(repositoryID)) {
+			return true;
+		} else {
+			Repository systemRepository = getSystemRepository();
+			return hasRepositoryConfig(systemRepository, repositoryID);
+		}
 	}
 
 	public Repository getSystemRepository() {
@@ -279,8 +284,10 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 		boolean removed = false;
 		if (!SYSTEM_ID.equals(repositoryID)) {
 			removed = super.removeRepository(repositoryID);
-			Repository systemRepository = getSystemRepository();
-			removeRepositoryConfig(systemRepository, repositoryID);
+			if (removed) {
+				Repository systemRepository = getSystemRepository();
+				removeRepositoryConfig(systemRepository, repositoryID);
+			}
 		}
 		return removed;
 	}
@@ -297,6 +304,23 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 		return result;
 	}
 
+	private static boolean hasRepositoryConfig(Repository repository, String repositoryID) throws RepositoryConfigException, RepositoryException {
+		try (RepositoryConnection con = repository.getConnection()) {
+			Statement idStatement = getIDStatement(con, repositoryID);
+			if (idStatement == null) {
+				// No such config
+				return false;
+			}
+
+			Resource context = idStatement.getContext();
+			if (context == null) {
+				throw new RepositoryException("No configuration context for repository " + repositoryID);
+			}
+
+			return true;
+		}
+	}
+
 	private static RepositoryConfig getRepositoryConfig(Repository repository, String repositoryID) throws RepositoryConfigException, RepositoryException {
 		try (RepositoryConnection con = repository.getConnection()) {
 			Statement idStatement = getIDStatement(con, repositoryID);
@@ -305,15 +329,13 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 				return null;
 			}
 
-			Resource repositoryNode = idStatement.getSubject();
 			Resource context = idStatement.getContext();
-
 			if (context == null) {
 				throw new RepositoryException("No configuration context for repository " + repositoryID);
 			}
 
 			Model contextGraph = QueryResults.asModel(con.getStatements(null, null, null, true, context));
-
+			Resource repositoryNode = idStatement.getSubject();
 			return RepositoryConfig.create(contextGraph, repositoryNode);
 		}
 	}
