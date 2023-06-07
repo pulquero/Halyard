@@ -501,7 +501,7 @@ final class HalyardTupleExprEvaluation {
 	        CloseableIteration<? extends Statement, QueryEvaluationException> stIter = getStatements(nq, tripleSource);
 	
 	        // The same variable might have been used multiple times in this
-	        // StatementPattern, verify value equality in those cases.
+	        // StatementPattern (e.g. ?x :p ?x, ?x ?x "foobar"), verify value equality in those cases.
 	        int distinctVarCount = sp.getBindingNames().size();
 	        boolean allVarsDistinct = (conVar != null && distinctVarCount == 4) || (conVar == null && distinctVarCount == 3);
 	        if (!allVarsDistinct) {

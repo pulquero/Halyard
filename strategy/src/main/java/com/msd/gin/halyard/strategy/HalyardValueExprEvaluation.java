@@ -31,7 +31,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -156,8 +155,10 @@ class HalyardValueExprEvaluation {
     private final ValueFactory valueFactory;
     private final Literal TRUE;
     private final Literal FALSE;
+    private final Literal EMPTY_STRING;
     private final ValueOrError OK_TRUE;
     private final ValueOrError OK_FALSE;
+    private LoadingCache<String,Literal> langTagCache;
 	private int pollTimeoutMillis;
 
 	HalyardValueExprEvaluation(HalyardEvaluationStrategy parentStrategy, FunctionRegistry functionRegistry,
@@ -168,6 +169,7 @@ class HalyardValueExprEvaluation {
         this.valueFactory = tripleSource.getValueFactory();
         this.TRUE = valueFactory.createLiteral(true);
         this.FALSE = valueFactory.createLiteral(false);
+        this.EMPTY_STRING = valueFactory.createLiteral("");
         this.OK_TRUE = ValueOrError.ok(TRUE);
         this.OK_FALSE = ValueOrError.ok(FALSE);
         this.pollTimeoutMillis = pollTimeoutMillis;
@@ -365,7 +367,7 @@ class HalyardValueExprEvaluation {
         	ValuePipeEvaluationStep step = precompileValueExpr(nodeIdExpr, evalContext);
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, nodeId -> {
-    	            if (nodeId instanceof Literal) {
+    	            if (nodeId.isLiteral()) {
     	                String nodeLabel = ((Literal) nodeId).getLabel() + (bindings.toString().hashCode());
     	                return ValueOrError.ok(valueFactory.createBNode(nodeLabel));
     	            } else {
@@ -411,9 +413,9 @@ class HalyardValueExprEvaluation {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> {
 					Literal str;
-			        if (argValue instanceof IRI) {
+			        if (argValue.isIRI()) {
 			            str = valueFactory.createLiteral(argValue.toString());
-			        } else if (argValue instanceof Literal) {
+			        } else if (argValue.isLiteral()) {
 			            Literal literal = (Literal) argValue;
 			            if (QueryEvaluationUtility.isSimpleLiteral(literal)) {
 			                str = literal;
@@ -441,7 +443,7 @@ class HalyardValueExprEvaluation {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> {
-			        if (argValue instanceof Literal) {
+			        if (argValue.isLiteral()) {
 			            Literal literal = (Literal) argValue;
 	    				Literal str;
 			            if (QueryEvaluationUtility.isSimpleLiteral(literal)) {
@@ -466,19 +468,17 @@ class HalyardValueExprEvaluation {
      * @throws QueryEvaluationException
      */
     private ValuePipeEvaluationStep precompileLang(Lang node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
+    	if (langTagCache == null) {
+    		langTagCache = Caffeine.newBuilder().maximumSize(100).build(valueFactory::createLiteral);
+    	}
+
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> {
-			        if (argValue instanceof Literal) {
+			        if (argValue.isLiteral()) {
 			            Literal literal = (Literal) argValue;
-			            Optional<String> langTag = literal.getLanguage();
-	    				Literal str = null;
-			            if (langTag.isPresent()) {
-			                str = valueFactory.createLiteral(langTag.get());
-			            } else {
-			            	str = valueFactory.createLiteral("");
-			            }
-			        	return ValueOrError.ok(str);
+			            Literal langTag = literal.getLanguage().map(langTagCache::get).orElse(EMPTY_STRING);
+			        	return ValueOrError.ok(langTag);
 			        } else {
 			        	return ValueOrError.fail("Lang - not a literal");
 			        }
@@ -498,7 +498,7 @@ class HalyardValueExprEvaluation {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, v -> {
-			        if (v instanceof Literal) {
+			        if (v.isLiteral()) {
 			            Literal literal = (Literal) v;
 	    				IRI dt;
 			            if (literal.getDatatype() != null) {
@@ -530,7 +530,7 @@ class HalyardValueExprEvaluation {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> {
-			        if (argValue instanceof IRI) {
+			        if (argValue.isIRI()) {
 			            IRI uri = (IRI) argValue;
 			            return ValueOrError.ok(valueFactory.createIRI(uri.getNamespace()));
 			        } else {
@@ -552,7 +552,7 @@ class HalyardValueExprEvaluation {
     	return precompileUnaryValueOperator(node, step -> {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> {
-			        if (argValue instanceof IRI) {
+			        if (argValue.isIRI()) {
 			            IRI uri = (IRI) argValue;
 			            return ValueOrError.ok(valueFactory.createLiteral(uri.getLocalName()));
 			        } else {
@@ -616,10 +616,10 @@ class HalyardValueExprEvaluation {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, argValue -> {
 					Literal result;
-			        if (argValue instanceof Literal) {
+			        if (argValue.isLiteral()) {
 			            Literal lit = (Literal) argValue;
 			            IRI datatype = lit.getDatatype();
-			            result = valueFactory.createLiteral(XMLDatatypeUtil.isNumericDatatype(datatype));
+			            result = XMLDatatypeUtil.isNumericDatatype(datatype) ? TRUE : FALSE;
 			        } else {
 			            result = FALSE;
 			        }
@@ -645,7 +645,7 @@ class HalyardValueExprEvaluation {
 	    			protected void next(Value argValue) {
 	    				IRI result = null;
 	    				String errMsg = "IRIFunction";
-	    		        if (argValue instanceof Literal) {
+	    		        if (argValue.isLiteral()) {
 	    		            String uriString = ((Literal) argValue).getLabel();
 	    		            final String baseURI = node.getBaseURI();
 	    		            try {
@@ -662,7 +662,7 @@ class HalyardValueExprEvaluation {
 	    		            } catch (IllegalArgumentException e) {
 	    		                errMsg = "not a valid IRI reference: " + uriString;
 	    		            }
-	    		        } else if (argValue instanceof IRI) {
+	    		        } else if (argValue.isIRI()) {
 	    		            result = ((IRI) argValue);
 	    		        }
 	
@@ -718,7 +718,7 @@ class HalyardValueExprEvaluation {
     	    	    	        if (QueryEvaluationUtility.isStringLiteral(arg)) {
     	    	    	        	String text = ((Literal) arg).getLabel();
     	    	    	            boolean result = pattern.matcher(text).find();
-    	    	    	            parent.push(valueFactory.createLiteral(result));
+    	    	    	            parent.push(result ? TRUE : FALSE);
     	    	    	        } else {
     	            	        	parent.handleValueError("Regex - text is not a simple literal");
     	    	    	        }
@@ -734,7 +734,7 @@ class HalyardValueExprEvaluation {
     	if (node.getFlagsArg() != null) {
     		flagsStep = precompileValueExpr(node.getFlagsArg(), evalContext);
     	} else {
-    		flagsStep = new ConstantValuePipeEvaluationStep(valueFactory.createLiteral("")); // default flags
+    		flagsStep = new ConstantValuePipeEvaluationStep(EMPTY_STRING); // default flags
     	}
     	ValuePipeEvaluationStep compilePatternStep = precompileBinaryValueExpr(pargStep, flagsStep, patternOperator);
     	ValuePipeEvaluationStep fullStep = precompileBinaryValueExpr(argStep, compilePatternStep, matchOperator);
@@ -791,9 +791,9 @@ class HalyardValueExprEvaluation {
 	    	return (parent, bindings) -> {
 	    		step.evaluate(new ConvertingValuePipe(parent, val -> {
 			        String strVal;
-			        if (val instanceof IRI) {
+			        if (val.isIRI()) {
 			            strVal = ((IRI) val).stringValue();
-			        } else if (val instanceof Literal) {
+			        } else if (val.isLiteral()) {
 			            strVal = ((Literal) val).getLabel();
 			        } else {
 			            return ValueOrError.fail("Like");
@@ -1142,7 +1142,7 @@ class HalyardValueExprEvaluation {
 	    		Supplier<ValueOrError> resultSupplier = () -> {
 	    			Value leftVal = leftValue.get();
 	    			Value rightVal = rightValue.get();
-	    	        if (leftVal instanceof Literal && rightVal instanceof Literal) {
+	    	        if (leftVal.isLiteral() && rightVal.isLiteral()) {
 	    				return ValueOrError.of(() -> XMLDatatypeMathUtil.compute((Literal)leftVal, (Literal)rightVal, node.getOperator(), valueFactory));
 	    	        } else {
 	    	        	return ValueOrError.fail("Both arguments must be numeric literals");
@@ -1252,7 +1252,7 @@ class HalyardValueExprEvaluation {
     		stepIter.next().evaluate(new ValuePipe(parent) {
     			@Override
     			protected void next(Value rightValue) {
-                    boolean result = leftValue == null && rightValue == null;
+                    boolean result = (leftValue == null) && (rightValue == null);
                     if (!result) {
         				QueryEvaluationUtility.Result cmp = QueryEvaluationUtility.compare(leftValue, rightValue, Compare.CompareOp.EQ, parentStrategy.isStrict());
         				switch (cmp) {
@@ -1436,10 +1436,10 @@ class HalyardValueExprEvaluation {
     			Value subj = subjValue.get();
     			Value pred = predValue.get();
     			Value obj = objValue.get();
-    			if (!(subj instanceof Resource)) {
+    			if (!(subj.isResource())) {
     				return ValueOrError.fail("no subject value");
     			}
-    			if (!(pred instanceof IRI)) {
+    			if (!(pred.isIRI())) {
     				return ValueOrError.fail("no predicate value");
     			}
     			if (obj == null) {
@@ -1497,7 +1497,7 @@ class HalyardValueExprEvaluation {
 	}
 
 	ValueOrError ok(boolean b) {
-		return ValueOrError.ok(valueFactory.createLiteral(b));
+		return ValueOrError.ok(b ? TRUE : FALSE);
 	}
 
 	ValueOrError of(QueryEvaluationUtility.Result result) {
