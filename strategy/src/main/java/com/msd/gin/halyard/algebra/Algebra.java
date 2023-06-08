@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
@@ -28,6 +29,10 @@ public final class Algebra {
 			tupleExpr = ((QueryRoot) tupleExpr).getArg();
 		}
 		return (tupleExpr instanceof SingletonSet);
+	}
+
+	public static boolean isBranchTupleOperator(TupleExpr tupleExpr) {
+		return (tupleExpr instanceof BinaryTupleOperator) || (tupleExpr instanceof NAryTupleOperator);
 	}
 
 	/**

@@ -16,6 +16,7 @@
  */
 package com.msd.gin.halyard.strategy;
 
+import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
@@ -42,6 +43,7 @@ import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
+import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
@@ -93,6 +95,8 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	/** Track the exeution time of each node in the plan. */
 	private boolean trackResultTime;
+
+	private boolean trackBranchOperatorsOnly;
 
 	private QueryOptimizerPipeline pipeline;
 
@@ -159,6 +163,14 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	public boolean isTrackTime() {
 		return trackResultTime;
+	}
+
+	public boolean isTrackBranchOperatorsOnly() {
+		return trackBranchOperatorsOnly;
+	}
+
+	public void setTrackBranchOperatorsOnly(boolean f) {
+		trackBranchOperatorsOnly = f;
 	}
 
 	boolean isStrict() {
@@ -244,24 +256,28 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	}
 
 	CloseableIteration<BindingSet, QueryEvaluationException> track(CloseableIteration<BindingSet, QueryEvaluationException> iter, TupleExpr expr) {
-		if (trackResultTime) {
-			iter = new TimedIterator(iter, expr);
-		}
-	
-		if (trackResultSize) {
-			iter = new ResultSizeCountingIterator(iter, expr);
+		if (!trackBranchOperatorsOnly || Algebra.isBranchTupleOperator(expr) || (expr instanceof QueryRoot)) {
+			if (trackResultTime) {
+				iter = new TimedIterator(iter, expr);
+			}
+		
+			if (trackResultSize) {
+				iter = new ResultSizeCountingIterator(iter, expr);
+			}
 		}
 
 		return iter;
 	}
 
 	BindingSetPipe track(BindingSetPipe parent, TupleExpr expr) {
-		if (trackResultTime) {
-			parent = new TimedBindingSetPipe(parent, expr);
-		}
-
-		if (trackResultSize) {
-			parent = new ResultSizeCountingBindingSetPipe(parent, expr);
+		if (!trackBranchOperatorsOnly || Algebra.isBranchTupleOperator(expr) || (expr instanceof QueryRoot)) {
+			if (trackResultTime) {
+				parent = new TimedBindingSetPipe(parent, expr);
+			}
+	
+			if (trackResultSize) {
+				parent = new ResultSizeCountingBindingSetPipe(parent, expr);
+			}
 		}
 
 		return parent;

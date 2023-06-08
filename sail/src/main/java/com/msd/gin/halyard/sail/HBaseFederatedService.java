@@ -42,6 +42,7 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 					HBaseSailConnection conn = new HBaseSailConnection(sail, strategy.getExecutor());
 					conn.setTrackResultSize(strategy.isTrackResultSize());
 					conn.setTrackResultTime(strategy.isTrackTime());
+					conn.setTrackBranchOperatorsOnly(strategy.isTrackBranchOperatorsOnly());
 					return conn;
 				});
 			}

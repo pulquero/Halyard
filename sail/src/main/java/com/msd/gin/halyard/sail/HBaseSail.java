@@ -216,6 +216,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	boolean includeNamespaces = false;
 	private boolean trackResultSize;
 	private boolean trackResultTime;
+	private boolean trackBranchOperatorsOnly;
     final Ticker ticker;
 	private FederatedServiceResolver federatedServiceResolver;
 	private RDFFactory rdfFactory;
@@ -366,6 +367,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		strategyConfig = new StrategyConfig(conf);
 		trackResultSize = evaluationConfig.trackResultSize;
 		trackResultTime = evaluationConfig.trackResultTime;
+		trackBranchOperatorsOnly = evaluationConfig.trackBranchOperatorsOnly;
 		queryCache = new QueryCache(evaluationConfig.queryCacheSize);
 		statisticsCache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatisticsCache();
 	}
@@ -423,6 +425,16 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	@Override
 	public void setTrackResultTime(boolean f) {
 		trackResultTime = f;
+	}
+
+	@Override
+	public boolean isTrackBranchOperatorsOnly() {
+		return trackBranchOperatorsOnly;
+	}
+
+	@Override
+	public void setTrackBranchOperatorsOnly(boolean f) {
+		trackBranchOperatorsOnly = f;
 	}
 
 	@Override

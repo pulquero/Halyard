@@ -17,6 +17,10 @@ public interface HBaseSailMXBean {
 	boolean isTrackResultTime();
 	void setTrackResultTime(boolean f);
 
+	boolean isTrackBranchOperatorsOnly();
+
+	void setTrackBranchOperatorsOnly(boolean f);
+
 	QueryInfo[] getRecentQueries();
 
 	int getConnectionCount();

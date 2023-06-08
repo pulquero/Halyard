@@ -108,6 +108,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 	private final HBaseSail sail;
 	private final boolean usePush;
+	private boolean trackBranchOperatorsOnly;
 	private KeyspaceConnection keyspaceConn;
 	private HalyardEvaluationExecutor executor;
 	private boolean executorIsShared;
@@ -130,6 +131,14 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		this.keyspaceConn = sail.keyspace.getConnection();
 		sail.connectionOpened(this);
     }
+
+	public boolean isTrackBranchOperatorsOnly() {
+		return trackBranchOperatorsOnly;
+	}
+
+	public void setTrackBranchOperatorsOnly(boolean f) {
+		trackBranchOperatorsOnly = f;
+	}
 
 	private HalyardEvaluationExecutor getExecutor() {
 		if (!isOpen()) {
@@ -202,6 +211,9 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
 		if (trackResultTime) {
 			strategy.setTrackTime(trackResultTime);
+		}
+		if (trackBranchOperatorsOnly && (strategy instanceof HalyardEvaluationStrategy)) {
+			((HalyardEvaluationStrategy) strategy).setTrackBranchOperatorsOnly(trackBranchOperatorsOnly);
 		}
 		return strategy;
 	}
@@ -839,6 +851,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			HBaseSailConnection conn = new HBaseSailConnection(sail);
 			conn.setTrackResultSize(sail.isTrackResultSize());
 			conn.setTrackResultTime(sail.isTrackResultTime());
+			conn.setTrackBranchOperatorsOnly(sail.isTrackBranchOperatorsOnly());
 			return conn;
 		}
 	}
