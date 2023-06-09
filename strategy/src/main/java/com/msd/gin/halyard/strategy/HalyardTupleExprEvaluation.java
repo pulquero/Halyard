@@ -836,23 +836,11 @@ final class HalyardTupleExprEvaluation {
                 ancestor = ancestor.getParentNode();
                 if (ancestor instanceof Projection || ancestor instanceof MultiProjection) {
                         outer = false;
+                        break;
                 }
         }
         final boolean includeAll = !outer;
     	return (parent, bindings) -> {
-	        BindingSet pushDownBindings;
-	        if (projection.isSubquery() && bindings.size() > 0) {
-	            pushDownBindings = new QueryBindingSet();
-	            for (ProjectionElem pe : projection.getProjectionElemList().getElements()) {
-	                    Value targetValue = bindings.getValue(pe.getSourceName());
-	                    if (targetValue != null) {
-	                            ((QueryBindingSet)pushDownBindings).setBinding(pe.getTargetName(), targetValue);
-	                    }
-	            }
-	        } else {
-	            pushDownBindings = bindings;
-	        }
-	
 	        step.evaluate(new BindingSetPipe(parent) {
 	            @Override
 	            protected boolean next(BindingSet bs) {
@@ -862,7 +850,7 @@ final class HalyardTupleExprEvaluation {
 	            public String toString() {
 	            	return "ProjectionBindingSetPipe";
 	            }
-	        }, pushDownBindings);
+	        }, bindings);
     	};
     }
 
