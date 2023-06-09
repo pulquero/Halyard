@@ -28,7 +28,6 @@ import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.TupleFunctionCallOptimizer;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
-import com.msd.gin.halyard.query.QueueingBindingSetPipe;
 import com.msd.gin.halyard.query.TimeLimitConsumer;
 import com.msd.gin.halyard.sail.HBaseSail.SailConnectionFactory;
 import com.msd.gin.halyard.sail.geosparql.WithinDistanceInterpreter;
@@ -286,8 +285,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 						: new TimeLimitIteration<BindingSet, QueryEvaluationException>(iter, TimeUnit.SECONDS.toMillis(sail.evaluationTimeoutSecs)) {
 							@Override
 							protected void throwInterruptedException() {
-								throw new QueryInterruptedException(
-										String.format("Query evaluation exceeded specified timeout %ds", sail.evaluationTimeoutSecs));
+								throw new QueryInterruptedException(String.format("Query evaluation exceeded specified timeout %ds", sail.evaluationTimeoutSecs));
 							}
 						};
 			} catch (QueryEvaluationException ex) {
@@ -359,10 +357,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 	protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr optimizedTree, QueryEvaluationStep step) throws QueryEvaluationException {
 		if (step instanceof BindingSetPipeQueryEvaluationStep) {
-			long timeout = sail.evaluationTimeoutSecs > 0 ? sail.evaluationTimeoutSecs : Integer.MAX_VALUE;
-			QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(getExecutor().getMaxQueueSize(), timeout, TimeUnit.SECONDS);
-			((BindingSetPipeQueryEvaluationStep) step).evaluate(pipe, EmptyBindingSet.getInstance());
-			pipe.collect(handler);
+			((BindingSetPipeQueryEvaluationStep) step).evaluate(handler, EmptyBindingSet.getInstance());
 		} else {
 			BindingSetConsumerSailConnection.report(step.evaluate(EmptyBindingSet.getInstance()), handler);
 		}

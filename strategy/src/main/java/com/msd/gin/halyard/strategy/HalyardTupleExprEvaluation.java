@@ -69,6 +69,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -231,12 +232,17 @@ final class HalyardTupleExprEvaluation {
     	return new BindingSetPipeQueryEvaluationStep() {
 			@Override
 			public void evaluate(BindingSetPipe parent, BindingSet bindings) {
-				step.evaluate(parent, bindings);
+				executor.push(parent, step, bindings);
+			}
+
+			@Override
+			public void evaluate(Consumer<BindingSet> handler, BindingSet bindings) {
+				executor.pushAndPullSync(handler, step, bindings);
 			}
 
 			@Override
 			public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(BindingSet bindings) {
-				return executor.pushAndPull(step, expr, bindings);
+				return executor.pushAndPullAsync(step, expr, bindings);
 			}
     	};
     }
@@ -273,6 +279,46 @@ final class HalyardTupleExprEvaluation {
             throw new IllegalArgumentException("expr must not be null");
         } else {
             throw new QueryEvaluationException("Unsupported tuple expr type: " + expr.getClass());
+        }
+    }
+
+    /**
+     * Switch logic for precompilation of any instance of a {@link UnaryTupleOperator} query model node
+     */
+    private BindingSetPipeEvaluationStep precompileUnaryTupleOperator(UnaryTupleOperator expr, QueryEvaluationContext evalContext) {
+        if (expr instanceof Projection) {
+        	return precompileProjection((Projection) expr, evalContext);
+        } else if (expr instanceof MultiProjection) {
+        	return precompileMultiProjection((MultiProjection) expr, evalContext);
+        } else if (expr instanceof Filter) {
+        	return precompileFilter((Filter) expr, evalContext);
+        } else if (expr instanceof Service) {
+        	return precompileService((Service) expr);
+        } else if (expr instanceof Slice) {
+        	return precompileSlice((Slice) expr, evalContext);
+        } else if (expr instanceof Extension) {
+        	return precompileExtension((Extension) expr, evalContext);
+        } else if (expr instanceof Distinct) {
+        	return precompileDistinct((Distinct) expr, evalContext);
+        } else if (expr instanceof Reduced) {
+        	return precompileReduced((Reduced) expr, evalContext);
+        } else if (expr instanceof Group) {
+        	return precompileGroup((Group) expr, evalContext);
+        } else if (expr instanceof Order) {
+        	return precompileOrder((Order) expr, evalContext);
+        } else if (expr instanceof QueryRoot) {
+        	QueryRoot root = (QueryRoot) expr;
+        	parentStrategy.sharedValueOfNow.set(null);
+        	BindingSetPipeEvaluationStep step = precompileTupleExpr(root.getArg(), evalContext);
+        	return (parent, bindings) -> {
+        		step.evaluate(parentStrategy.track(parent, root), bindings);
+        	};
+        } else if (expr instanceof DescribeOperator) {
+        	return precompileDescribeOperator((DescribeOperator) expr, evalContext);
+        } else if (expr == null) {
+            throw new IllegalArgumentException("expr must not be null");
+        } else {
+            throw new QueryEvaluationException("Unknown unary tuple operator type: " + expr.getClass());
         }
     }
 
@@ -777,46 +823,6 @@ final class HalyardTupleExprEvaluation {
 			};
 		}
 	}
-
-    /**
-     * Switch logic for precompilation of any instance of a {@link UnaryTupleOperator} query model node
-     */
-    private BindingSetPipeEvaluationStep precompileUnaryTupleOperator(UnaryTupleOperator expr, QueryEvaluationContext evalContext) {
-        if (expr instanceof Projection) {
-        	return precompileProjection((Projection) expr, evalContext);
-        } else if (expr instanceof MultiProjection) {
-        	return precompileMultiProjection((MultiProjection) expr, evalContext);
-        } else if (expr instanceof Filter) {
-        	return precompileFilter((Filter) expr, evalContext);
-        } else if (expr instanceof Service) {
-        	return precompileService((Service) expr);
-        } else if (expr instanceof Slice) {
-        	return precompileSlice((Slice) expr, evalContext);
-        } else if (expr instanceof Extension) {
-        	return precompileExtension((Extension) expr, evalContext);
-        } else if (expr instanceof Distinct) {
-        	return precompileDistinct((Distinct) expr, evalContext);
-        } else if (expr instanceof Reduced) {
-        	return precompileReduced((Reduced) expr, evalContext);
-        } else if (expr instanceof Group) {
-        	return precompileGroup((Group) expr, evalContext);
-        } else if (expr instanceof Order) {
-        	return precompileOrder((Order) expr, evalContext);
-        } else if (expr instanceof QueryRoot) {
-        	QueryRoot root = (QueryRoot) expr;
-        	parentStrategy.sharedValueOfNow.set(null);
-        	BindingSetPipeEvaluationStep step = precompileTupleExpr(root.getArg(), evalContext);
-        	return (parent, bindings) -> {
-        		step.evaluate(parentStrategy.track(parent, root), bindings);
-        	};
-        } else if (expr instanceof DescribeOperator) {
-        	return precompileDescribeOperator((DescribeOperator) expr, evalContext);
-        } else if (expr == null) {
-            throw new IllegalArgumentException("expr must not be null");
-        } else {
-            throw new QueryEvaluationException("Unknown unary tuple operator type: " + expr.getClass());
-        }
-    }
 
     /**
      * Precompile a {@link Projection} query model nodes

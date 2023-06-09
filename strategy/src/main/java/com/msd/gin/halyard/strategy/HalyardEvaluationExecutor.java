@@ -39,6 +39,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -80,8 +81,10 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
     // a map of query model nodes and their priority
     private final Cache<TupleExpr, Integer> priorityMapCache = Caffeine.newBuilder().weakKeys().build();
 
-    private final AtomicLong bindingsCount = new AtomicLong();
-    private RateTracker bindingsRateTracker;
+    private final AtomicLong incomingBindingsCount = new AtomicLong();
+    private final AtomicLong outgoingBindingsCount = new AtomicLong();
+    private RateTracker incomingBindingsRateTracker;
+    private RateTracker outgoingBindingsRateTracker;
 	private MBeanManager<HalyardEvaluationExecutor> mbeanManager;
 	private final TimerTask registerMBeanTask;
 
@@ -132,8 +135,10 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 		int bindingsRateUpdateMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_BINDINGS_RATE_UPDATE_MILLIS, 100);
 		int bindingsRateWindowSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_BINDINGS_RATE_WINDOW_SIZE, 10);
 		if (bindingsRateWindowSize > 0) {
-			bindingsRateTracker = new RateTracker(TIMER, bindingsRateUpdateMillis, bindingsRateWindowSize, () -> bindingsCount.get());
-			bindingsRateTracker.start();
+			incomingBindingsRateTracker = new RateTracker(TIMER, bindingsRateUpdateMillis, bindingsRateWindowSize, () -> incomingBindingsCount.get());
+			incomingBindingsRateTracker.start();
+			outgoingBindingsRateTracker = new RateTracker(TIMER, bindingsRateUpdateMillis, bindingsRateWindowSize, () -> outgoingBindingsCount.get());
+			outgoingBindingsRateTracker.start();
 		}
 	}
 
@@ -142,8 +147,11 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
 	public void shutdown() {
-		if (bindingsRateTracker != null) {
-			bindingsRateTracker.stop();
+		if (incomingBindingsRateTracker != null) {
+			incomingBindingsRateTracker.stop();
+		}
+		if (outgoingBindingsRateTracker != null) {
+			outgoingBindingsRateTracker.stop();
 		}
 		registerMBeanTask.cancel();
 		if (mbeanManager != null) {
@@ -183,8 +191,13 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
 	@Override
-	public float getBindingsRatePerSecond() {
-		return (bindingsRateTracker != null) ? bindingsRateTracker.getRatePerSecond() : Float.NaN;
+	public float getIncomingBindingsRatePerSecond() {
+		return (incomingBindingsRateTracker != null) ? incomingBindingsRateTracker.getRatePerSecond() : Float.NaN;
+	}
+
+	@Override
+	public float getOutgoingBindingsRatePerSecond() {
+		return (outgoingBindingsRateTracker != null) ? outgoingBindingsRateTracker.getRatePerSecond() : Float.NaN;
 	}
 
 	@Override
@@ -203,7 +216,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	void pullAndPushAsync(BindingSetPipe pipe,
 			QueryEvaluationStep evalStep,
 			TupleExpr node, BindingSet bs, HalyardEvaluationStrategy strategy) {
-		executor.execute(new IterateAndPipeTask(pipe, evalStep, node, bs, strategy));
+		executor.execute(new IterateAndPipeTask(new CountingBindingSetPipe(pipe, incomingBindingsCount), evalStep, node, bs, strategy));
     }
 
     /**
@@ -214,12 +227,22 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
      * @param strategy
      * @return iteration of binding sets to pull from.
      */
-	CloseableIteration<BindingSet, QueryEvaluationException> pushAndPull(BindingSetPipeEvaluationStep evalStep, TupleExpr node, BindingSet bs) {
+	CloseableIteration<BindingSet, QueryEvaluationException> pushAndPullAsync(BindingSetPipeEvaluationStep evalStep, TupleExpr node, BindingSet bs) {
         QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(maxQueueSize, offerTimeoutMillis, TimeUnit.MILLISECONDS);
-        Thread thr = new Thread(new PipeAndQueueTask(pipe, evalStep, node, bs));
+        Thread thr = new Thread(new PipeAndQueueTask(new CountingBindingSetPipe(pipe, outgoingBindingsCount), evalStep, node, bs));
         thr.setDaemon(true);
         thr.start();
         return new BindingSetPipeIteration(pipe);
+	}
+
+	void pushAndPullSync(Consumer<BindingSet> handler, BindingSetPipeEvaluationStep evalStep, BindingSet bindings) {
+		QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(maxQueueSize, offerTimeoutMillis, TimeUnit.MILLISECONDS);
+		evalStep.evaluate(new CountingBindingSetPipe(pipe, outgoingBindingsCount), bindings);
+		pipe.collect(handler, Math.multiplyFull(pollTimeoutMillis, maxRetries), TimeUnit.MILLISECONDS);
+	}
+
+	void push(BindingSetPipe pipe, BindingSetPipeEvaluationStep evalStep, BindingSet bindings) {
+		evalStep.evaluate(new CountingBindingSetPipe(pipe, outgoingBindingsCount), bindings);
 	}
 
 	/**
@@ -438,7 +461,6 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
             		}
                 	if(iter.hasNext()) {
                         BindingSet bs = iter.next();
-                        bindingsCount.incrementAndGet();
                         if (pipe.push(bs)) { //true indicates more data is expected from this binding set, put it on the queue
                            	return true;
                         }
@@ -511,7 +533,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
         		bs = pipe.poll(pollTimeoutMillis, TimeUnit.MILLISECONDS);
 				if (bs == null) {
 					if (retries > maxRetries) {
-	        			throw new QueryEvaluationException(String.format("Retry limit exceeded: %d (active threads %d, queue size %d, binding set rate %f)", retries, executor.getActiveCount(), executor.getQueueSize(), bindingsRateTracker.getRatePerSecond()));
+	        			throw new QueryEvaluationException(String.format("Retry limit exceeded: %d (active threads %d, queue size %d, incoming binding set rate %f)", retries, executor.getActiveCount(), executor.getQueueSize(), incomingBindingsRateTracker.getRatePerSecond()));
 					}
 				}
             }
@@ -529,4 +551,21 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
         	return "Iteration "+Integer.toHexString(this.hashCode())+" for pipe "+Integer.toHexString(pipe.hashCode());
         }
     }
+
+
+    static final class CountingBindingSetPipe extends BindingSetPipe {
+    	private final AtomicLong counter;
+
+    	protected CountingBindingSetPipe(BindingSetPipe parent, AtomicLong counter) {
+			super(parent);
+			this.counter = counter;
+		}
+
+		@Override
+		public boolean next(BindingSet bs) {
+			counter.incrementAndGet();
+			return parent.push(bs);
+		}
+    }
 }
+

@@ -10,7 +10,8 @@ public interface HalyardEvaluationExecutorMXBean {
 	void setQueuePollTimeoutMillis(int millis);
 	int getQueuePollTimeoutMillis();
 
-	float getBindingsRatePerSecond();
+	float getIncomingBindingsRatePerSecond();
+	float getOutgoingBindingsRatePerSecond();
 
 	TrackingThreadPoolExecutorMXBean getThreadPoolExecutor();
 }

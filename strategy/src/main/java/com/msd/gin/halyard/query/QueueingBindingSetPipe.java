@@ -15,29 +15,29 @@ import org.eclipse.rdf4j.query.QueryInterruptedException;
 public final class QueueingBindingSetPipe extends BindingSetPipe {
     private static final Object END_OF_QUEUE = new Object();
 	private final BlockingQueue<Object> queue;
-	private final long timeout;
+	private final long offerTimeout;
 	private final TimeUnit unit;
 	private volatile boolean sendMore = true;
 
-	public QueueingBindingSetPipe(int maxQueueSize, long timeout, TimeUnit unit) {
+	public QueueingBindingSetPipe(int maxQueueSize, long offerTimeout, TimeUnit unit) {
 		super(null);
 		this.queue = new LinkedBlockingQueue<>(maxQueueSize);
-		this.timeout = timeout;
+		this.offerTimeout = offerTimeout;
 		this.unit = unit;
 	}
 
-	public void collect(Consumer<BindingSet> consumer) {
+	public void collect(Consumer<BindingSet> consumer, long pollTimeout, TimeUnit unit) {
 		boolean isEnd = false;
 		try {
 			while (!isEnd) {
 				try {
-					Object next = poll(timeout, unit);
+					Object next = poll(pollTimeout, unit);
 					isEnd = isEndOfQueue(next);
 					if (!isEnd) {
 						if (next != null) {
 							consumer.accept((BindingSet) next);
 						} else {
-			    			throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for producer", timeout, toString(unit)));
+			    			throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for producer", pollTimeout, toString(unit)));
 						}
 					}
 				} catch (RuntimeException e) {
@@ -82,12 +82,12 @@ public final class QueueingBindingSetPipe extends BindingSetPipe {
 
 		boolean added;
 		try {
-			added = queue.offer(bs, timeout, unit);
+			added = queue.offer(bs, offerTimeout, unit);
 			if (!added) {
 				// timed-out
 				try {
 					// throw to generate a stack trace
-					throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for consumer", timeout, toString(unit)));
+					throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for consumer", offerTimeout, toString(unit)));
 				} catch (QueryInterruptedException e) {
 					added = handleException(e);
 				}
