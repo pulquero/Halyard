@@ -397,7 +397,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			long start = System.nanoTime();
 			boolean pushMore = super.next(bs);
 			long end = System.nanoTime();
-			long nanos = elapsed.addAndGet(start - end);
+			long nanos = elapsed.addAndGet(end - start);
 			if ((nanos - lastNanos) > config.trackResultTimeUpdateInterval) {
 				updateResultTime();
 			}
@@ -486,7 +486,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			long start = System.nanoTime();
 			BindingSet next = iterator.next();
 			long end = System.nanoTime();
-			elapsed += start - end;
+			elapsed += end - start;
 			if (elapsed > config.trackResultTimeUpdateInterval) {
 				updateResultTime();
 			}
@@ -498,7 +498,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			long start = System.nanoTime();
 			boolean hasNext = super.hasNext();
 			long end = System.nanoTime();
-			elapsed += start - end;
+			elapsed += end - start;
 			if (elapsed > config.trackResultTimeUpdateInterval) {
 				updateResultTime();
 			}
