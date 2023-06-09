@@ -15,6 +15,7 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.ArbitraryLengthPath;
 import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
+import org.eclipse.rdf4j.query.algebra.Filter;
 import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.LeftJoin;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
@@ -29,6 +30,8 @@ import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.EvaluationStatistics;
 
 public class ExtendedEvaluationStatistics extends EvaluationStatistics {
+    /** heuristic - assume 80/20 rule */
+	public static final double COMPLETENESS_FACTOR = 0.8;
 
 	protected final StatementPatternCardinalityCalculator.Factory spcalcFactory;
 	protected final ServiceStatisticsProvider srvStatsProvider;
@@ -158,6 +161,12 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 		}
 
         @Override
+        public void meet(Filter node) {
+            node.getArg().visit(this);
+            cardinality *= COMPLETENESS_FACTOR;
+        }
+
+        @Override
         public void meet(Join node) {
             meetJoin(node);
         }
@@ -165,6 +174,7 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
         @Override
         public void meet(LeftJoin node) {
             meetJoin(node);
+            cardinality *= COMPLETENESS_FACTOR;
         }
 
         protected void meetJoin(BinaryTupleOperator node) {
