@@ -156,8 +156,8 @@ import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
+import org.eclipse.rdf4j.query.algebra.evaluation.impl.DefaultEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.StrictEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.DescribeIteration;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.PathIteration;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.ProjectionIterator;
@@ -2296,30 +2296,22 @@ final class HalyardTupleExprEvaluation {
     		parent = parentStrategy.track(parent, union);
             final AtomicInteger args = new AtomicInteger(2);
             // A pipe can only be closed once, so need separate instances
-	        leftStep.evaluate(new UnionBindingSetPipe(parent, union, args), bindings);
-	        rightStep.evaluate(new UnionBindingSetPipe(parent, union, args), bindings);
+	        leftStep.evaluate(new UnionBindingSetPipe(parent, args), bindings);
+	        rightStep.evaluate(new UnionBindingSetPipe(parent, args), bindings);
         };
     }
 
     final class UnionBindingSetPipe extends BindingSetPipe {
-    	final Union union;
-        final AtomicInteger args;
-    	UnionBindingSetPipe(BindingSetPipe parent, Union union, AtomicInteger args) {
+        private final AtomicInteger args;
+
+        UnionBindingSetPipe(BindingSetPipe parent, AtomicInteger args) {
     		super(parent);
-    		this.union = union;
     		this.args = args;
-    	}
-    	@Override
-    	protected boolean next(BindingSet bs) {
-    		boolean pushMore = parent.push(bs);
-    		if (!pushMore) {
-    			args.set(0);
-    		}
-    		return pushMore;
     	}
         @Override
 		protected void doClose() {
-            if (args.decrementAndGet() == 0) {
+        	args.decrementAndGet();
+            if (args.compareAndSet(0, -1)) {
                 parent.close();
             }
         }
@@ -2583,7 +2575,7 @@ final class HalyardTupleExprEvaluation {
 	        final long minLength = alp.getMinLength();
 	        //temporary solution using copy of the original iterator
 	        //re-writing this to push model is a bit more complex task
-            EvaluationStrategy alpStrategy = new StrictEvaluationStrategy(tripleSource, dataset, null);
+            EvaluationStrategy alpStrategy = new DefaultEvaluationStrategy(tripleSource, dataset, null);
 //            // Currently causes too many blocked threads
 //            EvaluationStrategy alpStrategy = new StrictEvaluationStrategy(null, null) {
 //                @Override
