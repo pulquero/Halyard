@@ -1,10 +1,12 @@
 package com.msd.gin.halyard.optimizers;
 
+import com.google.common.collect.Iterables;
 import com.msd.gin.halyard.algebra.StarJoin;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
@@ -12,21 +14,27 @@ import javax.annotation.Nullable;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
+import org.eclipse.rdf4j.query.algebra.AbstractQueryModelNode;
 import org.eclipse.rdf4j.query.algebra.ArbitraryLengthPath;
 import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
+import org.eclipse.rdf4j.query.algebra.EmptySet;
 import org.eclipse.rdf4j.query.algebra.Filter;
 import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.LeftJoin;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.Service;
+import org.eclipse.rdf4j.query.algebra.SingletonSet;
+import org.eclipse.rdf4j.query.algebra.Slice;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.TupleFunctionCall;
+import org.eclipse.rdf4j.query.algebra.UnaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.ValueConstant;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
+import org.eclipse.rdf4j.query.algebra.ZeroLengthPath;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.EvaluationStatistics;
 
 public class ExtendedEvaluationStatistics extends EvaluationStatistics {
@@ -63,13 +71,26 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 		return new ExtendedEvaluationStatistics(SimpleStatementPatternCardinalityCalculator.FACTORY);
 	}
 
+	public void updateCardinalityMap(TupleExpr expr, Set<String> boundVars, Map<TupleExpr, Double> mapToUpdate) {
+		getStatisticsFor(expr).updateCardinalityMapInternal(expr, boundVars, mapToUpdate);
+	}
+
+	protected final void updateCardinalityMapInternal(TupleExpr expr, Set<String> boundVars, Map<TupleExpr, Double> mapToUpdate) {
+		try (StatementPatternCardinalityCalculator spcalc = spcalcFactory.create()) {
+			ExtendedCardinalityCalculator cc = new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, boundVars, mapToUpdate);
+			expr.visit(cc);
+		} catch(IOException ioe) {
+			throw new QueryEvaluationException(ioe);
+		}
+	}
+
 	public double getCardinality(TupleExpr expr, Set<String> boundVariables) {
 		return getStatisticsFor(expr).getCardinalityInternal(expr, boundVariables);
 	}
 
 	protected final double getCardinalityInternal(TupleExpr expr, Set<String> boundVariables) {
 		try (StatementPatternCardinalityCalculator spcalc = spcalcFactory.create()) {
-			ExtendedCardinalityCalculator cc = new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, boundVariables);
+			ExtendedCardinalityCalculator cc = new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, boundVariables, null);
 			expr.visit(cc);
 			return cc.getCardinality();
 		} catch(IOException ioe) {
@@ -97,16 +118,46 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 		protected final StatementPatternCardinalityCalculator spcalc;
 		protected final ServiceStatisticsProvider srvStatsProvider;
 		protected final Set<String> boundVars;
+        protected final Map<TupleExpr, Double> mapToUpdate;
 
-		public ExtendedCardinalityCalculator(@Nonnull StatementPatternCardinalityCalculator spcalc, @Nullable ServiceStatisticsProvider srvStatsProvider, Set<String> boundVariables) {
+		public ExtendedCardinalityCalculator(@Nonnull StatementPatternCardinalityCalculator spcalc, @Nullable ServiceStatisticsProvider srvStatsProvider, Set<String> boundVariables, @Nullable Map<TupleExpr, Double> mapToUpdate) {
 			this.spcalc = spcalc;
 			this.srvStatsProvider = srvStatsProvider;
 			this.boundVars = boundVariables;
+            this.mapToUpdate = mapToUpdate;
 		}
+
+		protected ExtendedCardinalityCalculator newCardinalityCalculator(Set<String> newBoundVars) {
+			return new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, newBoundVars, mapToUpdate);
+		}
+
+		private boolean isCardinalityCached(AbstractQueryModelNode expr) {
+			double estimate = expr.getResultSizeEstimate();
+        	if (estimate >= 0.0) {
+        		cardinality = estimate;
+        		return true;
+        	} else {
+        		return false;
+        	}
+		}
+
+		@Override
+        public void meet(EmptySet node) {
+            super.meet(node);
+            updateMap(node);
+        }
+
+        @Override
+        public void meet(SingletonSet node) {
+            super.meet(node);
+            updateMap(node);
+        }
+
 
 		@Override
 		public void meet(BindingSetAssignment node) {
 			cardinality = getCardinality(node);
+			updateMap(node);
 		}
 
 		@Override
@@ -118,16 +169,43 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 			// statement pattern.
 			cardinality = 2.0 * getCardinality(new StatementPattern(node.getSubjectVar().clone(), pathVar,
 					node.getObjectVar().clone(), node.getContextVar() != null ? node.getContextVar().clone() : null));
+			updateMap(node);
 		}
 
 		@Override
+        public void meet(ZeroLengthPath node) {
+            super.meet(node);
+            updateMap(node);
+        }
+
+		@Override
+        public void meet(Slice node) {
+            super.meet(node);
+            if (node.hasLimit()) {
+            	cardinality = node.getLimit();
+            }
+            updateMap(node);
+        }
+
+		@Override
 		public void meet(StatementPattern sp) {
-			cardinality = getCardinality(sp);
+        	if (!isCardinalityCached(sp)) {
+        		cardinality = getCardinality(sp);
+        	}
+			updateMap(sp);
 		}
 
 		@Override
 		public void meet(TripleRef tripleRef) {
-			cardinality = getCardinality(tripleRef);
+        	if (!isCardinalityCached(tripleRef)) {
+        		cardinality = getCardinality(tripleRef);
+        	}
+			updateMap(tripleRef);
+		}
+
+		@Override
+		protected double getCardinality(BindingSetAssignment bsa) {
+			return Iterables.size(bsa.getBindingSets());
 		}
 
 		@Override
@@ -164,17 +242,20 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
         public void meet(Filter node) {
             node.getArg().visit(this);
             cardinality *= COMPLETENESS_FACTOR;
+            updateMap(node);
         }
 
         @Override
         public void meet(Join node) {
             meetJoin(node);
+            updateMap(node);
         }
 
         @Override
         public void meet(LeftJoin node) {
             meetJoin(node);
             cardinality *= COMPLETENESS_FACTOR;
+            updateMap(node);
         }
 
         protected void meetJoin(BinaryTupleOperator node) {
@@ -189,12 +270,31 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 
         protected void meetJoinLeft(TupleExpr left) {
         	left.visit(this);
+        	updateMap(left);
         }
 
         protected void meetJoinRight(TupleExpr right, Set<String> newBoundVars) {
-            ExtendedCardinalityCalculator newCalc = new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, newBoundVars);
+            ExtendedCardinalityCalculator newCalc = newCardinalityCalculator(newBoundVars);
         	right.visit(newCalc);
             cardinality = newCalc.cardinality;
+            updateMap(right);
+        }
+
+        @Override
+        protected void meetUnaryTupleOperator(UnaryTupleOperator node) {
+            super.meetUnaryTupleOperator(node);
+            updateMap(node);
+        }
+
+        @Override
+        protected void meetBinaryTupleOperator(BinaryTupleOperator node) {
+            node.getLeftArg().visit(this);
+            updateMap(node.getLeftArg());
+            double leftArgCost = this.cardinality;
+            node.getRightArg().visit(this);
+            updateMap(node.getRightArg());
+            cardinality += leftArgCost;
+            updateMap(node);
         }
 
         @Override
@@ -219,6 +319,7 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
         	vars.remove(node.getCommonVar());
         	int constCount = countConstantVars(vars);
             cardinality = card*Math.pow(VAR_CARDINALITY*VAR_CARDINALITY, (double)(vars.size()-constCount)/vars.size());
+            updateMap(node);
         }
 
         public void meet(TupleFunctionCall node) {
@@ -235,6 +336,7 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 			}
 			// output cardinality tends to be independent of number of result vars
 			cardinality = TFC_COST_FACTOR * argCard * VAR_CARDINALITY;
+			updateMap(node);
 		}
 
         @Override
@@ -252,10 +354,22 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
             } else {
                 super.meet(node);
             }
+            updateMap(node);
         }
 
         protected void meetServiceExpr(TupleExpr remoteExpr, ExtendedEvaluationStatistics srvStats) {
-            cardinality = srvStats.getCardinalityInternal(remoteExpr, boundVars);
+        	if (mapToUpdate != null) {
+        		srvStats.updateCardinalityMapInternal(remoteExpr, boundVars, mapToUpdate);
+        		cardinality = mapToUpdate.get(remoteExpr);
+        	} else {
+        		cardinality = srvStats.getCardinalityInternal(remoteExpr, boundVars);
+        	}
+        }
+
+        protected void updateMap(TupleExpr node) {
+            if (mapToUpdate != null) {
+                mapToUpdate.put(node, cardinality);
+            }
         }
 	}
 }

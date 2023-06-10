@@ -1,13 +1,10 @@
-/*******************************************************************************
- * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Distribution License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/org/documents/edl-v10.php.
- *******************************************************************************/
 package com.msd.gin.halyard.optimizers;
 
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.algebra.Algebra;
+import com.msd.gin.halyard.algebra.NAryTupleOperator;
+import com.msd.gin.halyard.algebra.Parent;
+import com.msd.gin.halyard.algebra.StarJoin;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,12 +16,14 @@ import java.util.Set;
 
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
+import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
-import org.eclipse.rdf4j.query.algebra.Extension;
 import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.LeftJoin;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
+import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
+import org.eclipse.rdf4j.query.algebra.UnaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.ZeroLengthPath;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
@@ -33,13 +32,10 @@ import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
 
 /**
  * A query optimizer that re-orders nested Joins.
- *
- * @author Arjohn Kampman
- * @author James Leigh
  */
 public class QueryJoinOptimizer implements QueryOptimizer {
 
-	protected final ExtendedEvaluationStatistics statistics;
+	private final ExtendedEvaluationStatistics statistics;
 
 	public QueryJoinOptimizer(ExtendedEvaluationStatistics statistics) {
 		this.statistics = statistics;
@@ -54,16 +50,68 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 	 */
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-		tupleExpr.visit(new JoinVisitor(statistics));
+        tupleExpr.visit(new JoinVisitor());
 	}
 
-	protected static class JoinVisitor extends /*Halyard*/AbstractExtendedQueryModelVisitor<RuntimeException> {
 
-		private final ExtendedEvaluationStatistics statistics;
-		Set<String> boundVars = new HashSet<>();
+	protected class JoinVisitor extends /*Halyard*/AbstractExtendedQueryModelVisitor<RuntimeException> {
 
-		protected JoinVisitor(ExtendedEvaluationStatistics statistics) {
-			this.statistics = statistics;
+		protected Set<String> boundVars = new HashSet<>();
+		private boolean skipResultSizeEstimate = false;
+
+		protected void updateCardinalityMap(TupleExpr tupleExpr, Map<TupleExpr,Double> cardinalityMap) {
+			statistics.updateCardinalityMap(tupleExpr, boundVars, cardinalityMap);
+		}
+
+		private Map<TupleExpr,Double> getCardinalityMap(TupleExpr tupleExpr) {
+			Map<TupleExpr, Double> map = new HashMap<>();
+			updateCardinalityMap(tupleExpr, map);
+			return map;
+		}
+
+		private void setResultSizeEstimates(Map<TupleExpr,Double> cardinalityMap) {
+			if (!skipResultSizeEstimate) {
+				cardinalityMap.entrySet().stream().forEach(entry -> {
+					TupleExpr expr = entry.getKey();
+					double cardinality = entry.getValue();
+					expr.setResultSizeEstimate(cardinality);
+				});
+			}
+		}
+
+		private void setResultSizeEstimate(TupleExpr tupleExpr) {
+			if (!skipResultSizeEstimate) {
+				Map<TupleExpr,Double> cardinalityMap = getCardinalityMap(tupleExpr);
+				setResultSizeEstimates(cardinalityMap);
+			}
+		}
+
+		@Override
+		public void meet(StatementPattern node) {
+			setResultSizeEstimate(node);
+		}
+
+		@Override
+		public void meet(TripleRef node) {
+			setResultSizeEstimate(node);
+		}
+
+		@Override
+		protected void meetUnaryTupleOperator(UnaryTupleOperator node) {
+			super.meetUnaryTupleOperator(node);
+			setResultSizeEstimate(node);
+		}
+
+		@Override
+		protected void meetBinaryTupleOperator(BinaryTupleOperator node) {
+			super.meetBinaryTupleOperator(node);
+			setResultSizeEstimate(node);
+		}
+
+		@Override
+		protected void meetNAryTupleOperator(NAryTupleOperator node) {
+			super.meetNAryTupleOperator(node);
+			setResultSizeEstimate(node);
 		}
 
 		@Override
@@ -72,7 +120,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 
 			Set<String> origBoundVars = boundVars;
 			try {
-				boundVars = new HashSet<>(boundVars);
+				boundVars = new HashSet<>(origBoundVars);
 				boundVars.addAll(leftJoin.getLeftArg().getBindingNames());
 
 				leftJoin.getRightArg().visit(this);
@@ -81,13 +129,48 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			}
 		}
 
-		@Override
-		public void meet(StatementPattern node) throws RuntimeException {
-			node.setResultSizeEstimate(statistics.getCardinality(node, boundVars));
-		}
+        @Override
+        public void meet(StarJoin node) {
+        	List<? extends TupleExpr> sjArgs = node.getArgs();
+        	Parent parent = Parent.wrap(node);
+        	// replace the star join with a join tree.
+        	Join joins = (Join) Algebra.join(sjArgs);
+        	node.replaceWith(joins);
+        	// optimize the join order
+        	meet(joins);
+        	// re-attach in new order
+        	List<TupleExpr> orderedArgs = new ArrayList<>(sjArgs.size());
+    		parent.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {
+    			@Override
+    			public void meet(Join join) {
+    				TupleExpr left = join.getLeftArg();
+    				TupleExpr right = join.getRightArg();
+    				// joins should be right-recursive
+    				assert !(left instanceof Join);
+   					orderedArgs.add(left);
+   					if (!(right instanceof Join)) {
+   						// leaf join has both left and right
+   						orderedArgs.add(right);
+   					}
+   					right.visit(this);
+    			}
 
-		private void optimizePriorityJoin(Set<String> origBoundVars, TupleExpr join) {
+    			@Override
+    			public void meet(StatementPattern node) {
+    				// skip children
+    			}
 
+    			@Override
+    			public void meet(TripleRef node) {
+    				// skip children
+    			}
+			});
+        	node.setArgs(orderedArgs);
+        	parent.replaceWith(node);
+        }
+
+
+        private void optimizePriorityJoin(Set<String> origBoundVars, TupleExpr join) {
 			Set<String> saveBoundVars = boundVars;
 			try {
 				boundVars = new HashSet<>(origBoundVars);
@@ -99,7 +182,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 
 		@Override
 		public void meet(Join node) {
-
+			TupleExpr replacement;
 			Set<String> origBoundVars = boundVars;
 			try {
 				boundVars = new HashSet<>(origBoundVars);
@@ -129,15 +212,17 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 
 				// Build new join hierarchy
 				TupleExpr priorityJoins = null;
+				Set<String> priorityBounds = null;
 				if (!priorityArgs.isEmpty()) {
-					priorityJoins = priorityArgs.get(0);
+					priorityBounds = new HashSet<>();
+					TupleExpr expr = priorityArgs.get(0);
+					priorityBounds.addAll(expr.getBindingNames());
+					priorityJoins = expr;
 					for (int i = 1; i < priorityArgs.size(); i++) {
-						priorityJoins = new Join(priorityJoins, priorityArgs.get(i));
+						expr = priorityArgs.get(i);
+						priorityBounds.addAll(expr.getBindingNames());
+						priorityJoins = new Join(priorityJoins, expr);
 					}
-
-					// Halyard
-					// As these will be evaluated first, their bindings will be available for the remaining join args
-					boundVars.addAll(priorityJoins.getBindingNames());
 				}
 
 				// We order all remaining join arguments based on cardinality and
@@ -146,10 +231,8 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 					// Reorder the (recursive) join arguments to a more optimal sequence
 					List<TupleExpr> orderedJoinArgs = new ArrayList<>(joinArgs.size());
 
-					// Build maps of cardinalities and vars per tuple expression
-					Map<TupleExpr, Double> cardinalityMap = new HashMap<>();
+					// Build map of vars per tuple expression
 					Map<TupleExpr, List<Var>> varsMap = new HashMap<>();
-
 					for (TupleExpr tupleExpr : joinArgs) {
 						if (tupleExpr instanceof Join) {
 							// we can skip calculating the cardinality for instances of Join since we will anyway "meet"
@@ -157,9 +240,6 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 							continue;
 						}
 
-						double cardinality = statistics.getCardinality(tupleExpr, boundVars);
-						tupleExpr.setResultSizeEstimate(cardinality);
-						cardinalityMap.put(tupleExpr, cardinality);
 						if (tupleExpr instanceof ZeroLengthPath) {
 							varsMap.put(tupleExpr, ((ZeroLengthPath) tupleExpr).getVarList());
 						} else {
@@ -173,26 +253,28 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 						fillVarFreqMap(varList, varFreqMap);
 					}
 
+					if (priorityBounds != null) {
+						boundVars.addAll(priorityBounds);
+					}
 					// order all other join arguments based on available statistics
 					while (!joinArgs.isEmpty()) {
-						TupleExpr tupleExpr = selectNextTupleExpr(joinArgs, cardinalityMap, varsMap, varFreqMap,
-								boundVars);
+						TupleExpr[] oldNewExpr = selectNextTupleExpr(joinArgs, varsMap, varFreqMap);
+						TupleExpr oldExpr = oldNewExpr[0];
+						TupleExpr newExpr = oldNewExpr[1];
+						joinArgs.remove(oldExpr);
+						orderedJoinArgs.add(newExpr);
 
-						joinArgs.remove(tupleExpr);
-						orderedJoinArgs.add(tupleExpr);
-
-						boundVars.addAll(tupleExpr.getBindingNames());
+						boundVars.addAll(newExpr.getBindingNames());
 					}
 
 					// Note: generated hierarchy is right-recursive to help the
 					// IterativeEvaluationOptimizer to factor out the left-most join
 					// argument
 					int i = orderedJoinArgs.size() - 1;
-					TupleExpr replacement = orderedJoinArgs.get(i);
+					replacement = orderedJoinArgs.get(i);
 					for (i--; i >= 0; i--) {
 						TupleExpr arg = orderedJoinArgs.get(i);
 						Join join = new Join(arg, replacement);
-						join.setResultSizeEstimate(arg.getResultSizeEstimate() * replacement.getResultSizeEstimate());
 						replacement = join;
 					}
 
@@ -209,32 +291,31 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 					if (priorityJoins != null) {
 						optimizePriorityJoin(origBoundVars, priorityJoins);
 					}
-
 				} else {
 					// only subselect/priority joins involved in this query.
-					node.replaceWith(priorityJoins);
+					replacement = priorityJoins;
+					node.replaceWith(replacement);
 				}
+
+				setResultSizeEstimate(replacement);
 			} finally {
 				boundVars = origBoundVars;
 			}
 		}
 
-		protected <L extends List<TupleExpr>> L getJoinArgs(TupleExpr tupleExpr, L joinArgs) {
+		private <L extends List<TupleExpr>> L getJoinArgs(TupleExpr tupleExpr, L joinArgs) {
 			if (tupleExpr instanceof Join) {
 				Join join = (Join) tupleExpr;
 				getJoinArgs(join.getLeftArg(), joinArgs);
 				getJoinArgs(join.getRightArg(), joinArgs);
 			} else {
-				// Halyard
-				// Recursively optimize join arguments
-				tupleExpr.visit(this);
 				joinArgs.add(tupleExpr);
 			}
 
 			return joinArgs;
 		}
 
-		protected List<Var> getStatementPatternVars(TupleExpr tupleExpr) {
+		private List<Var> getStatementPatternVars(TupleExpr tupleExpr) {
 			if (tupleExpr instanceof StatementPattern) {
 				return ((StatementPattern) tupleExpr).getVarList();
 			}
@@ -246,7 +327,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			return new StatementPatternVarCollector(tupleExpr).getVars();
 		}
 
-		protected <M extends Map<Var, Integer>> void fillVarFreqMap(List<Var> varList, M varFreqMap) {
+		private <M extends Map<Var, Integer>> void fillVarFreqMap(List<Var> varList, M varFreqMap) {
 			if (varList.isEmpty()) {
 				return;
 			}
@@ -259,16 +340,6 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 					return v + 1;
 				});
 			}
-		}
-
-		protected List<Extension> getExtensions(List<TupleExpr> expressions) {
-			List<Extension> extensions = new ArrayList<>();
-			for (TupleExpr expr : expressions) {
-				if (expr instanceof Extension) {
-					extensions.add((Extension) expr);
-				}
-			}
-			return extensions;
 		}
 
 		private List<TupleExpr> getExtensionTupleExprs(List<TupleExpr> expressions) {
@@ -291,7 +362,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			return extensions;
 		}
 
-		protected List<TupleExpr> getSubSelects(List<TupleExpr> expressions) {
+		private List<TupleExpr> getSubSelects(List<TupleExpr> expressions) {
 			if (expressions.isEmpty())
 				return List.of();
 
@@ -332,7 +403,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 		 * @param subSelects the original ordering of expressions
 		 * @return the optimized ordering of expressions
 		 */
-		protected List<TupleExpr> reorderSubselects(List<TupleExpr> subSelects) {
+		private List<TupleExpr> reorderSubselects(List<TupleExpr> subSelects) {
 
 			if (subSelects.size() == 1) {
 				return subSelects;
@@ -453,65 +524,92 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 		 * selects the tuple expression with highest number of bound variables, preferring variables that have been
 		 * bound in other tuple expressions over variables with a fixed value.
 		 * @param expressions expressions to order
-		 * @param cardinalityMap cardinalities of the expressions
 		 * @param varsMap vars used by the expressions
 		 * @param varFreqMap var frequency
-		 * @param boundVars vars that are bound
-		 * @return the next expression that should be evaluated
+		 * @return the next expression (original and new form) that should be evaluated
 		 */
-		protected TupleExpr selectNextTupleExpr(List<TupleExpr> expressions, Map<TupleExpr, Double> cardinalityMap,
-				Map<TupleExpr, List<Var>> varsMap, Map<Var, Integer> varFreqMap, Set<String> boundVars) {
+		private TupleExpr[] selectNextTupleExpr(List<TupleExpr> expressions,
+				Map<TupleExpr, List<Var>> varsMap, Map<Var, Integer> varFreqMap) {
 			if (expressions.size() == 1) {
 				TupleExpr tupleExpr = expressions.get(0);
-				if (tupleExpr.getCostEstimate() < 0.0) {
-					tupleExpr.setCostEstimate(getTupleExprCost(tupleExpr, cardinalityMap, varsMap, varFreqMap, boundVars));
-				}
-				return tupleExpr;
+				TupleExpr optimizedExpr = optimizeTupleExpr(tupleExpr);
+				Map<TupleExpr,Double> cardinalityMap = getCardinalityMap(optimizedExpr);
+				double cardinality = cardinalityMap.get(optimizedExpr);
+				setResultSizeEstimates(cardinalityMap);
+				optimizedExpr.setCostEstimate(getTupleExprCost(tupleExpr, optimizedExpr, cardinality, varsMap, varFreqMap));
+				return new TupleExpr[] {tupleExpr, optimizedExpr};
 			}
 
-			TupleExpr result = null;
+			TupleExpr resultNew = null;
+			TupleExpr resultOld = null;
+			Map<TupleExpr,Double> resultCardinalityMap = null;
 			double lowestCost = Double.POSITIVE_INFINITY;
 
 			for (TupleExpr tupleExpr : expressions) {
+				// optimize the TupleExpr given the current bounds
+				TupleExpr optimizedExpr = optimizeTupleExpr(tupleExpr);
 				// Calculate a score for this tuple expression
-				double cost = getTupleExprCost(tupleExpr, cardinalityMap, varsMap, varFreqMap,
-						boundVars);
+				Map<TupleExpr,Double> cardinalityMap = getCardinalityMap(optimizedExpr);
+				double cardinality = cardinalityMap.get(optimizedExpr);
+				double cost = getTupleExprCost(tupleExpr, optimizedExpr, cardinality, varsMap, varFreqMap);
 
-				if (cost < lowestCost || result == null) {
+				if (cost < lowestCost || resultNew == null) {
 					// More specific path expression found
 					lowestCost = cost;
-					result = tupleExpr;
-					if (cost == 0.0)
+					resultNew = optimizedExpr;
+					resultOld = tupleExpr;
+					resultCardinalityMap = cardinalityMap;
+					if (cost == 0.0) {
 						break;
+					}
 				}
 			}
 
-			assert result != null;
-			result.setCostEstimate(lowestCost);
+			assert resultNew != null;
+			setResultSizeEstimates(resultCardinalityMap);
+			resultNew.setCostEstimate(lowestCost);
 
-			return result;
+			return new TupleExpr[] {resultOld, resultNew};
 		}
 
-		protected double getTupleExprCost(TupleExpr tupleExpr, Map<TupleExpr, Double> cardinalityMap,
-				Map<TupleExpr, List<Var>> varsMap, Map<Var, Integer> varFreqMap, Set<String> boundVars) {
+		private TupleExpr optimizeTupleExpr(TupleExpr tupleExpr) {
+			if (Algebra.isTupleOperator(tupleExpr)) {
+				boolean currentSkipResultSizeEstimate = skipResultSizeEstimate;
+				// trial optimization so don't store any result size estimates
+				skipResultSizeEstimate = true;
+				try {
+					Parent parent = Parent.wrap(tupleExpr);
+					tupleExpr.visit(this);
+					return Parent.unwrap(parent);
+				} finally {
+					skipResultSizeEstimate = currentSkipResultSizeEstimate;
+				}
+			} else {
+				return tupleExpr;
+			}
+		}
+
+		private double getTupleExprCost(TupleExpr tupleExpr, TupleExpr optimizedExpr, double cardinality,
+				Map<TupleExpr, List<Var>> varsMap, Map<Var, Integer> varFreqMap) {
 
 			// BindingSetAssignment has a typical constant cost. This cost is not based on statistics so is much more
 			// reliable. If the BindingSetAssignment binds to any of the other variables in the other tuple expressions
 			// to choose from, then the cost of the BindingSetAssignment should be set to 0 since it will always limit
 			// the upper bound of any other costs. This way the BindingSetAssignment will be chosen as the left
 			// argument.
-			if (tupleExpr instanceof BindingSetAssignment) {
+			if (optimizedExpr instanceof BindingSetAssignment) {
 
 				Set<Var> varsUsedInOtherExpressions = varFreqMap.keySet();
 
-				for (String assuredBindingName : tupleExpr.getAssuredBindingNames()) {
+				for (String assuredBindingName : optimizedExpr.getAssuredBindingNames()) {
 					if (varsUsedInOtherExpressions.contains(new Var(assuredBindingName))) {
 						return 0.0;
 					}
 				}
+				return 1.0;
 			}
 
-			double cost = cardinalityMap.get(tupleExpr);
+			double cost = cardinality;
 
 			List<Var> vars = varsMap.get(tupleExpr);
 
@@ -554,7 +652,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			return size;
 		}
 
-		protected List<Var> getUnboundVars(List<Var> vars) {
+		private List<Var> getUnboundVars(List<Var> vars) {
 			int size = vars.size();
 			if (size == 0) {
 				return List.of();
@@ -586,7 +684,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			return ret != null ? ret : Collections.emptyList();
 		}
 
-		protected int getForeignVarFreq(List<Var> ownUnboundVars, Map<Var, Integer> varFreqMap) {
+		private int getForeignVarFreq(List<Var> ownUnboundVars, Map<Var, Integer> varFreqMap) {
 			if (ownUnboundVars.isEmpty()) {
 				return 0;
 			}
@@ -601,44 +699,6 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 
 			}
 		}
-
-		private static class StatementPatternVarCollector extends StatementPatternVisitor {
-
-			private final TupleExpr tupleExpr;
-			private List<Var> vars;
-
-			public StatementPatternVarCollector(TupleExpr tupleExpr) {
-				this.tupleExpr = tupleExpr;
-			}
-
-			@Override
-			protected void accept(StatementPattern node) {
-				if (vars == null) {
-					vars = new ArrayList<>(node.getVarList());
-				} else {
-					vars.addAll(node.getVarList());
-				}
-			}
-
-			public List<Var> getVars() {
-				if (vars == null) {
-					try {
-						tupleExpr.visit(this);
-					} catch (Exception e) {
-						if (e instanceof InterruptedException) {
-							Thread.currentThread().interrupt();
-						}
-						throw new IllegalStateException(e);
-					}
-					if (vars == null) {
-						vars = Collections.emptyList();
-					}
-				}
-
-				return vars;
-			}
-		}
-
 	}
 
 	private static int getUnionSize(Set<String> currentListNames, Set<String> candidateBindingNames) {
@@ -659,5 +719,43 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			}
 		}
 		return count;
+	}
+
+
+	private static class StatementPatternVarCollector extends StatementPatternVisitor {
+
+		private final TupleExpr tupleExpr;
+		private List<Var> vars;
+
+		public StatementPatternVarCollector(TupleExpr tupleExpr) {
+			this.tupleExpr = tupleExpr;
+		}
+
+		@Override
+		protected void accept(StatementPattern node) {
+			if (vars == null) {
+				vars = new ArrayList<>(node.getVarList());
+			} else {
+				vars.addAll(node.getVarList());
+			}
+		}
+
+		public List<Var> getVars() {
+			if (vars == null) {
+				try {
+					tupleExpr.visit(this);
+				} catch (Exception e) {
+					if (e instanceof InterruptedException) {
+						Thread.currentThread().interrupt();
+					}
+					throw new IllegalStateException(e);
+				}
+				if (vars == null) {
+					vars = Collections.emptyList();
+				}
+			}
+
+			return vars;
+		}
 	}
 }

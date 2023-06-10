@@ -72,7 +72,7 @@ public class HalyardEvaluationStatisticsTest {
             {"select * where {?a ?b ?c}",           S*P*O/PRI, null, new String[]{"a"}},
             {"select * where {?a ?b ?c}",           S*P*O/PRI/PRI, null, new String[]{"a", "b"}},
             {"select * where {?s ?p ?o filter(?o != 1)}", S*P*O*CF, null, null},
-            {"select * where {values ?s {1 2 3}}", 1.0, null, null},
+            {"select * where {values ?s {1 2 3}}", 3.0, null, null},
             {"select * where {}", 1.0, null, null},
             {"select * where {service <http://remote> {?s ?p ?o}}", 103.0, null, null},
             {"select * where {?s <:p>* ?o}", 2*S*P*O, null, null},

@@ -13,6 +13,8 @@ public abstract class AbstractDataLiteral implements Literal {
 
 	private static final long serialVersionUID = -2534995635642004751L;
 
+	private int hashCode;
+
 	@Override
 	public final String stringValue() {
 		return getLabel();
@@ -75,7 +77,11 @@ public abstract class AbstractDataLiteral implements Literal {
 
 	@Override
 	public final int hashCode() {
-		return getLabel().hashCode();
+		// since converting to a label can be quite expensive for these types of literals, we cache the hash code.
+		if (hashCode == 0) {
+			hashCode = getLabel().hashCode();
+		}
+		return hashCode;
 	}
 
 	@Override

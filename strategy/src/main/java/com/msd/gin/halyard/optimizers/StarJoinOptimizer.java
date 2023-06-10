@@ -21,6 +21,7 @@ import com.google.common.collect.ListMultimap;
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.BGPCollector;
+import com.msd.gin.halyard.algebra.Parent;
 import com.msd.gin.halyard.algebra.StarJoin;
 
 import java.util.ArrayList;
@@ -33,10 +34,8 @@ import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.Join;
-import org.eclipse.rdf4j.query.algebra.QueryModelVisitor;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
-import org.eclipse.rdf4j.query.algebra.UnaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 
@@ -102,37 +101,6 @@ public class StarJoinOptimizer implements QueryOptimizer {
 			} else {
 				parent.replaceWith(parent.getArg());
 			}
-		}
-	}
-
-	static final class Parent extends UnaryTupleOperator {
-		private static final long serialVersionUID = 1620947330539139269L;
-
-		static Parent wrap(TupleExpr node) {
-			Parent parent = new Parent();
-			node.replaceWith(parent);
-			parent.setArg(node);
-			return parent;
-		}
-
-		@Override
-		public <X extends Exception> void visit(QueryModelVisitor<X> visitor) throws X {
-			visitor.meetOther(this);
-		}
-
-		@Override
-		public boolean equals(Object other) {
-			return other instanceof Parent && super.equals(other);
-		}
-
-		@Override
-		public int hashCode() {
-			return super.hashCode() ^ "Parent".hashCode();
-		}
-
-		@Override
-		public Parent clone() {
-			return (Parent) super.clone();
 		}
 	}
 }

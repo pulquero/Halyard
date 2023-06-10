@@ -16,7 +16,6 @@
  */
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.algebra.StarJoin;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 
 import java.io.IOException;
@@ -28,20 +27,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.algebra.ArbitraryLengthPath;
-import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
-import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
-import org.eclipse.rdf4j.query.algebra.EmptySet;
-import org.eclipse.rdf4j.query.algebra.Filter;
-import org.eclipse.rdf4j.query.algebra.Service;
-import org.eclipse.rdf4j.query.algebra.SingletonSet;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
-import org.eclipse.rdf4j.query.algebra.TupleFunctionCall;
-import org.eclipse.rdf4j.query.algebra.UnaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.Var;
-import org.eclipse.rdf4j.query.algebra.ZeroLengthPath;
 
 /**
  * Must be thread-safe.
@@ -50,14 +39,16 @@ import org.eclipse.rdf4j.query.algebra.ZeroLengthPath;
 public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatistics {
 	static final double PRIORITY_VAR_FACTOR = 1000000.0;
 
-    public HalyardEvaluationStatistics(@Nonnull StatementPatternCardinalityCalculator.Factory spcalcFactory, @Nullable ServiceStatisticsProvider srvStatsProvider) {
-        super(spcalcFactory, srvStatsProvider);
-    }
-
+	public HalyardEvaluationStatistics(@Nonnull StatementPatternCardinalityCalculator.Factory spcalcFactory, @Nullable ServiceStatisticsProvider srvStatsProvider) {
+	    super(spcalcFactory, srvStatsProvider);
+	}
+	
 	public void updateCardinalityMap(TupleExpr expr, Set<String> boundVars, Set<String> priorityVars, Map<TupleExpr, Double> mapToUpdate) {
 		ExtendedEvaluationStatistics stats = getStatisticsFor(expr);
 		if (stats instanceof HalyardEvaluationStatistics) {
 			((HalyardEvaluationStatistics)stats).updateCardinalityMapInternal(expr, boundVars, priorityVars, mapToUpdate);
+		} else {
+			stats.updateCardinalityMapInternal(expr, boundVars, mapToUpdate);
 		}
 	}
 
@@ -98,13 +89,16 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
     private static class HalyardCardinalityCalculator extends ExtendedCardinalityCalculator {
 
         private final Set<String> priorityVariables;
-        private final Map<TupleExpr, Double> mapToUpdate;
 
         HalyardCardinalityCalculator(@Nonnull StatementPatternCardinalityCalculator spcalc, ServiceStatisticsProvider srvStatsProvider, Set<String> boundVariables, Set<String> priorityVariables, @Nullable Map<TupleExpr, Double> mapToUpdate) {
-        	super(spcalc, srvStatsProvider, boundVariables);
+        	super(spcalc, srvStatsProvider, boundVariables, mapToUpdate);
             this.priorityVariables = priorityVariables;
-            this.mapToUpdate = mapToUpdate;
         }
+
+		@Override
+		protected ExtendedCardinalityCalculator newCardinalityCalculator(Set<String> newBoundVars) {
+			return new HalyardCardinalityCalculator(spcalc, srvStatsProvider, newBoundVars, priorityVariables, mapToUpdate);
+		}
 
         @Override
         protected double getCardinality(StatementPattern sp) {
@@ -136,109 +130,6 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
         }
 
         @Override
-        protected void meetJoin(BinaryTupleOperator node) {
-        	super.meetJoin(node);
-            updateMap(node);
-        }
-
-        @Override
-        protected void meetJoinLeft(TupleExpr left) {
-        	super.meetJoinLeft(left);
-        	updateMap(left);
-        }
-
-        @Override
-        protected void meetJoinRight(TupleExpr right, Set<String> newBoundVars) {
-            HalyardCardinalityCalculator newCalc = new HalyardCardinalityCalculator(spcalc, srvStatsProvider, newBoundVars, priorityVariables, mapToUpdate);
-            right.visit(newCalc);
-            cardinality = newCalc.cardinality;
-            updateMap(right);
-        }
-
-        @Override
-        protected void meetBinaryTupleOperator(BinaryTupleOperator node) {
-            node.getLeftArg().visit(this);
-            updateMap(node.getLeftArg());
-            double leftArgCost = this.cardinality;
-            node.getRightArg().visit(this);
-            updateMap(node.getRightArg());
-            cardinality += leftArgCost;
-            updateMap(node);
-        }
-
-        @Override
-        public void meet(Filter node) {
-        	super.meet(node);
-            updateMap(node);
-        }
-
-        @Override
-        protected void meetUnaryTupleOperator(UnaryTupleOperator node) {
-            super.meetUnaryTupleOperator(node);
-            updateMap(node);
-        }
-
-        @Override
-        public void meet(StatementPattern sp) {
-            super.meet(sp);
-            updateMap(sp);
-        }
-
-        @Override
-        public void meet(TripleRef node) {
-            super.meet(node);
-            updateMap(node);
-        }
-
-        @Override
-        public void meet(ArbitraryLengthPath node) {
-            super.meet(node);
-            updateMap(node);
-        }
-
-        @Override
-        public void meet(ZeroLengthPath node) {
-            super.meet(node);
-            updateMap(node);
-        }
-
-        @Override
-        public void meet(BindingSetAssignment node) {
-            super.meet(node);
-            updateMap(node);
-        }
-
-        @Override
-        public void meet(EmptySet node) {
-            super.meet(node);
-            updateMap(node);
-        }
-
-        @Override
-        public void meet(SingletonSet node) {
-            super.meet(node);
-            updateMap(node);
-        }
-
-        @Override
-        public void meet(StarJoin node) {
-        	super.meet(node);
-        	updateMap(node);
-        }
-
-        @Override
-        public void meet(TupleFunctionCall node) {
-        	super.meet(node);
-			updateMap(node);
-		}
-
-        @Override
-        public void meet(Service node) {
-        	super.meet(node);
-            updateMap(node);
-        }
-
-        @Override
         protected void meetServiceExpr(TupleExpr remoteExpr, ExtendedEvaluationStatistics srvStats) {
         	if (srvStats instanceof HalyardEvaluationStatistics) {
 	            if (mapToUpdate != null) {
@@ -250,12 +141,6 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
         	} else {
         		super.meetServiceExpr(remoteExpr, srvStats);
         	}
-        }
-
-        private void updateMap(TupleExpr node) {
-            if (mapToUpdate != null) {
-                mapToUpdate.put(node, cardinality);
-            }
         }
     }
 }

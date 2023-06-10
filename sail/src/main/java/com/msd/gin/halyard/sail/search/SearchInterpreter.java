@@ -7,6 +7,7 @@ import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.common.InternalObjectLiteral;
 import com.msd.gin.halyard.vocab.HALYARD;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -157,7 +158,7 @@ public class SearchInterpreter implements QueryOptimizer {
 		}
 	}
 
-	static final class SearchParams {
+	static final class SearchParams implements Serializable {
 		Var queryVar;
 		Var limitVar;
 		Var minScoreVar;
@@ -213,7 +214,7 @@ public class SearchInterpreter implements QueryOptimizer {
 		}
 
 
-		static final class MatchParams {
+		static final class MatchParams implements Serializable {
 			final Var matchVar;
 			final List<Var> valueVars = new ArrayList<>(1);
 			final List<Var> scoreVars = new ArrayList<>(1);

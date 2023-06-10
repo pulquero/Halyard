@@ -31,6 +31,10 @@ public final class Algebra {
 		return (tupleExpr instanceof SingletonSet);
 	}
 
+	public static boolean isTupleOperator(TupleExpr tupleExpr) {
+		return (tupleExpr instanceof UnaryTupleOperator) || isBranchTupleOperator(tupleExpr);
+	}
+
 	public static boolean isBranchTupleOperator(TupleExpr tupleExpr) {
 		return (tupleExpr instanceof BinaryTupleOperator) || (tupleExpr instanceof NAryTupleOperator);
 	}
