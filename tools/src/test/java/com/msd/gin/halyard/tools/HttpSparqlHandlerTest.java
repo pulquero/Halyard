@@ -658,6 +658,17 @@ public class HttpSparqlHandlerTest {
     }
 
     @Test
+    public void testServiceDescription() throws IOException {
+        String GET_URL = SERVER_URL;
+        URL url = new URL(GET_URL);
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.setRequestMethod("GET");
+        urlConnection.setRequestProperty("Accept", TURTLE_CONTENT);
+        assertEquals(HttpURLConnection.HTTP_OK, urlConnection.getResponseCode());
+        assertEquals(TURTLE_CONTENT + CHARSET_SUFFIX, urlConnection.getContentType());
+    }
+
+    @Test
     public void testHealth() throws IOException {
         URL url = new URL(SERVER_URL + "/_health");
         HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();

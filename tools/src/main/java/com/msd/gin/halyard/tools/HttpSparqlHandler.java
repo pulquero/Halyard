@@ -113,6 +113,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     private static final String CHARSET = StandardCharsets.UTF_8.name();
     private static final ValueFactory SVF = SimpleValueFactory.getInstance();
     private static final Pattern UNRESOLVED_PARAMETERS = Pattern.compile("\\{\\{(\\w+)\\}\\}");
+    private static final String SERVICE_DESCRIPTION_QUERY = "PREFIX halyard: <http://merck.github.io/Halyard/ns#> CONSTRUCT {?s ?p ?o} WHERE { GRAPH halyard:statsContext {?s ?p ?o}}";
 
 
     // Query parameter prefixes
@@ -148,7 +149,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         this.writerConfig = new WriterConfig();
         if (writerProperties != null) {
             for (Map.Entry<Object, Object> me : writerProperties.entrySet()) {
-                writerConfig.set((RioSetting) getStaticField(me.getKey().toString()), getStaticField(me.getValue().toString()));
+                writerConfig.set((RioSetting<Object>) getStaticField(me.getKey().toString()), getStaticField(me.getValue().toString()));
             }
         }
         this.stopAction = stopAction;
@@ -240,6 +241,12 @@ public final class HttpSparqlHandler implements HttpHandler {
             sparqlQuery.setQuery(query);
         }
         if ("GET".equalsIgnoreCase(requestMethod)) {
+            try (InputStream requestBody = exchange.getRequestBody()) {
+                if (requestBody.available() > 0) {
+                    throw new IllegalArgumentException("Request via GET must not include a message body");
+                }
+            }
+
             // Retrieve from the request URI parameter query and optional parameters defaultGraphs and namedGraphs
             // Cannot apply directly exchange.getRequestURI().getQuery() since getQuery() method
             // automatically decodes query (requestQuery must remain unencoded due to parsing by '&' delimiter)
@@ -249,17 +256,14 @@ public final class HttpSparqlHandler implements HttpHandler {
                 while (stk.hasMoreTokens()) {
                     parseQueryParameter(stk.nextToken(), sparqlQuery);
                 }
-            }
 
-            String query = sparqlQuery.getQuery();
-            if (query == null || query.isEmpty()) {
-                throw new IllegalArgumentException("Missing parameter: query");
-            }
-
-            try (InputStream requestBody = exchange.getRequestBody()) {
-                if (requestBody.available() > 0) {
-                    throw new IllegalArgumentException("Request via GET must not include a message body");
+                String query = sparqlQuery.getQuery();
+                if (query == null || query.isEmpty()) {
+                    throw new IllegalArgumentException("Missing parameter: query");
                 }
+            } else {
+            	// service description
+            	sparqlQuery.setQuery(SERVICE_DESCRIPTION_QUERY);
             }
         } else if ("POST".equalsIgnoreCase(requestMethod)) {
             Headers headers = exchange.getRequestHeaders();
