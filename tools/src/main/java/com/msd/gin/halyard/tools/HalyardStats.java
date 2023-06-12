@@ -497,6 +497,7 @@ public final class HalyardStats extends AbstractHalyardTool {
     static final class StatsReducer extends RdfReducer<ImmutableBytesWritable, LongWritable, NullWritable, NullWritable> {
         private static final long STATUS_UPDATE_INTERVAL = 1000L;
 
+        final Map<IRI,IRI> partitionPredicates = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionPredicateMapping();
         OutputStream out;
         RDFWriter writer;
         IRI statsGraphContext;
@@ -504,7 +505,6 @@ public final class HalyardStats extends AbstractHalyardTool {
         HBaseSail sail;
 		HBaseSailConnection conn;
         long removed = 0, added = 0;
-        Map<IRI,IRI> partitionPredicates;
         HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer partitionIriTransformer;
         IRI datePredicate;
 
@@ -512,10 +512,6 @@ public final class HalyardStats extends AbstractHalyardTool {
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
-            partitionPredicates = new HashMap<>();
-            partitionPredicates.put(VOID_EXT.SUBJECT, VOID_EXT.SUBJECT_PARTITION);
-            partitionPredicates.put(VOID.PROPERTY, VOID.PROPERTY_PARTITION);
-            partitionPredicates.put(VOID_EXT.OBJECT, VOID_EXT.OBJECT_PARTITION);
             partitionIriTransformer = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIriTransformer(rdfFactory);
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
             statsGraphContext = vf.createIRI(conf.get(STATS_GRAPH));

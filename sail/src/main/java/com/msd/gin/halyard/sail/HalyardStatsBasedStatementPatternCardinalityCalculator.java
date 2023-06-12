@@ -50,7 +50,9 @@ import org.slf4j.LoggerFactory;
  */
 public final class HalyardStatsBasedStatementPatternCardinalityCalculator extends SimpleStatementPatternCardinalityCalculator {
 	private static final Logger LOG = LoggerFactory.getLogger(HalyardStatsBasedStatementPatternCardinalityCalculator.class);
+	private static final long AVERAGING_LIMIT = 100;
 	private static final Map<IRI, IRI> DISTINCT_PREDICATES = createDistinctPredicateMapping();
+	private static final Map<IRI, IRI> PARTITION_PREDICATES = createPartitionPredicateMapping();
 	private static final Map<IRI, IRI> PARTITION_THRESHOLD_PREDICATES = createPartitionThresholdPredicateMapping();
 
 	private static Map<IRI, IRI> createDistinctPredicateMapping() {
@@ -58,6 +60,14 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		mapping.put(VOID_EXT.SUBJECT, VOID.DISTINCT_SUBJECTS);
 		mapping.put(VOID.PROPERTY, VOID.PROPERTIES);
 		mapping.put(VOID_EXT.OBJECT, VOID.DISTINCT_OBJECTS);
+		return Collections.unmodifiableMap(mapping);
+	}
+
+	public static Map<IRI, IRI> createPartitionPredicateMapping() {
+		Map<IRI, IRI> mapping = new HashMap<>();
+		mapping.put(VOID_EXT.SUBJECT, VOID_EXT.SUBJECT_PARTITION);
+		mapping.put(VOID.PROPERTY, VOID.PROPERTY_PARTITION);
+		mapping.put(VOID_EXT.OBJECT, VOID_EXT.OBJECT_PARTITION);
 		return Collections.unmodifiableMap(mapping);
 	}
 
@@ -101,13 +111,13 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		};
 	}
 
-	private final CloseableTripleSource statsSource;
-	private final PartitionIriTransformer partitionIriTransformer;
-	private final Cache<Pair<IRI, IRI>, Long> stmtCountCache;
-
 	static Cache<Pair<IRI, IRI>, Long> newStatisticsCache() {
 		return Caffeine.newBuilder().maximumSize(100).expireAfterWrite(1L, TimeUnit.DAYS).build();
 	}
+
+	private final CloseableTripleSource statsSource;
+	private final PartitionIriTransformer partitionIriTransformer;
+	private final Cache<Pair<IRI, IRI>, Long> stmtCountCache;
 
 	public HalyardStatsBasedStatementPatternCardinalityCalculator(CloseableTripleSource statsSource, RDFFactory rdfFactory, Cache<Pair<IRI, IRI>, Long> stmtCountCache) {
 		this(statsSource, createPartitionIriTransformer(rdfFactory), stmtCountCache);
@@ -200,9 +210,9 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 
 	private long getValue(IRI subjectNode, IRI countPredicate, long defaultValue) {
 		try {
-			Long count = stmtCountCache.get(Pair.of(subjectNode, countPredicate), sp -> {
-				IRI statsNode = sp.getLeft();
-				IRI statsPred = sp.getRight();
+			Long count = stmtCountCache.get(Pair.of(subjectNode, countPredicate), subjPred -> {
+				IRI statsNode = subjPred.getLeft();
+				IRI statsPred = subjPred.getRight();
 				try (CloseableIteration<? extends Statement, QueryEvaluationException> ci = statsSource.getStatements(statsNode, statsPred, null, HALYARD.STATS_GRAPH_CONTEXT)) {
 					if (ci.hasNext()) {
 						Value v = ci.next().getObject();
@@ -239,9 +249,30 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		} else {
 			long distinctCount = getValue(graph, DISTINCT_PREDICATES.get(partitionType), -1L);
 			if (distinctCount != -1L) {
-				// average cardinality for partitionType
-				return (double) totalTriples / (double) distinctCount;
+				double estimate = 0.0;
+				if (distinctCount <= AVERAGING_LIMIT) {
+					// assume the bigger the partition, the more likely it is to be used
+					// sum x^2 / sum x
+					long sumxx = 0L;
+					long sumx = 0L;
+					try (CloseableIteration<? extends Statement, QueryEvaluationException> iter = statsSource.getStatements(graph, PARTITION_PREDICATES.get(partitionType), null, HALYARD.STATS_GRAPH_CONTEXT)) {
+						while (iter.hasNext()) {
+							Statement stmt = iter.next();
+							long count = getTriplesCount((IRI) stmt.getObject(), defaultCardinality);
+							sumxx += count * count;
+							sumx += count;
+						}
+					}
+					long threshold = getValue(HALYARD.STATS_ROOT_NODE, PARTITION_THRESHOLD_PREDICATES.get(partitionType), 0);
+					estimate = (sumx > 0) ? (double) (sumxx + (totalTriples - sumx) * threshold) / (double) totalTriples : 0.0;
+				}
+				if (estimate == 0.0) {
+					// average cardinality for partitionType
+					estimate = (double) totalTriples / (double) distinctCount;
+				}
+				return estimate;
 			} else {
+				// if there are no stats then assume the triple count is below the threshold
 				return getValue(HALYARD.STATS_ROOT_NODE, PARTITION_THRESHOLD_PREDICATES.get(partitionType), defaultCardinality);
 			}
 		}
