@@ -33,6 +33,10 @@
 					<groupId>ch.qos.logback</groupId>
 					<artifactId>logback-classic</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>ch.qos.logback</groupId>
+					<artifactId>logback-core</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<dependency>
@@ -72,14 +76,14 @@
 									<artifactId>rdf4j-http-server</artifactId>
 									<version>${rdf4j.version}</version>
 									<type>war</type>
-									<destFileName>rdf4j-server.war</destFileName>
+									<destFileName>rdf4j-server-original.war</destFileName>
 								</artifactItem>
 								<artifactItem>
 									<groupId>org.eclipse.rdf4j</groupId>
 									<artifactId>rdf4j-http-workbench</artifactId>
 									<version>${rdf4j.version}</version>
 									<type>war</type>
-									<destFileName>rdf4j-workbench.war</destFileName>
+									<destFileName>rdf4j-workbench-original.war</destFileName>
 								</artifactItem>
 							</artifactItems>
 							<outputDirectory>${project.build.directory}</outputDirectory>
@@ -238,8 +242,9 @@
 						<phase>package</phase>
 						<configuration>
 							<target>
-								<unzip src="${project.build.directory}/rdf4j-server.war" dest="${project.build.directory}/rdf4j-server-patch" overwrite="true">
+								<unzip src="${project.build.directory}/rdf4j-server-original.war" dest="${project.build.directory}/rdf4j-server-patch" overwrite="true">
 									<patternset>
+										<exclude name="WEB-INF/lib/rdf4j-repository-api-${rdf4j.version}.jar" />
 										<exclude name="WEB-INF/lib/rdf4j-spin-${rdf4j.version}.jar" />
 										<!-- exclude unused SAILs -->
 										<exclude name="WEB-INF/lib/lucene-*.jar" />
@@ -251,21 +256,26 @@
 								<zip destfile="${project.build.directory}/rdf4j-server-patch/WEB-INF/lib/rdf4j-http-server-spring-${rdf4j.version}.jar" update="true">
 									<fileset dir="${project.build.directory}/classes" includes="org/eclipse/rdf4j/common/webapp/**" />
 								</zip>
-								<zip destfile="${project.build.directory}/rdf4j-server.war">
-									<fileset dir="${project.build.directory}/rdf4j-server-patch" />
+								<copy todir="${project.build.directory}/rdf4j-server-patch" overwrite="true">
 									<fileset dir="src/main/patches/rdf4j-server" />
-									<zipfileset dir="${project.build.directory}" includes="halyard-webapps-${project.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="../common/target" includes="halyard-common-${project.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="../strategy/target" includes="halyard-strategy-${project.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="../sail/target" includes="halyard-sail-${project.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="../spin/target" includes="halyard-spin-${project.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="../rio/target" includes="halyard-rio-${project.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="../sdk/target" includes="rdf4j-repository-api-${rdf4j.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="${project.build.directory}/extra-libs" includes="*.jar" prefix="WEB-INF/lib" />
-								</zip>
+								</copy>
+								<copy todir="${project.build.directory}/rdf4j-server-patch/WEB-INF/classes" overwrite="true">
+									<fileset dir="${project.build.directory}/classes" includes="com/msd/gin/halyard/**" />
+								</copy>
+								<copy todir="${project.build.directory}/rdf4j-server-patch/WEB-INF/lib" overwrite="true">
+									<file file="../common/target/halyard-common-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../strategy/target/halyard-strategy-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../sail/target/halyard-sail-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../spin/target/halyard-spin-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../rio/target/halyard-rio-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../sdk/target/rdf4j-repository-api-${rdf4j.version}.jar" basedir="${project.basedir}" />
+									<fileset dir="${project.build.directory}/extra-libs" includes="*.jar" />
+								</copy>
+								<zip destfile="${project.build.directory}/rdf4j-server.war" basedir="${project.build.directory}/rdf4j-server-patch" />
 
-								<unzip src="${project.build.directory}/rdf4j-workbench.war" dest="${project.build.directory}/rdf4j-workbench-patch" overwrite="true">
+								<unzip src="${project.build.directory}/rdf4j-workbench-original.war" dest="${project.build.directory}/rdf4j-workbench-patch" overwrite="true">
 									<patternset>
+										<exclude name="WEB-INF/lib/rdf4j-repository-api-${rdf4j.version}.jar" />
 										<exclude name="WEB-INF/lib/rdf4j-spin-${rdf4j.version}.jar" />
 										<!-- exclude unused SAILs -->
 										<exclude name="WEB-INF/lib/lucene-*.jar" />
@@ -279,17 +289,19 @@
 								<zip destfile="${project.build.directory}/rdf4j-workbench-patch/WEB-INF/lib/rdf4j-http-workbench-${rdf4j.version}.jar" update="true">
 									<fileset dir="${project.build.directory}/classes" includes="org/eclipse/rdf4j/workbench/**" />
 								</zip>
-								<zip destfile="${project.build.directory}/rdf4j-workbench.war">
-									<fileset dir="${project.build.directory}/rdf4j-workbench-patch" />
+								<copy todir="${project.build.directory}/rdf4j-workbench-patch" overwrite="true">
 									<fileset dir="src/main/patches/rdf4j-workbench" />
-									<zipfileset dir="../common/target" includes="halyard-common-${project.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="../strategy/target" includes="halyard-strategy-${project.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="../sail/target" includes="halyard-sail-${project.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="../spin/target" includes="halyard-spin-${project.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="../rio/target" includes="halyard-rio-${project.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="../sdk/target" includes="rdf4j-repository-api-${rdf4j.version}.jar" prefix="WEB-INF/lib" />
-									<zipfileset dir="${project.build.directory}/extra-libs" includes="*.jar" prefix="WEB-INF/lib" />
-								</zip>
+								</copy>
+								<copy todir="${project.build.directory}/rdf4j-workbench-patch/WEB-INF/lib" overwrite="true">
+									<file file="../common/target/halyard-common-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../strategy/target/halyard-strategy-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../sail/target/halyard-sail-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../spin/target/halyard-spin-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../rio/target/halyard-rio-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../sdk/target/rdf4j-repository-api-${rdf4j.version}.jar" basedir="${project.basedir}" />
+									<fileset dir="${project.build.directory}/extra-libs" includes="*.jar" />
+								</copy>
+								<zip destfile="${project.build.directory}/rdf4j-workbench.war" basedir="${project.build.directory}/rdf4j-workbench-patch" />
 							</target>
 						</configuration>
 						<goals>
