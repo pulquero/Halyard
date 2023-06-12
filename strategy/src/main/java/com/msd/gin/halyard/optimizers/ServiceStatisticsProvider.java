@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.optimizers;
 
+import java.util.Optional;
+
 public interface ServiceStatisticsProvider {
-	ExtendedEvaluationStatistics getStatisticsForService(String serviceUrl);
+	Optional<ExtendedEvaluationStatistics> getStatisticsForService(String serviceUrl);
 }

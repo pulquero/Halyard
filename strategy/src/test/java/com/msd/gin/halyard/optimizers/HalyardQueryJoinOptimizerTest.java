@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.eclipse.rdf4j.model.IRI;
@@ -161,7 +162,7 @@ public class HalyardQueryJoinOptimizerTest {
         predicateStats.put(predb, 2.0);
         new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), serviceUrl -> {
         	assertEquals("http://endpoint", serviceUrl);
-        	return new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null);
+        	return Optional.of(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null));
         })).optimize(expr, null, null);
         JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
         assertEquals(expr.toString(), Arrays.asList(predb, preda, RDF.TYPE), joinOrder.predicates);
@@ -182,7 +183,7 @@ public class HalyardQueryJoinOptimizerTest {
         predicateStats.put(predb, 45.0);
         new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(null), serviceUrl -> {
         	assertEquals("http://endpoint", serviceUrl);
-        	return new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null);
+        	return Optional.of(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null));
         })).optimize(expr, null, null);
         JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
         assertEquals(expr.toString(), Arrays.asList(preda, pred1, pred2, predb), joinOrder.predicates);
@@ -202,7 +203,7 @@ public class HalyardQueryJoinOptimizerTest {
         new StarJoinOptimizer(2).optimize(expr, null, null);
         new HalyardQueryJoinOptimizer(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(null), serviceUrl -> {
         	assertEquals("http://endpoint", serviceUrl);
-        	return new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null);
+        	return Optional.of(new HalyardEvaluationStatistics(() -> new MockStatementPatternCardinalityCalculator(predicateStats), null));
         })).optimize(expr, null, null);
         List<StarJoin> sjs = new ArrayList<>();
         expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {

@@ -29,6 +29,7 @@ import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.federation.SailFederatedService;
 import com.msd.gin.halyard.function.DynamicFunctionRegistry;
+import com.msd.gin.halyard.optimizers.ExtendedEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.ServiceStatisticsProvider;
 import com.msd.gin.halyard.optimizers.StatementPatternCardinalityCalculator;
@@ -508,10 +509,10 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs, null),
 				rdfFactory, statisticsCache);
 		ServiceStatisticsProvider srvStatsProvider = new ServiceStatisticsProvider() {
-			final Map<String, Optional<HalyardEvaluationStatistics>> serviceToStats = new HashMap<>();
+			final Map<String, Optional<ExtendedEvaluationStatistics>> serviceToStats = new HashMap<>();
 
 			@Override
-			public HalyardEvaluationStatistics getStatisticsForService(String serviceUrl) {
+			public Optional<ExtendedEvaluationStatistics> getStatisticsForService(String serviceUrl) {
 				return serviceToStats.computeIfAbsent(serviceUrl, (service) -> {
 					FederatedService fedServ = federatedServiceResolver.getService(service);
 					if (fedServ instanceof SailFederatedService) {
@@ -521,7 +522,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 						}
 					}
 					return Optional.empty();
-				}).orElse(null);
+				});
 			}
 		};
 		return new HalyardEvaluationStatistics(spcalcFactory, srvStatsProvider);

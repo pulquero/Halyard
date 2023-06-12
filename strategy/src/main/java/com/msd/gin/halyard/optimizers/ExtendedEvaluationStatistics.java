@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
@@ -62,13 +63,14 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 		if (service == null) {
 			return this;
 		}
+		Optional<ExtendedEvaluationStatistics> stats = Optional.empty();
 		if (srvStatsProvider != null) {
 			IRI serviceUrl = (IRI) service.getServiceRef().getValue();
 			if (serviceUrl != null) {
-				return srvStatsProvider.getStatisticsForService(serviceUrl.stringValue());
+				stats = srvStatsProvider.getStatisticsForService(serviceUrl.stringValue());
 			}
 		}
-		return new ExtendedEvaluationStatistics(SimpleStatementPatternCardinalityCalculator.FACTORY);
+		return stats.orElseGet(() -> new ExtendedEvaluationStatistics(SimpleStatementPatternCardinalityCalculator.FACTORY));
 	}
 
 	public void updateCardinalityMap(TupleExpr expr, Set<String> boundVars, Map<TupleExpr, Double> mapToUpdate) {
@@ -349,19 +351,19 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 
         @Override
         public void meet(Service node) {
-            ExtendedEvaluationStatistics srvStats = null;
+            Optional<ExtendedEvaluationStatistics> srvStats = Optional.empty();
     		if (srvStatsProvider != null) {
     			IRI serviceUrl = (IRI) node.getServiceRef().getValue();
     			if (serviceUrl != null) {
     				srvStats = srvStatsProvider.getStatisticsForService(serviceUrl.stringValue());
     			}
     		}
-            if (srvStats != null) {
+    		srvStats.ifPresentOrElse(stats -> {
                 TupleExpr remoteExpr = node.getServiceExpr();
-                meetServiceExpr(remoteExpr, srvStats);
-            } else {
-                super.meet(node);
-            }
+                meetServiceExpr(remoteExpr, stats);
+    		},
+    			() -> super.meet(node)
+    		);
             updateMap(node);
         }
 
