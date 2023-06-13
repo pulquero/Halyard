@@ -100,6 +100,10 @@ public final class Algebra {
 		return new Var(varName, true);
 	}
 
+	public static boolean isFree(Var var) {
+		return !var.isAnonymous() && !var.hasValue();
+	}
+
 	/**
 	 * Gets a value from a {@link Var} if it has a {@link Value}. If it does not then the method will attempt to get it
 	 * from the bindings using the name of the Var

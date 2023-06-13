@@ -2,6 +2,7 @@ package com.msd.gin.halyard.sail.search;
 
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
+import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.BGPCollector;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.common.InternalObjectLiteral;
@@ -81,20 +82,20 @@ public class SearchInterpreter implements QueryOptimizer {
 							searchCall.params.setPhraseSlopVar(queryObjVar);
 							querySP.replaceWith(new SingletonSet());
 						} else if (HALYARD.MATCHES_PROPERTY.equals(queryPred)) {
-							SearchParams.MatchParams matchParams = searchCall.params.newMatchParams(!queryObjVar.isAnonymous() ? queryObjVar : null);
+							SearchParams.MatchParams matchParams = searchCall.params.newMatchParams(Algebra.isFree(queryObjVar) ? queryObjVar.getName() : null);
 							querySP.replaceWith(new SingletonSet());
 							for (StatementPattern matchSP : stmtsBySubj.get(queryObjVar.getName())) {
 								IRI matchPred = (IRI) matchSP.getPredicateVar().getValue();
 								Var matchObjVar = matchSP.getObjectVar();
-								if (!matchObjVar.isAnonymous()) {
+								if (Algebra.isFree(matchObjVar)) {
 									if (RDF.VALUE.equals(matchPred)) {
-										matchParams.valueVars.add(matchObjVar);
+										matchParams.valueVars.add(matchObjVar.getName());
 										matchSP.replaceWith(new SingletonSet());
 									} else if (HALYARD.SCORE_PROPERTY.equals(matchPred)) {
-										matchParams.scoreVars.add(matchObjVar);
+										matchParams.scoreVars.add(matchObjVar.getName());
 										matchSP.replaceWith(new SingletonSet());
 									} else if (HALYARD.INDEX_PROPERTY.equals(matchPred)) {
-										matchParams.indexVars.add(matchObjVar);
+										matchParams.indexVars.add(matchObjVar.getName());
 										matchSP.replaceWith(new SingletonSet());
 									}
 								}
@@ -142,16 +143,16 @@ public class SearchInterpreter implements QueryOptimizer {
 			tfc.addArg(new ValueConstant(InternalObjectLiteral.of(params.matches)));
 			for (SearchParams.MatchParams matchParams : params.matches) {
 				if (matchParams.matchVar != null) {
-					tfc.addResultVar(matchParams.matchVar.clone());
+					tfc.addResultVar(new Var(matchParams.matchVar));
 				}
-				for (Var valueVar : matchParams.valueVars) {
-					tfc.addResultVar(valueVar.clone());
+				for (String valueVar : matchParams.valueVars) {
+					tfc.addResultVar(new Var(valueVar));
 				}
-				for (Var scoreVar : matchParams.scoreVars) {
-					tfc.addResultVar(scoreVar.clone());
+				for (String scoreVar : matchParams.scoreVars) {
+					tfc.addResultVar(new Var(scoreVar));
 				}
-				for (Var indexVar : matchParams.indexVars) {
-					tfc.addResultVar(indexVar.clone());
+				for (String indexVar : matchParams.indexVars) {
+					tfc.addResultVar(new Var(indexVar));
 				}
 			}
 			return true;
@@ -207,7 +208,7 @@ public class SearchInterpreter implements QueryOptimizer {
 			}
 		}
 
-		MatchParams newMatchParams(Var var) {
+		MatchParams newMatchParams(String var) {
 			MatchParams matchParams = new MatchParams(var);
 			matches.add(matchParams);
 			return matchParams;
@@ -215,13 +216,13 @@ public class SearchInterpreter implements QueryOptimizer {
 
 
 		static final class MatchParams implements Serializable {
-			final Var matchVar;
-			final List<Var> valueVars = new ArrayList<>(1);
-			final List<Var> scoreVars = new ArrayList<>(1);
-			final List<Var> indexVars = new ArrayList<>(1);
+			final String matchVar;
+			final List<String> valueVars = new ArrayList<>(1);
+			final List<String> scoreVars = new ArrayList<>(1);
+			final List<String> indexVars = new ArrayList<>(1);
 
-			MatchParams(Var var) {
-				this.matchVar = var;
+			MatchParams(String varName) {
+				this.matchVar = varName;
 			}
 		}
 	}
