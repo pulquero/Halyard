@@ -30,6 +30,7 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
+import java.lang.management.ManagementFactory;
 import java.net.HttpURLConnection;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
@@ -42,12 +43,23 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.activation.MimeType;
 import javax.activation.MimeTypeParseException;
+import javax.management.Attribute;
+import javax.management.AttributeList;
+import javax.management.InstanceNotFoundException;
+import javax.management.IntrospectionException;
+import javax.management.MBeanAttributeInfo;
+import javax.management.MBeanInfo;
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+import javax.management.ReflectionException;
+import javax.management.openmbean.CompositeData;
 
 import org.apache.commons.io.output.StringBuilderWriter;
 import org.apache.commons.lang3.StringUtils;
@@ -94,6 +106,7 @@ import org.eclipse.rdf4j.rio.RDFWriterRegistry;
 import org.eclipse.rdf4j.rio.RioSetting;
 import org.eclipse.rdf4j.rio.WriterConfig;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,6 +139,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 
     private static final String TRACK_RESULT_SIZE = "track-result-size=";
 
+    static final String JSON_CONTENT = "application/json";
     // Request content type (only for POST requests)
     static final String ENCODED_CONTENT = "application/x-www-form-urlencoded";
     static final String UNENCODED_QUERY_CONTENT = "application/sparql-query";
@@ -186,7 +200,10 @@ public final class HttpSparqlHandler implements HttpHandler {
         String path = exchange.getRequestURI().getPath();
         boolean doStop = false;
         try {
-        	if ("/_health".equals(path)) {
+        	// NB: URLs should start with an underscore to avoid collisions with stored queries
+        	if ("/_management".equals(path)) {
+        		sendManagementData(exchange);
+        	} else if ("/_health".equals(path)) {
                 exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
         	} else if ("/_stop".equals(path) && exchange.getLocalAddress().getAddress().isLoopbackAddress()) {
                 exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
@@ -552,12 +569,65 @@ public final class HttpSparqlHandler implements HttpHandler {
 	    	json.writeEndObject();
 	    	json.close();
 	    	buf.close();
-	    	exchange.getResponseHeaders().set("Content-Type", "application/json");
+	    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
 	    	sendResponse(exchange, HttpURLConnection.HTTP_OK, buf.toString());
         } else {
         	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
         }
        	LOGGER.info("Update successfully processed");
+    }
+
+    private void sendManagementData(HttpExchange exchange) throws IOException {
+    	MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+    	JSONObject json = new JSONObject();
+    	Set<ObjectName> ons = mbs.queryNames(null, null);
+    	for (ObjectName on : ons) {
+    		try {
+        		MBeanInfo mbi = mbs.getMBeanInfo(on);
+        		JSONObject domainBean = json.optJSONObject(on.getDomain());
+        		if (domainBean == null) {
+        			domainBean = new JSONObject();
+        			json.put(on.getDomain(), domainBean);
+        		}
+        		JSONObject jsonBean = new JSONObject();
+        		domainBean.put(on.getKeyPropertyListString(), jsonBean);
+        		MBeanAttributeInfo[] mbAttrs = mbi.getAttributes();
+        		String[] attrNames = new String[mbAttrs.length];
+        		for (int i=0; i<mbAttrs.length; i++) {
+        			attrNames[i] = mbAttrs[i].getName();
+        		}
+        		AttributeList attrValues = mbs.getAttributes(on, attrNames);
+        		for (Attribute mbattr : attrValues.asList()) {
+        			jsonBean.put(mbattr.getName(), toJson(mbattr.getValue()));
+        		}
+    		} catch (InstanceNotFoundException | IntrospectionException | ReflectionException  ex) {
+    			// ignore/skip
+    		}
+    	}
+    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
+    	sendResponse(exchange, HttpURLConnection.HTTP_OK, json.toString());
+    }
+
+    private static Object toJson(Object object) {
+    	if (object instanceof CompositeData[]) {
+			CompositeData[] arr = (CompositeData[]) object;
+    		Object[] out = new Object[arr.length];
+    		for (int i=0; i<arr.length; i++) {
+    			out[i] = toJson(arr[i]);
+    		}
+    		return out;
+    	} else if (object instanceof CompositeData) {
+    		CompositeData data = (CompositeData) object;
+    		JSONObject jsonData = new JSONObject();
+    		for (String key : data.getCompositeType().keySet()) {
+    			jsonData.put(key, toJson(data.get(key)));
+    		}
+    		return jsonData;
+    	} else if (object != null && !(object instanceof Number)) {
+    		return object.toString();
+    	} else {
+    		return object;
+    	}
     }
 
     /**

@@ -51,6 +51,7 @@ import org.eclipse.rdf4j.sail.NotifyingSailConnection;
 import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.helpers.NotifyingSailConnectionWrapper;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
+import org.json.JSONObject;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -83,7 +84,6 @@ public class HttpSparqlHandlerTest {
     private static final String CSV_CONTENT = "text/csv";
     private static final String TURTLE_CONTENT = "text/turtle";
     private static final String CHARSET_SUFFIX = "; charset=" + CHARSET;
-    private static final String JSON_CONTENT = "application/json";
     // test data
     private static final ValueFactory factory = SimpleValueFactory.getInstance();
     private static final Resource SUBJ = factory.createIRI("http://ginger/subject/");
@@ -100,8 +100,6 @@ public class HttpSparqlHandlerTest {
     private static final IRI PRED3 = factory.createIRI("http://potato/pred2/");
     private static final Value OBJ3 = factory.createLiteral("potato literal 2");
     private static final Resource CONTEXT3 = factory.createIRI("http://potato/");
-
-    private static final Resource NON_EXISTING_CONTEXT = factory.createIRI("http://broccoli/");
 
     private static SimpleHttpServer server;
     // SimpleHttpServer URL
@@ -637,8 +635,10 @@ public class HttpSparqlHandlerTest {
         out.write("INSERT {<http://whatever/newSubj> <http://whatever/newPred> ?o} WHERE {<http://ginger/subject> <http://ginger/predicate> ?o}");
         out.close();
         assertEquals(HttpURLConnection.HTTP_OK, urlConnection.getResponseCode());
-        assertEquals(JSON_CONTENT, urlConnection.getContentType());
+        assertEquals(HttpSparqlHandler.JSON_CONTENT, urlConnection.getContentType());
         String json = IOUtils.toString(urlConnection.getInputStream(), "UTF-8");
+        // check parses
+        new JSONObject(json);
         // -1 as SailRepository doesn't support tracked updates
         assertEquals("{\"results\":[{\"inserted\":-1}]}", json);
     }
@@ -666,6 +666,19 @@ public class HttpSparqlHandlerTest {
         urlConnection.setRequestProperty("Accept", TURTLE_CONTENT);
         assertEquals(HttpURLConnection.HTTP_OK, urlConnection.getResponseCode());
         assertEquals(TURTLE_CONTENT + CHARSET_SUFFIX, urlConnection.getContentType());
+    }
+
+    @Test
+    public void testManagement() throws IOException {
+        URL url = new URL(SERVER_URL + "/_management");
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.setRequestMethod("GET");
+        urlConnection.setRequestProperty("Accept", HttpSparqlHandler.JSON_CONTENT);
+        assertEquals(HttpURLConnection.HTTP_OK, urlConnection.getResponseCode());
+        assertEquals(HttpSparqlHandler.JSON_CONTENT, urlConnection.getContentType());
+        String json = IOUtils.toString(urlConnection.getInputStream(), "UTF-8");
+        // check parses
+        new JSONObject(json);
     }
 
     @Test
