@@ -44,6 +44,14 @@ public class RDFFactoryExtendedTest {
 		littleNibbleConf.setInt(TableConfig.KEY_SIZE_CONTEXT, 4);
 		littleNibbleConf.setInt(TableConfig.END_KEY_SIZE_CONTEXT, 2);
 
+		Configuration littleNibbleMoreSaltConf = new Configuration();
+		littleNibbleMoreSaltConf.setInt(TableConfig.ID_TYPE_INDEX, 1);
+		littleNibbleMoreSaltConf.setBoolean(TableConfig.ID_TYPE_NIBBLE, true);
+		littleNibbleMoreSaltConf.setInt(TableConfig.KEY_SIZE_SUBJECT, 3);
+		littleNibbleMoreSaltConf.setInt(TableConfig.END_KEY_SIZE_SUBJECT, 4);
+		littleNibbleMoreSaltConf.setInt(TableConfig.KEY_SIZE_CONTEXT, 4);
+		littleNibbleMoreSaltConf.setInt(TableConfig.END_KEY_SIZE_CONTEXT, 2);
+
 		Configuration bigNibbleConf = new Configuration();
 		bigNibbleConf.setInt(TableConfig.ID_TYPE_INDEX, 1);
 		bigNibbleConf.setBoolean(TableConfig.ID_TYPE_NIBBLE, false);
@@ -52,20 +60,21 @@ public class RDFFactoryExtendedTest {
 		bigNibbleConf.setInt(TableConfig.KEY_SIZE_CONTEXT, 4);
 		bigNibbleConf.setInt(TableConfig.END_KEY_SIZE_CONTEXT, 3);
 
-		Configuration nsConf = new Configuration();
-		nsConf.setInt(TableConfig.KEY_SIZE_SUBJECT, 2);
-		nsConf.setInt(TableConfig.END_KEY_SIZE_SUBJECT, 2);
-		nsConf.setInt(TableConfig.KEY_SIZE_CONTEXT, 2);
-		nsConf.setInt(TableConfig.END_KEY_SIZE_CONTEXT, 2);
-		nsConf.set(TableConfig.VOCABS, JSONObject.valueToString(ImmutableMap.of(RDF.TYPE.stringValue(), 25)));
-		nsConf.set(TableConfig.NAMESPACES, JSONObject.valueToString(ImmutableMap.of("http://whatever", 1)));
-		nsConf.set(TableConfig.NAMESPACE_PREFIXES, JSONObject.valueToString(ImmutableMap.of("w", "http://whatever")));
-		nsConf.set(TableConfig.LANGS, JSONObject.valueToString(ImmutableMap.of("en", 1)));
+		Configuration namespaceConf = new Configuration();
+		namespaceConf.setInt(TableConfig.KEY_SIZE_SUBJECT, 2);
+		namespaceConf.setInt(TableConfig.END_KEY_SIZE_SUBJECT, 2);
+		namespaceConf.setInt(TableConfig.KEY_SIZE_CONTEXT, 2);
+		namespaceConf.setInt(TableConfig.END_KEY_SIZE_CONTEXT, 2);
+		namespaceConf.set(TableConfig.VOCABS, JSONObject.valueToString(ImmutableMap.of(RDF.TYPE.stringValue(), 25)));
+		namespaceConf.set(TableConfig.NAMESPACES, JSONObject.valueToString(ImmutableMap.of("http://whatever", 1)));
+		namespaceConf.set(TableConfig.NAMESPACE_PREFIXES, JSONObject.valueToString(ImmutableMap.of("w", "http://whatever")));
+		namespaceConf.set(TableConfig.LANGS, JSONObject.valueToString(ImmutableMap.of("en", 1)));
 
 		return Arrays.<Object[]>asList(
 			new Object[] {littleNibbleConf},
+			new Object[] {littleNibbleMoreSaltConf},
 			new Object[] {bigNibbleConf},
-			new Object[] {nsConf}
+			new Object[] {namespaceConf}
 		);
 	}
 

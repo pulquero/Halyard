@@ -18,6 +18,7 @@ public final class ValueIdentifier implements ByteSequence, Serializable {
 	private static final long serialVersionUID = 1293499350691875714L;
 
 	enum TypeNibble {
+		// leading 4 bits
 		BIG_NIBBLE(
 			(byte) 0x00 /* literal type bits */,
 			(byte) 0x40 /* triple type bits */,
@@ -28,6 +29,7 @@ public final class ValueIdentifier implements ByteSequence, Serializable {
 			(byte) 0x00 /* non-string datatype bits */,
 			(byte) 0x20 /* string datatype bits */
 		),
+		// trailing 4 bits
 		LITTLE_NIBBLE(
 			(byte) 0x00 /* literal type bits */,
 			(byte) 0x04 /* triple type bits */,
@@ -100,6 +102,9 @@ public final class ValueIdentifier implements ByteSequence, Serializable {
 			};
 		}
 
+		/**
+		 * Returns the number of possible salt values.
+		 */
 		int getSaltSize() {
 			int typeSaltSize;
 			switch (typeNibble) {
@@ -107,7 +112,7 @@ public final class ValueIdentifier implements ByteSequence, Serializable {
 					typeSaltSize = 1 << (8*typeIndex);
 					break;
 				case LITTLE_NIBBLE:
-					typeSaltSize = 1 << (4*(typeIndex+1));
+					typeSaltSize = 1 << (8*typeIndex+4);
 					break;
 				default:
 					throw new AssertionError();
@@ -122,6 +127,11 @@ public final class ValueIdentifier implements ByteSequence, Serializable {
 			byte[] hash = hashFuncProvider.get().apply(ser);
 			writeType(type, datatype, hash, 0);
 			return new ValueIdentifier(hash);
+		}
+
+		@Override
+		public String toString() {
+			return String.format("%s %d-bit (%d bytes), layout: %d %s (salts: %d)", algorithm, size*Byte.SIZE, size, typeIndex, typeNibble, getSaltSize());
 		}
 
 		@Override
