@@ -756,14 +756,14 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     }
 
 	void addNamespaces() throws SailException {
-		boolean nsExists = hasStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.GRAPH_CLASS, false, HALYARD.SYSTEM_GRAPH_CONTEXT);
+		boolean nsExists = hasStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.NAMED_GRAPH_CLASS, false, HALYARD.SYSTEM_GRAPH_CONTEXT);
 		if (!nsExists) {
 			long timestamp = getDefaultTimestamp(true); // true as first doing a delete followed by insert
 			for (Namespace ns : sail.getRDFFactory().getWellKnownNamespaces()) {
 				setNamespace(ns.getPrefix(), ns.getName(), timestamp);
 			}
 			try {
-				insertSystemStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.GRAPH_CLASS, HALYARD.SYSTEM_GRAPH_CONTEXT, timestamp);
+				insertSystemStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.NAMED_GRAPH_CLASS, HALYARD.SYSTEM_GRAPH_CONTEXT, timestamp);
 			} catch (IOException ex) {
 				throw new SailException(ex);
 			}
@@ -806,9 +806,11 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private void setNamespace(String prefix, String name, long timestamp) throws SailException {
 		checkWritable();
         ValueFactory vf = sail.getValueFactory();
+		Literal prefixValue = vf.createLiteral(prefix);
+		IRI namespaceIri = vf.createIRI(name);
         try {
-			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
-			insertSystemStatement(vf.createIRI(name), HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), HALYARD.SYSTEM_GRAPH_CONTEXT, timestamp);
+			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
+			insertSystemStatement(namespaceIri, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, HALYARD.SYSTEM_GRAPH_CONTEXT, timestamp);
         } catch (IOException e) {
 			throw new SailException("Namespace prefix could not be presisted due to an exception", e);
         }
@@ -841,6 +843,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	public String toString() {
 		return super.toString() + "[keyspace = " + keyspaceConn.toString() + "]";
 	}
+
 
 	static final class Factory implements SailConnectionFactory {
 		static final SailConnectionFactory INSTANCE = new Factory();
