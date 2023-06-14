@@ -12,7 +12,6 @@ public final class StrategyConfig {
 	public static final String HALYARD_EVALUATION_POLL_TIMEOUT_MILLIS = "halyard.evaluation.pollTimeoutMillis";
 	public static final String HALYARD_EVALUATION_OFFER_TIMEOUT_MILLIS = "halyard.evaluation.offerTimeoutMillis";
 	public static final String HALYARD_EVALUATION_MAX_QUEUE_SIZE = "halyard.evaluation.maxQueueSize";
-	public static final String HALYARD_EVALUATION_MAX_RETRIES = "halyard.evaluation.maxRetries";
 	public static final String HALYARD_EVALUATION_THREADS = "halyard.evaluation.threads";
 	public static final String HALYARD_EVALUATION_BINDINGS_RATE_UPDATE_MILLIS = "halyard.evaluation.bindingsRate.updateMillis";
 	public static final String HALYARD_EVALUATION_BINDINGS_RATE_WINDOW_SIZE = "halyard.evaluation.bindingsRate.windowSize";

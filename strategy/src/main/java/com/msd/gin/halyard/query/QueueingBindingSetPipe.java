@@ -1,9 +1,15 @@
 package com.msd.gin.halyard.query;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
+
+import javax.annotation.Nullable;
 
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
@@ -27,52 +33,62 @@ public final class QueueingBindingSetPipe extends BindingSetPipe {
 	}
 
 	public void collect(Consumer<BindingSet> consumer, long pollTimeout, TimeUnit unit) {
-		boolean isEnd = false;
+		boolean hasMore = true;
 		try {
-			while (!isEnd) {
-				try {
-					Object next = poll(pollTimeout, unit);
-					isEnd = isEndOfQueue(next);
-					if (!isEnd) {
-						if (next != null) {
-							consumer.accept((BindingSet) next);
-						} else {
-			    			throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for producer", pollTimeout, toString(unit)));
-						}
-					}
-				} catch (RuntimeException e) {
-					throw e;
-				}
+			while (hasMore) {
+				hasMore = pollThenElse(consumer, () -> {
+					throw new QueryInterruptedException(String.format("Exceeded time-out of %d%s waiting for producer", pollTimeout, toString(unit)));
+				}, pollTimeout, unit);
 			}
 		} finally {
 			stoppedPolling();
 		}
 	}
 
-    public Object poll(long pollTimeout, TimeUnit unit) {
-    	Object o;
-    	try {
-			o = queue.poll(pollTimeout, unit);
-		} catch (InterruptedException ie) {
-			throw new QueryInterruptedException(ie);
+	public boolean pollThenElse(Consumer<BindingSet> consumer, Supplier<Boolean> timeoutAction, long pollTimeout, TimeUnit unit) {
+		List<Object> nexts = poll(pollTimeout, unit);
+		if (nexts != null) {
+			for (Object next : nexts) {
+				if (next == END_OF_QUEUE) {
+					return false;
+				}
+				consumer.accept((BindingSet) next);
+			}
+			return true;
+		} else {
+			return timeoutAction.get();
 		}
-    	if (o instanceof Throwable) {
-    		Throwable ex = (Throwable) o;
-			if (ex instanceof QueryEvaluationException) {
-				throw (QueryEvaluationException) ex;
-			} else {
-            	throw new QueryEvaluationException(ex);
-            }
-    	}
-   		return o;
+	}
+
+    private @Nullable List<Object> poll(long pollTimeout, TimeUnit unit) {
+    	List<Object> recvds = new ArrayList<Object>();
+		queue.drainTo(recvds);
+		if (recvds.isEmpty()) {
+	    	try {
+				Object o = queue.poll(pollTimeout, unit);
+				if (o == null) {
+					return null;
+				}
+				recvds = Collections.singletonList(o);
+			} catch (InterruptedException ie) {
+				throw new QueryInterruptedException(ie);
+			}
+		}
+		for (Object o : recvds) {
+	    	if (o instanceof Throwable) {
+	    		Throwable ex = (Throwable) o;
+				if (ex instanceof QueryEvaluationException) {
+					throw (QueryEvaluationException) ex;
+				} else {
+	            	throw new QueryEvaluationException(ex);
+	            }
+	    	}
+		}
+		return recvds;
     }
 
 	public void stoppedPolling() {
 		sendMore = false;
-	}
-
-    public boolean isEndOfQueue(Object o) {
-		return o == END_OF_QUEUE;
 	}
 
 	private boolean addToQueue(Object bs) {

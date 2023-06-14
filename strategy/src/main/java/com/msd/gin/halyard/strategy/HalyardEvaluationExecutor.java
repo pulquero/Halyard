@@ -27,8 +27,10 @@ import com.msd.gin.halyard.util.MBeanDetails;
 import com.msd.gin.halyard.util.MBeanManager;
 import com.msd.gin.halyard.util.RateTracker;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
@@ -89,7 +91,6 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	private final TimerTask registerMBeanTask;
 
     private int threads;
-    private int maxRetries;
 
 	private final TrackingThreadPoolExecutor executor;
 
@@ -99,11 +100,10 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 
 	public HalyardEvaluationExecutor(String name, Configuration conf, Map<String,String> connAttrs) {
 	    threads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREADS, 10);
-	    setMaxRetries(conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_RETRIES, Integer.MAX_VALUE));
 		executor = createExecutor(name + " ", threads);
 
 	    maxQueueSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_QUEUE_SIZE, 5000);
-		pollTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_POLL_TIMEOUT_MILLIS, 1000);
+		pollTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_POLL_TIMEOUT_MILLIS, Integer.MAX_VALUE);
 		offerTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_OFFER_TIMEOUT_MILLIS, conf.getInt("hbase.client.scanner.timeout.period", 60000));
 
 		// don't both registering MBeans for short-lived queries
@@ -158,16 +158,6 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 			mbeanManager.unregister();
 		}
 		executor.shutdownNow();
-	}
-
-	@Override
-	public void setMaxRetries(int maxRetries) {
-		this.maxRetries = maxRetries;
-	}
-
-	@Override
-	public int getMaxRetries() {
-		return maxRetries;
 	}
 
 	@Override
@@ -238,7 +228,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	void pushAndPullSync(Consumer<BindingSet> handler, BindingSetPipeEvaluationStep evalStep, BindingSet bindings) {
 		QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(maxQueueSize, offerTimeoutMillis, TimeUnit.MILLISECONDS);
 		evalStep.evaluate(new CountingBindingSetPipe(pipe, outgoingBindingsCount), bindings);
-		pipe.collect(handler, Math.multiplyFull(pollTimeoutMillis, maxRetries), TimeUnit.MILLISECONDS);
+		pipe.collect(handler, pollTimeoutMillis, TimeUnit.MILLISECONDS);
 	}
 
 	void push(BindingSetPipe pipe, BindingSetPipeEvaluationStep evalStep, BindingSet bindings) {
@@ -520,25 +510,23 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
      * Used by client to pull data.
      */
     final class BindingSetPipeIteration extends LookAheadIteration<BindingSet, QueryEvaluationException> {
+    	final Deque<BindingSet> lookAheadBuffer = new ArrayDeque<>(maxQueueSize);
     	final QueueingBindingSetPipe pipe;
+    	boolean hasMore = true;
 
     	BindingSetPipeIteration(QueueingBindingSetPipe pipe) {
     		this.pipe = pipe;
     	}
 
-    	@Override
-        protected BindingSet getNextElement() throws QueryEvaluationException {
-			Object bs = null;
-            for (int retries = 0; bs == null && !isClosed(); retries++) {
-        		bs = pipe.poll(pollTimeoutMillis, TimeUnit.MILLISECONDS);
-				if (bs == null) {
-					if (retries > maxRetries) {
-	        			throw new QueryEvaluationException(String.format("Retry limit exceeded: %d (active threads %d, queue size %d, incoming binding set rate %f)", retries, executor.getActiveCount(), executor.getQueueSize(), incomingBindingsRateTracker.getRatePerSecond()));
-					}
-				}
-            }
-            return pipe.isEndOfQueue(bs) ? null : (BindingSet) bs;
-        }
+		@Override
+		protected BindingSet getNextElement() throws QueryEvaluationException {
+			if (lookAheadBuffer.isEmpty() && hasMore) {
+				hasMore = pipe.pollThenElse(lookAheadBuffer::add, () -> {
+					throw new QueryEvaluationException(String.format("Exceeded poll time-out of %dms (active threads %d, queue size %d, incoming binding set rate %f)", pollTimeoutMillis, executor.getActiveCount(), executor.getQueueSize(), incomingBindingsRateTracker.getRatePerSecond()));
+				}, pollTimeoutMillis, TimeUnit.MILLISECONDS);
+			}
+			return lookAheadBuffer.poll();
+		}
 
         @Override
         protected void handleClose() throws QueryEvaluationException {
