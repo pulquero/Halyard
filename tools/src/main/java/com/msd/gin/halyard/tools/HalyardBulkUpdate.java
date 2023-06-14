@@ -43,7 +43,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.HFileOutputFormat2;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.protobuf.generated.AuthenticationProtos;
-import org.apache.hadoop.hbase.tool.BulkLoadHFiles;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
@@ -280,6 +279,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         addOption("e", "target-timestamp", "timestamp", "Optionally specify timestamp of all updated records (default is actual time of the operation)", false, true);
         addOption("i", "elastic-index", "elastic_index_url", HBaseSail.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
         addKeyValueOption("$", "binding=value", BINDING_PROPERTY_PREFIX, "Optionally specify bindings");
+        addOption(null, "dry-run", null, DRY_RUN_PROPERTY, "Skip loading of HFiles", false, true);
     }
 
 
@@ -289,6 +289,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         String workdir = cmd.getOptionValue('w');
         configureString(cmd, 'i', null);
         configureBindings(cmd, '$');
+        configureBoolean(cmd, "dry-run");
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
                NTriplesUtil.class,
                Rio.class,
@@ -332,7 +333,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                     LOG.info("Bulk Update will process {} MapReduce stages.", stages);
                 }
                 if (job.waitForCompletion(true)) {
-    				BulkLoadHFiles.create(getConf()).bulkLoad(hTable.getName(), outPath);
+    				bulkLoad(hTable.getName(), outPath);
                     LOG.info("Stage #{} of {} completed.", stage+1, stages);
                 } else {
             		LOG.error("Stage #{} of {} failed to complete.", stage+1, stages);

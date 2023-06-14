@@ -23,6 +23,7 @@ import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.RDFContext;
 import com.msd.gin.halyard.common.RDFFactory;
+import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.vocab.HALYARD;
 
@@ -31,7 +32,9 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.MissingOptionException;
@@ -51,7 +54,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.HFileOutputFormat2;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.protobuf.generated.AuthenticationProtos;
-import org.apache.hadoop.hbase.tool.BulkLoadHFiles;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.mapreduce.Job;
@@ -76,13 +78,13 @@ import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 public final class HalyardBulkDelete extends AbstractHalyardTool {
 	static final String DEFAULT_GRAPH_KEYWORD = "DEFAULT";
 	private static final String TOOL_NAME = "bulkdelete";
-    private static final String SOURCE = "halyard.delete.source";
-    private static final String SNAPSHOT_PATH = "halyard.delete.snapshot";
-    private static final String SUBJECT = "halyard.delete.subject";
-    private static final String PREDICATE = "halyard.delete.predicate";
-    private static final String OBJECT = "halyard.delete.object";
-    private static final String CONTEXTS = "halyard.delete.contexts";
-    private static final long STATUS_UPDATE_INTERVAL = 10000L;
+    private static final String SOURCE = confProperty(TOOL_NAME, "source");
+    private static final String SNAPSHOT_PATH = confProperty(TOOL_NAME, "snapshot");
+    private static final String SUBJECT_PROPERTY = confProperty(TOOL_NAME, "subject");
+    private static final String PREDICATE_PROPERTY = confProperty(TOOL_NAME, "predicate");
+    private static final String OBJECT_PROPERTY = confProperty(TOOL_NAME, "object");
+    private static final String CONTEXTS = confProperty(TOOL_NAME, "contexts");
+    private static final long STATUS_UPDATE_INTERVAL = 100000L;
 
     enum Counters {
 		REMOVED_KVS,
@@ -92,36 +94,36 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 
     static final class DeleteMapper extends RdfTableMapper<ImmutableBytesWritable, KeyValue> {
 
-        final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
+        final ImmutableBytesWritable outRowKey = new ImmutableBytesWritable();
         long totalKvs = 0L, deletedKvs = 0L, deletedTripledKvs = 0L;
         long htimestamp;
         boolean tripleCleanupOnly;
         Resource subj;
         IRI pred;
         Value obj;
-        List<Resource> ctxs;
+        Set<IRI> ctxs;
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             openKeyspace(conf, conf.get(SOURCE), conf.get(SNAPSHOT_PATH));
             htimestamp = HalyardTableUtils.toHalyardTimestamp(conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis()), false);
-            String s = conf.get(SUBJECT);
+            String s = conf.get(SUBJECT_PROPERTY);
             if (s != null) {
                 subj = NTriplesUtil.parseURI(s, vf);
             }
-            String p = conf.get(PREDICATE);
+            String p = conf.get(PREDICATE_PROPERTY);
             if (p != null) {
                 pred = NTriplesUtil.parseURI(p, vf);
             }
-            String o = conf.get(OBJECT);
+            String o = conf.get(OBJECT_PROPERTY);
             if (o != null) {
                 obj = NTriplesUtil.parseValue(o, vf);
             }
-            String cs[] = conf.getStrings(CONTEXTS);
-            if (cs != null) {
-                ctxs = new ArrayList<>();
-                for (String c : cs) {
+            String contextList = conf.get(CONTEXTS);
+            if (contextList != null) {
+                ctxs = new HashSet<>();
+                for (String c : contextList.split(" +")) {
                     if (DEFAULT_GRAPH_KEYWORD.equals(c)) {
                         ctxs.add(null);
                     } else {
@@ -132,7 +134,8 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         }
 
         @Override
-        protected void map(ImmutableBytesWritable key, Result value, Context output) throws IOException, InterruptedException {
+        protected void map(ImmutableBytesWritable rowKey, Result value, Context output) throws IOException, InterruptedException {
+            StatementIndex<?,?,?,?> index = stmtIndices.toIndex(rowKey.get()[rowKey.getOffset()]);
             for (Cell c : value.rawCells()) {
                 Statement st = stmtIndices.parseStatement(null, null, null, null, c, valueReader, vf);
                 if ((ctxs == null || ctxs.contains(st.getContext())) && (subj == null || subj.equals(st.getSubject())) && (pred == null || pred.equals(st.getPredicate())) && (obj == null || obj.equals(st.getObject()))) {
@@ -143,7 +146,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
                     output.progress();
                 }
                 if (totalKvs++ % STATUS_UPDATE_INTERVAL == 0) {
-                    String msg = MessageFormat.format("{0} / {1} cells deleted", deletedKvs, totalKvs);
+                    String msg = MessageFormat.format("{0}: {1} / {2} cells deleted", index, deletedKvs, totalKvs);
                     output.setStatus(msg);
                     LOG.info(msg);
                 }
@@ -156,8 +159,8 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
                 c.getQualifierArray(), c.getQualifierOffset(), c.getQualifierLength(),
                 htimestamp, KeyValue.Type.DeleteColumn, c.getValueArray(), c.getValueOffset(),
                 c.getValueLength());
-            rowKey.set(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength());
-            output.write(rowKey, kv);
+            outRowKey.set(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength());
+            output.write(outRowKey, kv);
             deletedKvs++;
             if (st.getSubject().isTriple() || st.getObject().isTriple()) {
                 deletedTripledKvs++;
@@ -189,13 +192,14 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         );
         addOption("t", "target-dataset", "dataset_table", "HBase table with Halyard RDF store to update", true, true);
         addOption("w", "work-dir", "shared_folder", "Temporary folder for HBase files", true, true);
-        addOption("s", "subject", "subject", "Optional subject to delete", false, true);
-        addOption("p", "predicate", "predicate", "Optional predicate to delete", false, true);
-        addOption("o", "object", "object", "Optional object to delete", false, true);
+        addOption("s", "subject", "subject", SUBJECT_PROPERTY, "Optional subject to delete", false, true);
+        addOption("p", "predicate", "predicate", PREDICATE_PROPERTY, "Optional predicate to delete", false, true);
+        addOption("o", "object", "object", OBJECT_PROPERTY, "Optional object to delete", false, true);
         addOption("g", "named-graph", "named_graph", "Optional named graph(s) to delete, "+DEFAULT_GRAPH_KEYWORD+" represents triples outside of any named graph", false, false);
         addOption("e", "target-timestamp", "timestamp", "Optionally specify timestamp of all deleted records (default is actual time of the operation)", false, true);
         addOption("n", "snapshot-name", "snapshot_name", "Snapshot to read from. If specified then data is read from the snapshot instead of the table specified by -t and the results are written to the table. Requires -u.", false, true);
         addOption("u", "restore-dir", "restore_folder", "The snapshot restore folder on HDFS. Requires -n.", false, true);
+        addOption(null, "dry-run", null, DRY_RUN_PROPERTY, "Skip loading of HFiles", false, true);
     }
 
     @Override
@@ -215,18 +219,14 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         	}
         	getConf().set(SNAPSHOT_PATH, cmd.getOptionValue('u'));
         }
-        if (cmd.hasOption('s')) {
-        	getConf().set(SUBJECT, validateSubject(cmd.getOptionValue('s')));
-        }
-        if (cmd.hasOption('p')) {
-        	getConf().set(PREDICATE, validatePredicate(cmd.getOptionValue('p')));
-        }
-        if (cmd.hasOption('o')) {
-        	getConf().set(OBJECT, validateObject(cmd.getOptionValue('o')));
-        }
+        configureString(cmd, 's', null, this::validateSubject);
+        configureString(cmd, 'p', null, this::validatePredicate);
+        configureString(cmd, 'o', null, this::validateObject);
         if (cmd.hasOption('g')) {
-        	getConf().setStrings(CONTEXTS, validateContexts(cmd.getOptionValues('g')));
+        	// URL-safe separated list
+        	getConf().set(CONTEXTS, String.join(" ", validateContexts(cmd.getOptionValues('g'))));
         }
+        configureBoolean(cmd, "dry-run");
         String snapshotPath = getConf().get(SNAPSHOT_PATH);
 
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
@@ -289,10 +289,11 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
                 FileOutputFormat.setOutputPath(job, workDir);
                 TableMapReduceUtil.addDependencyJars(job);
 	            if (job.waitForCompletion(true)) {
-					BulkLoadHFiles.create(getConf()).bulkLoad(hTableName, workDir);
+					bulkLoad(hTableName, workDir);
 	                LOG.info("Bulk Delete completed.");
-	                if (job.getCounters().findCounter(Counters.REMOVED_TRIPLED_KVS).getValue() > 0) {
+	                if (!isDryRun() && job.getCounters().findCounter(Counters.REMOVED_TRIPLED_KVS).getValue() > 0) {
 	                	// maybe more triples to delete
+	                	LOG.info("Removing any orphaned triples...");
 		                RDFContext rdfGraphCtx = rdfFactory.createContext(HALYARD.TRIPLE_GRAPH_CONTEXT);
 		                scans = Arrays.asList(
 		    	            indices.getCSPOIndex().scan(rdfGraphCtx),

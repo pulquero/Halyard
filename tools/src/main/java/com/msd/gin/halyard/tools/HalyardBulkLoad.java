@@ -56,7 +56,6 @@ import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.HFileOutputFormat2;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
-import org.apache.hadoop.hbase.tool.BulkLoadHFiles;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.compress.CodecPool;
 import org.apache.hadoop.io.compress.CompressionCodec;
@@ -429,7 +428,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         private Seekable seek;
         private InputStream in;
 
-        public ParserPump(CombineFileSplit split, TaskAttemptContext context) {
+        public ParserPump(CombineFileSplit split, TaskAttemptContext context) throws IOException {
             this.context = context;
             this.paths = split.getPaths();
             this.sizes = split.getLengths();
@@ -437,7 +436,27 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             this.size = split.getLength();
             Configuration conf = context.getConfiguration();
             this.queue = new LinkedBlockingQueue<>(conf.getInt(PARSER_QUEUE_SIZE_PROPERTY, DEFAULT_PARSER_QUEUE_SIZE));
-            this.valueFactory = new CachingValueFactory(new IdValueFactory(RDFFactory.create(conf)), conf.getInt(VALUE_CACHE_SIZE_PROPERTY, DEFAULT_VALUE_CACHE_SIZE));
+            RDFFactory rdfFactory;
+            String target = conf.get(TARGET_TABLE_PROPERTY);
+            if (target != null) {
+            	// load - table exists
+	            Keyspace keyspace = HalyardTableUtils.getKeyspace(conf, target, null);
+	            try {
+	            	try (KeyspaceConnection ksConn = keyspace.getConnection()) {
+	            		rdfFactory = RDFFactory.create(ksConn);
+	            	}
+	            } finally {
+	            	try {
+	            		keyspace.close();
+	            	} finally {
+	            		keyspace.destroy();
+	            	}
+	            }
+            } else {
+            	// presplit - table not yet created
+            	rdfFactory = RDFFactory.create(conf);
+            }
+            this.valueFactory = new CachingValueFactory(new IdValueFactory(rdfFactory), conf.getInt(VALUE_CACHE_SIZE_PROPERTY, DEFAULT_VALUE_CACHE_SIZE));
             this.allowInvalidIris = conf.getBoolean(ALLOW_INVALID_IRIS_PROPERTY, false);
             this.skipInvalidLines = conf.getBoolean(SKIP_INVALID_LINES_PROPERTY, false);
             this.verifyDataTypeValues = conf.getBoolean(VERIFY_DATATYPE_VALUES_PROPERTY, false);
@@ -631,6 +650,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         addOption("o", "named-graph-override", null, OVERRIDE_CONTEXT_PROPERTY, "Optionally override named graph also for quads, named graph is stripped from quads if --default-named-graph option is not specified", false, false);
         addOption("e", "target-timestamp", "timestamp", TIMESTAMP_PROPERTY, "Optionally specify timestamp of all loaded records (default is actual time of the operation)", false, true);
         addOption("m", "max-split-size", "size_in_bytes", FileInputFormat.SPLIT_MAXSIZE, "Optionally override maximum input split size, where significantly larger single files will be processed in parallel (0 means no limit, default is 200000000)", false, true);
+        addOption(null, "dry-run", null, DRY_RUN_PROPERTY, "Skip loading of HFiles", false, true);
     }
 
     @Override
@@ -647,6 +667,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         configureBoolean(cmd, 'o');
         configureLong(cmd, 'e', System.currentTimeMillis());
         configureLong(cmd, 'm', DEFAULT_SPLIT_MAXSIZE);
+        configureBoolean(cmd, "dry-run");
         String sourcePaths = getConf().get(SOURCE_PATHS_PROPERTY);
         String target = getConf().get(TARGET_TABLE_PROPERTY);
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
@@ -678,7 +699,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
                 if (getConf().getBoolean(TRUNCATE_PROPERTY, false)) {
 					HalyardTableUtils.clearStatements(conn, tableName);
                 }
-				BulkLoadHFiles.create(getConf()).bulkLoad(tableName, outPath);
+				bulkLoad(tableName, outPath);
                 LOG.info("Bulk Load completed.");
                 return 0;
             } else {

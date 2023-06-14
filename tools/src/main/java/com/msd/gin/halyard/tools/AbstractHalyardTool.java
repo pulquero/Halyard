@@ -44,7 +44,10 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
+import org.apache.hadoop.hbase.tool.BulkLoadHFiles;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.util.Tool;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -67,6 +70,7 @@ public abstract class AbstractHalyardTool implements Tool {
     protected static final String SOURCE_PATHS_PROPERTY = confProperty(SOURCE_PROPERTIES, "paths");
     protected static final String SOURCE_NAME_PROPERTY = confProperty(SOURCE_PROPERTIES, "name");
     protected static final String SNAPSHOT_PATH_PROPERTY = confProperty(SOURCE_PROPERTIES, "snapshot");
+    protected static final String DRY_RUN_PROPERTY = "halyard-tools.dry-run";
     protected static final String BINDING_PROPERTY_PREFIX = "halyard-tools.binding.";
 
     private Configuration conf;
@@ -163,9 +167,13 @@ public abstract class AbstractHalyardTool implements Tool {
     }
 
     protected void configureBoolean(CommandLine cmd, char opt) {
-    	OrderedOption option = (OrderedOption) options.getOption(Character.toString(opt));
+    	configureBoolean(cmd, Character.toString(opt));
+    }
+
+    protected void configureBoolean(CommandLine cmd, String longOpt) {
+    	OrderedOption option = (OrderedOption) options.getOption(longOpt);
     	// command line args always override
-    	if (cmd.hasOption(opt)) {
+    	if (cmd.hasOption(longOpt)) {
     		conf.setBoolean(option.confProperty, true);
     	}
     }
@@ -234,6 +242,19 @@ public abstract class AbstractHalyardTool implements Tool {
         }
         return requiredOptions;
     }
+
+    protected final boolean isDryRun() {
+    	return getConf().getBoolean(DRY_RUN_PROPERTY, false);
+    }
+
+    protected final void bulkLoad(TableName tableName, Path workDir) throws IOException {
+    	if (isDryRun()) {
+    		LOG.info("Skipping bulk load - dry run");
+    	} else {
+    		BulkLoadHFiles.create(getConf()).bulkLoad(tableName, workDir);
+    	}
+    }
+
 
     private static final class OrderedOption extends Option {
     	static String buildDescription(String desc, String confProperty) {

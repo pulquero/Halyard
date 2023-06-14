@@ -80,6 +80,11 @@ public class HalyardBulkDeleteTest extends AbstractHalyardToolTest {
     public void testBulkDelete() throws Exception {
 		createData();
         File htableDir = getTempHTableDir("test_htable");
+        assertEquals(0, run(new String[]{ "-t", TABLE, "--dry-run", "-w", htableDir.toURI().toURL().toString()}));
+        assertCount(25);
+        assertTripleCount(6);
+
+        htableDir = getTempHTableDir("test_htable");
         assertEquals(0, run(new String[]{ "-t", TABLE, "-o", "<http://whatever/obj0>", "-g", HalyardBulkDelete.DEFAULT_GRAPH_KEYWORD, "-g", "<http://whatever/ctx1>", "-w", htableDir.toURI().toURL().toString()}));
         assertCount(23);
         assertTripleCount(5);

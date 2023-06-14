@@ -55,8 +55,11 @@ public abstract class AbstractHalyardToolTest {
             possibleOpts.add((char)i);
         }
         for (Option opt : createTool().getOptions()) {
-            possibleOpts.remove(opt.getOpt().charAt(0));
+            if (opt.getOpt() != null) {
+                possibleOpts.remove(opt.getOpt().charAt(0));
+            }
         }
+        // add an option that is invalid
         args.add("-"+possibleOpts.iterator().next());
         run(args.toArray(new String[args.size()]));
     }
