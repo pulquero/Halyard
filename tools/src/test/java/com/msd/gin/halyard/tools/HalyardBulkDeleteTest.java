@@ -35,6 +35,7 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.sail.SailConnection;
 import org.eclipse.rdf4j.sail.SailException;
 import org.junit.Assert;
@@ -73,9 +74,10 @@ public class HalyardBulkDeleteTest extends AbstractHalyardToolTest {
         }
         sail.shutDown();
         assertCount(25);
+        assertCount(5, SimpleValueFactory.getInstance().createIRI("http://whatever/ctx1"));
         assertTripleCount(6);
 	}
-
+ 
 	@Test
     public void testBulkDelete() throws Exception {
 		createData();
@@ -87,6 +89,7 @@ public class HalyardBulkDeleteTest extends AbstractHalyardToolTest {
         htableDir = getTempHTableDir("test_htable");
         assertEquals(0, run(new String[]{ "-t", TABLE, "-o", "<http://whatever/obj0>", "-g", HalyardBulkDelete.DEFAULT_GRAPH_KEYWORD, "-g", "<http://whatever/ctx1>", "-w", htableDir.toURI().toURL().toString()}));
         assertCount(23);
+        assertCount(4, SimpleValueFactory.getInstance().createIRI("http://whatever/ctx1"));
         assertTripleCount(5);
 
         htableDir = getTempHTableDir("test_htable");
@@ -115,6 +118,7 @@ public class HalyardBulkDeleteTest extends AbstractHalyardToolTest {
         File restoredSnapshot = getTempSnapshotDir("restored_snapshot");
         assertEquals(0, run(new String[]{ "-n", snapshot, "-t", TABLE, "-o", "<http://whatever/obj0>", "-g", HalyardBulkDelete.DEFAULT_GRAPH_KEYWORD, "-g", "<http://whatever/ctx1>", "-w", htableDir.toURI().toURL().toString(), "-u", restoredSnapshot.toURI().toURL().toString()}));
         assertCount(23);
+        assertCount(4, SimpleValueFactory.getInstance().createIRI("http://whatever/ctx1"));
         assertTripleCount(5);
 
         htableDir = getTempHTableDir("test_htable_snapshot");
@@ -130,13 +134,13 @@ public class HalyardBulkDeleteTest extends AbstractHalyardToolTest {
         assertTripleCount(0);
     }
 
-    private static void assertCount(int expected) throws Exception {
+    private static void assertCount(int expected, Resource... ctxs) throws Exception {
         HBaseSail sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), TABLE, false, 0, true, 0, null, null);
         sail.init();
         try {
 			try (SailConnection conn = sail.getConnection()) {
 				List<Statement> stmts = new ArrayList<>();
-				try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
+				try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true, ctxs)) {
 					while (iter.hasNext()) {
 						Statement stmt = iter.next();
 						stmts.add(stmt);

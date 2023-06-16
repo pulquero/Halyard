@@ -222,9 +222,10 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         configureString(cmd, 's', null, this::validateSubject);
         configureString(cmd, 'p', null, this::validatePredicate);
         configureString(cmd, 'o', null, this::validateObject);
-        if (cmd.hasOption('g')) {
+        String[] ntGraphs = cmd.getOptionValues('g');  // N-triples encoded
+        if (ntGraphs != null) {
         	// URL-safe separated list
-        	getConf().set(CONTEXTS, String.join(" ", validateContexts(cmd.getOptionValues('g'))));
+        	getConf().set(CONTEXTS, String.join(" ", validateContexts(ntGraphs)));
         }
         configureBoolean(cmd, "dry-run");
         String snapshotPath = getConf().get(SNAPSHOT_PATH);
@@ -248,15 +249,14 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 			keyspace.close();
 		}
         ValueFactory vf = new IdValueFactory(rdfFactory);
-        String[] namedGraphs = cmd.getOptionValues('g');
         StatementIndices indices = new StatementIndices(getConf(), rdfFactory);
         List<Scan> scans;
-        if (namedGraphs != null && namedGraphs.length > 0) {
-        	scans = new ArrayList<>(1 + namedGraphs.length);
+        if (ntGraphs != null && ntGraphs.length > 0) {
+        	scans = new ArrayList<>(1 + ntGraphs.length);
         	scans.add(indices.scanDefaultIndices());
-        	for (String graph : namedGraphs) {
-        		if (!DEFAULT_GRAPH_KEYWORD.equals(graph)) {
-        			Resource ctx = vf.createIRI(graph);
+        	for (String ntGraph : ntGraphs) {
+        		if (!DEFAULT_GRAPH_KEYWORD.equals(ntGraph)) {
+        			Resource ctx = NTriplesUtil.parseURI(ntGraph, vf);
             		scans.addAll(indices.scanContextIndices(ctx));
         		}
         	}
