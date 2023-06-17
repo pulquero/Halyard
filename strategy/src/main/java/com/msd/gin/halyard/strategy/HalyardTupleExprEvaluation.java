@@ -124,7 +124,6 @@ import org.eclipse.rdf4j.query.algebra.MultiProjection;
 import org.eclipse.rdf4j.query.algebra.Order;
 import org.eclipse.rdf4j.query.algebra.OrderElem;
 import org.eclipse.rdf4j.query.algebra.Projection;
-import org.eclipse.rdf4j.query.algebra.ProjectionElem;
 import org.eclipse.rdf4j.query.algebra.ProjectionElemList;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
@@ -134,7 +133,6 @@ import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.SingletonSet;
 import org.eclipse.rdf4j.query.algebra.Slice;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
-import org.eclipse.rdf4j.query.algebra.SubQueryValueOperator;
 import org.eclipse.rdf4j.query.algebra.Sum;
 import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
@@ -900,21 +898,10 @@ final class HalyardTupleExprEvaluation {
     private BindingSetPipeEvaluationStep precompileFilter(final Filter filter, QueryEvaluationContext evalContext) {
         BindingSetPipeEvaluationStep argStep = precompileTupleExpr(filter.getArg(), evalContext);
         ValuePipeQueryValueEvaluationStep conditionStep = parentStrategy.precompile(filter.getCondition(), evalContext);
-        boolean isInSubQuery = isPartOfSubQuery(filter);
         return (parent, bindings) -> {
 	        argStep.evaluate(new PipeJoin(parentStrategy.track(parent, filter)) {
-	            final Set<String> scopeBindingNames = filter.getBindingNames();
-	
 	            @Override
 	            protected boolean next(BindingSet bs) {
-                    // Limit the bindings to the ones that are in scope for this filter
-                    QueryBindingSet scopeBindings = new QueryBindingSet(bs);
-                    // FIXME J1 scopeBindingNames should include bindings from superquery if the filter
-                    // is part of a subquery. This is a workaround: we should fix the settings of scopeBindingNames,
-                    // rather than skipping the limiting of bindings.
-                    if (!isInSubQuery) {
-                        scopeBindings.retainAll(scopeBindingNames);
-                    }
                     startSecondaryPipe();
 	            	conditionStep.evaluate(new BindingSetValuePipe(parent) {
 	            		@Override
@@ -929,7 +916,7 @@ final class HalyardTupleExprEvaluation {
 	            			// ignore - failed to evaluate condition
 	            			endSecondaryPipe();
 	            		}
-	            	}, scopeBindings);
+	            	}, bs);
 	            	return !parent.isClosed();
 	            }
 	            @Override
@@ -2752,23 +2739,6 @@ final class HalyardTupleExprEvaluation {
             return isReducedOrDistinct(parent);
         }
         return parent instanceof Distinct || parent instanceof Reduced;
-    }
-
-    /**
-     * Determines if a {@link QueryModelNode} is a {@link SubQueryValueOperator} or if it's parent node is
-     * @param node
-     * @return
-     */
-    private static boolean isPartOfSubQuery(QueryModelNode node) {
-        if (node instanceof SubQueryValueOperator) {
-            return true;
-        }
-        QueryModelNode parent = node.getParentNode();
-        if (parent == null) {
-            return false;
-        } else {
-            return isPartOfSubQuery(parent);
-        }
     }
 
 
