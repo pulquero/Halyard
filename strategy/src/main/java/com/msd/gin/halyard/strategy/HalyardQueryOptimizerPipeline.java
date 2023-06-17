@@ -32,7 +32,6 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizerPipeline;
-import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.ParentReferenceCleaner;
 import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.RegexAsStringFunctionOptimizer;
 import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.StandardQueryOptimizerPipeline;
 
@@ -64,7 +63,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 
 	@Override
 	public Iterable<QueryOptimizer> getOptimizers() {
-		return Arrays.asList(
+		return ExtendedQueryOptimizerPipeline.check(Arrays.asList(
 			StandardQueryOptimizerPipeline.BINDING_ASSIGNER,
 			StandardQueryOptimizerPipeline.BINDING_SET_ASSIGNMENT_INLINER,
 			new HalyardConstantOptimizer(strategy),
@@ -85,8 +84,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 			HalyardFilterOptimizer.PUSH_DOWN,
 			HalyardFilterOptimizer.MERGE,
 			StandardQueryOptimizerPipeline.ORDER_LIMIT_OPTIMIZER,
-			new ParentReferenceCleaner(),
 			joinAlgoOptimizer
-		);
+		));
 	}
 }

@@ -5,18 +5,26 @@ import com.msd.gin.halyard.optimizers.ExtendedEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.HalyardFilterOptimizer;
 import com.msd.gin.halyard.optimizers.QueryJoinOptimizer;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizerPipeline;
 import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.ConstantOptimizer;
-import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.ParentReferenceCleaner;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.ParentReferenceChecker;
 import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.RegexAsStringFunctionOptimizer;
 import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.StandardQueryOptimizerPipeline;
 
 public class ExtendedQueryOptimizerPipeline implements QueryOptimizerPipeline {
+	private static boolean assertsEnabled = false;
+
+	static {
+		assert assertsEnabled = true;
+	}
+
 	private final ExtendedEvaluationStatistics statistics;
 	private final EvaluationStrategy strategy;
 	private final ValueFactory valueFactory;
@@ -29,7 +37,7 @@ public class ExtendedQueryOptimizerPipeline implements QueryOptimizerPipeline {
 
 	@Override
 	public Iterable<QueryOptimizer> getOptimizers() {
-		return Arrays.asList(
+		return check(Arrays.asList(
 			StandardQueryOptimizerPipeline.BINDING_ASSIGNER,
 			StandardQueryOptimizerPipeline.BINDING_SET_ASSIGNMENT_INLINER,
 			new ConstantOptimizer(strategy),
@@ -48,8 +56,20 @@ public class ExtendedQueryOptimizerPipeline implements QueryOptimizerPipeline {
 			StandardQueryOptimizerPipeline.ITERATIVE_EVALUATION_OPTIMIZER,
 			HalyardFilterOptimizer.PUSH_DOWN,
 			HalyardFilterOptimizer.MERGE,
-			StandardQueryOptimizerPipeline.ORDER_LIMIT_OPTIMIZER,
-			new ParentReferenceCleaner()
-		);
+			StandardQueryOptimizerPipeline.ORDER_LIMIT_OPTIMIZER
+		));
+	}
+
+	static Iterable<QueryOptimizer> check(Iterable<QueryOptimizer> optimizers) {
+		if (assertsEnabled) {
+			List<QueryOptimizer> optimizersWithReferenceCleaner = new ArrayList<>();
+			optimizersWithReferenceCleaner.add(new ParentReferenceChecker(null));
+			for (QueryOptimizer optimizer : optimizers) {
+				optimizersWithReferenceCleaner.add(optimizer);
+				optimizersWithReferenceCleaner.add(new ParentReferenceChecker(optimizer));
+			}
+			optimizers = optimizersWithReferenceCleaner;
+		}
+		return optimizers;
 	}
 }
