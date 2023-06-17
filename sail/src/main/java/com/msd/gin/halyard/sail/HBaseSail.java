@@ -506,6 +506,9 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	}
 
 	private HalyardEvaluationStatistics newStatistics() {
+		if (keyspace == null) {
+			throw new IllegalStateException("Sail is not initialized");
+		}
 		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs, null),
 				rdfFactory, statisticsCache);
 		ServiceStatisticsProvider srvStatsProvider = new ServiceStatisticsProvider() {
@@ -518,6 +521,10 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 					if (fedServ instanceof SailFederatedService) {
 						Sail sail = ((SailFederatedService) fedServ).getSail();
 						if (sail instanceof HBaseSail) {
+							// need to initialize the federated service to be able to access its statistics
+							if (!fedServ.isInitialized()) {
+								fedServ.initialize();
+							}
 							return Optional.of(((HBaseSail) sail).newStatistics());
 						}
 					}
