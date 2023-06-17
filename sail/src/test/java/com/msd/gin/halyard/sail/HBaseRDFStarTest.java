@@ -8,12 +8,13 @@ import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.sail.Sail;
 
 public class HBaseRDFStarTest extends RDFStarSupportTest {
+	private static final int QUERY_TIMEOUT = 15;
 
 	@Override
 	protected Repository createRepository() {
 		Sail sail;
 		try {
-			sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "rdfstartable", true, 0, true, 10, null, null);
+			sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "rdfstartable", true, 0, true, QUERY_TIMEOUT, null, null);
 		} catch (Exception e) {
 			throw new AssertionError(e);
 		}

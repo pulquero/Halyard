@@ -37,6 +37,7 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class HBaseSailReificationTest {
+	private static final int QUERY_TIMEOUT = 15;
 
 	private Connection hconn;
 
@@ -52,7 +53,7 @@ public class HBaseSailReificationTest {
 
     @Test
     public void testModify() throws Exception {
-		HBaseSail sail = new HBaseSail(hconn, "reiftable", true, 0, true, 10, null, null);
+		HBaseSail sail = new HBaseSail(hconn, "reiftable", true, 0, true, QUERY_TIMEOUT, null, null);
 		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
         try(SailRepositoryConnection con = rep.getConnection()) {

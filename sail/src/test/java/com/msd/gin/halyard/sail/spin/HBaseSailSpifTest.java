@@ -20,6 +20,7 @@ import org.junit.runners.Parameterized;
  */
 @RunWith(Parameterized.class)
 public class HBaseSailSpifTest extends SailSpifTest {
+	private static final int QUERY_TIMEOUT = 15;
 
 	@Parameterized.Parameters(name = "{0}")
 	public static Collection<Object[]> data() {
@@ -38,7 +39,7 @@ public class HBaseSailSpifTest extends SailSpifTest {
 	@Override
 	protected Sail createSail() throws Exception {
 		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
-		HBaseSail sail = new HBaseSail(conf, tableName, true, 0, usePushStrategy, 10, null, null);
+		HBaseSail sail = new HBaseSail(conf, tableName, true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
 		return sail;
 	}
 

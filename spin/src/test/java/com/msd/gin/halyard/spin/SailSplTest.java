@@ -41,8 +41,12 @@ public class SailSplTest {
 
 	@After
 	public final void tearDown() throws Exception {
-		conn.close();
-		repo.shutDown();
+		if (conn != null) {
+			conn.close();
+		}
+		if (repo != null) {
+			repo.shutDown();
+		}
 		postCleanup();
 	}
 

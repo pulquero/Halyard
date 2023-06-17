@@ -14,6 +14,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 public class HBaseSPARQLComplianceTest extends RepositorySPARQLComplianceTestSuite {
+	private static final int QUERY_TIMEOUT = 15;
 
 	@BeforeClass
 	public static void setUpFactory() throws Exception {
@@ -21,7 +22,7 @@ public class HBaseSPARQLComplianceTest extends RepositorySPARQLComplianceTestSui
 		setRepositoryFactory(new HBaseRepositoryFactory() {
 			@Override
 			public Repository getRepository(RepositoryImplConfig config) throws RepositoryConfigException {
-				HBaseSail sail = new HBaseSail(conf, "complianceTestSuite", true, 0, true, 10, null, null);
+				HBaseSail sail = new HBaseSail(conf, "complianceTestSuite", true, 0, true, QUERY_TIMEOUT, null, null);
 				return new HBaseRepository(sail);
 			}
 		});

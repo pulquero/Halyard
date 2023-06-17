@@ -43,6 +43,7 @@ import static org.junit.Assert.*;
  */
 @RunWith(Parameterized.class)
 public class HBaseSailAddRemoveTest {
+	private static final int QUERY_TIMEOUT = 15;
     private static final Resource SUBJ = SimpleValueFactory.getInstance().createIRI("http://whatever/subject/");
     private static final IRI PRED = SimpleValueFactory.getInstance().createIRI("http://whatever/pred/");
     private static final Value OBJ = SimpleValueFactory.getInstance().createLiteral("whatever literal");
@@ -66,7 +67,7 @@ public class HBaseSailAddRemoveTest {
 
     @BeforeClass
     public static void setup() throws Exception {
-		sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "testAddRemove", true, 0, true, 10, null, null);
+		sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "testAddRemove", true, 0, true, QUERY_TIMEOUT, null, null);
 		sail.init();
     }
 

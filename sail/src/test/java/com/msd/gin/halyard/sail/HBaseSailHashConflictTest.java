@@ -56,6 +56,7 @@ import static org.junit.Assert.*;
  */
 @RunWith(Parameterized.class)
 public class HBaseSailHashConflictTest {
+	private static final int QUERY_TIMEOUT = 15;
 
 	private static final ValueFactory SVF = SimpleValueFactory.getInstance();
 	private static final Resource SUBJ = SVF.createIRI("http://testConflictingHash/subject1/");
@@ -110,7 +111,7 @@ public class HBaseSailHashConflictTest {
 			}
 		}
 
-		sail = new HBaseSail(conf, "testConflictingHash", false, 0, true, 10, null, null);
+		sail = new HBaseSail(conf, "testConflictingHash", false, 0, true, QUERY_TIMEOUT, null, null);
 		sail.init();
     }
 

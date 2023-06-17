@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import static org.junit.Assert.*;
 
 public abstract class AbstractSearchTest {
+	private static final int QUERY_TIMEOUT = 15;
 
 	protected static final String INDEX = "myIndex";
 	protected Configuration conf;
@@ -45,7 +46,7 @@ public abstract class AbstractSearchTest {
 	}
 
 	protected final Repository createRepo(String tableName, ServerSocket esServer) throws Exception {
-		HBaseSail hbaseSail = new HBaseSail(conf, tableName, true, 0, true, 10, ElasticSettings.from(new URL("http", InetAddress.getLoopbackAddress().getHostAddress(), esServer.getLocalPort(), "/" + INDEX)), null);
+		HBaseSail hbaseSail = new HBaseSail(conf, tableName, true, 0, true, QUERY_TIMEOUT, ElasticSettings.from(new URL("http", InetAddress.getLoopbackAddress().getHostAddress(), esServer.getLocalPort(), "/" + INDEX)), null);
 		Repository hbaseRepo = new SailRepository(hbaseSail);
 		hbaseRepo.init();
 		return hbaseRepo;

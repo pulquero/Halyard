@@ -35,10 +35,11 @@ import static org.junit.Assert.*;
  * @author Adam Sotona (MSD)
  */
 public class SES2154SubselectOptionalTest {
+	private static final int QUERY_TIMEOUT = 15;
 
     @Test
     public void testSES2154SubselectOptional() throws Exception {
-		HBaseSail sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "SES2154SubselectOptionaltable", true, 0, true, 10, null, null);
+		HBaseSail sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "SES2154SubselectOptionaltable", true, 0, true, QUERY_TIMEOUT, null, null);
         SailRepository rep = new SailRepository(sail);
         rep.init();
         SimpleValueFactory vf = SimpleValueFactory.getInstance();

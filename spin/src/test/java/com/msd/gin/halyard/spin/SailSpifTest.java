@@ -41,15 +41,13 @@ public class SailSpifTest {
 	/**
 	 * Temporary storage of platform locale. See #280 . Some tests (e.g. test involving spif:dateFormat) require English locale to succeed, instead of platform locale.
 	 */
-	private Locale platformLocale;
+	private final Locale platformLocale = Locale.getDefault();
 
 	@Before
 	public final void setup() throws Exception {
 		repo = new SailRepository(createSail());
 		repo.init();
 		conn = repo.getConnection();
-
-		platformLocale = Locale.getDefault();
 
 		/*
 		 * FIXME See #280 . Some tests (e.g. test involving spif:dateFormat) require English locale to succeed, instead of platform locale.
@@ -64,8 +62,12 @@ public class SailSpifTest {
 	@After
 	public final void tearDown() throws Exception {
 		Locale.setDefault(platformLocale);
-		conn.close();
-		repo.shutDown();
+		if (conn != null) {
+			conn.close();
+		}
+		if (repo != null) {
+			repo.shutDown();
+		}
 		postCleanup();
 	}
 

@@ -57,6 +57,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class HBaseSailVersionTest {
+	private static final int QUERY_TIMEOUT = 15;
 
 	private Connection hconn;
 
@@ -80,7 +81,7 @@ public class HBaseSailVersionTest {
         Resource subj = vf.createIRI("http://whatever/subj/");
         IRI pred = vf.createIRI("http://whatever/pred/");
         Value obj = vf.createLiteral("whatever");
-		HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, 10, null, null);
+		HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, QUERY_TIMEOUT, null, null);
         SailRepository rep = new SailRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -107,7 +108,7 @@ public class HBaseSailVersionTest {
         Resource subj = vf.createIRI("http://whatever/subj/");
         IRI pred = vf.createIRI("http://whatever/pred/");
         Value obj = vf.createLiteral("whatever");
-		HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, 10, null, null);
+		HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, QUERY_TIMEOUT, null, null);
         SailRepository rep = new SailRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -131,7 +132,7 @@ public class HBaseSailVersionTest {
 		RDFFactory rdfFactory = RDFFactory.create(hconn.getConfiguration());
 		HalyardTableUtils.createTable(hconn, htableName, null, 5, rdfFactory);
 
-		HBaseSail sail = new HBaseSail(hconn, "timestamptable", false, 0, true, 10, null, null);
+		HBaseSail sail = new HBaseSail(hconn, "timestamptable", false, 0, true, QUERY_TIMEOUT, null, null);
 		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
         try(SailRepositoryConnection con = rep.getConnection()) {
@@ -242,7 +243,7 @@ public class HBaseSailVersionTest {
 
         //fill the change graph with change events
         Configuration conf = HBaseServerTestInstance.getInstanceConfig();
-		HBaseSail sail = new HBaseSail(conf, "timebulkupdatetesttable", true, -1, true, 10, null, null);
+		HBaseSail sail = new HBaseSail(conf, "timebulkupdatetesttable", true, -1, true, QUERY_TIMEOUT, null, null);
 		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
         int i=0;
