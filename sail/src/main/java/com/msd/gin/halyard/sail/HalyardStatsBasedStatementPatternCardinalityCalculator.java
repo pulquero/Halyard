@@ -282,7 +282,10 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		Value partition1 = partition1Var.getValue();
 		Value partition2 = partition2Var.getValue();
 		if (partition1 != null && partition2 != null) {
-			return subsetTriplesPart(graph, partition1Type, partition1Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
+			double estimate12 = subsetTriplesPart(graph, partition1Type, partition1Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
+			double estimate21 = subsetTriplesPart(graph, partition2Type, partition2Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
+			// take the (geometric) mean of the two estimates
+			return Math.sqrt(estimate12 * estimate21);
 		} else if (partition1 != null && partition2 == null) {
 			return subsetTriplesPart(graph, partition2Type, partition2Var, totalTriples, defaultCardinality) / partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
 		} else if (partition1 == null && partition2 != null) {
