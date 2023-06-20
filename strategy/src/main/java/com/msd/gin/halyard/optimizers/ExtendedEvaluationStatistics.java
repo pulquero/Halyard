@@ -73,26 +73,26 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 		return stats.orElseGet(() -> new ExtendedEvaluationStatistics(SimpleStatementPatternCardinalityCalculator.FACTORY));
 	}
 
-	public void updateCardinalityMap(TupleExpr expr, Set<String> boundVars, Map<TupleExpr, Double> mapToUpdate) {
-		getStatisticsFor(expr).updateCardinalityMapInternal(expr, boundVars, mapToUpdate);
+	public void updateCardinalityMap(TupleExpr expr, Set<String> boundVars, Map<TupleExpr, Double> mapToUpdate, boolean useCached) {
+		getStatisticsFor(expr).updateCardinalityMapInternal(expr, boundVars, mapToUpdate, useCached);
 	}
 
-	protected final void updateCardinalityMapInternal(TupleExpr expr, Set<String> boundVars, Map<TupleExpr, Double> mapToUpdate) {
+	protected final void updateCardinalityMapInternal(TupleExpr expr, Set<String> boundVars, Map<TupleExpr, Double> mapToUpdate, boolean useCached) {
 		try (StatementPatternCardinalityCalculator spcalc = spcalcFactory.create()) {
-			ExtendedCardinalityCalculator cc = new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, boundVars, mapToUpdate);
+			ExtendedCardinalityCalculator cc = new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, boundVars, mapToUpdate, useCached);
 			expr.visit(cc);
 		} catch(IOException ioe) {
 			throw new QueryEvaluationException(ioe);
 		}
 	}
 
-	public double getCardinality(TupleExpr expr, Set<String> boundVariables) {
-		return getStatisticsFor(expr).getCardinalityInternal(expr, boundVariables);
+	public double getCardinality(TupleExpr expr, Set<String> boundVariables, boolean useCached) {
+		return getStatisticsFor(expr).getCardinalityInternal(expr, boundVariables, useCached);
 	}
 
-	protected final double getCardinalityInternal(TupleExpr expr, Set<String> boundVariables) {
+	protected final double getCardinalityInternal(TupleExpr expr, Set<String> boundVariables, boolean useCached) {
 		try (StatementPatternCardinalityCalculator spcalc = spcalcFactory.create()) {
-			ExtendedCardinalityCalculator cc = new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, boundVariables, null);
+			ExtendedCardinalityCalculator cc = new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, boundVariables, null, useCached);
 			expr.visit(cc);
 			return cc.getCardinality();
 		} catch(IOException ioe) {
@@ -102,7 +102,7 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 
 	@Override
 	public final double getCardinality(TupleExpr expr) {
-		return getCardinality(expr, Collections.emptySet());
+		return getCardinality(expr, Collections.emptySet(), false);
 	}
 
 	@Override
@@ -121,26 +121,29 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 		protected final ServiceStatisticsProvider srvStatsProvider;
 		protected final Set<String> boundVars;
         protected final Map<TupleExpr, Double> mapToUpdate;
+        protected final boolean useCached;
 
-		public ExtendedCardinalityCalculator(@Nonnull StatementPatternCardinalityCalculator spcalc, @Nullable ServiceStatisticsProvider srvStatsProvider, Set<String> boundVariables, @Nullable Map<TupleExpr, Double> mapToUpdate) {
+		public ExtendedCardinalityCalculator(@Nonnull StatementPatternCardinalityCalculator spcalc, @Nullable ServiceStatisticsProvider srvStatsProvider, Set<String> boundVariables, @Nullable Map<TupleExpr, Double> mapToUpdate, boolean useCached) {
 			this.spcalc = spcalc;
 			this.srvStatsProvider = srvStatsProvider;
 			this.boundVars = boundVariables;
             this.mapToUpdate = mapToUpdate;
+            this.useCached = useCached;
 		}
 
 		protected ExtendedCardinalityCalculator newCardinalityCalculator(Set<String> newBoundVars) {
-			return new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, newBoundVars, mapToUpdate);
+			return new ExtendedCardinalityCalculator(spcalc, srvStatsProvider, newBoundVars, mapToUpdate, useCached);
 		}
 
 		private boolean isCardinalityCached(AbstractQueryModelNode expr) {
-			double estimate = expr.getResultSizeEstimate();
-        	if (estimate >= 0.0) {
-        		cardinality = estimate;
-        		return true;
-        	} else {
-        		return false;
-        	}
+			if (useCached) {
+				double estimate = expr.getResultSizeEstimate();
+	        	if (estimate >= 0.0) {
+	        		cardinality = estimate;
+	        		return true;
+	        	}
+			}
+			return false;
 		}
 
 		@Override
@@ -369,10 +372,10 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 
         protected void meetServiceExpr(TupleExpr remoteExpr, ExtendedEvaluationStatistics srvStats) {
         	if (mapToUpdate != null) {
-        		srvStats.updateCardinalityMapInternal(remoteExpr, boundVars, mapToUpdate);
+        		srvStats.updateCardinalityMapInternal(remoteExpr, boundVars, mapToUpdate, useCached);
         		cardinality = mapToUpdate.get(remoteExpr);
         	} else {
-        		cardinality = srvStats.getCardinalityInternal(remoteExpr, boundVars);
+        		cardinality = srvStats.getCardinalityInternal(remoteExpr, boundVars, useCached);
         	}
         }
 

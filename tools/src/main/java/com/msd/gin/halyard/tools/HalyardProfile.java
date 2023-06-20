@@ -121,7 +121,7 @@ public final class HalyardProfile extends AbstractHalyardTool {
 		                if (expr instanceof QueryRoot) {
 		                    expr = ((QueryRoot)expr).getArg();
 		                }
-						sail.getStatistics().updateCardinalityMap(expr, Collections.emptySet(), Collections.emptySet(), cardMap);
+						sail.getStatistics().updateCardinalityMap(expr, Collections.emptySet(), Collections.emptySet(), cardMap, true);
 		                final StringBuilder buf = new StringBuilder(256);
 		                buf.append(msg).append(System.lineSeparator());
 		                expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {

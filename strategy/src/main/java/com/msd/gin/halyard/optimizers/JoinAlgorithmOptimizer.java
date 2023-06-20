@@ -63,8 +63,9 @@ public class JoinAlgorithmOptimizer implements QueryOptimizer {
 		TupleExpr right = join.getRightArg();
 		if (isSupported(left) && isSupported(right)) {
 			Set<String> boundVars = getBoundVars(join);
-			double leftCard = statistics.getCardinality(left, boundVars);
-			double rightCard = statistics.getCardinality(right, boundVars);
+			double leftCard = statistics.getCardinality(left, boundVars, true);
+			// calculate cardinality excluding bindings coming from the left
+			double rightCard = statistics.getCardinality(right, boundVars, false);
 			// nested loops: evaluate left, for each left bs, evaluate right (scan)
 			double nestedCost = leftCard * INDEX_SCAN_COST;
 			// hash join: evaluate right (scan), build hash, evaluate left, for each left bs, lookup right

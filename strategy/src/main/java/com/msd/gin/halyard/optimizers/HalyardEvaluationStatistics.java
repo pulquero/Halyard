@@ -43,36 +43,36 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
 	    super(spcalcFactory, srvStatsProvider);
 	}
 	
-	public void updateCardinalityMap(TupleExpr expr, Set<String> boundVars, Set<String> priorityVars, Map<TupleExpr, Double> mapToUpdate) {
+	public void updateCardinalityMap(TupleExpr expr, Set<String> boundVars, Set<String> priorityVars, Map<TupleExpr, Double> mapToUpdate, boolean useCached) {
 		ExtendedEvaluationStatistics stats = getStatisticsFor(expr);
 		if (stats instanceof HalyardEvaluationStatistics) {
-			((HalyardEvaluationStatistics)stats).updateCardinalityMapInternal(expr, boundVars, priorityVars, mapToUpdate);
+			((HalyardEvaluationStatistics)stats).updateCardinalityMapInternal(expr, boundVars, priorityVars, mapToUpdate, useCached);
 		} else {
-			stats.updateCardinalityMapInternal(expr, boundVars, mapToUpdate);
+			stats.updateCardinalityMapInternal(expr, boundVars, mapToUpdate, useCached);
 		}
 	}
 
-	private void updateCardinalityMapInternal(TupleExpr expr, Set<String> boundVars, Set<String> priorityVars, Map<TupleExpr, Double> mapToUpdate) {
+	private void updateCardinalityMapInternal(TupleExpr expr, Set<String> boundVars, Set<String> priorityVars, Map<TupleExpr, Double> mapToUpdate, boolean useCached) {
 		try (StatementPatternCardinalityCalculator spcalc = spcalcFactory.create()) {
-			HalyardCardinalityCalculator cc = new HalyardCardinalityCalculator(spcalc, srvStatsProvider, boundVars, priorityVars, mapToUpdate);
+			HalyardCardinalityCalculator cc = new HalyardCardinalityCalculator(spcalc, srvStatsProvider, boundVars, priorityVars, mapToUpdate, useCached);
 			expr.visit(cc);
 		} catch(IOException ioe) {
 			throw new QueryEvaluationException(ioe);
 		}
 	}
 
-	public double getCardinality(TupleExpr expr, Set<String> boundVariables, Set<String> priorityVariables) {
+	public double getCardinality(TupleExpr expr, Set<String> boundVariables, Set<String> priorityVariables, boolean useCached) {
 		ExtendedEvaluationStatistics stats = getStatisticsFor(expr);
 		if (stats instanceof HalyardEvaluationStatistics) {
-			return ((HalyardEvaluationStatistics)stats).getCardinalityInternal(expr, boundVariables, priorityVariables);
+			return ((HalyardEvaluationStatistics)stats).getCardinalityInternal(expr, boundVariables, priorityVariables, useCached);
 		} else {
-			return stats.getCardinalityInternal(expr, boundVariables);
+			return stats.getCardinalityInternal(expr, boundVariables, useCached);
 		}
 	}
 
-	private double getCardinalityInternal(TupleExpr expr, Set<String> boundVariables, Set<String> priorityVariables) {
+	private double getCardinalityInternal(TupleExpr expr, Set<String> boundVariables, Set<String> priorityVariables, boolean useCached) {
 		try (StatementPatternCardinalityCalculator spcalc = spcalcFactory.create()) {
-			HalyardCardinalityCalculator cc = new HalyardCardinalityCalculator(spcalc, srvStatsProvider, boundVariables, priorityVariables, null);
+			HalyardCardinalityCalculator cc = new HalyardCardinalityCalculator(spcalc, srvStatsProvider, boundVariables, priorityVariables, null, useCached);
 			expr.visit(cc);
 			return cc.getCardinality();
 		} catch(IOException ioe) {
@@ -81,8 +81,8 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
 	}
 
 	@Override
-	public double getCardinality(TupleExpr expr, Set<String> boundVariables) {
-		return getCardinality(expr, boundVariables, Collections.emptySet());
+	public double getCardinality(TupleExpr expr, Set<String> boundVariables, boolean useCached) {
+		return getCardinality(expr, boundVariables, Collections.emptySet(), useCached);
 	}
 
 
@@ -90,14 +90,14 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
 
         private final Set<String> priorityVariables;
 
-        HalyardCardinalityCalculator(@Nonnull StatementPatternCardinalityCalculator spcalc, ServiceStatisticsProvider srvStatsProvider, Set<String> boundVariables, Set<String> priorityVariables, @Nullable Map<TupleExpr, Double> mapToUpdate) {
-        	super(spcalc, srvStatsProvider, boundVariables, mapToUpdate);
+        HalyardCardinalityCalculator(@Nonnull StatementPatternCardinalityCalculator spcalc, ServiceStatisticsProvider srvStatsProvider, Set<String> boundVariables, Set<String> priorityVariables, @Nullable Map<TupleExpr, Double> mapToUpdate, boolean useCached) {
+        	super(spcalc, srvStatsProvider, boundVariables, mapToUpdate, useCached);
             this.priorityVariables = priorityVariables;
         }
 
 		@Override
 		protected ExtendedCardinalityCalculator newCardinalityCalculator(Set<String> newBoundVars) {
-			return new HalyardCardinalityCalculator(spcalc, srvStatsProvider, newBoundVars, priorityVariables, mapToUpdate);
+			return new HalyardCardinalityCalculator(spcalc, srvStatsProvider, newBoundVars, priorityVariables, mapToUpdate, useCached);
 		}
 
         @Override
@@ -133,10 +133,10 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
         protected void meetServiceExpr(TupleExpr remoteExpr, ExtendedEvaluationStatistics srvStats) {
         	if (srvStats instanceof HalyardEvaluationStatistics) {
 	            if (mapToUpdate != null) {
-	                ((HalyardEvaluationStatistics)srvStats).updateCardinalityMapInternal(remoteExpr, boundVars, priorityVariables, mapToUpdate);
+	                ((HalyardEvaluationStatistics)srvStats).updateCardinalityMapInternal(remoteExpr, boundVars, priorityVariables, mapToUpdate, useCached);
 	                cardinality = mapToUpdate.get(remoteExpr);
 	            } else {
-	            	cardinality = ((HalyardEvaluationStatistics)srvStats).getCardinalityInternal(remoteExpr, boundVars, priorityVariables);
+	            	cardinality = ((HalyardEvaluationStatistics)srvStats).getCardinalityInternal(remoteExpr, boundVars, priorityVariables, useCached);
 	            }
         	} else {
         		super.meetServiceExpr(remoteExpr, srvStats);

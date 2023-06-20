@@ -103,16 +103,16 @@ public class HalyardEvaluationStatisticsTest {
 	@Test
 	public void testCardinality() {
 		QueryRoot queryRoot = (QueryRoot) new SPARQLParser().parseQuery(query, "http://baseuri/").getTupleExpr();
-		Assert.assertEquals(query, cardinality, createStatistics().getCardinality(queryRoot, boundVars, priorityVars), cardinality/1000000.0);
+		Assert.assertEquals(query, cardinality, createStatistics().getCardinality(queryRoot, boundVars, priorityVars, false), cardinality/1000000.0);
 		Map<TupleExpr,Double> mapToUpdate = new HashMap<>();
-		createStatistics().updateCardinalityMap(queryRoot, boundVars, priorityVars, mapToUpdate);
+		createStatistics().updateCardinalityMap(queryRoot, boundVars, priorityVars, mapToUpdate, false);
 		Assert.assertEquals(query, cardinality, mapToUpdate.get(queryRoot.getArg()), cardinality/1000000.0);
 		TupleExprCounter counter = new TupleExprCounter();
 		queryRoot.getArg().visit(counter);
 		Assert.assertEquals(counter.count, mapToUpdate.size());
 		for (TupleExpr node : mapToUpdate.keySet()) {
 			Map<TupleExpr,Double> individualMapToUpdate = new HashMap<>();
-			createStatistics().updateCardinalityMap(node, boundVars, priorityVars, individualMapToUpdate);
+			createStatistics().updateCardinalityMap(node, boundVars, priorityVars, individualMapToUpdate, false);
 			Assert.assertFalse(individualMapToUpdate.isEmpty());
 		}
 	}

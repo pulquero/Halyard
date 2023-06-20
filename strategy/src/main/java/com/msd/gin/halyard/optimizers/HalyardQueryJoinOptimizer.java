@@ -51,7 +51,7 @@ public final class HalyardQueryJoinOptimizer extends QueryJoinOptimizer {
         tupleExpr.visit(new QueryJoinOptimizer.JoinVisitor() {
 			@Override
 			protected void updateCardinalityMap(TupleExpr tupleExpr, Map<TupleExpr,Double> cardinalityMap) {
-				statistics.updateCardinalityMap(tupleExpr, boundVars, parallelSplitBindings, cardinalityMap);
+				statistics.updateCardinalityMap(tupleExpr, boundVars, parallelSplitBindings, cardinalityMap, true);
 			}
 		});
 	}

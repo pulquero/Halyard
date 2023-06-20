@@ -91,7 +91,7 @@ public class HalyardStrategyJoinTest {
     @Test
     public void testJoin_1var_bound() throws Exception {
         String q = "prefix : <http://example/> select ?s ?t where {values ?x {:y2 :y3 :y3a} ?s :r ?x. ?x :s ?t}";
-        joinTest(q, "/test-cases/join-data.ttl", "/test-cases/join-results-1.srx", 2, expectedAlgo(), expectedAlgo());
+        joinTest(q, "/test-cases/join-data.ttl", "/test-cases/join-results-1.srx", 2, Algorithms.NESTED_LOOPS, expectedAlgo());
     }
 
     @Test

@@ -60,7 +60,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 		private boolean skipResultSizeEstimate = false;
 
 		protected void updateCardinalityMap(TupleExpr tupleExpr, Map<TupleExpr,Double> cardinalityMap) {
-			statistics.updateCardinalityMap(tupleExpr, boundVars, cardinalityMap);
+			statistics.updateCardinalityMap(tupleExpr, boundVars, cardinalityMap, true);
 		}
 
 		private Map<TupleExpr,Double> getCardinalityMap(TupleExpr tupleExpr) {
