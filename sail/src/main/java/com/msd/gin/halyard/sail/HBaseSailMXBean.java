@@ -25,6 +25,8 @@ public interface HBaseSailMXBean {
 
 	int getConnectionCount();
 
+	void killConnection(String id);
+
 	void clearQueryCache();
 
 	void clearStatisticsCache();

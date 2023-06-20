@@ -239,7 +239,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private HalyardEvaluationStatistics statistics;
 	String owner;
 	private MBeanManager<HBaseSail> mbeanManager;
-	private final Cache<HBaseSailConnection, Object> connInfos = Caffeine.newBuilder().weakKeys().removalListener((HBaseSailConnection conn, Object value, RemovalCause cause) ->
+	private final Cache<String, HBaseSailConnection> connections = Caffeine.newBuilder().weakValues().removalListener((String id, HBaseSailConnection conn, RemovalCause cause) ->
 	{
 		if (cause.wasEvicted()) {
 			LOGGER.warn("Closing unreferenced connection {}", conn);
@@ -405,7 +405,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	@Override
 	public int getConnectionCount() {
-		return (int) connInfos.estimatedSize();
+		return (int) connections.estimatedSize();
 	}
 
 	@Override
@@ -453,6 +453,14 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 			return result;
 		} else {
 			return new QueryInfo[0];
+		}
+	}
+
+	@Override
+	public void killConnection(String id) {
+		HBaseSailConnection conn = connections.getIfPresent(id);
+		if (conn != null) {
+			conn.close();
 		}
 	}
 
@@ -709,7 +717,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	@Override
 	public void shutDown() throws SailException {
-		connInfos.invalidateAll();
+		connections.invalidateAll();
 
 		if (mbeanManager != null) {
 			mbeanManager.unregister();
@@ -784,11 +792,11 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	}
 
 	void connectionOpened(HBaseSailConnection conn) {
-		connInfos.put(conn, conn);
+		connections.put(conn.getId(), conn);
 	}
 
 	void connectionClosed(HBaseSailConnection conn) {
-		connInfos.invalidate(conn);
+		connections.invalidate(conn.getId());
 	}
 
 	@Override

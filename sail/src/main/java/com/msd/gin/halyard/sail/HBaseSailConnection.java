@@ -134,6 +134,10 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		sail.connectionOpened(this);
     }
 
+	String getId() {
+		return MBeanManager.getId(this);
+	}
+
 	public boolean isTrackBranchOperatorsOnly() {
 		return trackBranchOperatorsOnly;
 	}
@@ -148,7 +152,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
 		if (executor == null) {
 			Map<String, String> attrs = new LinkedHashMap<>();
-			attrs.put(CONNECTION_ID_ATTRIBUTE, MBeanManager.getId(this));
+			attrs.put(CONNECTION_ID_ATTRIBUTE, getId());
 			attrs.putAll(sail.getConnectionAttributes(MBeanManager.getId(sail)));
 			executor = new HalyardEvaluationExecutor(sail.tableName.getNameAsString(), sail.getConfiguration(), attrs);
 		}
