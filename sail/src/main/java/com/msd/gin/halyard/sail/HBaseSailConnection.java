@@ -43,8 +43,9 @@ import com.msd.gin.halyard.util.MBeanManager;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
-import java.util.Hashtable;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -105,6 +106,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	public static final String SOURCE_STRING_BINDING = "__source__";
 	public static final String UPDATE_PART_BINDING = "__update_part__";
 	private static final int NO_UPDATE_PARTS = -1;
+	private static final String CONNECTION_ID_ATTRIBUTE = "connectionId";
 
 	private final HBaseSail sail;
 	private final boolean usePush;
@@ -145,9 +147,9 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			throw new SailException("Connection is closed");
 		}
 		if (executor == null) {
-			Hashtable<String, String> attrs = new Hashtable<>();
+			Map<String, String> attrs = new LinkedHashMap<>();
+			attrs.put(CONNECTION_ID_ATTRIBUTE, MBeanManager.getId(this));
 			attrs.putAll(sail.getConnectionAttributes(MBeanManager.getId(sail)));
-			attrs.put("connectionId", MBeanManager.getId(this));
 			executor = new HalyardEvaluationExecutor(sail.tableName.getNameAsString(), sail.getConfiguration(), attrs);
 		}
 		return executor;

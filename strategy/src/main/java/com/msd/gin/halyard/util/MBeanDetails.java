@@ -2,7 +2,6 @@ package com.msd.gin.halyard.util;
 
 import com.msd.gin.halyard.strategy.StrategyConfig;
 
-import java.util.Hashtable;
 import java.util.Map;
 
 import javax.management.MalformedObjectNameException;
@@ -16,11 +15,18 @@ public final class MBeanDetails {
 	public MBeanDetails(Object o, Class<?> intf, Map<String,String> customAttrs) {
 		this.o = o;
 		this.intf = intf;
-		Hashtable<String,String> attrs = new Hashtable<>(customAttrs);
-		attrs.put("type", o.getClass().getName());
-		attrs.put("id", MBeanManager.getId(o));
+		StringBuilder buf = new StringBuilder();
+		buf.append(StrategyConfig.JMX_DOMAIN);
+		buf.append(":");
+		buf.append("type=").append(o.getClass().getName());
+		buf.append(",");
+		buf.append("id=").append(MBeanManager.getId(o));
+		for (Map.Entry<String,String> attr : customAttrs.entrySet()) {
+			buf.append(",");
+			buf.append(attr.getKey()).append("=").append(attr.getValue());
+		}
 		try {
-			name = ObjectName.getInstance(StrategyConfig.JMX_DOMAIN, attrs);
+			name = ObjectName.getInstance(buf.toString());
 		} catch (MalformedObjectNameException e) {
 			throw new AssertionError(e);
 		}

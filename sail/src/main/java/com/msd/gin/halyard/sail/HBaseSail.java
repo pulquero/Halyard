@@ -51,7 +51,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Hashtable;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -615,7 +615,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		mbeanManager = new MBeanManager<>() {
 			@Override
 			protected List<MBeanDetails> mbeans(HBaseSail sail) {
-				Hashtable<String, String> attrs = new Hashtable<>();
+				Map<String, String> attrs = new LinkedHashMap<>();
 				attrs.putAll(getConnectionAttributes(owner));
 				attrs.put("federatedServiceResolver", MBeanManager.getId(federatedServiceResolver));
 				return Collections.singletonList(new MBeanDetails(sail, HBaseSailMXBean.class, attrs));

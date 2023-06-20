@@ -31,7 +31,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
@@ -115,14 +114,10 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 					protected List<MBeanDetails> mbeans(HalyardEvaluationExecutor executor) {
 						List<MBeanDetails> mbeanObjs = new ArrayList<>(2);
 						{
-							Hashtable<String,String> attrs = new Hashtable<>();
-							attrs.putAll(connAttrs);
-							mbeanObjs.add(new MBeanDetails(executor, HalyardEvaluationExecutorMXBean.class, attrs));
+							mbeanObjs.add(new MBeanDetails(executor, HalyardEvaluationExecutorMXBean.class, connAttrs));
 						}
 						{
-							Hashtable<String,String> attrs = new Hashtable<>();
-							attrs.putAll(connAttrs);
-							mbeanObjs.add(new MBeanDetails(executor.executor, TrackingThreadPoolExecutorMXBean.class, attrs));
+							mbeanObjs.add(new MBeanDetails(executor.executor, TrackingThreadPoolExecutorMXBean.class, connAttrs));
 						}
 						return mbeanObjs;
 					}

@@ -20,7 +20,7 @@ public abstract class MBeanManager<T> {
 	private List<ObjectInstance> mbeanInsts;
 
 	public static String getId(Object o) {
-		return o.getClass().getSimpleName() + "@" + Integer.toHexString(o.hashCode());
+		return Integer.toHexString(o.hashCode());
 	}
 
 	public MBeanManager() {
