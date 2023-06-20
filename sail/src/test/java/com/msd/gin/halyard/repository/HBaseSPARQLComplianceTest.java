@@ -4,6 +4,7 @@ import com.msd.gin.halyard.common.HBaseServerTestInstance;
 import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.repository.HBaseRepositoryFactory;
 import com.msd.gin.halyard.sail.HBaseSail;
+import com.msd.gin.halyard.strategy.StrategyConfig;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.repository.Repository;
@@ -19,6 +20,7 @@ public class HBaseSPARQLComplianceTest extends RepositorySPARQLComplianceTestSui
 	@BeforeClass
 	public static void setUpFactory() throws Exception {
 		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
+		conf.setInt(StrategyConfig.HALYARD_EVALUATION_THREADS, 5);
 		setRepositoryFactory(new HBaseRepositoryFactory() {
 			@Override
 			public Repository getRepository(RepositoryImplConfig config) throws RepositoryConfigException {

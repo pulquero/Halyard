@@ -4,6 +4,7 @@ import com.msd.gin.halyard.common.HBaseServerTestInstance;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.spin.SailSplTest;
+import com.msd.gin.halyard.strategy.StrategyConfig;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -39,6 +40,7 @@ public class HBaseSailSplTest extends SailSplTest {
 	@Override
 	protected Sail createSail() throws Exception {
 		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
+		conf.setInt(StrategyConfig.HALYARD_EVALUATION_THREADS, 5);
 		HBaseSail sail = new HBaseSail(conf, tableName, true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
 		return sail;
 	}

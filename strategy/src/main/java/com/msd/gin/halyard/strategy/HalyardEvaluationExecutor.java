@@ -98,10 +98,10 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	private int offerTimeoutMillis;
 
 	public HalyardEvaluationExecutor(String name, Configuration conf, Map<String,String> connAttrs) {
-	    threads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREADS, 10);
+	    threads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREADS, StrategyConfig.DEFAULT_THREADS);
 		executor = createExecutor(name + " ", threads);
 
-	    maxQueueSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_QUEUE_SIZE, 5000);
+	    maxQueueSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_QUEUE_SIZE, StrategyConfig.DEFAULT_QUEUE_SIZE);
 		pollTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_POLL_TIMEOUT_MILLIS, Integer.MAX_VALUE);
 		offerTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_OFFER_TIMEOUT_MILLIS, conf.getInt("hbase.client.scanner.timeout.period", 60000));
 

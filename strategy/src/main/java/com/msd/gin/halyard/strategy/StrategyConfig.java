@@ -22,6 +22,8 @@ public final class StrategyConfig {
 	static final int DEFAULT_STAR_JOIN_MIN_JOINS = 3;
 	static final int DEFAULT_MEMORY_THRESHOLD = 100000;
 	static final int DEFAULT_VALUE_CACHE_SIZE = 1000;
+	static final int DEFAULT_QUEUE_SIZE = 5000;
+	static final int DEFAULT_THREADS = 25;
 	public static final String JMX_DOMAIN = "com.msd.gin.halyard";
 
 	final long trackResultSizeUpdateInterval;
