@@ -175,6 +175,7 @@ public class TupleFunctionEvaluationStrategy extends StrictEvaluationStrategy {
 
 			@Override
 			protected void handleClose() throws QueryEvaluationException {
+				super.handleClose();
 				iter.close();
 			}
 		};

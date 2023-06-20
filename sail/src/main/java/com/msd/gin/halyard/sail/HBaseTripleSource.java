@@ -288,6 +288,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 
 		@Override
 		protected void handleClose() throws IOException {
+			super.handleClose();
 			if (rs != null) {
 				rs.close();
 				rs = null;

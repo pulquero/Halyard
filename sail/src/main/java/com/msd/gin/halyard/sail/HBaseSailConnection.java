@@ -282,7 +282,11 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 				iter = new IterationWrapper<BindingSet, QueryEvaluationException>(iter) {
 					@Override
 					protected void handleClose() throws QueryEvaluationException {
-						queryInfo.end();
+						try {
+							super.handleClose();
+						} finally {
+							queryInfo.end();
+						}
 					}
 				};
 				return sail.evaluationTimeoutSecs <= 0 ? iter
@@ -316,12 +320,29 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	@Override
 	public void evaluate(BindingSetPipe pipe, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
 		evaluate((optimizedTree, step, queryInfo) -> {
+			BindingSetPipe queryEndPipe = new BindingSetPipe(pipe) {
+				@Override
+				protected void doClose() {
+					try {
+						super.doClose();
+					} finally {
+						queryInfo.end();
+					}
+				}
+
+				@Override
+				public boolean handleException(Throwable e) {
+					try {
+						return super.handleException(e);
+					} finally {
+						queryInfo.end();
+					}
+				}
+			};
 			try {
-				evaluateInternal(pipe, optimizedTree, step);
+				evaluateInternal(queryEndPipe, optimizedTree, step);
 			} catch (QueryEvaluationException ex) {
 				throw new SailException(ex);
-			} finally {
-				queryInfo.end();
 			}
 			return null;
 		}, tupleExpr, dataset, bindings, includeInferred);
@@ -367,6 +388,14 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
 	}
 
+	/**
+	 * NB: asynchronous.
+	 * 
+	 * @param pipe
+	 * @param optimizedTree
+	 * @param step
+	 * @throws QueryEvaluationException
+	 */
 	protected void evaluateInternal(BindingSetPipe pipe, TupleExpr optimizedTree, QueryEvaluationStep step) throws QueryEvaluationException {
 		if (step instanceof BindingSetPipeQueryEvaluationStep) {
 			((BindingSetPipeQueryEvaluationStep) step).evaluate(pipe, EmptyBindingSet.getInstance());
@@ -409,6 +438,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 					@Override
 					protected void handleClose() throws IOException {
+						super.handleClose();
 						rs.close();
 					}
 				}
