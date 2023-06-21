@@ -4,6 +4,7 @@ import com.google.common.base.Stopwatch;
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.evaluation.EmptyTripleSource;
+import com.msd.gin.halyard.query.CloseableConsumer;
 import com.msd.gin.halyard.query.TimeLimitConsumer;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
@@ -175,15 +176,16 @@ public class HBaseUpdate extends SailUpdate {
 					}
 				}
 				TimestampedUpdateContext tsUc = new TimestampedUpdateContext(uc.getUpdateExpr(), uc.getDataset(), uc.getBindingSet(), uc.isIncludeInferred());
-				Consumer<BindingSet> callback = TimeLimitConsumer.apply(next -> {
+				try (CloseableConsumer<BindingSet> callback = TimeLimitConsumer.apply(next -> {
 					if (deleteInfo != null) {
 						deleteBoundTriples(next, deleteInfo, tsUc);
 					}
 					if (insertInfo != null) {
 						insertBoundTriples(next, insertInfo, tsUc);
 					}
-				}, maxExecutionTime);
-				evaluateWhereClause(callback, whereClause, uc);
+				}, maxExecutionTime)) {
+					evaluateWhereClause(callback, whereClause, uc);
+				}
 
 				if (con.isTrackResultSize()) {
 					// copy final results back to original expressions

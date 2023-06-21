@@ -8,7 +8,6 @@
 package com.msd.gin.halyard.sail.connection;
 
 import java.util.ArrayList;
-import java.util.function.Consumer;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -24,6 +23,7 @@ import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 import org.eclipse.rdf4j.sail.SailConnection;
 import org.eclipse.rdf4j.sail.SailException;
 
+import com.msd.gin.halyard.query.CloseableConsumer;
 import com.msd.gin.halyard.query.TimeLimitConsumer;
 import com.msd.gin.halyard.sail.BindingSetConsumerSailConnection;
 
@@ -66,8 +66,9 @@ public class SailConnectionTupleQuery extends SailConnectionQuery implements Tup
 			TupleExpr tupleExpr = getParsedQuery().getTupleExpr();
 			int maxExecutionTime = getMaxExecutionTime();
 			handler.startQueryResult(new ArrayList<>(tupleExpr.getBindingNames()));
-			Consumer<BindingSet> callback = TimeLimitConsumer.apply(handler::handleSolution, maxExecutionTime);
-			((BindingSetConsumerSailConnection) sailCon).evaluate(callback, tupleExpr, getActiveDataset(), getBindings(), getIncludeInferred());
+			try (CloseableConsumer<BindingSet> callback = TimeLimitConsumer.apply(handler::handleSolution, maxExecutionTime)) {
+				((BindingSetConsumerSailConnection) sailCon).evaluate(callback, tupleExpr, getActiveDataset(), getBindings(), getIncludeInferred());
+			}
 			handler.endQueryResult();
 		} else {
 			TupleQueryResult queryResult = evaluate();

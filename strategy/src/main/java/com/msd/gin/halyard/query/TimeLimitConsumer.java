@@ -10,38 +10,46 @@ import org.eclipse.rdf4j.query.QueryInterruptedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class TimeLimitConsumer<E> implements Consumer<E> {
+public final class TimeLimitConsumer<E> implements CloseableConsumer<E> {
 	private static final Logger LOGGER = LoggerFactory.getLogger(TimeLimitConsumer.class);
 	private static final Timer timer = new Timer("TimeLimitConsumer", true);
 
-	public static <E> Consumer<E> apply(Consumer<E> handler, int timeLimitSecs) {
+	public static <E> CloseableConsumer<E> apply(Consumer<E> handler, int timeLimitSecs) {
 		if (timeLimitSecs > 0) {
-			handler = new TimeLimitConsumer<>(handler, TimeUnit.SECONDS.toMillis(timeLimitSecs));
+			return new TimeLimitConsumer<>(handler, TimeUnit.SECONDS.toMillis(timeLimitSecs));
+		} else {
+			return CloseableConsumer.wrap(handler);
 		}
-		return handler;
 	}
 
-	private final Thread thread = Thread.currentThread();
 	private final Consumer<E> delegate;
 	private final long timeLimitMillis;
+	private final InterruptTask interruptTask;
+	private volatile boolean isInterrupted;
 
 	public TimeLimitConsumer(Consumer<E> handler, long timeLimitMillis) {
 		assert timeLimitMillis > 0 : "time limit must be a positive number, is: " + timeLimitMillis;
 		this.delegate = handler;
 		this.timeLimitMillis = timeLimitMillis;
-		timer.schedule(new InterruptTask(this), timeLimitMillis);
+		this.interruptTask = new InterruptTask(this);
+		timer.schedule(interruptTask, timeLimitMillis);
 	}
 
 	@Override
 	public void accept(E e) {
-		if (Thread.interrupted()) {
+		if (isInterrupted) {
 			throw new QueryInterruptedException(String.format("Query evaluation exceeded specified timeout %ds", TimeUnit.MILLISECONDS.toSeconds(timeLimitMillis)));
 		}
 		delegate.accept(e);
 	}
 
 	private void interrupt() {
-		thread.interrupt();
+		isInterrupted = true;
+	}
+
+	@Override
+	public void close() {
+		interruptTask.cancel();
 	}
 
 
