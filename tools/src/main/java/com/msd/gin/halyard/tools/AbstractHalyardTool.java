@@ -51,6 +51,8 @@ import org.apache.hadoop.hbase.tool.BulkLoadHFiles;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.util.Tool;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -209,7 +211,10 @@ public abstract class AbstractHalyardTool implements Tool {
     protected void configureBindings(CommandLine cmd, char opt) {
 	    Properties bindings = cmd.getOptionProperties(Character.toString(opt));
 	    for (String key : bindings.stringPropertyNames()) {
-	    	getConf().set(BINDING_PROPERTY_PREFIX+key, bindings.getProperty(key));
+	    	String value = bindings.getProperty(key);
+	    	// validate value
+	    	NTriplesUtil.parseValue(value, SimpleValueFactory.getInstance());
+	    	getConf().set(BINDING_PROPERTY_PREFIX+key, value);
 	    }
     }
 
