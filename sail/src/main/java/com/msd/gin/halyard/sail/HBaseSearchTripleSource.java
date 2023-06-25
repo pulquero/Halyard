@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.hadoop.hbase.client.Result;
@@ -53,7 +54,7 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 	public HBaseSearchTripleSource(KeyspaceConnection table, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory, HBaseSail.ScanSettings settings, SearchClient searchClient,
 			HBaseSail.Ticker ticker) {
 		super(table, vf, stmtIndices, timeoutSecs, qpFactory, settings, ticker);
-		this.searchClient = searchClient;
+		this.searchClient = Objects.requireNonNull(searchClient);
 	}
 
 	public SearchClient getSearchClient() {
@@ -72,9 +73,6 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 	@Override
 	protected CloseableIteration<? extends Statement, IOException> createStatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contexts, ValueIO.Reader reader) throws QueryEvaluationException {
 		if (HalyardEvaluationStrategy.isSearchStatement(obj)) {
-			if (searchClient == null) {
-				throw new QueryEvaluationException("Search index not configured");
-			}
 			return new LiteralSearchStatementScanner(subj, pred, obj.stringValue(), contexts, reader);
 		} else {
 			return super.createStatementScanner(subj, pred, obj, contexts, reader);

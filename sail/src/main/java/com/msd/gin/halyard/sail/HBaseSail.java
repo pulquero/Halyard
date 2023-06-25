@@ -213,7 +213,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private volatile boolean readOnly = true;
 	private volatile long readOnlyTimestamp = 0L;
 	final ElasticSettings esSettings;
-	ElasticsearchTransport esTransport;
+	Optional<ElasticsearchTransport> esTransport;
 	boolean includeNamespaces = false;
 	private boolean trackResultSize;
 	private boolean trackResultTime;
@@ -575,12 +575,6 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 		statistics = newStatistics();
 
-		if (includeNamespaces) {
-			try (HBaseSailConnection conn = getConnection()) {
-				conn.addNamespaces();
-			}
-		}
-
 		SpinFunctionInterpreter.registerSpinParsingFunctions(spinParser, functionRegistry, pushStrategy ? tupleFunctionRegistry : TupleFunctionRegistry.getInstance());
 		SpinMagicPropertyInterpreter.registerSpinParsingTupleFunctions(spinParser, tupleFunctionRegistry);
 
@@ -617,7 +611,9 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 				}
 			});
 			RestClient restClient = restClientBuilder.build();
-			esTransport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+			esTransport = Optional.of(new RestClientTransport(restClient, new JacksonJsonpMapper()));
+		} else {
+			esTransport = Optional.empty();
 		}
 
 		mbeanManager = new MBeanManager<>() {
@@ -630,6 +626,12 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 			}
 		};
 		mbeanManager.register(this);
+
+		if (includeNamespaces) {
+			try (HBaseSailConnection conn = getConnection()) {
+				conn.addNamespaces();
+			}
+		}
 	}
 
 	Map<String, String> getConnectionAttributes(String owner) {
@@ -679,7 +681,8 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	HBaseTripleSource createTripleSource(KeyspaceConnection keyspaceConn, boolean includeInferred) {
 		QueryPreparer.Factory qpFactory = () -> new SailConnectionQueryPreparer(getConnection(), includeInferred, getValueFactory());
-		return new HBaseSearchTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), getSearchClient().orElse(null), ticker);
+		return getSearchClient().<HBaseTripleSource>map(sc -> new HBaseSearchTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), sc, ticker))
+				.orElseGet(() -> new HBaseTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), ticker));
 	}
 
 	public RDFFactory getRDFFactory() {
@@ -696,20 +699,15 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		return stmtIndices;
 	}
 
-	Optional<SearchClient> getSearchClient() {
+	private Optional<SearchClient> getSearchClient() {
 		Optional<SearchClient> localRef = searchClient;
 		if (localRef == null) {
-			if (esTransport != null) {
-				synchronized (this) {
-					localRef = searchClient;
-					if (localRef == null) {
-						localRef = Optional.of(new SearchClient(new ElasticsearchClient(esTransport), esSettings.indexName));
-						searchClient = localRef;
-					}
+			synchronized (this) {
+				localRef = searchClient;
+				if (localRef == null) {
+					localRef = esTransport.map(transport -> new SearchClient(new ElasticsearchClient(transport), esSettings.indexName));
+					searchClient = localRef;
 				}
-			} else {
-				localRef = Optional.empty();
-				searchClient = localRef;
 			}
 		}
 		return localRef;
@@ -725,10 +723,12 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		}
 
 		if (esTransport != null) {
-			try {
-				esTransport.close();
-			} catch (IOException ignore) {
-			}
+			esTransport.ifPresent(transport -> {
+				try {
+					transport.close();
+				} catch (IOException ignore) {
+				}
+			});
 			esTransport = null;
 		}
 		if (federatedServiceResolver instanceof AbstractFederatedServiceResolver) {

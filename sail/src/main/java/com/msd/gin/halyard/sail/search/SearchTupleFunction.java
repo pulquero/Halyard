@@ -37,6 +37,9 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 
 	@Override
 	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(TripleSource tripleSource, Value... args) throws QueryEvaluationException {
+		if (!(tripleSource instanceof HBaseSearchTripleSource)) {
+			throw new QueryEvaluationException("Search index not configured");
+		}
 		HBaseSearchTripleSource extTripleSource = (HBaseSearchTripleSource) tripleSource;
 
 		if (args.length != 6) {
