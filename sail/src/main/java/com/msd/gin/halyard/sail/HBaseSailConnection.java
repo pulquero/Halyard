@@ -110,6 +110,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private static final String CONNECTION_ID_ATTRIBUTE = "connectionId";
 
 	private final HBaseSail sail;
+	private final String id;
 	private final boolean usePush;
 	private boolean trackBranchOperatorsOnly;
 	private KeyspaceConnection keyspaceConn;
@@ -126,6 +127,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 	HBaseSailConnection(HBaseSail sail, HalyardEvaluationExecutor executor) throws IOException {
 		this.sail = sail;
+		this.id = MBeanManager.getId(this);
 		this.usePush = sail.pushStrategy;
 		this.executor = executor;
 		this.executorIsShared = (executor != null);
@@ -136,7 +138,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     }
 
 	String getId() {
-		return MBeanManager.getId(this);
+		return id;
 	}
 
 	public boolean isTrackBranchOperatorsOnly() {
@@ -369,7 +371,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);
 		HalyardEvaluationContext evalContext = new HalyardEvaluationContext(dataset, tripleSource.getValueFactory());
 		QueryEvaluationStep step = strategy.precompile(optimizedTree, evalContext);
-		HBaseSail.QueryInfo queryInfo = sail.trackQuery(sourceString, tupleExpr, optimizedTree);
+		HBaseSail.QueryInfo queryInfo = sail.trackQuery(this, sourceString, tupleExpr, optimizedTree);
 		return evaluator.evaluate(optimizedTree, step, queryInfo);
 	}
 

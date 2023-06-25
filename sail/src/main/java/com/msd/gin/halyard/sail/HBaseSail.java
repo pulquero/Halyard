@@ -151,11 +151,13 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	public static final class QueryInfo implements Comparable<QueryInfo> {
 		private final long startTimestamp = System.currentTimeMillis();
 		private Long endTimestamp;
+		private final String connectionId;
 		private final String queryString;
 		private final TupleExpr queryExpr;
 		private final TupleExpr optimizedExpr;
 
-		public QueryInfo(String queryString, TupleExpr queryExpr, TupleExpr optimizedExpr) {
+		public QueryInfo(String connectionId, String queryString, TupleExpr queryExpr, TupleExpr optimizedExpr) {
+			this.connectionId = connectionId;
 			this.queryString = queryString;
 			this.queryExpr = queryExpr;
 			this.optimizedExpr = optimizedExpr;
@@ -167,6 +169,10 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 		public Long getEndTimestamp() {
 			return endTimestamp;
+		}
+
+		public String getConnectionId() {
+			return connectionId;
 		}
 
 		public String getQueryString() {
@@ -489,8 +495,8 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		}
 	}
 
-	QueryInfo trackQuery(String sourceString, TupleExpr rawExpr, TupleExpr optimizedExpr) {
-		QueryInfo query = new QueryInfo(sourceString, rawExpr, optimizedExpr);
+	QueryInfo trackQuery(HBaseSailConnection conn, String sourceString, TupleExpr rawExpr, TupleExpr optimizedExpr) {
+		QueryInfo query = new QueryInfo(conn.getId(), sourceString, rawExpr, optimizedExpr);
 		queryHistory.add(query);
 		if (queryHistorySize.incrementAndGet() > evaluationConfig.maxQueryHistorySize) {
 			queryHistory.remove();

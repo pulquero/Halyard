@@ -36,6 +36,7 @@ public class JMiniXAttributeRenderer implements AttributeFilter {
 						if (endTimestamp != null) {
 							s.append("<p>endTimestamp: ").append(df.format(new Date(endTimestamp))).append("</p>\n");
 						}
+						s.append("<p>connectionId: ").append(cd.get("connectionId")).append("</p>\n");
 						s.append("<p>queryString: <pre>").append(escape(cd.get("queryString"))).append("</pre></p>\n");
 						s.append("<p>queryTree: <pre>").append(escape(cd.get("queryTree"))).append("</pre></p>\n");
 						s.append("<p>optimizedQueryTree: <pre>").append(escape(cd.get("optimizedQueryTree"))).append("</pre></p>\n");
