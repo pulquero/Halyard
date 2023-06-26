@@ -16,6 +16,12 @@
  */
 package com.msd.gin.halyard.tools;
 
+import com.google.common.collect.Iterables;
+import com.msd.gin.halyard.common.RDFFactory;
+import com.msd.gin.halyard.repository.HBaseRepository;
+import com.msd.gin.halyard.sail.ElasticSettings;
+import com.msd.gin.halyard.sail.HBaseSail;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -26,6 +32,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
+import java.security.GeneralSecurityException;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.sql.Connection;
@@ -41,6 +48,7 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,26 +65,25 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.GraphQuery;
 import org.eclipse.rdf4j.query.GraphQueryResult;
-import org.eclipse.rdf4j.query.MalformedQueryException;
 import org.eclipse.rdf4j.query.Query;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
+import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.repository.RepositoryException;
-import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
-import org.eclipse.rdf4j.rio.RDFHandlerException;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.RDFWriterRegistry;
 import org.eclipse.rdf4j.rio.Rio;
 
-import com.msd.gin.halyard.sail.ElasticSettings;
-import com.msd.gin.halyard.sail.HBaseSail;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.BulkResponse;
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.transport.ElasticsearchTransport;
 
 /**
  * Command line tool to run SPARQL queries and export the results into various target systems. This class could be extended or modified to add new types of
@@ -88,7 +95,7 @@ public final class HalyardExport extends AbstractHalyardTool {
     /**
      * A generic exception during export
      */
-    public static final class ExportException extends Exception {
+    public static class ExportException extends IOException {
         private static final long serialVersionUID = 2946182537302463011L;
 
         /**
@@ -126,12 +133,12 @@ public final class HalyardExport extends AbstractHalyardTool {
         public void logStatus(String status);
     }
 
-    private static abstract class QueryResultWriter implements AutoCloseable {
+    static abstract class QueryResultWriter implements AutoCloseable {
         private final AtomicLong counter = new AtomicLong();
         private final StatusLog log;
         private long startTime;
 
-        public QueryResultWriter(StatusLog log) {
+        QueryResultWriter(StatusLog log) {
             this.log = log;
         }
 
@@ -149,20 +156,20 @@ public final class HalyardExport extends AbstractHalyardTool {
             return count;
         }
 
-        public abstract void writeTupleQueryResult(TupleQueryResult queryResult) throws ExportException;
-        public abstract void writeGraphQueryResult(GraphQueryResult queryResult) throws ExportException;
+        public abstract void writeTupleQueryResult(TupleQueryResult queryResult) throws IOException;
+        public abstract void writeGraphQueryResult(GraphQueryResult queryResult) throws IOException;
         @Override
         public final void close() throws ExportException {
             long time = System.currentTimeMillis()+1;
             long count = counter.get();
             log.logStatus(MessageFormat.format("Export finished with {0} records/triples in average speed {1}/s", count, (1000 * count)/(time - startTime)));
             try {
-                closeWriter();
+                doClose();
             } catch (Exception e) {
                 throw new ExportException(e);
             }
         }
-        protected abstract void closeWriter() throws Exception;
+        protected abstract void doClose() throws Exception;
     }
 
     private static class CSVResultWriter extends QueryResultWriter {
@@ -205,54 +212,50 @@ public final class HalyardExport extends AbstractHalyardTool {
 
         private final Writer writer;
 
-        public CSVResultWriter(StatusLog log, OutputStream out) {
+        CSVResultWriter(StatusLog log, OutputStream out) {
             super(log);
             this.writer = new OutputStreamWriter(out, StandardCharsets.UTF_8);
         }
 
         @Override
-        public void writeTupleQueryResult(TupleQueryResult queryResult) throws ExportException {
-            try {
-                List<String> bns = queryResult.getBindingNames();
-                boolean first = true;
+        public void writeTupleQueryResult(TupleQueryResult queryResult) throws IOException {
+            List<String> bns = queryResult.getBindingNames();
+            boolean first = true;
+            for (String bn : bns) {
+                if (first) {
+                    first = false;
+                } else {
+                    writer.write(',');
+                }
+                writer.write(escapeAndQuoteField(bn));
+            }
+            writer.write('\n');
+            while (queryResult.hasNext()) {
+                BindingSet bs = queryResult.next();
+                first = true;
                 for (String bn : bns) {
                     if (first) {
                         first = false;
                     } else {
                         writer.write(',');
                     }
-                    writer.write(escapeAndQuoteField(bn));
+                    Value v = bs.getValue(bn);
+                    if (v != null) {
+                        writer.write(escapeAndQuoteField(v.stringValue()));
+                    }
                 }
                 writer.write('\n');
-                while (queryResult.hasNext()) {
-                    BindingSet bs = queryResult.next();
-                    first = true;
-                    for (String bn : bns) {
-                        if (first) {
-                            first = false;
-                        } else {
-                            writer.write(',');
-                        }
-                        Value v = bs.getValue(bn);
-                        if (v != null) {
-                            writer.write(escapeAndQuoteField(v.stringValue()));
-                        }
-                    }
-                    writer.write('\n');
-                    tick();
-                }
-            } catch (QueryEvaluationException | IOException e) {
-                throw new ExportException(e);
+                tick();
             }
         }
 
         @Override
-        public void writeGraphQueryResult(GraphQueryResult queryResult) throws ExportException {
-            throw new ExportException("Graph query results cannot be written to CSV file.");
+        public void writeGraphQueryResult(GraphQueryResult queryResult) throws IOException {
+            throw new ExportException("CSV format does not support graph query results.");
         }
 
         @Override
-        public void closeWriter() throws IOException {
+        public void doClose() throws IOException {
             writer.close();
         }
     }
@@ -262,36 +265,32 @@ public final class HalyardExport extends AbstractHalyardTool {
         private final OutputStream out;
         private final RDFWriter writer;
 
-        public RIOResultWriter(StatusLog log, RDFFormat rdfFormat, OutputStream out) {
+        RIOResultWriter(StatusLog log, RDFFormat rdfFormat, OutputStream out) {
             super(log);
             this.out = out;
             this.writer = Rio.createWriter(rdfFormat, out);
         }
 
         @Override
-        public void writeTupleQueryResult(TupleQueryResult queryResult) throws ExportException {
-            throw new ExportException("Tuple query results could not be written in RDF file.");
+        public void writeTupleQueryResult(TupleQueryResult queryResult) throws IOException {
+            throw new ExportException(String.format("%s format does not support tuple query results.", writer.getRDFFormat().getName()));
         }
 
         @Override
-        public void writeGraphQueryResult(GraphQueryResult queryResult) throws ExportException {
-            try {
-                writer.startRDF();
-                for (Map.Entry<String, String> me : queryResult.getNamespaces().entrySet()) {
-                    writer.handleNamespace(me.getKey(), me.getValue());
-                }
-                while (queryResult.hasNext()) {
-                    writer.handleStatement(queryResult.next());
-                    tick();
-                }
-                writer.endRDF();
-            } catch (QueryEvaluationException | RDFHandlerException e) {
-                throw new ExportException(e);
+        public void writeGraphQueryResult(GraphQueryResult queryResult) throws IOException {
+            writer.startRDF();
+            for (Map.Entry<String, String> me : queryResult.getNamespaces().entrySet()) {
+                writer.handleNamespace(me.getKey(), me.getValue());
             }
+            while (queryResult.hasNext()) {
+                writer.handleStatement(queryResult.next());
+                tick();
+            }
+            writer.endRDF();
         }
 
         @Override
-        public void closeWriter() throws IOException {
+        public void doClose() throws IOException {
             out.close();
         }
     }
@@ -305,7 +304,7 @@ public final class HalyardExport extends AbstractHalyardTool {
         private final String tableName;
         private final boolean trimTable;
 
-        public JDBCResultWriter(StatusLog log, String dbUrl, String tableName, String[] connProps, final String driverClass, URL[] driverClasspath, boolean trimTable) throws ExportException {
+        JDBCResultWriter(StatusLog log, String dbUrl, String tableName, String[] connProps, final String driverClass, URL[] driverClasspath, boolean trimTable) throws IOException {
             super(log);
             this.trimTable = trimTable;
             try {
@@ -341,7 +340,7 @@ public final class HalyardExport extends AbstractHalyardTool {
         }
 
         @Override
-        public void writeTupleQueryResult(TupleQueryResult queryResult) throws ExportException {
+        public void writeTupleQueryResult(TupleQueryResult queryResult) throws IOException {
             try {
                 List<String> bns = queryResult.getBindingNames();
                 if (bns.size() < 1) return;
@@ -391,29 +390,125 @@ public final class HalyardExport extends AbstractHalyardTool {
                         ps.addBatch();
                         if (tick() % 1000 == 0) {
                             for (int i : ps.executeBatch()) {
-                                if (i != 1) throw new SQLException("Row has not been inserted for uknown reason");
+                                if (i != 1) {
+                                	throw new SQLException("Row has not been inserted for uknown reason");
+                                }
                             }
                         }
                     }
                     for (int i : ps.executeBatch()) {
-                        if (i != 1) throw new SQLException("Row has not been inserted for uknown reason");
+                        if (i != 1) {
+                        	throw new SQLException("Row has not been inserted for uknown reason");
+                        }
                     }
                 }
                 con.commit();
-            } catch (SQLException | QueryEvaluationException e) {
+            } catch (SQLException e) {
                 throw new ExportException(e);
             }
         }
 
         @Override
-        public void writeGraphQueryResult(GraphQueryResult queryResult) throws ExportException {
-            throw new ExportException("Graph query results could not be written to JDBC table.");
+        public void writeGraphQueryResult(GraphQueryResult queryResult) throws IOException {
+            throw new ExportException("JDBC does not support graph query results.");
         }
 
         @Override
-        public void closeWriter() throws SQLException {
+        public void doClose() throws SQLException {
             con.close();
         }
+    }
+
+    private static class ElasticsearchWriter extends QueryResultWriter {
+    	private final String indexName;
+    	private final ElasticsearchTransport esTransport;
+    	private final ElasticsearchClient esClient;
+    	private final RDFFactory rdfFactory;
+    	private final ValueFactory valueFactory;
+    	private final int batchSize = 1000;
+
+    	public ElasticsearchWriter(StatusLog log, ElasticSettings esSettings, RDFFactory rdfFactory, ValueFactory valueFactory) throws IOException, GeneralSecurityException {
+    		super(log);
+    		this.indexName = esSettings.getIndexName();
+    		this.esTransport = esSettings.createTransport();
+    		this.esClient = new ElasticsearchClient(this.esTransport);
+    		this.rdfFactory = rdfFactory;
+    		this.valueFactory = valueFactory;
+    	}
+
+    	@Override
+        public void writeTupleQueryResult(TupleQueryResult queryResult) throws IOException {
+    		List<String> bindingNames = queryResult.getBindingNames();
+    		List<String> auxBindingNames = new ArrayList<>(bindingNames.size());
+    		for (String bindingName : bindingNames) {
+    			if (!"value".equals(bindingName)) {
+    				auxBindingNames.add(bindingName);
+    			}
+    		}
+
+        	for (List<BindingSet> bsets : Iterables.partition(queryResult, batchSize)) {
+        		List<BulkOperation> ops = new ArrayList<>(bsets.size());
+    			for (BindingSet bs : bsets) {
+	    			Map<String,Object> doc = new HashMap<>(auxBindingNames.size()+3);
+	    			MapDocumentWriter writer = new MapDocumentWriter(rdfFactory, valueFactory, doc);
+	    			Value value = bs.getValue("value");
+	    			String id = writer.writeValue(value);
+	    			if (id != null) {
+		    			for (String binding : auxBindingNames) {
+		    				Value v = bs.getValue(binding);
+	    					writer.writeObjectField(binding, v);
+		    			}
+		    			writer.close();
+		    			ops.add(BulkOperation.of(opf -> opf.create(idxf -> idxf.id(id).document(doc))));
+		    			tick();
+	    			}
+    			}
+
+	    		BulkResponse resp = esClient.bulk(bulkf -> bulkf.index(indexName).operations(ops));
+	    		if (resp.errors()) {
+	    			throw new ExportException("There were errors with exporting to Elastic search");
+	    		}
+        	}
+        }
+
+        @Override
+        public void writeGraphQueryResult(GraphQueryResult queryResult) throws IOException {
+            throw new ExportException("Elasticsearch does not support graph query results.");
+        }
+
+        @Override
+        public void doClose() throws IOException {
+        	esTransport.close();
+        }
+    }
+
+    private static class MapDocumentWriter extends HalyardElasticIndexer.DocumentWriter {
+    	private final Map<String,Object> map;
+
+    	MapDocumentWriter(RDFFactory rdfFactory, ValueFactory valueFactory, Map<String,Object> map) {
+			super(rdfFactory, valueFactory);
+			this.map = map;
+		}
+
+		@Override
+		public void writeNumericField(String key, Number value) throws IOException {
+			map.put(key, value);
+		}
+
+		@Override
+		public void writeStringField(String key, String value) throws IOException {
+			map.put(key, value);
+		}
+
+		@Override
+		public void writeArrayField(String key, Object[] value) throws IOException {
+			map.put(key, value);
+		}
+
+		@Override
+		public void close() throws IOException {
+			// do nothing
+		}
     }
 
     private static class NullResultWriter extends QueryResultWriter {
@@ -423,92 +518,80 @@ public final class HalyardExport extends AbstractHalyardTool {
         }
 
         @Override
-        public void writeTupleQueryResult(TupleQueryResult queryResult) throws ExportException {
-            try {
-                while (queryResult.hasNext()) {
-                    queryResult.next();
-                    tick();
-                }
-            } catch (QueryEvaluationException e) {
-                throw new ExportException(e);
+        public void writeTupleQueryResult(TupleQueryResult queryResult) throws IOException {
+            while (queryResult.hasNext()) {
+                queryResult.next();
+                tick();
             }
         }
 
         @Override
-        public void writeGraphQueryResult(GraphQueryResult queryResult) throws ExportException {
-            try {
-                while (queryResult.hasNext()) {
-                    queryResult.next();
-                    tick();
-                }
-            } catch (QueryEvaluationException e) {
-                throw new ExportException(e);
+        public void writeGraphQueryResult(GraphQueryResult queryResult) throws IOException {
+            while (queryResult.hasNext()) {
+                queryResult.next();
+                tick();
             }
         }
 
         @Override
-        protected void closeWriter() {
+        protected void doClose() {
         }
     }
 
     /**
      * Export function is called for the export execution with given arguments.
-     * @param sail Halyard instance
-     * @param log StatusLog notification service implementation for back-calls
-     * @param query String SPARQL Graph query
-     * @param targetUrl String URL of the target system (+folder or schema, +table or file name)
-     * @param driverClass String JDBC Driver class name (for JDBC export only)
-     * @param driverClasspath String with JDBC Driver classpath delimited by : (for DB export only)
-     * @param jdbcProperties Arrays of String JDBC connection properties (for DB export only)
-     * @param trimTable boolean option to trim target JDBC table before export (for DB export only)
-     * @throws ExportException in case of an export problem
      */
-    public static void export(HBaseSail sail, StatusLog log, String query, String targetUrl, String driverClass, String driverClasspath, String[] jdbcProperties, boolean trimTable) throws ExportException {
-    	try {
-	    	try (QueryResultWriter writer = createWriter(sail.getConfiguration(), log, targetUrl, driverClass, driverClasspath, jdbcProperties, trimTable)) {
-	            SailRepository rep = new SailRepository(sail);
-	            rep.init();
-	            try {
-	                writer.initTimer();
-	                log.logStatus("Query execution started");
-	                try(RepositoryConnection conn = rep.getConnection()) {
-	                    Query q = conn.prepareQuery(QueryLanguage.SPARQL, query);
-	                    if (q instanceof TupleQuery) {
-	                        writer.writeTupleQueryResult(((TupleQuery)q).evaluate());
-	                    } else if (q instanceof GraphQuery) {
-	                        writer.writeGraphQueryResult(((GraphQuery)q).evaluate());
-	                    } else {
-	                        throw new ExportException("Only SPARQL Tuple and Graph query types are supported.");
-	                    }
-	                    log.logStatus("Export finished");
-	                }
-	            } finally {
-	                rep.shutDown();
-	            }
-	    	}
-        } catch (RepositoryException | MalformedQueryException | QueryEvaluationException | IOException e) {
-            throw new ExportException(e);
+    static void export(Repository repo, String query, QueryResultWriter writer) throws IOException {
+        writer.initTimer();
+        writer.log.logStatus("Query execution started");
+        try(RepositoryConnection conn = repo.getConnection()) {
+            Query q = conn.prepareQuery(QueryLanguage.SPARQL, query);
+            if (q instanceof TupleQuery) {
+            	try (TupleQueryResult queryResult = ((TupleQuery) q).evaluate()) {
+            		writer.writeTupleQueryResult(queryResult);
+            	}
+            } else if (q instanceof GraphQuery) {
+            	try (GraphQueryResult queryResult = ((GraphQuery) q).evaluate()) {
+            		writer.writeGraphQueryResult(queryResult);
+            	}
+            } else {
+                throw new ExportException("Only SPARQL Tuple and Graph query types are supported.");
+            }
+            writer.log.logStatus("Export finished");
         }
     }
 
-    private static QueryResultWriter createWriter(Configuration conf, StatusLog log, String targetUrl, String driverClass, String driverClasspath, String[] jdbcProperties, boolean trimTable) throws IOException, ExportException {
+    static QueryResultWriter createWriter(Configuration conf, StatusLog log, String targetUrl, RDFFactory rdfFactory, ValueFactory valueFactory, String driverClass, String driverClasspath, String[] jdbcProperties, boolean trimTable) throws IOException {
         if (targetUrl.startsWith("null:")) {
             return new NullResultWriter(log);
         } else if (targetUrl.startsWith("jdbc:")) {
             int i = targetUrl.lastIndexOf('/');
-            if (i < 0) throw new ExportException("Taret URL does not end with /<table_name>");
-            if (driverClass == null) throw new ExportException("Missing mandatory JDBC driver class name argument -c <driver_class>");
+            if (i < 0) {
+            	throw new ExportException("Taret URL does not end with /<table_name>");
+            }
+            if (driverClass == null) {
+            	throw new ExportException("Missing mandatory JDBC driver class name argument -c <driver_class>");
+            }
             URL driverCP[] = null;
             if (driverClasspath != null) {
                 String jars[] = driverClasspath.split(":");
                 driverCP = new URL[jars.length];
                 for (int j=0; j<jars.length; j++) {
                     File f = new File(jars[j]);
-                    if (!f.isFile()) throw new ExportException("Invalid JDBC driver classpath element: " + jars[j]);
+                    if (!f.isFile()) {
+                    	throw new ExportException("Invalid JDBC driver classpath element: " + jars[j]);
+                    }
                     driverCP[j] = f.toURI().toURL();
                 }
             }
             return new JDBCResultWriter(log, targetUrl.substring(0, i), targetUrl.substring(i+1), jdbcProperties, driverClass, driverCP, trimTable);
+        } else if (isElasticsearch(targetUrl)) {
+    		ElasticSettings esSettings = ElasticSettings.from(targetUrl, conf);
+    		try {
+    			return new ElasticsearchWriter(log, esSettings, rdfFactory, valueFactory);
+    		} catch (GeneralSecurityException e) {
+    			throw new ExportException(e);
+    		}
         } else {
 	    	FileSystem fileSystem = FileSystem.get(URI.create(targetUrl), conf);
             OutputStream out = fileSystem.create(new Path(targetUrl));
@@ -527,11 +610,15 @@ public final class HalyardExport extends AbstractHalyardTool {
             if (targetUrl.endsWith(".csv")) {
                 return new CSVResultWriter(log, out);
             } else {
-                Optional<RDFFormat> form = Rio.getWriterFormatForFileName(targetUrl);
-                if (!form.isPresent()) throw new ExportException("Unsupported target file format extension: " + targetUrl);
-                return new RIOResultWriter(log, form.get(), out);
+            	final String formatUrl = targetUrl;
+                Optional<RDFFormat> format = Rio.getWriterFormatForFileName(formatUrl);
+                return new RIOResultWriter(log, format.orElseThrow(() -> new ExportException("Unsupported target file format extension: " + formatUrl)), out);
             }
         }
+    }
+
+    static boolean isElasticsearch(String targetUrl) {
+    	return targetUrl.startsWith("http:") || targetUrl.startsWith("https:");
     }
 
     private static String listRDFOut() {
@@ -558,14 +645,15 @@ public final class HalyardExport extends AbstractHalyardTool {
             "Halyard Export is a command-line application designed to export data from HBase (a Halyard dataset) into various targets and formats.",
             "The exported data is determined by a SPARQL query. It can be either a SELECT query that produces a set of tuples (a table) or a CONSTRUCT/DESCRIBE query that produces a set of triples (a graph). "
                 + "The supported target systems, query types, formats, and compressions are listed in the following table:\n"
-                + "+-----------+----------+-------------------------------+---------------------------------------+\n"
-                + "| Target    | Protocol | SELECT query                  | CONSTRUCT/DESCRIBE query              |\n"
-                + "+-----------+----------+-------------------------------+---------------------------------------+\n"
-                + "| Local FS  | file:    | .csv + compression            | RDF4J supported formats + compression |\n"
-                + "| Hadoop FS | hdfs:    | .csv + compression            | RDF4J supported formats + compression |\n"
-                + "| Database  | jdbc:    | direct mapping to tab.columns | not supported                         |\n"
-                + "| Dry run   | null:    | .csv + compression            | RDF4J supported formats + compression |\n"
-                + "+-----------+----------+-------------------------------+---------------------------------------+\n"
+                + "+---------------+--------------+---------------------------------+---------------------------------------+\n"
+                + "| Target        | Protocol     | SELECT query                    | CONSTRUCT/DESCRIBE query              |\n"
+                + "+---------------+--------------+---------------------------------+---------------------------------------+\n"
+                + "| Local FS      | file:        | .csv + compression              | RDF4J supported formats + compression |\n"
+                + "| Hadoop FS     | hdfs:        | .csv + compression              | RDF4J supported formats + compression |\n"
+                + "| Database      | jdbc:        | direct mapping to table columns | not supported                         |\n"
+                + "| Elasticsearch | http: https: | direct mapping to fields        | not supported                         |\n"
+                + "| Dry run       | null:        | .csv + compression              | RDF4J supported formats + compression |\n"
+                + "+---------------+--------------+---------------------------------+---------------------------------------+\n"
                 + "Other Hadoop standard and optional filesystems (like s3:, s3n:, file:, ftp:, webhdfs:) may work according to the actual cluster configuration, however they have not been tested.\n"
                 + "Optional compressions are:\n"
                 + "* Bzip2 (.bz2)\n"
@@ -589,8 +677,7 @@ public final class HalyardExport extends AbstractHalyardTool {
     	String source = cmd.getOptionValue('s');
     	String query = cmd.getOptionValue('q');
         configureString(cmd, 'i', null);
-    	HBaseSail sail = new HBaseSail(getConf(), source, false, 0, true, 0, ElasticSettings.from(getConf()), null);
-    	export(sail, new StatusLog() {
+        StatusLog log = new StatusLog() {
             @Override
             public void tick() {}
 
@@ -598,7 +685,17 @@ public final class HalyardExport extends AbstractHalyardTool {
             public void logStatus(String status) {
                 LOG.info(status);
             }
-        }, query, cmd.getOptionValue('t'), cmd.getOptionValue('c'), cmd.getOptionValue('l'), cmd.getOptionValues('p'), cmd.hasOption('r'));
+        };
+    	HBaseSail sail = new HBaseSail(getConf(), source, false, 0, true, 0, ElasticSettings.from(getConf()), null);
+    	HBaseRepository repo = new HBaseRepository(sail);
+    	repo.init();
+    	try {
+	    	try (QueryResultWriter writer = createWriter(sail.getConfiguration(), log, cmd.getOptionValue('t'), sail.getRDFFactory(), sail.getValueFactory(), cmd.getOptionValue('c'), cmd.getOptionValue('l'), cmd.getOptionValues('p'), cmd.hasOption('r'))) {
+	    		export(repo, query, writer);
+	    	}
+    	} finally {
+    		repo.shutDown();
+    	}
         return 0;
     }
 }

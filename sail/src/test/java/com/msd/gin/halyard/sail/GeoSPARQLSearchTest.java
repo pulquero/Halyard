@@ -30,7 +30,8 @@ public class GeoSPARQLSearchTest extends AbstractSearchTest {
 
     @Test
 	public void literalWithinDistance() throws Exception {
-		try (ServerSocket server = startElasticsearch("{\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"277.98769933592183km\"}}}", pos1, pos2)) {
+		String expectedRequest = "{\"_source\":{\"includes\":[\"id\",\"iri\",\"label\",\"lang\",\"datatype\"]},\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"277.98769933592183km\"}}}";
+		try (ServerSocket server = startElasticsearch(expectedRequest, pos1, pos2)) {
 			IRI whatever = vf.createIRI("http://whatever");
 			Repository hbaseRepo = createRepo("literalWithinDistance", server);
 			try (RepositoryConnection conn = hbaseRepo.getConnection()) {
@@ -54,8 +55,10 @@ public class GeoSPARQLSearchTest extends AbstractSearchTest {
 
 	@Test
 	public void varWithinDistance() throws Exception {
-		try (ServerSocket server = startElasticsearch(Arrays.asList(Pair.of("{\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"111200.0m\"}}}", new Literal[] { pos1 }),
-				Pair.of("{\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"318.55043857000004km\"}}}", new Literal[] { pos1, pos2 })))) {
+		String expectedRequest1 = "{\"_source\":{\"includes\":[\"id\",\"iri\",\"label\",\"lang\",\"datatype\"]},\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"111200.0m\"}}}";
+		String expectedRequest2 = "{\"_source\":{\"includes\":[\"id\",\"iri\",\"label\",\"lang\",\"datatype\"]},\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"318.55043857000004km\"}}}";
+		try (ServerSocket server = startElasticsearch(
+				Arrays.asList(Pair.of(expectedRequest1, new Literal[] { pos1 }), Pair.of(expectedRequest2, new Literal[] { pos1, pos2 })))) {
 			IRI from = vf.createIRI("http://from");
 			IRI whatever = vf.createIRI("http://whatever");
 			Repository hbaseRepo = createRepo("varWithinDistance", server);
@@ -81,8 +84,9 @@ public class GeoSPARQLSearchTest extends AbstractSearchTest {
 
 	@Test
 	public void bindWithinDistance() throws Exception {
-		try (ServerSocket server = startElasticsearch(Arrays.asList(Pair.of("{\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"111200.0m\"}}}", new Literal[] { pos1 }),
-				Pair.of("{\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"318.55043857000004km\"}}}", new Literal[] { pos1, pos2 })))) {
+		String expectedRequest1 = "{\"_source\":{\"includes\":[\"id\",\"iri\",\"label\",\"lang\",\"datatype\"]},\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"111200.0m\"}}}";
+		String expectedRequest2 = "{\"_source\":{\"includes\":[\"id\",\"iri\",\"label\",\"lang\",\"datatype\"]},\"query\":{\"geo_distance\":{\"label.point\":{\"lat\":0.0,\"lon\":0.0},\"distance\":\"318.55043857000004km\"}}}";
+		try (ServerSocket server = startElasticsearch(Arrays.asList(Pair.of(expectedRequest1, new Literal[] { pos1 }), Pair.of(expectedRequest2, new Literal[] { pos1, pos2 })))) {
 			IRI from = vf.createIRI("http://from");
 			IRI whatever = vf.createIRI("http://whatever");
 			Repository hbaseRepo = createRepo("bindWithinDistance", server);

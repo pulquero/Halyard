@@ -85,7 +85,7 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 							values.add(valueFactory.createBNode(bnodeId));
 						}
 						if (!matchParams.valueVars.isEmpty()) {
-							Literal value = matchValue.source().createLiteral(valueFactory, rdfFactory);
+							Value value = matchValue.source().createValue(valueFactory, rdfFactory);
 							for (int k = 0; k < matchParams.valueVars.size(); k++) {
 								values.add(value);
 							}

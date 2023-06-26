@@ -107,8 +107,8 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 							}
 							for (Hit<SearchDocument> hit : response.hits().hits()) {
 								SearchDocument source = hit.source();
-								Literal literal = source.createLiteral(vf, rdfFactory);
-								objList.add(rdfFactory.createObject(literal));
+								Value obj = source.createValue(vf, rdfFactory);
+								objList.add(rdfFactory.createObject(obj));
 							}
 							objList.trimToSize();
 							return objList;

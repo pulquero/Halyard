@@ -62,7 +62,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.net.ssl.SSLContext;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
@@ -71,12 +70,6 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.BufferedMutator;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Table;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.IRI;
@@ -91,16 +84,11 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.FunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
 import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.SailException;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
-import co.elastic.clients.transport.rest_client.RestClientTransport;
 
 /**
  * HBaseSail is the RDF Storage And Inference Layer (SAIL) implementation on top of Apache HBase.
@@ -585,39 +573,11 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		SpinMagicPropertyInterpreter.registerSpinParsingTupleFunctions(spinParser, tupleFunctionRegistry);
 
 		if (esSettings != null) {
-			RestClientBuilder restClientBuilder = RestClient.builder(new HttpHost(esSettings.host, esSettings.port != -1 ? esSettings.port : 9200, esSettings.protocol));
-			CredentialsProvider esCredentialsProvider;
-			if (esSettings.password != null) {
-				esCredentialsProvider = new BasicCredentialsProvider();
-				esCredentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(esSettings.username, esSettings.password));
-			} else {
-				esCredentialsProvider = null;
+			try {
+				esTransport = Optional.of(esSettings.createTransport());
+			} catch (IOException | GeneralSecurityException e) {
+				throw new SailException(e);
 			}
-			SSLContext sslContext;
-			if (esSettings.sslSettings != null) {
-				try {
-					sslContext = esSettings.sslSettings.createSSLContext();
-				} catch (IOException | GeneralSecurityException e) {
-					throw new SailException(e);
-				}
-			} else {
-				sslContext = null;
-			}
-			restClientBuilder.setHttpClientConfigCallback(new HttpClientConfigCallback() {
-				@Override
-				public HttpAsyncClientBuilder customizeHttpClient(
-						HttpAsyncClientBuilder httpClientBuilder) {
-					if (esCredentialsProvider != null) {
-						httpClientBuilder.setDefaultCredentialsProvider(esCredentialsProvider);
-					}
-					if (sslContext != null) {
-						httpClientBuilder.setSSLContext(sslContext);
-					}
-					return httpClientBuilder;
-				}
-			});
-			RestClient restClient = restClientBuilder.build();
-			esTransport = Optional.of(new RestClientTransport(restClient, new JacksonJsonpMapper()));
 		} else {
 			esTransport = Optional.empty();
 		}

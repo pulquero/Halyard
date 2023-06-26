@@ -47,7 +47,8 @@ public class SearchTest extends AbstractSearchTest {
 		Literal val1 = vf.createLiteral("Whatever Text");
 		Literal val2 = vf.createLiteral("Whatever Text", "en");
 		Literal val3 = vf.createLiteral("Que sea", "es");
-		try (ServerSocket server = startElasticsearch("{\"min_score\":0.0,\"query\":{\"query_string\":{\"default_field\":\"label\",\"fuzziness\":\"1\",\"phrase_slop\":0.0,\"query\":\"what\"}},\"size\":10000}", val1, val2)) {
+		String expectedRequest = "{\"_source\":{\"includes\":[\"id\",\"iri\",\"label\",\"lang\",\"datatype\"]},\"min_score\":0.0,\"query\":{\"query_string\":{\"default_field\":\"label\",\"fuzziness\":\"1\",\"phrase_slop\":0.0,\"query\":\"what\"}},\"size\":10000}";
+		try (ServerSocket server = startElasticsearch(expectedRequest, val1, val2)) {
 			IRI whatever = vf.createIRI("http://whatever");
 			Repository hbaseRepo = createRepo("testSimpleLiteralSearch", server);
 			try (RepositoryConnection conn = hbaseRepo.getConnection()) {
@@ -73,7 +74,8 @@ public class SearchTest extends AbstractSearchTest {
 		Literal val1 = vf.createLiteral("Whatever Text");
 		Literal val2 = vf.createLiteral("Whatever Text", "en");
 		Literal val3 = vf.createLiteral("Que sea", "es");
-		try (ServerSocket server = startElasticsearch("{\"min_score\":0.0,\"query\":{\"query_string\":{\"default_field\":\"label\",\"fuzziness\":\"1\",\"phrase_slop\":0.0,\"query\":\"what\"}},\"size\":5}", val1, val2)) {
+		String expectedRequest = "{\"_source\":{\"includes\":[\"id\",\"iri\",\"label\",\"lang\",\"datatype\"]},\"min_score\":0.0,\"query\":{\"query_string\":{\"default_field\":\"label\",\"fuzziness\":\"1\",\"phrase_slop\":0.0,\"query\":\"what\"}},\"size\":5}";
+		try (ServerSocket server = startElasticsearch(expectedRequest, val1, val2)) {
 			IRI whatever = vf.createIRI("http://whatever");
 			Repository hbaseRepo = createRepo("testAdvancedLiteralSearch", server);
 			try (RepositoryConnection conn = hbaseRepo.getConnection()) {

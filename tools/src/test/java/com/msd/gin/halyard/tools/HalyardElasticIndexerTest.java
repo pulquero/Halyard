@@ -92,8 +92,11 @@ public class HalyardElasticIndexerTest extends AbstractHalyardToolTest {
 		String indexName = INDEX_NAME;
     	MockElasticServer server = new MockElasticServer(indexName);
         server.start();
+        // mock predefined custom mapping without geometry field
     	server.fieldDefns.put(SearchDocument.ID_FIELD, new JSONObject());
     	server.fieldDefns.put(SearchDocument.LABEL_FIELD, new JSONObject());
+        server.fieldDefns.put(SearchDocument.DATATYPE_FIELD, new JSONObject());
+        server.fieldDefns.put(SearchDocument.LANG_FIELD, new JSONObject());
         try {
             String[] cmdLineArgs = new String[]{"-s", tableName, "-t", server.getIndexUrl()};
             int rc = run(cmdLineArgs);
@@ -102,8 +105,8 @@ public class HalyardElasticIndexerTest extends AbstractHalyardToolTest {
             server.stop();
         }
         assertNull(server.requestUri[0]);
-        assertNull(server.fieldDefns.get(SearchDocument.DATATYPE_FIELD));
-        assertNull(server.fieldDefns.get(SearchDocument.LANG_FIELD));
+        // geometry field wasn't added
+        assertNull(server.fieldDefns.get(SearchDocument.GEOMETRY_FIELD));
         assertEquals(server.indexPath+"/_bulk", server.requestUri[1]);
         assertEquals(server.bulkBody.toString(), 200, server.bulkBody.size());
         for (int i=0; i<server.bulkBody.size(); i+=2) {

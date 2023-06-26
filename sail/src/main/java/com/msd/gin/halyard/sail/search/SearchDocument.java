@@ -11,20 +11,31 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.msd.gin.halyard.common.IdentifiableValue;
 import com.msd.gin.halyard.common.RDFFactory;
 
-import org.eclipse.rdf4j.model.Literal;
+import java.util.Arrays;
+import java.util.List;
+
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 
 public class SearchDocument {
 	public static final String ID_FIELD = "id";
+	public static final String IRI_FIELD = "iri";
 	public static final String LABEL_FIELD = "label";
+	public static final String NUMBER_SUBFIELD = "number";
+	public static final String INTEGER_SUBFIELD = "integer";
 	public static final String POINT_SUBFIELD = "point";
+	public static final String LABEL_NUMBER_FIELD = LABEL_FIELD + "." + NUMBER_SUBFIELD;
+	public static final String LABEL_INTEGER_FIELD = LABEL_FIELD + "." + INTEGER_SUBFIELD;
 	public static final String LABEL_POINT_FIELD = LABEL_FIELD + "." + POINT_SUBFIELD;
 	public static final String LANG_FIELD = "lang";
 	public static final String DATATYPE_FIELD = "datatype";
 	public static final String GEOMETRY_FIELD = "geometry";
+	static final List<String> REQUIRED_FIELDS = Arrays.asList(ID_FIELD, IRI_FIELD, LABEL_FIELD, LANG_FIELD, DATATYPE_FIELD);
 
 	@JsonProperty(ID_FIELD)
 	public String id;
+	@JsonProperty(IRI_FIELD)
+	public String iri;
 	@JsonProperty(LABEL_FIELD)
 	public String label;
 	@JsonProperty(LANG_FIELD)
@@ -36,19 +47,21 @@ public class SearchDocument {
 
 	@Override
 	public String toString() {
-		return String.format("id: %s, label: %s, datatype: %s, lang: %s, geometry: %s", id, label, datatype, lang, geometry);
+		return String.format("id: %s, iri: %s, label: %s, datatype: %s, lang: %s, geometry: %s", id, iri, label, datatype, lang, geometry);
 	}
 
-	public Literal createLiteral(ValueFactory vf, RDFFactory rdfFactory) {
-		Literal l;
-		if (lang != null) {
-			l = vf.createLiteral(label, lang);
+	public Value createValue(ValueFactory vf, RDFFactory rdfFactory) {
+		Value v;
+		if (iri != null) {
+			v = vf.createIRI(iri);
+		} else if (lang != null) {
+			v = vf.createLiteral(label, lang);
 		} else {
-			l = vf.createLiteral(label, vf.createIRI(datatype));
+			v = vf.createLiteral(label, vf.createIRI(datatype));
 		}
-		if (l instanceof IdentifiableValue) {
-			((IdentifiableValue) l).setId(rdfFactory, rdfFactory.idFromString(id));
+		if (v instanceof IdentifiableValue) {
+			((IdentifiableValue) v).setId(rdfFactory, rdfFactory.idFromString(id));
 		}
-		return l;
+		return v;
 	}
 }

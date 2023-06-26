@@ -101,7 +101,7 @@ public class WithinDistanceTupleFunction implements ExtendedTupleFunction {
 			return new ConvertingIteration<Hit<SearchDocument>, List<Value>, QueryEvaluationException>(new CloseableIteratorIteration<Hit<SearchDocument>, QueryEvaluationException>(searchResults.hits().hits().iterator())) {
 				@Override
 				protected List<Value> convert(Hit<SearchDocument> doc) throws QueryEvaluationException {
-					Literal to = doc.source().createLiteral(valueFactory, rdfFactory);
+					Literal to = (Literal) doc.source().createValue(valueFactory, rdfFactory);
 					if (inclDistance) {
 						Coordinate toCoord = WKTLiteral.geometryValue(to).getCoordinate();
 						double toLatRad = DistanceUtils.toRadians(toCoord.getY());

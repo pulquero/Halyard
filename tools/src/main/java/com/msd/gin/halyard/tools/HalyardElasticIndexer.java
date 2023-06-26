@@ -22,8 +22,11 @@ import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.SSLSettings;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.common.TupleLiteral;
 import com.msd.gin.halyard.sail.search.SearchDocument;
+import com.msd.gin.halyard.vocab.HALYARD;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -35,6 +38,7 @@ import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -66,15 +70,17 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
+import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype.GEO;
+import org.eclipse.rdf4j.model.base.CoreDatatype.XSD;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.eclipse.rdf4j.model.vocabulary.GEO;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.elasticsearch.hadoop.mr.EsOutputFormat;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
@@ -98,7 +104,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
     static final class IndexerMapper extends RdfTableMapper<NullWritable, Text>  {
 
         final Text outputJson = new Text();
-        boolean hasLabelField, hasGeometryField, hasDatatypeField, hasLangField;
+        boolean hasGeometryField;
         long counter = 0, exports = 0, statements = 0;
         StatementIndex<?,?,?,?> lastIndex;
         Set<Value> lastLiterals;
@@ -109,10 +115,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         @Override
         protected void setup(Context context) throws IOException {
             Configuration conf = context.getConfiguration();
-            hasLabelField = getFieldConfigProperty(conf, SearchDocument.LABEL_FIELD);
             hasGeometryField = getFieldConfigProperty(conf, SearchDocument.GEOMETRY_FIELD);
-            hasDatatypeField = getFieldConfigProperty(conf, SearchDocument.DATATYPE_FIELD);
-            hasLangField = getFieldConfigProperty(conf, SearchDocument.LANG_FIELD);
             openKeyspace(conf, conf.get(SOURCE_NAME_PROPERTY), conf.get(SNAPSHOT_PATH_PROPERTY));
         }
 
@@ -140,43 +143,16 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
                 statements++;
             	Literal l = (Literal) st.getObject();
                 if (lastLiterals.add(l)) {
-            		StringBuilderWriter json = new StringBuilderWriter(128);
-	                json.append("{\"").append(SearchDocument.ID_FIELD).append("\":");
-	                String id = rdfFactory.id(l).toString();
-	                JSONObject.quote(id, json);
-	                IRI datatype = l.getDatatype();
-	                if (hasLabelField) {
-		                json.append(",\"").append(SearchDocument.LABEL_FIELD).append("\":");
-		    			if (XMLDatatypeUtil.isNumericDatatype(datatype)) {
-		    				if (XMLDatatypeUtil.isIntegerDatatype(datatype)) {
-		    					json.append(Long.toString(l.longValue()));
-		    				} else {
-		    					json.append(Double.toString(l.doubleValue()));
-		    				}
-		    			} else {
-			                JSONObject.quote(l.getLabel(), json);
+	                JsonDocumentWriter writer = new JsonDocumentWriter(rdfFactory, vf);
+	                if (writer.writeValue(l) != null) {
+		    			if (hasGeometryField && l.getCoreDatatype() == GEO.WKT_LITERAL) {
+		    				writer.writeStringField(SearchDocument.GEOMETRY_FIELD, l.getLabel());
 		    			}
+		    			writer.close();
+		                outputJson.set(writer.toString());
+		                output.write(NullWritable.get(), outputJson);
+		                exports++;
 	                }
-	    			if (hasGeometryField && GEO.WKT_LITERAL.equals(datatype)) {
-	    				json.append(",\"geometry\":");
-		                JSONObject.quote(l.getLabel(), json);
-	    			}
-	    			if (hasDatatypeField) {
-		                json.append(",\"").append(SearchDocument.DATATYPE_FIELD).append("\":");
-		                JSONObject.quote(datatype.stringValue(), json);
-	    			}
-	    			if (hasLangField) {
-	    				String langTag = l.getLanguage().orElse(null);
-		                if(langTag != null) {
-			                json.append(",\"").append(SearchDocument.LANG_FIELD).append("\":");
-			                JSONObject.quote(langTag, json);
-		                }
-	                }
-	                json.append("}\n");
-            		json.close();
-	                outputJson.set(json.toString());
-	                output.write(NullWritable.get(), outputJson);
-	                exports++;
                 }
             }
 
@@ -217,8 +193,10 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
                 + linePrefix + "        \"properties\" : {\n"
                 + linePrefix + "            \"" + SearchDocument.ID_FIELD + "\" : { \"type\" : \"keyword\", \"index\" : false },\n"
                 + linePrefix + "            \"" + SearchDocument.LABEL_FIELD + "\" : { \"type\" : \"text\", \"fields\" : {"
-                + linePrefix + "                \"number\" : { \"type\" : \"double\", \"coerce\" : false, \"ignore_malformed\" : true },\n"
-                + linePrefix + "                \"integer\" : { \"type\" : \"long\", \"coerce\" : false, \"ignore_malformed\" : true },\n"
+                							// NB: floating-point values aren't guaranteed to have an exact representation so coerce them from string instead
+                + linePrefix + "                \"" + SearchDocument.NUMBER_SUBFIELD + "\" : { \"type\" : \"double\", \"coerce\" : true, \"ignore_malformed\" : true },\n"
+                							// use exact integer representation if available
+                + linePrefix + "                \"" + SearchDocument.INTEGER_SUBFIELD + "\" : { \"type\" : \"long\", \"coerce\" : false, \"ignore_malformed\" : true },\n"
                 + linePrefix + "                \"" + SearchDocument.POINT_SUBFIELD + "\" : { \"type\" : \"geo_point\", \"ignore_malformed\" : true }\n"
                 + linePrefix + "                }\n"
                 + linePrefix + "            },\n"
@@ -272,7 +250,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
 
         getConf().set("es.nodes", targetUrl.getHost()+":"+targetUrl.getPort());
         getConf().set("es.resource", indexName);
-        getConf().set("es.mapping.id", "id");
+        getConf().set("es.mapping.id", SearchDocument.ID_FIELD);
         getConf().set("es.input.json", "yes");
         getConf().setIfUnset("es.batch.size.bytes", Integer.toString(5*1024*1024));
         getConf().setIfUnset("es.batch.size.entries", Integer.toString(10000));
@@ -454,5 +432,138 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
 
 	private static boolean getFieldConfigProperty(Configuration conf, String fieldName) {
 		return conf.getBoolean(confProperty(TOOL_NAME, "fields."+fieldName), false);
+	}
+
+
+	static abstract class DocumentWriter implements Closeable {
+		private final RDFFactory rdfFactory;
+		private final ValueFactory valueFactory;
+
+		DocumentWriter(RDFFactory rdfFactory, ValueFactory valueFactory) {
+			this.rdfFactory = rdfFactory;
+			this.valueFactory = valueFactory;
+		}
+
+		public final String writeValue(Value v) throws IOException {
+			if (!v.isIRI() && !v.isLiteral()) {
+				return null;
+			}
+			String id = rdfFactory.id(v).toString();
+			writeStringField(SearchDocument.ID_FIELD, id);
+			if (v.isIRI()) {
+				writeStringField(SearchDocument.IRI_FIELD, v.stringValue());
+			} else {
+				Literal l = (Literal) v;
+	        	Optional<XSD> xsd = l.getCoreDatatype().asXSDDatatype();
+	   			if (xsd.map(XSD::isIntegerDatatype).orElse(false)) {
+					// use exact integer representation if available
+					// NB: floating-point values aren't guaranteed to have an exact representation so coerce them from string instead
+	   				try {
+	   					writeNumericField(SearchDocument.LABEL_FIELD, l.longValue());
+	   				} catch (NumberFormatException nfe) {
+	   					writeStringField(SearchDocument.LABEL_FIELD, l.getLabel());
+	   				}
+	    		} else {
+	    			writeStringField(SearchDocument.LABEL_FIELD, l.getLabel());
+	    		}
+				writeStringField(SearchDocument.DATATYPE_FIELD, l.getDatatype().stringValue());
+				String langTag = l.getLanguage().orElse(null);
+	            if(langTag != null) {
+					writeStringField(SearchDocument.LANG_FIELD, langTag);
+	            }
+			}
+			return id;
+		}
+
+		public final void writeObjectField(String key, Value v) throws IOException {
+			Object o = toObject(v);
+			if (o instanceof Number) {
+				writeNumericField(key, (Number) v);
+			} else if (o instanceof Object[]) {
+				writeArrayField(key, (Object[]) o);
+			} else {
+				writeStringField(key, (String) o);
+			}
+		}
+
+		private Object toObject(Value v) throws IOException {
+			if (v.isLiteral()) {
+				Literal l = (Literal) v;
+	    		Optional<XSD> xsd = l.getCoreDatatype().asXSDDatatype();
+	    		if (xsd.map(XSD::isNumericDatatype).orElse(false)) {
+	   				try {
+		    			if (xsd.map(XSD::isIntegerDatatype).orElse(false)) {
+		    				return l.longValue();
+		    			} else {
+		    				return l.doubleValue();
+		    			}
+	   				} catch (NumberFormatException nfe) {
+	   	    			return l.getLabel();
+	   				}
+	    		} else if (HALYARD.TUPLE_TYPE.equals(l.getDatatype())) {
+	    			Value[] varr = TupleLiteral.arrayValue(l, valueFactory);
+	    			Object[] oarr = new Object[varr.length];
+	    			for (int i=0; i<varr.length; i++) {
+	    				oarr[i] = toObject(varr[i]);
+	    			}
+	    			return oarr;
+	    		} else {
+	    			return l.getLabel();
+	    		}
+			} else if (v.isIRI()) {
+				return v.stringValue();
+			} else {
+				return null;
+			}
+		}
+
+		public abstract void writeNumericField(String key, Number value) throws IOException;
+		public abstract void writeStringField(String key, String value) throws IOException;
+		public abstract void writeArrayField(String key, Object[] value) throws IOException;
+	}
+
+	static class JsonDocumentWriter extends DocumentWriter {
+		private final StringBuilderWriter writer;
+		private String sep = "";
+
+		JsonDocumentWriter(RDFFactory rdfFactory, ValueFactory valueFactory) {
+			super(rdfFactory, valueFactory);
+			this.writer = new StringBuilderWriter(128);
+			this.writer.append("{");
+		}
+
+		private void writeFieldName(String key) throws IOException {
+            writer.append(sep).append("\"").append(key).append("\":");
+            sep = ",";
+		}
+
+		@Override
+		public void writeNumericField(String key, Number value) throws IOException {
+			writeFieldName(key);
+			writer.append(value.toString());
+		}
+
+		@Override
+		public void writeStringField(String key, String value) throws IOException {
+			writeFieldName(key);
+            JSONObject.quote(value, writer);
+		}
+
+		@Override
+		public void writeArrayField(String key, Object[] value) throws IOException {
+			writeFieldName(key);
+			new JSONArray(value).write(writer);
+		}
+
+		@Override
+		public void close() throws IOException {
+            writer.append("}\n");
+    		writer.close();
+		}
+
+		@Override
+		public String toString() {
+			return writer.toString();
+		}
 	}
 }

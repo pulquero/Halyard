@@ -18,13 +18,19 @@ package com.msd.gin.halyard.tools;
 
 import static com.msd.gin.halyard.vocab.HALYARD.*;
 
+import com.msd.gin.halyard.common.RDFFactory;
+import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.sail.ElasticSettings;
 import com.msd.gin.halyard.sail.HBaseSail;
+import com.msd.gin.halyard.sail.search.SearchDocument;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.codec.binary.Base64;
@@ -35,15 +41,22 @@ import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.protobuf.generated.AuthenticationProtos;
 import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
+import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.GraphQueryResult;
+import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
+import org.elasticsearch.hadoop.mr.EsOutputFormat;
 
 /**
  * Apache Hadoop MapReduce tool for batch exporting of SPARQL queries.
@@ -57,10 +70,14 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
     private static final String JDBC_CLASSPATH = "halyard.bulkexport.jdbc.classpath";
     private static final String JDBC_PROPERTIES = "halyard.bulkexport.jdbc.properties";
 
+    enum Counters {
+		EXPORTED_STATEMENTS
+	}
+
     /**
      * Mapper class performing SPARQL Graph query evaluation and producing Halyard KeyValue pairs for HBase BulkLoad Reducers
      */
-    public static final class BulkExportMapper extends Mapper<NullWritable, Void, NullWritable, Void> {
+    public static final class BulkExportMapper extends Mapper<NullWritable, Void, NullWritable, Object> {
 
         @Override
         public void run(Context context) throws IOException, InterruptedException {
@@ -75,6 +92,7 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
                 @Override
                 public void tick() {
                     context.progress();
+                	context.getCounter(Counters.EXPORTED_STATEMENTS).increment(1L);
                 }
                 @Override
                 public void logStatus(String status) {
@@ -89,17 +107,97 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
                 }
             }
             String source = cfg.get(SOURCE);
+            String target = cfg.get(TARGET);
         	HBaseSail sail = new HBaseSail(cfg, source, false, 0, true, 0, ElasticSettings.from(cfg), null);
             Function fn = new ParallelSplitFunction(qis.getRepeatIndex());
             sail.getFunctionRegistry().add(fn);
-            try {
-        		HalyardExport.export(sail, log, query, MessageFormat.format(cfg.get(TARGET), bName, qis.getRepeatIndex()), cfg.get(JDBC_DRIVER), cfg.get(JDBC_CLASSPATH), props, false);
-            } catch (HalyardExport.ExportException e) {
-                throw new IOException(e);
-            } finally {
+        	try {
+            	HBaseRepository repo = new HBaseRepository(sail);
+            	repo.init();
+	            try {
+	                HalyardExport.QueryResultWriter writer;
+	                if (EsOutputFormat.class.getName().equals(target)) {
+	                	writer = new EsOutputResultWriter(log, sail.getRDFFactory(), sail.getValueFactory(), context);
+	                } else {
+	                	writer = HalyardExport.createWriter(sail.getConfiguration(), log, MessageFormat.format(target, bName, qis.getRepeatIndex()), sail.getRDFFactory(), sail.getValueFactory(), cfg.get(JDBC_DRIVER), cfg.get(JDBC_CLASSPATH), props, false);
+	                }
+	                try {
+		        		HalyardExport.export(repo, query, writer);
+	                } catch (ExportInterruptedException e) {
+	                	throw (InterruptedException) e.getCause();
+		            } finally {
+		        		writer.close();
+		            }
+	            } finally {
+	            	repo.shutDown();
+	            }
+        	} finally {
             	sail.getFunctionRegistry().remove(fn);
-            }
+        	}
         }
+
+        private static class EsOutputResultWriter extends HalyardExport.QueryResultWriter {
+            private final Text outputJson = new Text();
+        	private final RDFFactory rdfFactory;
+        	private final ValueFactory valueFactory;
+        	private final Context output;
+
+        	EsOutputResultWriter(HalyardExport.StatusLog log, RDFFactory rdfFactory, ValueFactory valueFactory, Context output) {
+    			super(log);
+    			this.rdfFactory = rdfFactory;
+    			this.valueFactory = valueFactory;
+    			this.output = output;
+    		}
+
+    		@Override
+    		public void writeTupleQueryResult(TupleQueryResult queryResult) throws IOException {
+        		List<String> bindingNames = queryResult.getBindingNames();
+        		List<String> auxBindingNames = new ArrayList<>(bindingNames.size());
+        		for (String bindingName : bindingNames) {
+        			if (!"value".equals(bindingName)) {
+        				auxBindingNames.add(bindingName);
+        			}
+        		}
+
+        		for (BindingSet bs : queryResult) {
+        			HalyardElasticIndexer.JsonDocumentWriter writer = new HalyardElasticIndexer.JsonDocumentWriter(rdfFactory, valueFactory);
+	    			Value value = bs.getValue("value");
+	    			String id = writer.writeValue(value);
+	    			if (id != null) {
+		    			for (String binding : auxBindingNames) {
+	        				Value v = bs.getValue(binding);
+	       					writer.writeObjectField(binding, v);
+	        			}
+		    			writer.close();
+		    			outputJson.set(writer.toString());
+						try {
+							output.write(NullWritable.get(), outputJson);
+						} catch (InterruptedException e) {
+							throw new ExportInterruptedException(e);
+						}
+	            		tick();
+	    			}
+            	}
+    		}
+
+    		@Override
+    		public void writeGraphQueryResult(GraphQueryResult queryResult) throws IOException {
+                throw new HalyardExport.ExportException("Elasticsearch does not support graph query results.");
+    		}
+
+    		@Override
+    		protected void doClose() {
+    			// do nothing
+    		}
+        }
+    }
+
+    private static class ExportInterruptedException extends HalyardExport.ExportException {
+		private static final long serialVersionUID = -6625839941463116026L;
+
+		ExportInterruptedException(InterruptedException cause) {
+			super(cause);
+		}
     }
 
     public HalyardBulkExport() {
@@ -125,11 +223,12 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         String source = cmd.getOptionValue('s');
         String queryFiles = cmd.getOptionValue('q');
         String target = cmd.getOptionValue('t');
-        if (!target.contains("{0}")) {
+        boolean isEsExport = HalyardExport.isElasticsearch(target);
+        if (!isEsExport && !target.contains("{0}")) {
             throw new HalyardExport.ExportException("Bulk export target must contain '{0}' to be replaced by stripped filename of the actual SPARQL query.");
         }
         getConf().set(SOURCE, source);
-        getConf().set(TARGET, target);
+        getConf().set(TARGET, isEsExport ? EsOutputFormat.class.getName() : target);
         String driver = cmd.getOptionValue('c');
         if (driver != null) {
             getConf().set(JDBC_DRIVER, driver);
@@ -142,6 +241,16 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
             getConf().setStrings(JDBC_PROPERTIES, props);
         }
         configureString(cmd, 'i', null);
+
+        if (isEsExport) {
+        	URL targetUrl = new URL(target);
+            String indexName = targetUrl.getPath().substring(1);
+            getConf().set("es.nodes", targetUrl.getHost()+":"+targetUrl.getPort());
+            getConf().set("es.resource", indexName);
+            getConf().set("es.mapping.id", SearchDocument.ID_FIELD);
+            getConf().set("es.input.json", "yes");
+        }
+
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
                NTriplesUtil.class,
                Rio.class,
@@ -151,14 +260,18 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
                Table.class,
                HBaseConfiguration.class,
                AuthenticationProtos.class);
+        if (System.getProperty("exclude.es-hadoop") == null) {
+         	TableMapReduceUtil.addDependencyJarsForClasses(getConf(), EsOutputFormat.class);
+        }
         HBaseConfiguration.addHbaseResources(getConf());
         String cp = cmd.getOptionValue('l');
         if (cp != null) {
-            String jars[] = cp.split(":");
+            String jars[] = cp.split(File.pathSeparator);
             StringBuilder newCp = new StringBuilder();
-            for (int i=0; i<jars.length; i++) {
-                if (i > 0) newCp.append(':');
-                newCp.append(addTmpFile(jars[i])); //append classpath entries to tmpfiles and trim paths from the classpath
+            String pathSep = "";
+            for (String jar : jars) {
+                newCp.append(pathSep).append(addTmpFile(jar)); //append classpath entries to tmpfiles and trim paths from the classpath
+                pathSep = File.pathSeparator;
             }
             getConf().set(JDBC_CLASSPATH, newCp.toString());
         }
@@ -167,11 +280,17 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         job.setMaxMapAttempts(1);
         job.setMapperClass(BulkExportMapper.class);
         job.setMapOutputKeyClass(NullWritable.class);
-        job.setMapOutputValueClass(Void.class);
         job.setNumReduceTasks(0);
+        job.setSpeculativeExecution(false);
         job.setInputFormatClass(QueryInputFormat.class);
         QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, false, 0);
-        job.setOutputFormatClass(NullOutputFormat.class);
+        if (isEsExport) {
+        	job.setOutputFormatClass(EsOutputFormat.class);
+            job.setMapOutputValueClass(Text.class);
+        } else {
+        	job.setOutputFormatClass(NullOutputFormat.class);
+            job.setMapOutputValueClass(Void.class);
+        }
         TableMapReduceUtil.initCredentials(job);
         if (job.waitForCompletion(true)) {
             LOG.info("Bulk Export completed.");

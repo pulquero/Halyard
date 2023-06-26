@@ -19,6 +19,18 @@ import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 public final class TupleLiteral extends AbstractDataLiteral implements ObjectLiteral<Value[]> {
 	private static final long serialVersionUID = 1465080710600525119L;
 
+	public static Value[] arrayValue(Literal l, ValueFactory vf) {
+		if (l instanceof TupleLiteral) {
+			return ((TupleLiteral)l).objectValue();
+		} else {
+			return parse(l.getLabel(), vf);
+		}
+	}
+
+	private static Value[] parse(CharSequence s) {
+		return parse(s, SimpleValueFactory.getInstance());
+	}
+
 	private static Value[] parse(CharSequence s, ValueFactory vf) {
 		List<Value> values = new ArrayList<>();
 		int len = s.length();
@@ -80,7 +92,7 @@ public final class TupleLiteral extends AbstractDataLiteral implements ObjectLit
 	private final Value[] values;
 
 	public TupleLiteral(String s) {
-		this.values = parse(s, SimpleValueFactory.getInstance());
+		this.values = parse(s);
 	}
 
 	public TupleLiteral(Value... values) {
