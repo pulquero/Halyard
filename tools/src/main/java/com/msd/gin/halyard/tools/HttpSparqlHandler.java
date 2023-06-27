@@ -37,6 +37,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,12 +55,14 @@ import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.InstanceNotFoundException;
 import javax.management.IntrospectionException;
+import javax.management.MalformedObjectNameException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
 import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.TabularData;
 
 import org.apache.commons.io.output.StringBuilderWriter;
 import org.apache.commons.lang3.StringUtils;
@@ -106,6 +109,7 @@ import org.eclipse.rdf4j.rio.RDFWriterRegistry;
 import org.eclipse.rdf4j.rio.RioSetting;
 import org.eclipse.rdf4j.rio.WriterConfig;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -145,6 +149,9 @@ public final class HttpSparqlHandler implements HttpHandler {
     static final String UNENCODED_QUERY_CONTENT = "application/sparql-query";
     static final String UNENCODED_UPDATE_CONTENT = "application/sparql-update";
 
+    static final String JMX_ENDPOINT = "/_management/";
+    static final String HEALTH_ENDPOINT = "/_health";
+    static final String STOP_ENDPOINT = "/_stop";
 
     private final SailRepository repository;
     private final Properties storedQueries;
@@ -201,11 +208,11 @@ public final class HttpSparqlHandler implements HttpHandler {
         boolean doStop = false;
         try {
         	// NB: URLs should start with an underscore to avoid collisions with stored queries
-        	if ("/_management".equals(path)) {
+        	if (path.startsWith(JMX_ENDPOINT)) {
         		sendManagementData(exchange);
-        	} else if ("/_health".equals(path)) {
+        	} else if (HEALTH_ENDPOINT.equals(path)) {
                 exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
-        	} else if ("/_stop".equals(path) && exchange.getLocalAddress().getAddress().isLoopbackAddress()) {
+        	} else if (STOP_ENDPOINT.equals(path) && exchange.getLocalAddress().getAddress().isLoopbackAddress()) {
                 exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
                 doStop = true;
         	} else {
@@ -216,7 +223,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         			evaluateUpdate(sparqlQuery, exchange);
         		}
         	}
-        } catch (IllegalArgumentException | MalformedQueryException e) {
+        } catch (IllegalArgumentException | MalformedObjectNameException | MalformedQueryException e) {
             LOGGER.debug("Bad request", e);
             sendErrorResponse(exchange, HttpURLConnection.HTTP_BAD_REQUEST, e);
         } catch (IOException | RuntimeException e) {
@@ -577,10 +584,15 @@ public final class HttpSparqlHandler implements HttpHandler {
        	LOGGER.info("Update successfully processed");
     }
 
-    private void sendManagementData(HttpExchange exchange) throws IOException {
-    	MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+    private void sendManagementData(HttpExchange exchange) throws IOException, MalformedObjectNameException {
+        String path = exchange.getRequestURI().getPath();
+        String domain = path.substring(JMX_ENDPOINT.length());
+        if (domain.isEmpty()) {
+        	domain = "*";
+        }
     	JSONObject json = new JSONObject();
-    	Set<ObjectName> ons = mbs.queryNames(null, null);
+    	MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+    	Set<ObjectName> ons = mbs.queryNames(ObjectName.getInstance(domain+":*"), null);
     	for (ObjectName on : ons) {
     		try {
         		MBeanInfo mbi = mbs.getMBeanInfo(on);
@@ -623,10 +635,15 @@ public final class HttpSparqlHandler implements HttpHandler {
     			jsonData.put(key, toJson(data.get(key)));
     		}
     		return jsonData;
-    	} else if (object != null && !(object instanceof Number)) {
-    		return object.toString();
+    	} else if (object instanceof TabularData) {
+    		TabularData data = (TabularData) object;
+    		JSONArray rows = new JSONArray();
+    		for (CompositeData row : (Collection<CompositeData>) data.values()) {
+    			rows.put(toJson(row));
+    		}
+    		return rows;
     	} else {
-    		return object;
+    		return JSONObject.wrap(object);
     	}
     }
 

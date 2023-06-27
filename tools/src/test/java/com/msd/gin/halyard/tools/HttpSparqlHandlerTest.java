@@ -670,7 +670,7 @@ public class HttpSparqlHandlerTest {
 
     @Test
     public void testManagement() throws IOException {
-        URL url = new URL(SERVER_URL + "/_management");
+        URL url = new URL(SERVER_URL + HttpSparqlHandler.JMX_ENDPOINT);
         HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
         urlConnection.setRequestMethod("GET");
         urlConnection.setRequestProperty("Accept", HttpSparqlHandler.JSON_CONTENT);
@@ -683,14 +683,14 @@ public class HttpSparqlHandlerTest {
 
     @Test
     public void testHealth() throws IOException {
-        URL url = new URL(SERVER_URL + "/_health");
+        URL url = new URL(SERVER_URL + HttpSparqlHandler.HEALTH_ENDPOINT);
         HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
         assertEquals(HttpURLConnection.HTTP_NO_CONTENT, urlConnection.getResponseCode());
     }
 
     @Test
     public void testStop() throws IOException, InterruptedException {
-        URL url = new URL(SERVER_URL + "/_stop");
+        URL url = new URL(SERVER_URL + HttpSparqlHandler.STOP_ENDPOINT);
         HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
         assertEquals(HttpURLConnection.HTTP_NO_CONTENT, urlConnection.getResponseCode());
         // NB: triggered asynchronously
