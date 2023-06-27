@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -209,7 +210,8 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
             "Example: halyard bulkexport -s my_dataset -q hdfs:///myqueries/*.sparql -t hdfs:/my_folder/{0}-{1}.csv.gz"
         );
         addOption("s", "source-dataset", "dataset_table", "Source HBase table with Halyard RDF store", true, true);
-        addOption("q", "queries", "sparql_queries", "folder or path pattern with SPARQL tuple or graph queries", true, true);
+        addOption("q", "queries", "sparql_queries", "folder or path pattern with SPARQL tuple or graph queries (this or --query is required)", false, true);
+        addOption(null, "query", "sparql_query", "SPARQL tuple or graph query (this or -q is required)", false, true);
         addOption("t", "target-url", "target_url", "file://<path>/{0}-{1}.<ext> or hdfs://<path>/{0}-{1}.<ext> or jdbc:<jdbc_connection>/{0}, where {0} is replaced query filename (without extension) and {1} is replaced with parallel fork index (when " + PARALLEL_SPLIT_FUNCTION.stringValue() + " function is used in the particular query)", true, true);
         addOption("p", "jdbc-property", "property=value", "JDBC connection property", false, false);
         addOption("l", "jdbc-driver-classpath", "driver_classpath", "JDBC driver classpath delimited by ':'", false, true);
@@ -222,10 +224,18 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         if (!cmd.getArgList().isEmpty()) throw new HalyardExport.ExportException("Unknown arguments: " + cmd.getArgList().toString());
         String source = cmd.getOptionValue('s');
         String queryFiles = cmd.getOptionValue('q');
+        String query = cmd.getOptionValue("query");
+        if (queryFiles == null && query == null) {
+        	throw new MissingOptionException("One of -q or --query is required");
+        }
         String target = cmd.getOptionValue('t');
         boolean isEsExport = HalyardExport.isElasticsearch(target);
-        if (!isEsExport && !target.contains("{0}")) {
-            throw new HalyardExport.ExportException("Bulk export target must contain '{0}' to be replaced by stripped filename of the actual SPARQL query.");
+        if (!isEsExport) {
+	        if (queryFiles != null && !target.contains("{0}")) {
+	            throw new HalyardExport.ExportException("Bulk export target must contain '{0}' to be replaced by stripped filename of the actual SPARQL query.");
+	        } else if (query != null && target.contains("{0}")) {
+	            throw new HalyardExport.ExportException("Bulk export target cannot contain '{0}' when using --query.");
+	        }
         }
         getConf().set(SOURCE, source);
         getConf().set(TARGET, isEsExport ? EsOutputFormat.class.getName() : target);
@@ -283,7 +293,11 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         job.setNumReduceTasks(0);
         job.setSpeculativeExecution(false);
         job.setInputFormatClass(QueryInputFormat.class);
-        QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, false, 0);
+		if (queryFiles != null) {
+			QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, false, 0);
+		} else {
+            QueryInputFormat.addQuery(job.getConfiguration(), "query", query, false, 0);
+		}
         if (isEsExport) {
         	job.setOutputFormatClass(EsOutputFormat.class);
             job.setMapOutputValueClass(Text.class);

@@ -45,7 +45,6 @@ public final class HalyardMain {
                 new HalyardElasticIndexer(),
                 new HalyardUpdate(),
                 new HalyardBulkUpdate(),
-                new HalyardSingleBulkUpdate(),
                 new HalyardExport(),
                 new HalyardBulkExport(),
                 new HalyardBulkDelete(),

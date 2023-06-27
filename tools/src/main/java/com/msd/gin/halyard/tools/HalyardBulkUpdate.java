@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.MissingOptionException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -274,7 +275,8 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
             "Example: halyard bulkupdate -s my_dataset -q hdfs:///myupdates/*.sparql -w hdfs:///my_tmp_workdir"
         );
         addOption("s", "source-dataset", "dataset_table", "Source HBase table with Halyard RDF store", true, true);
-        addOption("q", "update-operations", "sparql_update_operations", "folder or path pattern with SPARQL update operations", true, true);
+        addOption("q", "update-operations", "sparql_update_operations", "folder or path pattern with SPARQL update operations (this or --update-operation is required)", false, true);
+        addOption(null, "update-operation", "sparql_update_operation", "SPARQL update operation to be executed (this or -q is required)", false, true);
         addOption("w", "work-dir", "shared_folder", "Unique non-existent folder within shared filesystem to server as a working directory for the temporary HBase files,  the files are moved to their final HBase locations during the last stage of the load process", true, true);
         addOption("e", "target-timestamp", "timestamp", "Optionally specify timestamp of all updated records (default is actual time of the operation)", false, true);
         addOption("i", "elastic-index", "elastic_index_url", HBaseSail.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
@@ -286,6 +288,10 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
     public int run(CommandLine cmd) throws Exception {
         String source = cmd.getOptionValue('s');
         String queryFiles = cmd.getOptionValue('q');
+        String query = cmd.getOptionValue("update-operation");
+        if (queryFiles == null && query == null) {
+        	throw new MissingOptionException("One of -q or --update-operation is required");
+        }
         String workdir = cmd.getOptionValue('w');
         configureString(cmd, 'i', null);
         configureBindings(cmd, '$');
@@ -316,7 +322,11 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 			try (Table hTable = HalyardTableUtils.getTable(conn, source, false, 0)) {
 				RegionLocator regionLocator = conn.getRegionLocator(hTable.getName());
 				HFileOutputFormat2.configureIncrementalLoad(job, hTable.getDescriptor(), regionLocator);
-                QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, true, stage);
+				if (queryFiles != null) {
+					QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, true, stage);
+				} else {
+		            QueryInputFormat.addQuery(job.getConfiguration(), "update-operation", query, true, stage);
+				}
                 Path outPath = new Path(workdir, "stage"+stage);
                 FileOutputFormat.setOutputPath(job, outPath);
                 TableMapReduceUtil.addDependencyJars(job);

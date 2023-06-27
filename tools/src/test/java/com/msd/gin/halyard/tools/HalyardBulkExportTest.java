@@ -40,9 +40,8 @@ public class HalyardBulkExportTest extends AbstractHalyardToolTest {
 		return new HalyardBulkExport();
 	}
 
-    @Test
-    public void testBulkExport() throws Exception {
-        HBaseSail sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "bulkExportTable", true, 0, true, 0, null, null);
+	private void createData(String table) throws Exception {
+        HBaseSail sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), table, true, 0, true, 0, null, null);
         sail.init();
         ValueFactory vf = SimpleValueFactory.getInstance();
 		try (SailConnection conn = sail.getConnection()) {
@@ -50,6 +49,13 @@ public class HalyardBulkExportTest extends AbstractHalyardToolTest {
 				conn.addStatement(vf.createIRI("http://whatever/NTsubj"), vf.createIRI("http://whatever/NTpred" + i), vf.createLiteral("whatever NT value " + i));
 			}
 		}
+		sail.shutDown();
+	}
+
+	@Test
+    public void testBulkExport() throws Exception {
+		String table = "bulkExportTable";
+		createData(table);
 
         File root = createTempDir("test_bulkExport");
         File q = new File(root, "test_bulkExport.sparql");
@@ -61,7 +67,7 @@ public class HalyardBulkExportTest extends AbstractHalyardToolTest {
         extraLib.deleteOnExit();
 
         assertEquals(0, ToolRunner.run(HBaseServerTestInstance.getInstanceConfig(), new HalyardBulkExport(),
-                new String[]{"-s", "bulkExportTable", "-q", q.toURI().toURL().toString(), "-t", root.toURI().toURL().toString() + "{0}.csv", "-l" ,extraLib.getAbsolutePath()}));
+                new String[]{"-s", table, "-q", q.toURI().toURL().toString(), "-t", root.toURI().toURL().toString() + "{0}.csv", "-l" ,extraLib.getAbsolutePath()}));
 
         File f = new File(root, "test_bulkExport.csv");
         assertTrue(f.isFile());
@@ -75,24 +81,17 @@ public class HalyardBulkExportTest extends AbstractHalyardToolTest {
 
     @Test
     public void testParallelBulkExport() throws Exception {
-        HBaseSail sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "bulkExportTable2", true, 0, true, 0, null, null);
-        sail.init();
-        ValueFactory vf = SimpleValueFactory.getInstance();
-		try (SailConnection conn = sail.getConnection()) {
-			for (int i = 0; i < 1000; i++) {
-				conn.addStatement(vf.createIRI("http://whatever/NTsubj"), vf.createIRI("http://whatever/NTpred" + i), vf.createLiteral("whatever NT value " + i));
-			}
-		}
+    	String table = "bulkExportTable2";
+    	createData(table);
 
         File root = createTempDir("test_parallelBulkExport");
-
         File q = new File(root, "test_parallelBulkExport.sparql");
         try (PrintStream qs = new PrintStream(q)) {
             qs.println("select * where {?s ?p ?o. FILTER (<http://merck.github.io/Halyard/ns#forkAndFilterBy> (2, ?p))}");
         }
 
         assertEquals(0, run(
-                new String[]{"-s", "bulkExportTable2", "-q", q.toURI().toURL().toString(), "-t", root.toURI().toURL().toString() + "{0}-{1}.csv"}));
+                new String[]{"-s", table, "-q", q.toURI().toURL().toString(), "-t", root.toURI().toURL().toString() + "{0}-{1}.csv"}));
 
         File f1 = new File(root, "test_parallelBulkExport-0.csv");
         assertTrue(f1.isFile());
@@ -103,6 +102,24 @@ public class HalyardBulkExportTest extends AbstractHalyardToolTest {
         q.delete();
         f1.delete();
         f2.delete();
+        root.delete();
+    }
+
+	@Test
+    public void testSingleBulkExport() throws Exception {
+		String table = "singleBulkExportTable";
+		createData(table);
+
+        File root = createTempDir("test_singleBulkExport");
+
+        assertEquals(0, ToolRunner.run(HBaseServerTestInstance.getInstanceConfig(), new HalyardBulkExport(),
+                new String[]{"-s", table, "--query", "select * where {?s ?p ?o}", "-t", root.toURI().toURL().toString() + "test_singleBulkExport.csv"}));
+
+        File f = new File(root, "test_singleBulkExport.csv");
+        assertTrue(f.isFile());
+        assertEquals(1001, HalyardExportTest.getLinesCount(f.toURI().toURL().toString(), null));
+
+        f.delete();
         root.delete();
     }
 }

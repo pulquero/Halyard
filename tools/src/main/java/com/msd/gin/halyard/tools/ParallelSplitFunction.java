@@ -77,7 +77,7 @@ public final class ParallelSplitFunction implements Function {
         ParallelSplitFunctionVisitor psfv = new ParallelSplitFunctionVisitor();
         if (sparqlUpdate) {
             List<UpdateExpr> exprs = QueryParserUtil.parseUpdate(QueryLanguage.SPARQL, query, null).getUpdateExprs();
-            if (exprs.size() > stage) {
+            if (stage < exprs.size()) {
                 exprs.get(stage).visit(psfv);
             }
         } else {

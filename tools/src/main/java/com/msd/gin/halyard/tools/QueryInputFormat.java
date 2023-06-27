@@ -51,10 +51,11 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
     public static final String QUERY_SUFFIX = ".query";
     public static final String REPEAT_SUFFIX = ".repeat";
 
-    public static void addQuery(Configuration conf, String name, String query, int repeatCount) {
+    public static void addQuery(Configuration conf, String name, String query, boolean sparqlUpdate, int stage) {
         Collection<String> qNames = conf.getStringCollection(QUERIES);
         qNames.add(name);
         conf.set(PREFIX + name + QUERY_SUFFIX, query);
+		int repeatCount = Math.max(1, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, sparqlUpdate, stage));
         conf.setInt(PREFIX + name + REPEAT_SUFFIX, repeatCount);
         conf.setStrings(QUERIES, qNames.toArray(new String[qNames.size()]));
     }
@@ -66,7 +67,7 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
             IOUtils.readFully(in, buffer);
             String name = path.getName();
             String query = Bytes.toString(buffer);
-            addQuery(conf, name, query, Math.max(1, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, sparqlUpdate, stage)));
+            addQuery(conf, name, query, sparqlUpdate, stage);
         }
     }
 
