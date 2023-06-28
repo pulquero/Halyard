@@ -35,7 +35,6 @@ public class EscapeTermFunction implements Function {
 		String s = ((Literal) args[0]).stringValue();
 		s = s.toLowerCase(Locale.ROOT);
 		StringBuilder buf = new StringBuilder(s.length());
-		buf.append("(");
 		int end = 0;
 		Matcher matcher = RESERVED_CHARACTERS.matcher(s);
 		while (matcher.find()) {
@@ -49,7 +48,6 @@ public class EscapeTermFunction implements Function {
 			}
 		}
 		buf.append(s.substring(end));
-		buf.append(")");
 		return valueFactory.createLiteral(buf.toString());
 	}
 

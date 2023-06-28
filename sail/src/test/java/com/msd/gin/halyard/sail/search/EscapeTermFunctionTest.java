@@ -13,24 +13,24 @@ public class EscapeTermFunctionTest {
 	@Test
 	public void testNonReserved() {
 		Literal escaped = (Literal) new EscapeTermFunction().evaluate(vf, vf.createLiteral("foobar"));
-		assertEquals("(foobar)", escaped.stringValue());
+		assertEquals("foobar", escaped.stringValue());
 	}
 
 	@Test
 	public void testRemoveReserved() {
 		Literal escaped = (Literal) new EscapeTermFunction().evaluate(vf, vf.createLiteral("f<oo>bar"));
-		assertEquals("(foobar)", escaped.stringValue());
+		assertEquals("foobar", escaped.stringValue());
 	}
 
 	@Test
 	public void testEscapeReserved1() {
 		Literal escaped = (Literal) new EscapeTermFunction().evaluate(vf, vf.createLiteral("f+oo!b/ar"));
-		assertEquals("(f\\+oo\\!b\\/ar)", escaped.stringValue());
+		assertEquals("f\\+oo\\!b\\/ar", escaped.stringValue());
 	}
 
 	@Test
 	public void testEscapeReserved2() {
 		Literal escaped = (Literal) new EscapeTermFunction().evaluate(vf, vf.createLiteral("f&&oo||bar"));
-		assertEquals("(f\\&&oo\\||bar)", escaped.stringValue());
+		assertEquals("f\\&&oo\\||bar", escaped.stringValue());
 	}
 }
