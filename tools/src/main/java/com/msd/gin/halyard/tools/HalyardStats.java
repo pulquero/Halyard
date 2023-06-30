@@ -104,6 +104,7 @@ public final class HalyardStats extends AbstractHalyardTool {
     private static final String SUBJECT_PARTITION_THRESHOLD = confProperty(TOOL_NAME, "subject-partition-threshold");
     private static final String PROPERTY_PARTITION_THRESHOLD = confProperty(TOOL_NAME, "property-partition-threshold");
     private static final String OBJECT_PARTITION_THRESHOLD = confProperty(TOOL_NAME, "object-partition-threshold");
+    private static final String CLASS_PARTITION_THRESHOLD = confProperty(TOOL_NAME, "class-partition-threshold");
     private static final String STATS_GRAPH = confProperty(TOOL_NAME, "stats-graph");
     private static final String NAMED_GRAPH_PROPERTY = confProperty(TOOL_NAME, "named-graph");
     private static final String TIMESTAMP_PROPERTY = confProperty(TOOL_NAME, "timestamp");
@@ -170,6 +171,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         IRI subsetDistinctType;
 		HashTracker subhashTracker;
         long setThreshold, setCounter, subsetThreshold, subsetCounter;
+        long instanceOfCounter, classPartitionThreshold;
 		Map<IRI,Long> partitionThresholds;
         HBaseSail sail;
 		HBaseSailConnection sailConn;
@@ -183,6 +185,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
             setThreshold = conf.getLong(GRAPH_THRESHOLD, DEFAULT_GRAPH_THRESHOLD);
             partitionThresholds = getPartitionThresholds(conf);
+            classPartitionThreshold = partitionThresholds.get(VOID.CLASS);
             statsContext = vf.createIRI(conf.get(STATS_GRAPH));
             String[] namedGraphs = conf.getTrimmedStrings(NAMED_GRAPH_PROPERTY);
             if (namedGraphs.length > 0) {
@@ -316,9 +319,11 @@ public final class HalyardStats extends AbstractHalyardTool {
 	                			}
 	                    		if (RDF.TYPE.equals(pred)) {
 	                    			if (!obj.equals(rdfClass)) {
+	                    				resetClass(output);
 		                    			rdfClass = obj;
 		                    			classes++;
 	                    			}
+	                    			instanceOfCounter++;
 	                    		}
 		                	}
 		                    break;
@@ -409,7 +414,7 @@ public final class HalyardStats extends AbstractHalyardTool {
 			assert distinctTripleObjects < distinctObjects;
 			assert distinctTripleSubjects < distinctSubjects;
             if (graph == DEFAULT_GRAPH_NODE || setCounter >= setThreshold) {
-                report(output, null, triples);
+                report(output, null, triples); // use null to be first property
                 report(output, VOID.DISTINCT_SUBJECTS, distinctSubjects);
                 report(output, VOID.PROPERTIES, properties);
                 report(output, VOID.DISTINCT_OBJECTS, distinctObjects);
@@ -443,12 +448,20 @@ public final class HalyardStats extends AbstractHalyardTool {
 		private void resetSubset(Context output) throws IOException, InterruptedException {
 			assert subsetDistincts <= subsetCounter;
             if (subsetCounter >= subsetThreshold) {
-                report(output, subsetType, subsetId, null, subsetCounter);
+                report(output, subsetType, subsetId, null, subsetCounter); // use null to be first subsetProperty
                 report(output, subsetType, subsetId, subsetDistinctType, subsetDistincts);
             }
             subsetCounter = 0;
             subsetDistincts = 0;
             lastSubsetDistincts = new HashSet<>();
+            resetClass(output);
+        }
+
+        private void resetClass(Context output) throws IOException, InterruptedException {
+            if (instanceOfCounter >= classPartitionThreshold) {
+            	report(output, VOID.CLASS, rdfClass, null, instanceOfCounter);
+            }
+            instanceOfCounter = 0;
         }
 
         @Override
@@ -564,6 +577,7 @@ public final class HalyardStats extends AbstractHalyardTool {
                 writeStatement(HALYARD.STATS_ROOT_NODE, VOID_EXT.SUBJECT_PARTITION_THRESHOLD, vf.createLiteral(partitionThresholds.get(VOID_EXT.SUBJECT)));
                 writeStatement(HALYARD.STATS_ROOT_NODE, VOID_EXT.PROPERTY_PARTITION_THRESHOLD, vf.createLiteral(partitionThresholds.get(VOID.PROPERTY)));
                 writeStatement(HALYARD.STATS_ROOT_NODE, VOID_EXT.OBJECT_PARTITION_THRESHOLD, vf.createLiteral(partitionThresholds.get(VOID_EXT.OBJECT)));
+                writeStatement(HALYARD.STATS_ROOT_NODE, VOID_EXT.CLASS_PARTITION_THRESHOLD, vf.createLiteral(partitionThresholds.get(VOID.CLASS)));
                 long graphThreshold = conf.getLong(GRAPH_THRESHOLD, DEFAULT_GRAPH_THRESHOLD);
                 writeStatement(HALYARD.STATS_ROOT_NODE, VOID_EXT.NAMED_GRAPH_THRESHOLD, vf.createLiteral(graphThreshold));
             }
@@ -581,7 +595,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         	IRI graph = (IRI) reader.readValueWithSizeHeader(bb, vf, Short.BYTES);
         	IRI predicate = bb.hasRemaining() ? (IRI) reader.readValueWithSizeHeader(bb, vf, Short.BYTES) : VOID.TRIPLES;
             Value partitionId = bb.hasRemaining() ? reader.readValueWithSizeHeader(bb, vf, Short.BYTES) : null;
-            IRI subsetPredicate = bb.hasRemaining() ? (IRI) reader.readValue(bb, vf) : VOID.TRIPLES;
+            IRI subsetPredicate = bb.hasRemaining() ? (IRI) reader.readValue(bb, vf) : (VOID.CLASS.equals(predicate) ? VOID.ENTITIES : VOID.TRIPLES);
 
             if (SD.NAMED_GRAPH_PROPERTY.equals(predicate)) { //workaround to at least count all small named graph that are below the threshold
                 writeStatement(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, graph);
@@ -600,8 +614,8 @@ public final class HalyardStats extends AbstractHalyardTool {
                 Literal countLiteral = vf.createLiteral(count);
                 if (partitionId != null) {
 					IRI subsetNode = vf.createIRI(partitionIriTransformer.apply(statsNode, predicate, partitionId));
-	                // VOID.TRIPLES is always the first subpredicate
-					if (VOID.TRIPLES.equals(subsetPredicate)) {
+	                // VOID.TRIPLES/VOID.ENTITIES is always the first subpredicate
+					if (VOID.TRIPLES.equals(subsetPredicate) || VOID.ENTITIES.equals(subsetPredicate)) {
 	                    writeStatement(statsNode, partitionPredicates.get(predicate), subsetNode);
 	                    writeStatement(subsetNode, RDF.TYPE, VOID.DATASET);
 						writeStatement(subsetNode, predicate, partitionId);
@@ -654,6 +668,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         thresholds.put(VOID_EXT.SUBJECT, conf.getLong(SUBJECT_PARTITION_THRESHOLD, defaultSubsetThreshold));
         thresholds.put(VOID.PROPERTY, conf.getLong(PROPERTY_PARTITION_THRESHOLD, defaultSubsetThreshold));
         thresholds.put(VOID_EXT.OBJECT, conf.getLong(OBJECT_PARTITION_THRESHOLD, defaultSubsetThreshold));
+        thresholds.put(VOID.CLASS, conf.getLong(CLASS_PARTITION_THRESHOLD, defaultSubsetThreshold));
         return thresholds;
     }
 

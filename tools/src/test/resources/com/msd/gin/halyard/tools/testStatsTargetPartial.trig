@@ -13,20 +13,20 @@ halyard:statsContext {
 		sd:graph :graph0 ;
 		a sd:NamedGraph , sd:Graph , void:Dataset ;
 		dcterms:created "2000-01-01T00:00:00.000Z"^^xsd:dateTime ;
-		void:classes "450"^^xsd:long ;
-		void:triples "900"^^xsd:long ;
+		void:classes "451"^^xsd:long ;
+		void:triples "991"^^xsd:long ;
 		void:propertyPartition :graph0_property_eRg5UlsxjZuh-4meqlYQe3-J8X8 ;
 		void:properties "14"^^xsd:long ;
 		void-ext:distinctLiterals "386"^^xsd:long ;
-		void:distinctObjects "886"^^xsd:long ;
+		void:distinctObjects "887"^^xsd:long ;
 		void:distinctSubjects "91"^^xsd:long ;
 		void-ext:distinctBlankNodeObjects "50"^^xsd:long ;
 		void-ext:distinctBlankNodeSubjects "41"^^xsd:long ;
-		void-ext:distinctIRIReferenceObjects "450"^^xsd:long ;
+		void-ext:distinctIRIReferenceObjects "451"^^xsd:long ;
 		void-ext:distinctIRIReferenceSubjects "50"^^xsd:long .
 
 	:graph0_property_eRg5UlsxjZuh-4meqlYQe3-J8X8 a void:Dataset ;
 		void:property rdf:type ;
-		void:triples "450"^^xsd:long ;
-		void:distinctObjects "450"^^xsd:long .
+		void:triples "541"^^xsd:long ;
+		void:distinctObjects "451"^^xsd:long .
 }

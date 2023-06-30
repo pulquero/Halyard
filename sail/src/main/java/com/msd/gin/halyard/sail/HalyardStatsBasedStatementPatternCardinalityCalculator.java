@@ -38,6 +38,7 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.Var;
@@ -68,6 +69,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		mapping.put(VOID_EXT.SUBJECT, VOID_EXT.SUBJECT_PARTITION);
 		mapping.put(VOID.PROPERTY, VOID.PROPERTY_PARTITION);
 		mapping.put(VOID_EXT.OBJECT, VOID_EXT.OBJECT_PARTITION);
+		mapping.put(VOID.CLASS, VOID.CLASS_PARTITION);
 		return Collections.unmodifiableMap(mapping);
 	}
 
@@ -76,6 +78,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		mapping.put(VOID_EXT.SUBJECT, VOID_EXT.SUBJECT_PARTITION_THRESHOLD);
 		mapping.put(VOID.PROPERTY, VOID_EXT.PROPERTY_PARTITION_THRESHOLD);
 		mapping.put(VOID_EXT.OBJECT, VOID_EXT.OBJECT_PARTITION_THRESHOLD);
+		mapping.put(VOID.CLASS, VOID_EXT.CLASS_PARTITION_THRESHOLD);
 		return Collections.unmodifiableMap(mapping);
 	}
 
@@ -179,21 +182,27 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 				if (ov) {
 					card = 1.0;
 				} else {
-					card = subsetTriplesPart(graphNode, VOID_EXT.SUBJECT, subjVar, VOID.PROPERTIES, VOID.PROPERTY, predVar, VOID.DISTINCT_OBJECTS, triples, defaultCardinality);
+					card = subsetTriples(graphNode, VOID_EXT.SUBJECT, subjVar, VOID.PROPERTIES, VOID.PROPERTY, predVar, VOID.DISTINCT_OBJECTS, triples, defaultCardinality);
 				}
 			} else if (ov) {
-				card = subsetTriplesPart(graphNode, VOID_EXT.OBJECT, objVar, VOID.DISTINCT_SUBJECTS, VOID_EXT.SUBJECT, subjVar, VOID.PROPERTIES, triples, defaultCardinality);
+				card = subsetTriples(graphNode, VOID_EXT.OBJECT, objVar, VOID.DISTINCT_SUBJECTS, VOID_EXT.SUBJECT, subjVar, VOID.PROPERTIES, triples, defaultCardinality);
 			} else {
-				card = subsetTriplesPart(graphNode, VOID_EXT.SUBJECT, subjVar, triples, defaultCardinality);
+				card = subsetTriples(graphNode, VOID_EXT.SUBJECT, subjVar, triples, defaultCardinality);
 			}
 		} else if (pv) {
 			if (ov) {
-				card = subsetTriplesPart(graphNode, VOID.PROPERTY, predVar, VOID.DISTINCT_OBJECTS, VOID_EXT.OBJECT, objVar, VOID.DISTINCT_SUBJECTS, triples, defaultCardinality);
+				Value pred = predVar.getValue();
+				Value obj = objVar.getValue();
+				if (RDF.TYPE.equals(pred) && obj != null) {
+					card = classPartitionEntities(graphNode, obj, defaultCardinality);
+				} else {
+					card = subsetTriples(graphNode, VOID.PROPERTY, predVar, VOID.DISTINCT_OBJECTS, VOID_EXT.OBJECT, objVar, VOID.DISTINCT_SUBJECTS, triples, defaultCardinality);
+				}
 			} else {
-				card = subsetTriplesPart(graphNode, VOID.PROPERTY, predVar, triples, defaultCardinality);
+				card = subsetTriples(graphNode, VOID.PROPERTY, predVar, triples, defaultCardinality);
 			}
 		} else if (ov) {
-			card = subsetTriplesPart(graphNode, VOID_EXT.OBJECT, objVar, triples, defaultCardinality);
+			card = subsetTriples(graphNode, VOID_EXT.OBJECT, objVar, triples, defaultCardinality);
 		} else {
 			card = triples;
 		}
@@ -241,7 +250,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	/**
 	 * Calculate a multiplier for the triple count for this sub-part of the graph.
 	 */
-	private double subsetTriplesPart(IRI graph, IRI partitionType, Var partitionVar, long totalTriples, long defaultCardinality) {
+	private double subsetTriples(IRI graph, IRI partitionType, Var partitionVar, long totalTriples, long defaultCardinality) {
 		Value partition = partitionVar.getValue();
 		if (partition != null) {
 			IRI partitionIri = statsSource.getValueFactory().createIRI(partitionIriTransformer.apply(graph, partitionType, partition));
@@ -278,20 +287,20 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		}
 	}
 
-	private double subsetTriplesPart(IRI graph, IRI partition1Type, Var partition1Var, IRI distinct1Type, IRI partition2Type, Var partition2Var, IRI distinct2Type, long totalTriples, long defaultCardinality) {
+	private double subsetTriples(IRI graph, IRI partition1Type, Var partition1Var, IRI distinct1Type, IRI partition2Type, Var partition2Var, IRI distinct2Type, long totalTriples, long defaultCardinality) {
 		Value partition1 = partition1Var.getValue();
 		Value partition2 = partition2Var.getValue();
 		if (partition1 != null && partition2 != null) {
-			double estimate12 = subsetTriplesPart(graph, partition1Type, partition1Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
-			double estimate21 = subsetTriplesPart(graph, partition2Type, partition2Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
+			double estimate12 = subsetTriples(graph, partition1Type, partition1Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
+			double estimate21 = subsetTriples(graph, partition2Type, partition2Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
 			// take the (geometric) mean of the two estimates
 			return Math.sqrt(estimate12 * estimate21);
 		} else if (partition1 != null && partition2 == null) {
-			return subsetTriplesPart(graph, partition2Type, partition2Var, totalTriples, defaultCardinality) / partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
+			return subsetTriples(graph, partition2Type, partition2Var, totalTriples, defaultCardinality) / partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
 		} else if (partition1 == null && partition2 != null) {
-			return subsetTriplesPart(graph, partition1Type, partition1Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
+			return subsetTriples(graph, partition1Type, partition1Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
 		} else {
-			return subsetTriplesPart(graph, partition1Type, partition1Var, totalTriples, defaultCardinality) * subsetTriplesPart(graph, partition2Type, partition2Var, totalTriples, defaultCardinality) / totalTriples;
+			return subsetTriples(graph, partition1Type, partition1Var, totalTriples, defaultCardinality) * subsetTriples(graph, partition2Type, partition2Var, totalTriples, defaultCardinality) / totalTriples;
 		}
 	}
 
@@ -304,6 +313,17 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		} else {
 			return (double) getTriplesCount(partitionIri, defaultCardinality) / (double) totalTriples;
 		}
+	}
+
+	private double classPartitionEntities(IRI graph, Value type, long defaultCardinality) {
+		IRI partitionType = VOID.CLASS;
+		IRI classPartitionIri = statsSource.getValueFactory().createIRI(partitionIriTransformer.apply(graph, partitionType, type));
+		double card = getValue(classPartitionIri, VOID.ENTITIES, -1L);
+		if (card == -1L) {
+			// if there are no stats then assume the triple count is below the threshold
+			card = getValue(HALYARD.STATS_ROOT_NODE, PARTITION_THRESHOLD_PREDICATES.get(partitionType), defaultCardinality);
+		}
+		return card;
 	}
 
 	@Override

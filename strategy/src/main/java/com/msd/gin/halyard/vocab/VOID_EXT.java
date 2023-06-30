@@ -68,4 +68,5 @@ public final class VOID_EXT implements Vocabulary {
     public static final IRI SUBJECT_PARTITION_THRESHOLD = SVF.createIRI(NAMESPACE, "subjectPartitionThreshold");
     public static final IRI PROPERTY_PARTITION_THRESHOLD = SVF.createIRI(NAMESPACE, "propertyPartitionThreshold");
     public static final IRI OBJECT_PARTITION_THRESHOLD = SVF.createIRI(NAMESPACE, "objectPartitionThreshold");
+    public static final IRI CLASS_PARTITION_THRESHOLD = SVF.createIRI(NAMESPACE, "classPartitionThreshold");
 }

@@ -94,7 +94,7 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 	@Test
     public void testStatsTarget() throws Exception {
 		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
-		testStatsTarget("statsTable", conf);
+		testStatsTarget("statsTable", conf, 100, "testStatsTarget.trig");
     }
 
 	@Test
@@ -107,21 +107,22 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
     	conf.setInt(TableConfig.KEY_SIZE_OBJECT, 1);
     	conf.setInt(TableConfig.END_KEY_SIZE_OBJECT, 1);
     	conf.setInt(TableConfig.KEY_SIZE_CONTEXT, 1);
-		testStatsTarget("statsDegenerateTable", conf);
+		testStatsTarget("statsDegenerateTable", conf, 100, "testStatsTargetDegenerate.trig");
     }
 
-    private void testStatsTarget(String tableName, Configuration conf) throws Exception {
+    private void testStatsTarget(String tableName, Configuration conf, int threshold, String expectedOutputFile) throws Exception {
 		Sail sail = createData(tableName, conf);
 		sail.shutDown();
 
         File root = createTempDir("test_stats");
 
-        assertEquals(0, run(new String[]{"-s", tableName, "-t", root.toURI().toURL().toString() + "stats{0}.trig", "-R", "100", "-r", "100", "-o", "http://whatever/myStats", "-e", TIMESTAMP_ARG}));
+        String thresholdArgValue = Integer.toString(threshold);
+        assertEquals(0, run(new String[]{"-s", tableName, "-t", root.toURI().toURL().toString() + "stats{0}.trig", "-R", thresholdArgValue, "-r", thresholdArgValue, "-o", "http://whatever/myStats", "-e", TIMESTAMP_ARG}));
 
         File stats = new File(root, "stats0.trig");
         assertTrue(stats.isFile());
         try (InputStream statsStream = new FileInputStream(stats)) {
-            try (InputStream refStream = HalyardStatsTest.class.getResourceAsStream("testStatsTarget.trig")) {
+            try (InputStream refStream = HalyardStatsTest.class.getResourceAsStream(expectedOutputFile)) {
                 Model statsM = Rio.parse(statsStream, "", RDFFormat.TRIG, new ParserConfig().set(BasicParserSettings.PRESERVE_BNODE_IDS, true), vf, new ParseErrorLogger());
                 Model refM = Rio.parse(refStream, "", RDFFormat.TRIG, new ParserConfig().set(BasicParserSettings.PRESERVE_BNODE_IDS, true), vf, new ParseErrorLogger(), vf.createIRI("http://whatever/myStats"));
                 assertEqualModels(refM, statsM);
