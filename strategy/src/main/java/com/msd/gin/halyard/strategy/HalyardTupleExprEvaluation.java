@@ -69,6 +69,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -1406,16 +1407,15 @@ final class HalyardTupleExprEvaluation {
         BindingSetPipeEvaluationStep step = precompileTupleExpr(reduced.getArg(), evalContext);
         return (parent, bindings) -> {
 	        step.evaluate(new BindingSetPipe(parentStrategy.track(parent, reduced)) {
-	            private BindingSet previous = null;
+	            private final AtomicReference<BindingSet> previous = new AtomicReference<>();
 	
 	            @Override
 	            protected boolean next(BindingSet bs) {
-	                synchronized (this) {
-	                    if (bs.equals(previous)) {
-	                        return true;
-	                    }
-	                    previous = bs;
-	                }
+	            	BindingSet localPrev = previous.get();
+                    if (bs.equals(localPrev)) {
+                        return true;
+                    }
+                    previous.compareAndSet(localPrev, bs);
 	                return parent.push(bs);
 	            }
 	            @Override
