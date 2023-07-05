@@ -256,6 +256,7 @@ public final class RDFSplitter implements RDFHandler, Callable<Long> {
 		if (tasks.length == 1) {
 			int idx;
 			if (batchers.length > 1) {
+				// if there is only one output task then split the input file into sequential parts
 				long currentBytesRead = inCounter.getCount() - 1;
 				idx = (int) (currentBytesRead*batchers.length/inputByteSize);
 			} else {
@@ -300,6 +301,9 @@ public final class RDFSplitter implements RDFHandler, Callable<Long> {
 		return true;
 	}
 
+	/**
+	 * An OutputTask may process data from multiple StatementBatchers.
+	 */
 	final static class OutputTask implements Callable<Long> {
 		private final BlockingQueue<StatementBatch> queue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
 		private final List<StatementBatcher> batchers = new ArrayList<>();
