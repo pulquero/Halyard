@@ -73,6 +73,7 @@ public class RDFFactoryTest {
 			new Object[] {vf.createLiteral("13:03:22", XSD.TIME), ValueIO.TIME_TYPE},
 			new Object[] {vf.createLiteral(LocalTime.of(13, 3, 22, 40030000)), ValueIO.TIME_TYPE},
 			new Object[] {vf.createLiteral("1980-02-14", XSD.DATE), ValueIO.DATE_TYPE},
+			new Object[] {vf.createLiteral("2022-09-09+03:00", XSD.DATE), ValueIO.DATE_TYPE},
 			new Object[] {vf.createLiteral("foo", vf.createIRI("urn:bar:1")), ValueIO.DATATYPE_LITERAL_TYPE},
 			new Object[] {vf.createLiteral("foo", "en-GB"), ValueIO.LANGUAGE_HASH_LITERAL_TYPE},
 			new Object[] {vf.createLiteral("bar", "zx-XY"), ValueIO.LANGUAGE_LITERAL_TYPE},

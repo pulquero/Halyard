@@ -9,19 +9,20 @@ import org.apache.commons.lang3.SerializationUtils;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 
-public class InternalObjectLiteral<T> extends AbstractDataLiteral implements ObjectLiteral<T> {
+public class JavaObjectLiteral<T> extends AbstractDataLiteral implements ObjectLiteral<T> {
 	private static final long serialVersionUID = -124780683447095687L;
 
 	private final T obj;
 
-	public static <T> InternalObjectLiteral<T> of(T o) {
-		return new InternalObjectLiteral<>(o);
+	public static <T> JavaObjectLiteral<T> of(T o) {
+		return new JavaObjectLiteral<>(o);
 	}
 
-	public InternalObjectLiteral(T o) {
+	public JavaObjectLiteral(T o) {
 		this.obj = o;
 	}
 
+	@Override
 	public T objectValue() {
 		return obj;
 	}
@@ -47,8 +48,8 @@ public class InternalObjectLiteral<T> extends AbstractDataLiteral implements Obj
 			return true;
 		}
 
-		if (o instanceof InternalObjectLiteral) {
-			InternalObjectLiteral<?> other = (InternalObjectLiteral<?>) o;
+		if (o instanceof JavaObjectLiteral) {
+			JavaObjectLiteral<?> other = (JavaObjectLiteral<?>) o;
 			return Objects.equals(obj, other.obj);
 		}
 		return false;

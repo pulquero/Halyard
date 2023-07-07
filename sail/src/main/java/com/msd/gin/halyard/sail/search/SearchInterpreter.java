@@ -5,7 +5,7 @@ import com.google.common.collect.Multimaps;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.BGPCollector;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
-import com.msd.gin.halyard.common.InternalObjectLiteral;
+import com.msd.gin.halyard.common.JavaObjectLiteral;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.Serializable;
@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -140,7 +141,7 @@ public class SearchInterpreter implements QueryOptimizer {
 			tfc.addArg(params.minScoreVar != null ? params.minScoreVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_MIN_SCORE)));
 			tfc.addArg(params.fuzzinessVar != null ? params.fuzzinessVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_FUZZINESS)));
 			tfc.addArg(params.phraseSlopVar != null ? params.phraseSlopVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_PHRASE_SLOP)));
-			tfc.addArg(new ValueConstant(InternalObjectLiteral.of(params.matches)));
+			tfc.addArg(new ValueConstant(JavaObjectLiteral.of(params.matches)));
 			for (SearchParams.MatchParams matchParams : params.matches) {
 				if (matchParams.matchVar != null) {
 					tfc.addResultVar(new Var(matchParams.matchVar));
@@ -159,7 +160,7 @@ public class SearchInterpreter implements QueryOptimizer {
 		}
 	}
 
-	static final class SearchParams implements Serializable {
+	static final class SearchParams {
 		Var queryVar;
 		Var limitVar;
 		Var minScoreVar;
@@ -216,6 +217,8 @@ public class SearchInterpreter implements QueryOptimizer {
 
 
 		static final class MatchParams implements Serializable {
+			private static final long serialVersionUID = -1524678402469442919L;
+
 			final String matchVar;
 			final List<String> valueVars = new ArrayList<>(1);
 			final List<String> scoreVars = new ArrayList<>(1);
@@ -223,6 +226,24 @@ public class SearchInterpreter implements QueryOptimizer {
 
 			MatchParams(String varName) {
 				this.matchVar = varName;
+			}
+
+			@Override
+			public boolean equals(Object o) {
+				if (o == this) {
+					return true;
+				}
+				if (o instanceof MatchParams) {
+					MatchParams other = (MatchParams) o;
+					return Objects.equals(matchVar, other.matchVar) && Objects.equals(valueVars, other.valueVars) && Objects.equals(scoreVars, other.scoreVars) && Objects.equals(indexVars, other.indexVars);
+				} else {
+					return false;
+				}
+			}
+
+			@Override
+			public int hashCode() {
+				return Objects.hash(matchVar, valueVars, scoreVars, indexVars);
 			}
 		}
 	}

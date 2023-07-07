@@ -67,6 +67,7 @@ public class IdValueFactoryExtendedTest {
 			vf.createLiteral("13:03:22", XSD.TIME),
 			vf.createLiteral(LocalTime.of(13, 3, 22, 40030000)),
 			vf.createLiteral("1980-02-14", XSD.DATE),
+			vf.createLiteral("2022-09-09+03:00", XSD.DATE),
 			vf.createLiteral("foo", vf.createIRI("urn:bar:1")),
 			vf.createLiteral("foo", "en-GB"),
 			vf.createLiteral("bar", "zx-XY"),

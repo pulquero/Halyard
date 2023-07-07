@@ -15,6 +15,7 @@ import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.function.BiFunction;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -146,6 +147,11 @@ public class ValueIO {
 		long subMillis = (b.remaining() >= 4) ? b.getLong() : 0L;
 		int tz = (b.remaining() >= 2) ? b.getShort() : Short.MIN_VALUE;
 		GregorianCalendar c = newGregorianCalendar();
+		if (tz != Short.MIN_VALUE) {
+			int tzHr = tz/60;
+			int tzMin = tz - 60 * tzHr;
+			c.setTimeZone(TimeZone.getTimeZone(String.format("GMT%+02d%02d", tzHr, tzMin)));
+		}
 		c.setTimeInMillis(millis);
 		XMLGregorianCalendar cal = DATATYPE_FACTORY.newXMLGregorianCalendar(c);
 		if (subMillis > 0) {
@@ -155,9 +161,8 @@ public class ValueIO {
 			cal.setFractionalSecond(null);
 		}
 		if (tz == Short.MIN_VALUE) {
-			tz = DatatypeConstants.FIELD_UNDEFINED;
+			cal.setTimezone(DatatypeConstants.FIELD_UNDEFINED);
 		}
-		cal.setTimezone(tz);
 		return cal;
 	}
 

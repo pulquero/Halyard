@@ -20,7 +20,7 @@ import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
-import com.msd.gin.halyard.common.InternalObjectLiteral;
+import com.msd.gin.halyard.common.JavaObjectLiteral;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.query.ValuePipe;
@@ -113,9 +113,9 @@ import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
  */
 class HalyardValueExprEvaluation {
 
-	private static final class RegexCacheLoader implements CacheLoader<Pair<String,String>,InternalObjectLiteral<Pattern>> {
+	private static final class RegexCacheLoader implements CacheLoader<Pair<String,String>,JavaObjectLiteral<Pattern>> {
 		@Override
-		public InternalObjectLiteral<Pattern> load(Pair<String, String> key) throws ValueExprEvaluationException {
+		public JavaObjectLiteral<Pattern> load(Pair<String, String> key) throws ValueExprEvaluationException {
 			String ptn = key.getLeft();
 			String flags = key.getRight();
 			int f = 0;
@@ -144,10 +144,10 @@ class HalyardValueExprEvaluation {
                         throw new ValueExprEvaluationException(flags);
                 }
             }
-            return InternalObjectLiteral.of(Pattern.compile(ptn, f));
+            return JavaObjectLiteral.of(Pattern.compile(ptn, f));
 		}
 	}
-	private static final LoadingCache<Pair<String,String>,InternalObjectLiteral<Pattern>> REGEX_CACHE = Caffeine.newBuilder().maximumSize(100).expireAfterAccess(1L, TimeUnit.DAYS).build(new RegexCacheLoader());
+	private static final LoadingCache<Pair<String,String>,JavaObjectLiteral<Pattern>> REGEX_CACHE = Caffeine.newBuilder().maximumSize(100).expireAfterAccess(1L, TimeUnit.DAYS).build(new RegexCacheLoader());
 
     private final HalyardEvaluationStrategy parentStrategy;
 	private final FunctionRegistry functionRegistry;
@@ -693,7 +693,7 @@ class HalyardValueExprEvaluation {
         	            String ptn = ((Literal) parg).getLabel();
         	            String flags = ((Literal) farg).getLabel();
         	            try {
-    	    	            InternalObjectLiteral<Pattern> pattern = REGEX_CACHE.get(Pair.of(ptn, flags));
+    	    	            JavaObjectLiteral<Pattern> pattern = REGEX_CACHE.get(Pair.of(ptn, flags));
     	    	            return ValueOrError.ok(pattern);
         	            } catch (ValueExprEvaluationException e) {
         	            	return ValueOrError.fail(e.getCause().getMessage());
@@ -711,7 +711,7 @@ class HalyardValueExprEvaluation {
     			patternStep.evaluate(new ValuePipe(parent) {
     				@Override
     				protected void next(Value v) {
-    					Pattern pattern = ((InternalObjectLiteral<Pattern>)v).objectValue();
+    					Pattern pattern = ((JavaObjectLiteral<Pattern>)v).objectValue();
     					argStep.evaluate(new ValuePipe(parent) {
     						@Override
     						protected void next(Value arg) {
