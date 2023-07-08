@@ -67,7 +67,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		if (v.isWellKnownIRI()) {
 			return 1;
 		} else {
-			return sizeLen + v.getSerializedForm().remaining();
+			return sizeLen + v.getSerializedForm().size();
 		}
 	}
 
@@ -75,13 +75,15 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		if (v.isWellKnownIRI()) {
 			cv.put(WELL_KNOWN_IRI_MARKER);
 		} else {
-			ByteBuffer ser = v.getSerializedForm();
+			ByteSequence ser = v.getSerializedForm();
 			switch (sizeLen) {
 				case Short.BYTES:
-					cv.putShort((short) ser.remaining()).put(ser);
+					cv.putShort((short) ser.size());
+					ser.writeTo(cv);
 					break;
 				case Integer.BYTES:
-					cv.putInt(ser.remaining()).put(ser);
+					cv.putInt(ser.size());
+					ser.writeTo(cv);
 					break;
 				default:
 					throw new AssertionError("Unsupported sizeLen: "+sizeLen);
@@ -93,8 +95,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		if (v.isWellKnownIRI()) {
 			cv.put(WELL_KNOWN_IRI_MARKER);
 		} else {
-			ByteBuffer ser = v.getSerializedForm();
-			cv.put(ser);
+			ByteSequence ser = v.getSerializedForm();
+			ser.writeTo(cv);
 		}
 	}
 

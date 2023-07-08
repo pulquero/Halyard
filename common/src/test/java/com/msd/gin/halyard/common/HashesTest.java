@@ -2,8 +2,6 @@ package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.common.Hashes.HashFunction;
 
-import java.nio.ByteBuffer;
-
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.jupiter.api.Test;
 
@@ -21,11 +19,11 @@ public class HashesTest {
 	@Test
 	public void testMurmur3() {
 		HashFunction hf = Hashes.getHash("Murmur3-128", 0);
-		byte[] h128 = hf.apply(ByteBuffer.wrap(Bytes.toBytes("foobar")));
+		byte[] h128 = hf.apply(Bytes.toBytes("foobar"));
 		assertEquals(128/Byte.SIZE, h128.length);
 
 		hf = Hashes.getHash("Murmur3-128", 8);
-		byte[] h64 = hf.apply(ByteBuffer.wrap(Bytes.toBytes("foobar")));
+		byte[] h64 = hf.apply(Bytes.toBytes("foobar"));
 		assertEquals(8, h64.length);
 	}
 

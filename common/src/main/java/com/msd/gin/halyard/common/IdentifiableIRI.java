@@ -1,17 +1,16 @@
 package com.msd.gin.halyard.common;
 
 import java.io.ObjectStreamException;
-import java.nio.ByteBuffer;
 import java.util.Objects;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.util.URIUtil;
 
-public final class IdentifiableIRI implements IRI, IdentifiableValue, SerializableValue {
+public final class IdentifiableIRI implements IRI, IdentifiableValue {
 	private static final long serialVersionUID = 8055405742401584331L;
 	private final String iri;
 	private final int localNameIdx;
-	private transient org.apache.commons.lang3.tuple.Triple<ValueIdentifier,ByteBuffer,RDFFactory> cachedIV = org.apache.commons.lang3.tuple.Triple.of(null, null, null);
+	private transient IdSer cachedIV = IdSer.NONE;
 
 	IdentifiableIRI(String iri) {
 		if (iri.indexOf(':') == -1) {
@@ -64,37 +63,46 @@ public final class IdentifiableIRI implements IRI, IdentifiableValue, Serializab
 
 	@Override
 	public ValueIdentifier getId(RDFFactory rdfFactory) {
-		org.apache.commons.lang3.tuple.Triple<ValueIdentifier,ByteBuffer,RDFFactory> current = cachedIV;
-		ValueIdentifier id = current.getLeft();
-		if (current.getRight() != rdfFactory) {
-			ByteBuffer ser = rdfFactory.getSerializedForm(this);
-			id = rdfFactory.id(this, ser);
-			current = org.apache.commons.lang3.tuple.Triple.of(id, ser.rewind(), rdfFactory);
-			cachedIV = current;
+		IdSer current = cachedIV;
+		ValueIdentifier id = current.id;
+		if (current.rdfFactory != rdfFactory) {
+			ByteArray ser = rdfFactory.getSerializedForm(this);
+			id = rdfFactory.id(this, ser.copyBytes());
+			cachedIV = new IdSer(id, ser, rdfFactory);
 		}
 		return id;
 	}
 
 	@Override
-	public void setId(RDFFactory rdfFactory, ValueIdentifier id) {
-		cachedIV = org.apache.commons.lang3.tuple.Triple.of(id, null, rdfFactory);
+	public ByteArray getSerializedForm(RDFFactory rdfFactory) {
+		IdSer current = cachedIV;
+		ByteArray ser = current.ser;
+		if (current.rdfFactory != rdfFactory) {
+			byte[] b = rdfFactory.valueWriter.toBytes(this);
+			ValueIdentifier id = rdfFactory.id(this, b);
+			ser = new ByteArray(b);
+			cachedIV = new IdSer(id, ser, rdfFactory);
+		} else if (ser == null) {
+			ser = rdfFactory.getSerializedForm(this);
+			cachedIV = new IdSer(current.id, ser, rdfFactory);
+		}
+		return ser;
 	}
 
 	@Override
-	public ByteBuffer getSerializedForm(RDFFactory rdfFactory) {
-		org.apache.commons.lang3.tuple.Triple<ValueIdentifier,ByteBuffer,RDFFactory> current = cachedIV;
-		ByteBuffer ser = current.getMiddle();
-		if (current.getRight() != rdfFactory) {
-			ser = rdfFactory.getSerializedForm(this);
-			ValueIdentifier id = rdfFactory.id(this, ser);
-			current = org.apache.commons.lang3.tuple.Triple.of(id, ser.rewind(), rdfFactory);
-			cachedIV = current;
-		} else if (current.getMiddle() == null) {
-			ser = rdfFactory.getSerializedForm(this);
-			current = org.apache.commons.lang3.tuple.Triple.of(current.getLeft(), ser, rdfFactory);
-			cachedIV = current;
+	public void setId(RDFFactory rdfFactory, ValueIdentifier id) {
+		IdSer current = cachedIV;
+		if (current.rdfFactory != rdfFactory) {
+			cachedIV = new IdSer(id, null, rdfFactory);
 		}
-		return ser.duplicate();
+	}
+
+	@Override
+	public void setIdSer(RDFFactory rdfFactory, ValueIdentifier id, ByteArray ser) {
+		IdSer current = cachedIV;
+		if (current.rdfFactory != rdfFactory) {
+			cachedIV = new IdSer(id, ser, rdfFactory);
+		}
 	}
 
 	private Object writeReplace() throws ObjectStreamException {

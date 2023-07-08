@@ -6,7 +6,7 @@ import java.util.Arrays;
 import javax.annotation.concurrent.ThreadSafe;
 
 @ThreadSafe
-public final class ByteFiller implements ByteSequence {
+public final class ByteFiller extends ByteSequence {
 	private final byte value;
 	private final int size;
 
@@ -22,10 +22,23 @@ public final class ByteFiller implements ByteSequence {
 
 	@Override
 	public ByteBuffer writeTo(ByteBuffer bb) {
-		int pos = bb.position();
-		int startIndex = bb.arrayOffset() + pos;
-		Arrays.fill(bb.array(), startIndex, startIndex + size, value);
-		bb.position(pos+size);
+		if (bb.hasArray()) {
+			int pos = bb.position();
+			int startIndex = bb.arrayOffset() + pos;
+			Arrays.fill(bb.array(), startIndex, startIndex + size, value);
+			bb.position(pos+size);
+		} else {
+			for (int i=0; i<size; i++) {
+				bb.put(value);
+			}
+		}
 		return bb;
+	}
+
+	@Override
+	public byte[] copyBytes() {
+		byte[] copy = new byte[size];
+		Arrays.fill(copy, value);
+		return copy;
 	}
 }
