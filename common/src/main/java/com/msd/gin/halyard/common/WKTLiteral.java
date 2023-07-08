@@ -112,20 +112,8 @@ public class WKTLiteral extends AbstractDataLiteral implements ObjectLiteral<Geo
 		if (o instanceof WKTLiteral) {
 			WKTLiteral other = (WKTLiteral) o;
 			return Arrays.equals(wkbBytes, other.wkbBytes);
-		} else if (o instanceof Literal) {
-			Literal other = (Literal) o;
-
-			// Compare labels
-			if (!getLabel().equals(other.getLabel())) {
-				return false;
-			}
-
-			// Compare datatypes
-			if (!getDatatype().equals(other.getDatatype())) {
-				return false;
-			}
-			return true;
+		} else {
+			return super.equals(o);
 		}
-		return false;
 	}
 }

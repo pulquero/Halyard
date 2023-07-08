@@ -139,20 +139,8 @@ public final class TupleLiteral extends AbstractDataLiteral implements ObjectLit
 		if (o instanceof TupleLiteral) {
 			TupleLiteral other = (TupleLiteral) o;
 			return Arrays.equals(values, other.values);
-		} else if (o instanceof Literal) {
-			Literal other = (Literal) o;
-
-			// Compare labels
-			if (!getLabel().equals(other.getLabel())) {
-				return false;
-			}
-
-			// Compare datatypes
-			if (!getDatatype().equals(other.getDatatype())) {
-				return false;
-			}
-			return true;
+		} else {
+			return super.equals(o);
 		}
-		return false;
 	}
 }

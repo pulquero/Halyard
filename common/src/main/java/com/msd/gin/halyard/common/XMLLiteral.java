@@ -20,7 +20,6 @@ import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
 import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.jvnet.fastinfoset.FastInfosetException;
@@ -114,20 +113,8 @@ public class XMLLiteral extends AbstractDataLiteral implements ObjectLiteral<Doc
 		if (o instanceof XMLLiteral) {
 			XMLLiteral other = (XMLLiteral) o;
 			return Arrays.equals(fiBytes, other.fiBytes);
-		} else if (o instanceof Literal) {
-			Literal other = (Literal) o;
-
-			// Compare labels
-			if (!getLabel().equals(other.getLabel())) {
-				return false;
-			}
-
-			// Compare datatypes
-			if (!getDatatype().equals(other.getDatatype())) {
-				return false;
-			}
-			return true;
+		} else {
+			return super.equals(o);
 		}
-		return false;
 	}
 }

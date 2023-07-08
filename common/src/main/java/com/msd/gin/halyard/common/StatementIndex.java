@@ -312,10 +312,12 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			return iri;
 		} else if(len > 0) {
 			ValueIdentifier id = parseId(role, key, cq, keySize);
-			int limit = cv.limit();
-			cv.limit(cv.position() + len);
+			int startPos = cv.position();
+			int endPos = startPos + len;
+			int prevLimit = cv.limit();
+			cv.limit(endPos);
 			Value value = reader.readValue(cv, vf);
-			cv.limit(limit);
+			cv.limit(prevLimit);
 			if (value instanceof IdentifiableValue) {
 				((IdentifiableValue)value).setId(rdfFactory, id);
 			}

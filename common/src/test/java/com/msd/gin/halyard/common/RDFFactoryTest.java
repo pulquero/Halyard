@@ -55,6 +55,7 @@ public class RDFFactoryTest {
 			new Object[] {vf.createLiteral("5423"), ValueIO.UNCOMPRESSED_STRING_TYPE},
 			new Object[] {vf.createLiteral("\u98DF"), ValueIO.UNCOMPRESSED_STRING_TYPE},
 			new Object[] {vf.createLiteral(true), ValueIO.TRUE_TYPE},
+			new Object[] {vf.createLiteral(false), ValueIO.FALSE_TYPE},
 			new Object[] {vf.createLiteral((byte) 6), ValueIO.BYTE_TYPE},
 			new Object[] {vf.createLiteral((short) 7843), ValueIO.SHORT_TYPE},
 			new Object[] {vf.createLiteral(34), ValueIO.INT_TYPE},

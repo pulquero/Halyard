@@ -32,6 +32,7 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 import org.eclipse.rdf4j.model.vocabulary.GEO;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
@@ -65,7 +66,7 @@ public class ValueIO {
 		Literal readBytes(ByteBuffer b, ValueFactory vf);
 	}
 
-	private static final DatatypeFactory DATATYPE_FACTORY;
+	static final DatatypeFactory DATATYPE_FACTORY;
 	static {
 		try {
 			DATATYPE_FACTORY = DatatypeFactory.newInstance();
@@ -531,13 +532,13 @@ public class ValueIO {
 		addByteReader(INT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
-				return new IntLiteral(b.getInt(), XSD.INTEGER);
+				return new IntLiteral(b.getInt(), CoreDatatype.XSD.INTEGER);
 			}
 		});
 		addByteReader(SHORT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
-				return new IntLiteral(b.getShort(), XSD.INTEGER);
+				return new IntLiteral(b.getShort(), CoreDatatype.XSD.INTEGER);
 			}
 		});
 

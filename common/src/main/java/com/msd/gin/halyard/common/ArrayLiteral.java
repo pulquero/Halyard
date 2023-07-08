@@ -5,7 +5,6 @@ import com.msd.gin.halyard.vocab.HALYARD;
 import java.util.Arrays;
 
 import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.json.JSONArray;
 
@@ -60,20 +59,8 @@ public final class ArrayLiteral extends AbstractDataLiteral implements ObjectLit
 		if (o instanceof ArrayLiteral) {
 			ArrayLiteral other = (ArrayLiteral) o;
 			return Arrays.equals(values, other.values);
-		} else if (o instanceof Literal) {
-			Literal other = (Literal) o;
-
-			// Compare labels
-			if (!getLabel().equals(other.getLabel())) {
-				return false;
-			}
-
-			// Compare datatypes
-			if (!getDatatype().equals(other.getDatatype())) {
-				return false;
-			}
-			return true;
+		} else {
+			return super.equals(o);
 		}
-		return false;
 	}
 }

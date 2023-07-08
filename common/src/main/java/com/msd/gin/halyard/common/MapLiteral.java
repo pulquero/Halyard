@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.json.JSONObject;
 
@@ -61,20 +60,8 @@ public final class MapLiteral extends AbstractDataLiteral implements ObjectLiter
 		if (o instanceof MapLiteral) {
 			MapLiteral other = (MapLiteral) o;
 			return map.equals(other.map);
-		} else if (o instanceof Literal) {
-			Literal other = (Literal) o;
-
-			// Compare labels
-			if (!getLabel().equals(other.getLabel())) {
-				return false;
-			}
-
-			// Compare datatypes
-			if (!getDatatype().equals(other.getDatatype())) {
-				return false;
-			}
-			return true;
+		} else {
+			return super.equals(o);
 		}
-		return false;
 	}
 }

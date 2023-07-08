@@ -5,13 +5,12 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.TripleTest;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 
 public class IdentifiableTripleTest extends TripleTest {
 
 	@Override
 	protected Triple triple(Resource s, IRI p, Value o) {
-		return new IdentifiableTriple(SimpleValueFactory.getInstance().createTriple(s, p, o));
+		return new IdentifiableTriple(s, p, o);
 	}
 
 	@Override

@@ -51,7 +51,8 @@ public class JavaObjectLiteral<T> extends AbstractDataLiteral implements ObjectL
 		if (o instanceof JavaObjectLiteral) {
 			JavaObjectLiteral<?> other = (JavaObjectLiteral<?>) o;
 			return Objects.equals(obj, other.obj);
+		} else {
+			return super.equals(o);
 		}
-		return false;
 	}
 }

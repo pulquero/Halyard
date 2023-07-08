@@ -49,6 +49,7 @@ public class IdValueFactoryExtendedTest {
 			vf.createLiteral("5423"),
 			vf.createLiteral("\u98DF"),
 			vf.createLiteral(true),
+			vf.createLiteral(false),
 			vf.createLiteral((byte) 6),
 			vf.createLiteral((short) 7843),
 			vf.createLiteral(34),
@@ -88,30 +89,43 @@ public class IdValueFactoryExtendedTest {
 	public static Collection<Object[]> data() {
 		List<Value> expected = createData(SimpleValueFactory.getInstance());
 		List<Value> actual = createData(new IdValueFactory(StatementIndices.create().getRDFFactory()));
+		Configuration otherConf = new Configuration(false);
+		otherConf.set(TableConfig.ID_HASH, "Murmur3-128");
+		otherConf.setInt(TableConfig.ID_SIZE, 8);
+		otherConf.setBoolean(TableConfig.ID_TYPE_NIBBLE, false);
+		List<Value> other = createData(new IdValueFactory(RDFFactory.create(otherConf)));
 		List<Object[]> testValues = new ArrayList<>();
 		for (int i=0; i<expected.size(); i++) {
-			testValues.add(new Object[] {expected.get(i), actual.get(i)});
+			testValues.add(new Object[] {expected.get(i), actual.get(i), other.get(i)});
 		}
 		return testValues;
 	}
 
 	private Value expected;
 	private IdentifiableValue actual;
+	private IdentifiableValue other;
 
-	public IdValueFactoryExtendedTest(Value expected, IdentifiableValue actual) {
+	public IdValueFactoryExtendedTest(Value expected, IdentifiableValue actual, IdentifiableValue other) {
 		this.expected = expected;
 		this.actual = actual;
+		this.other = other;
 	}
 
 	@Test
 	public void testEquals() {
 		assertEquals(expected, actual);
 		assertEquals(actual, expected);
+		assertEquals(expected, other);
+		assertEquals(other, expected);
+		assertEquals(actual, other);
+		assertEquals(other, actual);
 	}
 
 	@Test
 	public void testHashCode() {
 		assertEquals(expected.hashCode(), actual.hashCode());
+		assertEquals(expected.hashCode(), other.hashCode());
+		assertEquals(actual.hashCode(), other.hashCode());
 	}
 
 	@Test
@@ -160,12 +174,12 @@ public class IdValueFactoryExtendedTest {
 		Configuration conf1 = new Configuration(false);
 		conf1.setInt(TableConfig.ID_SIZE, 8);
 		RDFFactory rdfFactory1 = RDFFactory.create(conf1);
-		assertEquals(rdfFactory1.getSerializedForm(expected), ((IdentifiableValue)actual).getSerializedForm(rdfFactory1));
+		assertEquals(rdfFactory1.getSerializedForm(expected), actual.getSerializedForm(rdfFactory1));
 
 		Configuration conf2 = new Configuration(false);
 		conf2.setInt(TableConfig.ID_SIZE, 10);
 		RDFFactory rdfFactory2 = RDFFactory.create(conf2);
-		assertEquals(rdfFactory2.getSerializedForm(expected), ((IdentifiableValue)actual).getSerializedForm(rdfFactory2));
+		assertEquals(rdfFactory2.getSerializedForm(expected), actual.getSerializedForm(rdfFactory2));
 	}
 
 	@Test
@@ -174,6 +188,22 @@ public class IdValueFactoryExtendedTest {
 		conf.setInt(TableConfig.ID_SIZE, 8);
 		RDFFactory rdfFactory = RDFFactory.create(conf);
 		actual.setId(rdfFactory, rdfFactory.id(actual));
-		assertEquals(rdfFactory.getSerializedForm(expected), ((IdentifiableValue)actual).getSerializedForm(rdfFactory));
+		assertEquals(rdfFactory.getSerializedForm(expected), actual.getSerializedForm(rdfFactory));
+	}
+
+	@Test
+	public void testEqualsWithIdSet() {
+		Configuration conf1 = new Configuration(false);
+		conf1.setInt(TableConfig.ID_SIZE, 8);
+		RDFFactory rdfFactory1 = RDFFactory.create(conf1);
+		actual.setId(rdfFactory1, rdfFactory1.id(actual));
+		other.setId(rdfFactory1, rdfFactory1.id(other));
+		assertEquals(actual, other);
+
+		Configuration conf2 = new Configuration(false);
+		conf2.setInt(TableConfig.ID_SIZE, 10);
+		RDFFactory rdfFactory2 = RDFFactory.create(conf2);
+		other.setId(rdfFactory2, rdfFactory2.id(other));
+		assertEquals(actual, other);
 	}
 }

@@ -1,63 +1,97 @@
 package com.msd.gin.halyard.common;
 
-import java.io.ObjectStreamException;
+import java.util.Objects;
+import java.util.Optional;
 
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.model.vocabulary.XSD;
 
-public final class IdentifiableLiteral extends LiteralWrapper implements IdentifiableValue {
-	private static final long serialVersionUID = 4299930477670062440L;
-	private transient IdSer cachedIV = IdSer.NONE;
+public final class IdentifiableLiteral extends AbstractIdentifiableLiteral {
+	private final String label;
+	private final IRI datatype;
+	private final CoreDatatype coreDatatype;
+	private final String lang;
 
-	IdentifiableLiteral(Literal literal) {
-		super(literal);
+	IdentifiableLiteral(String label, IRI datatype, CoreDatatype coreDatatype) {
+		this.label = Objects.requireNonNull(label);
+		this.datatype = Objects.requireNonNullElse(datatype, XSD.STRING);
+		if (RDF.LANGSTRING.equals(datatype)) {
+			throw new IllegalArgumentException("Missing language tag");
+		}
+		this.coreDatatype = coreDatatype;
+		this.lang = null;
+	}
+
+	IdentifiableLiteral(String label, IRI datatype) {
+		this(label, datatype, CoreDatatype.from(datatype));
+	}
+
+	IdentifiableLiteral(String label, CoreDatatype coreDatatype) {
+		this(label, coreDatatype.getIri(), coreDatatype);
+	}
+
+	IdentifiableLiteral(String label, String lang) {
+		this.label = Objects.requireNonNull(label);
+		this.lang = Objects.requireNonNull(lang);
+		if (lang.isEmpty()) {
+			throw new IllegalArgumentException("Language tag cannot be empty");
+		}
+		this.datatype = RDF.LANGSTRING;
+		this.coreDatatype = CoreDatatype.RDF.LANGSTRING;
+	}
+
+	IdentifiableLiteral(String label) {
+		this.label = Objects.requireNonNull(label);
+		this.lang = null;
+		this.datatype = XSD.STRING;
+		this.coreDatatype = CoreDatatype.XSD.STRING;
 	}
 
 	@Override
-	public ValueIdentifier getId(RDFFactory rdfFactory) {
-		IdSer current = cachedIV;
-		ValueIdentifier id = current.id;
-		if (current.rdfFactory != rdfFactory) {
-			ByteArray ser = rdfFactory.getSerializedForm(literal);
-			id = rdfFactory.id(literal, ser.copyBytes());
-			cachedIV = new IdSer(id, ser, rdfFactory);
-		}
-		return id;
+	public String getLabel() {
+		return label;
 	}
 
 	@Override
-	public ByteArray getSerializedForm(RDFFactory rdfFactory) {
-		IdSer current = cachedIV;
-		ByteArray ser = current.ser;
-		if (current.rdfFactory != rdfFactory) {
-			byte[] b = rdfFactory.valueWriter.toBytes(literal);
-			ValueIdentifier id = rdfFactory.id(literal, b);
-			ser = new ByteArray(b);
-			cachedIV = new IdSer(id, ser, rdfFactory);
-		} else if (ser == null) {
-			ser = rdfFactory.getSerializedForm(literal);
-			cachedIV = new IdSer(current.id, ser, rdfFactory);
-		}
-		return ser;
+	public Optional<String> getLanguage() {
+		return Optional.ofNullable(lang);
 	}
 
 	@Override
-	public void setId(RDFFactory rdfFactory, ValueIdentifier id) {
-		IdSer current = cachedIV;
-		if (current.rdfFactory != rdfFactory) {
-			cachedIV = new IdSer(id, null, rdfFactory);
+	public IRI getDatatype() {
+		return datatype;
+	}
+
+	@Override
+	public CoreDatatype getCoreDatatype() {
+		return coreDatatype;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		ValueIdentifier thatId = getCompatibleId(o);
+		if (thatId != null) {
+			return getId(null).equals(thatId);
+		}
+		if (o instanceof Literal) {
+			Literal that = (Literal) o;
+			String thatLang = that.getLanguage().orElse(null);
+			return this.label.equals(that.getLabel())
+					&& this.datatype.equals(that.getDatatype())
+					&& ((this.lang == null && thatLang == null) || this.lang.equalsIgnoreCase(thatLang));
+		} else {
+			return false;
 		}
 	}
 
 	@Override
-	public void setIdSer(RDFFactory rdfFactory, ValueIdentifier id, ByteArray ser) {
-		IdSer current = cachedIV;
-		if (current.rdfFactory != rdfFactory) {
-			cachedIV = new IdSer(id, ser, rdfFactory);
-		}
-	}
-
-	private Object writeReplace() throws ObjectStreamException {
-		byte[] b = ValueIO.getDefaultWriter().toBytes(literal);
-		return new SerializedValue(b);
+	public int hashCode() {
+		return label.hashCode();
 	}
 }

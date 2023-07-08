@@ -4,29 +4,20 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Optional;
 
-import javax.xml.datatype.XMLGregorianCalendar;
-
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 
-public final class IntLiteral implements Literal {
-	private static final long serialVersionUID = -8560649777651486999L;
-
+public final class IntLiteral extends AbstractIdentifiableLiteral {
 	private final String label;
 	private final int number;
-	private final IRI datatype;
+	private final CoreDatatype coreDatatype;
 
-	public IntLiteral(int v, IRI datatype) {
+	public IntLiteral(int v, CoreDatatype coreDatatype) {
 		this.label = XMLDatatypeUtil.toString(v);
 		this.number = v;
-		this.datatype = datatype;
-	}
-
-	@Override
-	public String stringValue() {
-		return label;
+		this.coreDatatype = coreDatatype;
 	}
 
 	@Override
@@ -41,12 +32,12 @@ public final class IntLiteral implements Literal {
 
 	@Override
 	public IRI getDatatype() {
-		return datatype;
+		return coreDatatype.getIri();
 	}
 
 	@Override
 	public CoreDatatype getCoreDatatype() {
-		return CoreDatatype.from(datatype);
+		return coreDatatype;
 	}
 
 	@Override
@@ -101,24 +92,23 @@ public final class IntLiteral implements Literal {
 	}
 
 	@Override
-	public XMLGregorianCalendar calendarValue() {
-		throw new IllegalArgumentException("Malformed value");
-	}
-
-	@Override
 	public boolean equals(Object o) {
-		return this == o || o instanceof Literal
-				&& label.equals(((Literal) o).getLabel())
-				&& datatype.equals(((Literal) o).getDatatype());
+		if (o == this) {
+			return true;
+		}
+		if (o instanceof IntLiteral) {
+			IntLiteral that = (IntLiteral) o;
+			return this.number == that.number && this.coreDatatype == that.coreDatatype;
+		} else if (o instanceof Literal) {
+			Literal that = (Literal) o;
+			return this.label.equals(that.getLabel())
+					&& this.getDatatype().equals(that.getDatatype());
+		}
+		return false;
 	}
 
 	@Override
 	public int hashCode() {
 		return label.hashCode();
-	}
-
-	@Override
-	public String toString() {
-		return "\"" + label + "\"^^<" + datatype.stringValue() + ">";
 	}
 }

@@ -1,63 +1,44 @@
 package com.msd.gin.halyard.common;
 
-import java.io.ObjectStreamException;
-
 import org.eclipse.rdf4j.model.BNode;
 
-public final class IdentifiableBNode extends BNodeWrapper implements IdentifiableValue {
-	private static final long serialVersionUID = -6212507967580561560L;
-	private transient IdSer cachedIV = IdSer.NONE;
+public final class IdentifiableBNode extends IdentifiableValue implements BNode {
+	private final String id;
 
-	IdentifiableBNode(BNode bnode) {
-		super(bnode);
+	IdentifiableBNode(String id) {
+		this.id = id;
 	}
 
 	@Override
-	public ValueIdentifier getId(RDFFactory rdfFactory) {
-		IdSer current = cachedIV;
-		ValueIdentifier id = current.id;
-		if (current.rdfFactory != rdfFactory) {
-			ByteArray ser = rdfFactory.getSerializedForm(bnode);
-			id = rdfFactory.id(bnode, ser.copyBytes());
-			cachedIV = new IdSer(id, ser, rdfFactory);
-		}
+	public final String getID() {
 		return id;
 	}
 
 	@Override
-	public ByteArray getSerializedForm(RDFFactory rdfFactory) {
-		IdSer current = cachedIV;
-		ByteArray ser = current.ser;
-		if (current.rdfFactory != rdfFactory) {
-			byte[] b = rdfFactory.valueWriter.toBytes(bnode);
-			ValueIdentifier id = rdfFactory.id(bnode, b);
-			ser = new ByteArray(b);
-			cachedIV = new IdSer(id, ser, rdfFactory);
-		} else if (ser == null) {
-			ser = rdfFactory.getSerializedForm(bnode);
-			cachedIV = new IdSer(current.id, ser, rdfFactory);
-		}
-		return ser;
+	public String stringValue() {
+		return id;
 	}
 
 	@Override
-	public void setId(RDFFactory rdfFactory, ValueIdentifier id) {
-		IdSer current = cachedIV;
-		if (current.rdfFactory != rdfFactory) {
-			cachedIV = new IdSer(id, null, rdfFactory);
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
 		}
+		ValueIdentifier thatId = getCompatibleId(o);
+		if (thatId != null) {
+			return getId(null).equals(thatId);
+		}
+		return (o instanceof BNode)
+			&& this.id.equals(((BNode)o).getID());
 	}
 
 	@Override
-	public void setIdSer(RDFFactory rdfFactory, ValueIdentifier id, ByteArray ser) {
-		IdSer current = cachedIV;
-		if (current.rdfFactory != rdfFactory) {
-			cachedIV = new IdSer(id, ser, rdfFactory);
-		}
+	public int hashCode() {
+		return id.hashCode();
 	}
 
-	private Object writeReplace() throws ObjectStreamException {
-		byte[] b = ValueIO.getDefaultWriter().toBytes(bnode);
-		return new SerializedValue(b);
+	@Override
+	public String toString() {
+		return "_:" + id;
 	}
 }

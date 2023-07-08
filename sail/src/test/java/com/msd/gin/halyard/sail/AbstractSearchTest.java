@@ -125,7 +125,7 @@ public abstract class AbstractSearchTest {
 			jsonGen.writeStringField("_index", INDEX);
 			String id = rdfFactory.id(val).toString();
 			jsonGen.writeStringField("_id", id);
-			jsonGen.writeNumberField("_score", values.length - i);
+			jsonGen.writeNumberField("_score", (double) (values.length - i));
 			jsonGen.writeObjectFieldStart("_source");
 			jsonGen.writeStringField(SearchDocument.ID_FIELD, id);
 			jsonGen.writeStringField(SearchDocument.LABEL_FIELD, val.getLabel());

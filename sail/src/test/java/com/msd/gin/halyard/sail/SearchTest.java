@@ -87,11 +87,11 @@ public class SearchTest extends AbstractSearchTest {
 				try (TupleQueryResult iter = q.evaluate()) {
 					assertTrue(iter.hasNext());
 					BindingSet bs = iter.next();
-					assertEquals(2, ((Literal) bs.getValue("score")).intValue());
+					assertEquals(2.0, ((Literal) bs.getValue("score")).doubleValue(), 0.0);
 					assertEquals(INDEX, ((Literal) bs.getValue("index")).stringValue());
 					assertTrue(iter.hasNext());
 					bs = iter.next();
-					assertEquals(1, ((Literal) bs.getValue("score")).intValue());
+					assertEquals(1.0, ((Literal) bs.getValue("score")).doubleValue(), 0.0);
 					assertEquals(INDEX, ((Literal) bs.getValue("index")).stringValue());
 					assertFalse(iter.hasNext());
 				}

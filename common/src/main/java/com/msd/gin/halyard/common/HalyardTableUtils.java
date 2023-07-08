@@ -20,8 +20,6 @@ import com.msd.gin.halyard.common.StatementIndex.Name;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -443,41 +441,4 @@ public final class HalyardTableUtils {
                 .setKeepDeletedCells(maxVersions > 1 ? KeepDeletedCells.TRUE : KeepDeletedCells.FALSE)
 				.build();
     }
-
-	static final class ByteBufferInputStream extends InputStream {
-		private final ByteBuffer buf;
-
-		ByteBufferInputStream(ByteBuffer b) {
-			this.buf = b;
-		}
-
-		@Override
-		public int read() {
-			return buf.hasRemaining() ? (buf.get() & 0xff) : -1;
-		}
-
-		@Override
-		public int read(byte[] b, int off, int len) {
-			int remaining = buf.remaining();
-			if (remaining == 0) {
-				return -1;
-			}
-			len = Math.min(len, remaining);
-			buf.get(b, off, len);
-			return len;
-		}
-
-		@Override
-		public long skip(long n) {
-			n = Math.max(n, -buf.position());
-			n = Math.min(n, buf.remaining());
-			buf.position((int)(buf.position() + n));
-			return n;
-		}
-
-		@Override
-		public int available() {
-			return buf.remaining();
-		}
-	}
 }

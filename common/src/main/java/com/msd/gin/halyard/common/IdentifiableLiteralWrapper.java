@@ -13,11 +13,11 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 
-public abstract class LiteralWrapper implements Literal {
+public final class IdentifiableLiteralWrapper extends IdentifiableValue implements Literal {
 	private static final long serialVersionUID = -3751940963092784186L;
 	protected final Literal literal;
 
-	protected LiteralWrapper(Literal literal) {
+	IdentifiableLiteralWrapper(Literal literal) {
 		this.literal = literal;
 	}
 
@@ -118,6 +118,13 @@ public abstract class LiteralWrapper implements Literal {
 
 	@Override
 	public final boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		ValueIdentifier thatId = getCompatibleId(o);
+		if (thatId != null) {
+			return getId(null).equals(thatId);
+		}
 		return literal.equals(o);
 	}
 }

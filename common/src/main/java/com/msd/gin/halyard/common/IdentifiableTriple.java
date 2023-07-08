@@ -1,63 +1,69 @@
 package com.msd.gin.halyard.common;
 
-import java.io.ObjectStreamException;
+import java.util.Objects;
 
+import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Triple;
+import org.eclipse.rdf4j.model.Value;
 
-public final class IdentifiableTriple extends TripleWrapper implements IdentifiableValue {
-	private static final long serialVersionUID = 228285959274911416L;
-	private transient IdSer cachedIV = IdSer.NONE;
+public final class IdentifiableTriple extends IdentifiableValue implements Triple {
+	private final Resource subject;
+	private final IRI predicate;
+	private final Value object;
 
-	IdentifiableTriple(Triple triple) {
-		super(triple);
+	IdentifiableTriple(Resource subject, IRI predicate, Value object) {
+		this.subject = Objects.requireNonNull(subject);
+		this.predicate = Objects.requireNonNull(predicate);
+		this.object = Objects.requireNonNull(object);
 	}
 
 	@Override
-	public ValueIdentifier getId(RDFFactory rdfFactory) {
-		IdSer current = cachedIV;
-		ValueIdentifier id = current.id;
-		if (current.rdfFactory != rdfFactory) {
-			ByteArray ser = rdfFactory.getSerializedForm(triple);
-			id = rdfFactory.id(triple, ser.copyBytes());
-			cachedIV = new IdSer(id, ser, rdfFactory);
-		}
-		return id;
+	public Resource getSubject() {
+		return subject;
 	}
 
 	@Override
-	public ByteArray getSerializedForm(RDFFactory rdfFactory) {
-		IdSer current = cachedIV;
-		ByteArray ser = current.ser;
-		if (current.rdfFactory != rdfFactory) {
-			byte[] b = rdfFactory.valueWriter.toBytes(triple);
-			ValueIdentifier id = rdfFactory.id(triple, b);
-			ser = new ByteArray(b);
-			cachedIV = new IdSer(id, ser, rdfFactory);
-		} else if (ser == null) {
-			ser = rdfFactory.getSerializedForm(triple);
-			cachedIV = new IdSer(current.id, ser, rdfFactory);
-		}
-		return ser;
+	public IRI getPredicate() {
+		return predicate;
 	}
 
 	@Override
-	public void setId(RDFFactory rdfFactory, ValueIdentifier id) {
-		IdSer current = cachedIV;
-		if (current.rdfFactory != rdfFactory) {
-			cachedIV = new IdSer(id, null, rdfFactory);
+	public Value getObject() {
+		return object;
+	}
+
+	@Override
+	public String stringValue() {
+		return "<<" +subject + " " + predicate + " " + object + ">>";
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		ValueIdentifier thatId = getCompatibleId(o);
+		if (thatId != null) {
+			return getId(null).equals(thatId);
+		}
+		if (o instanceof Triple) {
+			Triple that = (Triple) o;
+			return this.object.equals(that.getObject())
+					&& this.subject.equals(that.getSubject())
+					&& this.predicate.equals(that.getPredicate());
+		} else {
+			return false;
 		}
 	}
 
 	@Override
-	public void setIdSer(RDFFactory rdfFactory, ValueIdentifier id, ByteArray ser) {
-		IdSer current = cachedIV;
-		if (current.rdfFactory != rdfFactory) {
-			cachedIV = new IdSer(id, ser, rdfFactory);
-		}
+	public int hashCode() {
+		return Objects.hash(getSubject(), getPredicate(), getObject());
 	}
 
-	private Object writeReplace() throws ObjectStreamException {
-		byte[] b = ValueIO.getDefaultWriter().toBytes(triple);
-		return new SerializedValue(b);
+	@Override
+	public final String toString() {
+		return stringValue();
 	}
 }
