@@ -14,7 +14,10 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 
-public final class ValueIdentifier implements ByteSequence, Serializable {
+/**
+ * Immutable wrapper around a byte array identifier.
+ */
+public final class ValueIdentifier extends ByteSequence implements Serializable {
 	private static final long serialVersionUID = 1293499350691875714L;
 
 	enum TypeNibble {
@@ -123,7 +126,7 @@ public final class ValueIdentifier implements ByteSequence, Serializable {
 		/**
 		 * Thread-safe.
 		 */
-		ValueIdentifier id(ValueType type, IRI datatype, ByteBuffer ser) {
+		ValueIdentifier id(ValueType type, IRI datatype, byte[] ser) {
 			byte[] hash = hashFuncProvider.get().apply(ser);
 			writeType(type, datatype, hash, 0);
 			return new ValueIdentifier(hash);

@@ -346,9 +346,7 @@ public final class RDFFactory {
 				IdentifiableValue idv = (IdentifiableValue) v;
 				id = idv.getId(this);
 			} else {
-				ByteBuffer ser = ByteBuffer.allocate(ValueIO.DEFAULT_BUFFER_SIZE);
-				ser = valueWriter.writeTo(v, ser);
-				ser.flip();
+				byte[] ser = valueWriter.toBytes(v);
 				id = id(v, ser);
 			}
 		}
@@ -362,7 +360,7 @@ public final class RDFFactory {
 		return new ValueIdentifier(idBytes);
 	}
 
-	ValueIdentifier id(Value v, ByteBuffer ser) {
+	ValueIdentifier id(Value v, byte[] ser) {
 		ValueType type = ValueType.valueOf(v);
 		return idFormat.id(type, v.isLiteral() ? ((Literal)v).getDatatype() : null, ser);
 	}
@@ -371,9 +369,8 @@ public final class RDFFactory {
 		return id(Hashes.decode(s));
 	}
 
-	ByteBuffer getSerializedForm(Value v) {
-		byte[] b = valueWriter.toBytes(v);
-		return ByteBuffer.wrap(b).asReadOnlyBuffer();
+	ByteArray getSerializedForm(Value v) {
+		return new ByteArray(valueWriter.toBytes(v));
 	}
 
 	public byte[] statementId(Resource subj, IRI pred, Value obj) {

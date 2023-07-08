@@ -34,7 +34,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigInteger;
 import java.net.URI;
-import java.nio.ByteBuffer;
 import java.text.MessageFormat;
 import java.util.BitSet;
 import java.util.Collections;
@@ -449,7 +448,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
 	                            write(sliceRPred, RDFS.LABEL, SVF.createLiteral("slice rdfs:range with cardinality " + cardinality));
 	                            write(sliceRPred, CARDINALITY, SVF.createLiteral(BigInteger.valueOf(cardinality)));
 	                        }
-	                        IRI generatedRoot = SVF.createIRI(NAMESPACE, Hashes.encode(keyHash.apply(ByteBuffer.wrap(key.get(), key.getOffset(), key.getLength()))));
+	                        IRI generatedRoot = SVF.createIRI(NAMESPACE, Hashes.encode(keyHash.apply(key.copyBytes())));
 	                        write(generatedRoot, slicePPred, firstKey);
 	                        write(generatedRoot, sliceDPred, SVF.createIRI(dis.readUTF()));
 	                        write(generatedRoot, sliceRPred, SVF.createIRI(dis.readUTF()));

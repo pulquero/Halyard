@@ -1,6 +1,5 @@
 package com.msd.gin.halyard.common;
 
-import java.nio.ByteBuffer;
 import java.util.Objects;
 
 import org.eclipse.rdf4j.model.Value;
@@ -8,7 +7,7 @@ import org.eclipse.rdf4j.model.Value;
 public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFIdentifier<T> {
 	final V val;
 	private final RDFFactory rdfFactory;
-	private ByteBuffer ser;
+	private ByteArray ser;
 
 	public static <V extends Value, T extends SPOC<V>> boolean matches(V value, RDFValue<V, T> pattern) {
 		return pattern == null || pattern.val.equals(value);
@@ -25,20 +24,24 @@ public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFId
 		return rdfFactory.isWellKnownIRI(val);
 	}
 
-	public final ByteBuffer getSerializedForm() {
+	public final ByteArray getSerializedForm() {
 		if (ser == null) {
-			if (val instanceof SerializableValue) {
-				ser = ((SerializableValue) val).getSerializedForm(rdfFactory);
+			if (val instanceof IdentifiableValue) {
+				ser = ((IdentifiableValue) val).getSerializedForm(rdfFactory);
 			} else {
 				ser = rdfFactory.getSerializedForm(val);
 			}
 		}
-		return ser.duplicate();
+		return ser;
 	}
 
 	@Override
 	protected final ValueIdentifier calculateId() {
-		return rdfFactory.id(val, getSerializedForm());
+		if (val instanceof IdentifiableValue) {
+			return ((IdentifiableValue) val).getId(rdfFactory);
+		} else {
+			return rdfFactory.id(val, getSerializedForm().copyBytes());
+		}
 	}
 
 	@Override
