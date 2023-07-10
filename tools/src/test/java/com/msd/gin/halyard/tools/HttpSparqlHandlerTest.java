@@ -640,7 +640,7 @@ public class HttpSparqlHandlerTest {
         // check parses
         new JSONObject(json);
         // -1 as SailRepository doesn't support tracked updates
-        assertEquals("{\"results\":[{\"inserted\":-1}]}", json);
+        assertEquals("{\"results\":[{\"totalInserted\":-1}]}", json);
     }
 
     @Test

@@ -175,7 +175,7 @@ public class HalyardEndpointTest {
         Path path = Paths.get(ROOT + name.getMethodName());
         runEndpoint("-s", TABLE, script.getPath(), path.toString());
         assertTrue(Files.exists(path));
-        assertEquals("{\"results\":[{\"inserted\":1001}]}", Files.readString(path));
+        assertEquals("{\"results\":[{\"totalInserted\":1001}]}", Files.readString(path));
     }
 
     /**

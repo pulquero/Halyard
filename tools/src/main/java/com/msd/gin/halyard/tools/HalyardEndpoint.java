@@ -31,7 +31,6 @@ import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.io.FileUtils;
-import org.eclipse.rdf4j.repository.sail.SailRepository;
 
 /**
  * @author sykorjan
@@ -107,7 +106,7 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
             // that are to be run by this tool
             List<String> cmdArgs = Arrays.asList(cmd.getArgs());
 
-            SailRepository rep = new HBaseRepository(
+            HBaseRepository rep = new HBaseRepository(
                     new HBaseSail(getConf(), table, false, 0, usePush, timeout, ElasticSettings.from(getConf())));
             rep.init();
             try {

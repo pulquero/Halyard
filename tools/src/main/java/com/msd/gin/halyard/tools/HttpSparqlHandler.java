@@ -18,6 +18,9 @@ package com.msd.gin.halyard.tools;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.msd.gin.halyard.repository.HBaseRepository;
+import com.msd.gin.halyard.sail.ElasticSettings;
+import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.ResultTrackingSailConnection;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
@@ -35,6 +38,7 @@ import java.net.HttpURLConnection;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -55,10 +59,10 @@ import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.InstanceNotFoundException;
 import javax.management.IntrospectionException;
-import javax.management.MalformedObjectNameException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
 import javax.management.openmbean.CompositeData;
@@ -66,6 +70,7 @@ import javax.management.openmbean.TabularData;
 
 import org.apache.commons.io.output.StringBuilderWriter;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.lang.FileFormat;
 import org.eclipse.rdf4j.common.lang.service.FileFormatServiceRegistry;
@@ -142,6 +147,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     private static final String USING_NAMED_GRAPH_PREFIX = "using-named-graph-uri=";
 
     private static final String TRACK_RESULT_SIZE = "track-result-size=";
+    private static final String TARGET = "target=";
 
     static final String JSON_CONTENT = "application/json";
     // Request content type (only for POST requests)
@@ -226,7 +232,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         } catch (IllegalArgumentException | MalformedObjectNameException | MalformedQueryException e) {
             LOGGER.debug("Bad request", e);
             sendErrorResponse(exchange, HttpURLConnection.HTTP_BAD_REQUEST, e);
-        } catch (IOException | RuntimeException e) {
+        } catch (Exception e) {
             LOGGER.warn("Internal error", e);
             sendErrorResponse(exchange, HttpURLConnection.HTTP_INTERNAL_ERROR, e);
         }
@@ -405,6 +411,8 @@ public final class HttpSparqlHandler implements HttpHandler {
             sparqlQuery.addNamedGraph(SVF.createIRI(getParameterValue(param, NAMED_GRAPH_PREFIX)));
         } else if (param.startsWith(TRACK_RESULT_SIZE)) {
         	sparqlQuery.trackResultSize = Boolean.valueOf(getParameterValue(param, TRACK_RESULT_SIZE));
+        } else if (param.startsWith(TARGET)) {
+        	sparqlQuery.target = getParameterValue(param, TARGET);
         } else {
             int i = param.indexOf("=");
             if (i >= 0) {
@@ -457,8 +465,9 @@ public final class HttpSparqlHandler implements HttpHandler {
      * @param exchange    HTTP exchange for sending the response
      * @throws IOException    If an error occurs during sending response to the client
      * @throws RDF4JException If an error occurs due to illegal SPARQL query (e.g. incorrect syntax)
+     * @throws GeneralSecurityException 
      */
-    private void evaluateQuery(SparqlQuery sparqlQuery, HttpExchange exchange) throws IOException, RDF4JException {
+    private void evaluateQuery(SparqlQuery sparqlQuery, HttpExchange exchange) throws IOException, RDF4JException, GeneralSecurityException {
         String queryString = sparqlQuery.getQuery();
         // sniff query type and perform content negotiation before opening a connection
         ParsedQuery sniffedQuery = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, queryString, null);
@@ -469,19 +478,44 @@ public final class HttpSparqlHandler implements HttpHandler {
         }
         QueryEvaluator evaluator;
         if (sniffedQuery instanceof ParsedTupleQuery) {
-            TupleQueryResultWriterRegistry registry = TupleQueryResultWriterRegistry.getInstance();
-            QueryResultFormat format = setFormat(registry, exchange.getRequestURI().getPath(),
-                    acceptedMimeTypes, TupleQueryResultFormat.CSV, exchange.getResponseHeaders());
-            TupleQueryResultWriterFactory writerFactory = registry.get(format).orElseThrow(() -> new IOException("Format not supported: "+format));
-            evaluator = query -> {
-	            LOGGER.info("Evaluating tuple query: {}", queryString);
-	            exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
-	            BufferedOutputStream response = new BufferedOutputStream(exchange.getResponseBody());
-                TupleQueryResultWriter w = writerFactory.getWriter(response);
-                w.setWriterConfig(writerConfig);
-                ((TupleQuery) query).evaluate(w);
-	            return response;
-            };
+        	if (sparqlQuery.target != null) {
+        		String esIndexUrl = sparqlQuery.target;
+        		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
+        		Configuration conf = sail.getConfiguration();
+        		HalyardExport.ElasticsearchWriter writer = new HalyardExport.ElasticsearchWriter(new HalyardExport.StatusLog() {
+					public void tick() {}
+					public void logStatus(String msg) {
+						LOGGER.info(msg);
+					}
+				}, ElasticSettings.from(esIndexUrl, conf), sail.getRDFFactory(), repository.getValueFactory());
+        		evaluator = query -> {
+		            LOGGER.info("Indexing results from query: {}", queryString);
+        			writer.writeTupleQueryResult(((TupleQuery)query).evaluate());
+        	    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
+		            exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
+		            BufferedOutputStream response = new BufferedOutputStream(exchange.getResponseBody());
+                	JsonGenerator json = new ObjectMapper().createGenerator(response);
+                	json.writeStartObject();
+                	json.writeNumberField("totalExported", writer.getExportedCount());
+                	json.writeEndObject();
+                	json.close();
+                	return response;
+        		};
+        	} else {
+	            TupleQueryResultWriterRegistry registry = TupleQueryResultWriterRegistry.getInstance();
+	            QueryResultFormat format = setFormat(registry, exchange.getRequestURI().getPath(),
+	                    acceptedMimeTypes, TupleQueryResultFormat.CSV, exchange.getResponseHeaders());
+	            TupleQueryResultWriterFactory writerFactory = registry.get(format).orElseThrow(() -> new IOException("Format not supported: "+format));
+	            evaluator = query -> {
+		            LOGGER.info("Evaluating tuple query: {}", queryString);
+		            exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
+		            BufferedOutputStream response = new BufferedOutputStream(exchange.getResponseBody());
+	                TupleQueryResultWriter w = writerFactory.getWriter(response);
+	                w.setWriterConfig(writerConfig);
+	                ((TupleQuery) query).evaluate(w);
+		            return response;
+	            };
+        	}
         } else if (sniffedQuery instanceof ParsedGraphQuery) {
             RDFWriterRegistry registry = RDFWriterRegistry.getInstance();
             RDFFormat format = setFormat(registry, exchange.getRequestURI().getPath(),
@@ -564,10 +598,10 @@ public final class HttpSparqlHandler implements HttpHandler {
 	    			Modify modify = (Modify) expr;
 	    			json.writeStartObject();
 	    			if (modify.getDeleteExpr() != null) {
-	    				json.writeNumberField("deleted", modify.getDeleteExpr().getResultSizeActual());
+	    				json.writeNumberField("totalDeleted", modify.getDeleteExpr().getResultSizeActual());
 	    			}
 	    			if (modify.getInsertExpr() != null) {
-	    				json.writeNumberField("inserted", modify.getInsertExpr().getResultSizeActual());
+	    				json.writeNumberField("totalInserted", modify.getInsertExpr().getResultSizeActual());
 	    			}
 	    			json.writeEndObject();
 	    		}
@@ -745,6 +779,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         // Dataset containing default graphs and named graphs
         private final SimpleDataset dataset = new SimpleDataset();
         private boolean trackResultSize;
+        private String target;
 
         public String getQuery() {
         	return replaceParameters(query);

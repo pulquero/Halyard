@@ -142,6 +142,10 @@ public final class HalyardExport extends AbstractHalyardTool {
             this.log = log;
         }
 
+        public final long getExportedCount() {
+        	return counter.get();
+        }
+
         public final void initTimer() {
             startTime = System.currentTimeMillis();
         }
@@ -419,7 +423,7 @@ public final class HalyardExport extends AbstractHalyardTool {
         }
     }
 
-    private static class ElasticsearchWriter extends QueryResultWriter {
+    static class ElasticsearchWriter extends QueryResultWriter {
     	private final String indexName;
     	private final ElasticsearchTransport esTransport;
     	private final ElasticsearchClient esClient;
