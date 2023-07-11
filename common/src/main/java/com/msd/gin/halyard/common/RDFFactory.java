@@ -35,6 +35,7 @@ public final class RDFFactory {
 	public final ValueIO.Writer valueWriter;
 	public final ValueIO.Reader valueReader;
 	private final BiMap<ValueIdentifier, IRI> wellKnownIriIds = HashBiMap.create(256);
+	private final Map<String, IRI> wellKnownIris = new HashMap<>(256);
 	final int version;
 	final ValueIdentifier.Format idFormat;
 	private final int typeSaltSize;
@@ -178,6 +179,7 @@ public final class RDFFactory {
 				throw new AssertionError(String.format("Hash collision between %s and %s",
 						wellKnownIriIds.get(id), iri));
 			}
+			wellKnownIris.put(iri.stringValue(), iri);
 		}
 	}
 
@@ -187,6 +189,10 @@ public final class RDFFactory {
 
 	IRI getWellKnownIRI(ValueIdentifier id) {
 		return wellKnownIriIds.get(id);
+	}
+
+	IRI getWellKnownIRI(String iri) {
+		return wellKnownIris.get(iri);
 	}
 
 	boolean isWellKnownIRI(Value v) {

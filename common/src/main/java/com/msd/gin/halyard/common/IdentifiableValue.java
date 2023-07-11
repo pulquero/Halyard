@@ -3,6 +3,7 @@ package com.msd.gin.halyard.common;
 import java.io.ObjectStreamException;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import org.eclipse.rdf4j.model.Value;
 
@@ -23,28 +24,31 @@ public abstract class IdentifiableValue implements Value {
 
 	public final ValueIdentifier getId(RDFFactory rdfFactory) {
 		IdSer current = cachedIV;
-		ValueIdentifier id = current.id;
 		if (rdfFactory != null && current.rdfFactory != rdfFactory) {
-			ByteArray ser = rdfFactory.getSerializedForm(this);
-			id = rdfFactory.id(this, ser.copyBytes());
-			cachedIV = new IdSer(id, ser, rdfFactory);
+			current = makeIdSer(null, rdfFactory);
+			cachedIV = current;
 		}
-		return id;
+		return current.id;
 	}
 
 	public final ByteArray getSerializedForm(@Nonnull RDFFactory rdfFactory) {
 		IdSer current = cachedIV;
-		ByteArray ser = current.ser;
 		if (current.rdfFactory != rdfFactory) {
-			byte[] b = rdfFactory.valueWriter.toBytes(this);
-			ValueIdentifier id = rdfFactory.id(this, b);
-			ser = new ByteArray(b);
-			cachedIV = new IdSer(id, ser, rdfFactory);
-		} else if (ser == null) {
-			ser = rdfFactory.getSerializedForm(this);
-			cachedIV = new IdSer(current.id, ser, rdfFactory);
+			current = makeIdSer(null, rdfFactory);
+			cachedIV = current;
+		} else if (current.ser == null) {
+			current = makeIdSer(current.id, rdfFactory);
+			cachedIV = current;
 		}
-		return ser;
+		return current.ser;
+	}
+
+	private IdSer makeIdSer(ValueIdentifier id, RDFFactory rdfFactory) {
+		byte[] ser = rdfFactory.valueWriter.toBytes(this);
+		if (id == null) {
+			id = rdfFactory.id(this, ser);
+		}
+		return new IdSer(id, new ByteArray(ser), rdfFactory);
 	}
 
 	public final void setId(@Nonnull RDFFactory rdfFactory, @Nonnull ValueIdentifier id) {
@@ -57,5 +61,26 @@ public abstract class IdentifiableValue implements Value {
 	protected final Object writeReplace() throws ObjectStreamException {
 		byte[] b = ValueIO.getDefaultWriter().toBytes(this);
 		return new SerializedValue(b);
+	}
+
+	static final class IdSer {
+		static final IdSer NONE = new IdSer();
+
+		final ValueIdentifier id;
+		final ByteArray ser;
+		final RDFFactory rdfFactory;
+
+		private IdSer() {
+			this(null, null, null);
+		}
+
+		/**
+		 * Identifier must always be present.
+		 */
+		IdSer(@Nonnull ValueIdentifier id, @Nullable ByteArray ser, @Nonnull RDFFactory rdfFactory) {
+			this.id = id;
+			this.ser = ser;
+			this.rdfFactory = rdfFactory;
+		}
 	}
 }

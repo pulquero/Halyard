@@ -30,15 +30,24 @@ import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 public class IdValueFactory implements ValueFactory {
 	private final Literal TRUE;
 	private final Literal FALSE;
+	private final RDFFactory rdfFactory;
 
 	public IdValueFactory(@Nullable RDFFactory rdfFactory) {
 		this.TRUE = new BooleanLiteral(true);
 		this.FALSE = new BooleanLiteral(false);
+		this.rdfFactory = rdfFactory;
 	}
 
 	@Override
-	public IRI createIRI(String iri) {
-		return new IdentifiableIRI(iri);
+	public IRI createIRI(String iriString) {
+		IRI iri = null;
+		if (rdfFactory != null) {
+			iri = rdfFactory.getWellKnownIRI(iriString);
+		}
+		if (iri == null) {
+			iri = new IdentifiableIRI(iriString);
+		}
+		return iri;
 	}
 
 	@Override
