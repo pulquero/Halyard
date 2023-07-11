@@ -25,6 +25,9 @@ import org.eclipse.rdf4j.query.parser.ParsedUpdate;
  */
 public interface QueryPreparer extends AutoCloseable {
 
+	/**
+	 * Implementations should be thread-safe.
+	 */
 	@FunctionalInterface
 	public static interface Factory {
 		QueryPreparer create();

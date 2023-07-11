@@ -100,9 +100,9 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private static final Logger LOGGER = LoggerFactory.getLogger(HBaseSail.class);
 
     /**
-     * Ticker is a simple service interface that is notified when some data are processed.
-     * It's purpose is to notify a caller (for example MapReduce task) that the execution is still alive.
-     */
+	 * Ticker is a simple service interface that is notified when some data are processed. It's purpose is to notify a caller (for example MapReduce task) that the execution is
+	 * still alive. Implementations must be thread-safe.
+	 */
     public interface Ticker {
 
         /**

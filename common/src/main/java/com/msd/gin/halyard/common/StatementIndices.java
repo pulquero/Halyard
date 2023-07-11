@@ -11,6 +11,7 @@ import java.util.Objects;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.ThreadSafe;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
@@ -27,6 +28,7 @@ import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 
+@ThreadSafe
 public final class StatementIndices {
 	private static final int PREFIXES = 3;
 	private static final Statement[] EMPTY_STATEMENTS = new Statement[0];

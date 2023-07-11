@@ -37,7 +37,7 @@ public abstract class AbstractStatementScanner extends AbstractCloseableIteratio
 	protected abstract Result nextResult() throws IOException;
 
 	@Override
-	public final synchronized boolean hasNext() throws IOException {
+	public final boolean hasNext() throws IOException {
 		if (next == null) {
 			while (true) {
 				if (stmts == null) {
@@ -61,7 +61,7 @@ public abstract class AbstractStatementScanner extends AbstractCloseableIteratio
 	}
 
 	@Override
-	public final synchronized Statement next() throws IOException {
+	public final Statement next() throws IOException {
 		if (!hasNext()) {
 			throw new NoSuchElementException();
 		}
