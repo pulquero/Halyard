@@ -661,7 +661,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	}
 
 	private void insertSystemStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
-		for (KeyValue kv : sail.getStatementIndices().insertSystemKeyValues(subj, pred, obj, ctx, timestamp)) {
+		for (KeyValue kv : sail.getStatementIndices().insertNonDefaultKeyValues(subj, pred, obj, ctx, timestamp)) {
 			put(kv);
 		}
 	}
@@ -759,7 +759,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	}
 
 	private void deleteSystemStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
-		for (KeyValue kv : sail.getStatementIndices().deleteSystemKeyValues(subj, pred, obj, ctx, timestamp)) {
+		for (KeyValue kv : sail.getStatementIndices().deleteNonDefaultKeyValues(subj, pred, obj, ctx, timestamp)) {
 			delete(kv);
 		}
 	}

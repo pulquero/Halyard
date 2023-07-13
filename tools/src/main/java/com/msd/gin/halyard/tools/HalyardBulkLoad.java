@@ -41,6 +41,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.MissingOptionException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -116,6 +117,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
 
     public static final String STATEMENT_DEDUP_CACHE_SIZE_PROPERTY = confProperty(TOOL_NAME, "statement-dedup-cache.size");
     public static final String VALUE_CACHE_SIZE_PROPERTY = confProperty(TOOL_NAME, "value-cache.size");
+    public static final String HIDDEN_CONTEXT_PROPERTY = confProperty(TOOL_NAME, "context.hidden");
 
     /**
      * Boolean property ignoring RDF parsing errors
@@ -233,6 +235,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         private KeyspaceConnection keyspaceConn;
         private RDFFactory rdfFactory;
         private StatementIndices stmtIndices;
+        private boolean hiddenGraph;
         private long timestamp;
         private long addedKvs;
         private long addedStmts;
@@ -247,6 +250,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             rdfFactory = RDFFactory.create(keyspaceConn);
             stmtIndices = new StatementIndices(conf, rdfFactory);
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
+            hiddenGraph = conf.getBoolean(HIDDEN_CONTEXT_PROPERTY, false);
         }
 
         @Override
@@ -254,8 +258,8 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         	// best effort statement deduplication
         	if (stmtDedup.add(stmt)) {
         		List<? extends KeyValue> kvs;
-        		if (HALYARD.SYSTEM_GRAPH_CONTEXT.equals(stmt.getContext())) {
-        			kvs = stmtIndices.insertSystemKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
+        		if (HALYARD.SYSTEM_GRAPH_CONTEXT.equals(stmt.getContext()) || hiddenGraph) {
+        			kvs = stmtIndices.insertNonDefaultKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
         		} else {
         			kvs = stmtIndices.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
         		}
@@ -651,6 +655,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         addOption("e", "target-timestamp", "timestamp", TIMESTAMP_PROPERTY, "Optionally specify timestamp of all loaded records (default is actual time of the operation)", false, true);
         addOption("m", "max-split-size", "size_in_bytes", FileInputFormat.SPLIT_MAXSIZE, "Optionally override maximum input split size, where significantly larger single files will be processed in parallel (0 means no limit, default is 200000000)", false, true);
         addOption(null, "dry-run", null, DRY_RUN_PROPERTY, "Skip loading of HFiles", false, true);
+        addOption(null, "hidden-graph", null, HIDDEN_CONTEXT_PROPERTY, "Load into a hidden named graph (can only be used in conjunction with -g)", false, true);
     }
 
     @Override
@@ -668,6 +673,10 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         configureLong(cmd, 'e', System.currentTimeMillis());
         configureLong(cmd, 'm', DEFAULT_SPLIT_MAXSIZE);
         configureBoolean(cmd, "dry-run");
+        configureBoolean(cmd, "hidden-graph");
+        if (getConf().get(DEFAULT_CONTEXT_PROPERTY) == null && getConf().get(HIDDEN_CONTEXT_PROPERTY) != null) {
+        	throw new MissingOptionException("Missing -g with --hidden-graph");
+        }
         String sourcePaths = getConf().get(SOURCE_PATHS_PROPERTY);
         String target = getConf().get(TARGET_TABLE_PROPERTY);
         TableMapReduceUtil.addDependencyJarsForClasses(getConf(),

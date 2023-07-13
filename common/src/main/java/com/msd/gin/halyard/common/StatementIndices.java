@@ -505,10 +505,10 @@ public final class StatementIndices {
 		return toKeyValues(subj, pred, obj, context, true, timestamp, false);
 	}
 
-	public List<? extends KeyValue> insertSystemKeyValues(Resource subj, IRI pred, Value obj, Resource context, long timestamp) {
+	public List<? extends KeyValue> insertNonDefaultKeyValues(Resource subj, IRI pred, Value obj, Resource context, long timestamp) {
 		return toKeyValues(subj, pred, obj, context, false, timestamp, false, true);
 	}
-	public List<? extends KeyValue> deleteSystemKeyValues(Resource subj, IRI pred, Value obj, Resource context, long timestamp) {
+	public List<? extends KeyValue> deleteNonDefaultKeyValues(Resource subj, IRI pred, Value obj, Resource context, long timestamp) {
 		return toKeyValues(subj, pred, obj, context, true, timestamp, false, false);
 	}
 
