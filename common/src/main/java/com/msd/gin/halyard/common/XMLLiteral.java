@@ -58,10 +58,14 @@ public class XMLLiteral extends AbstractDataLiteral implements ObjectLiteral<Doc
 		return DOCUMENT_BUILDER_FACTORY.get().newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
 	}
 
-	public XMLLiteral(String xml) throws TransformerException {
-		ByteArrayOutputStream out = new ByteArrayOutputStream(1024);
-		writeInfoset(xml, out);
-		this.fiBytes = out.toByteArray();
+	public XMLLiteral(String xml) {
+		try {
+			ByteArrayOutputStream out = new ByteArrayOutputStream(1024);
+			writeInfoset(xml, out);
+			this.fiBytes = out.toByteArray();
+		} catch (TransformerException e) {
+			throw new IllegalArgumentException(e);
+		}
 	}
 
 	public XMLLiteral(byte[] fiBytes) {

@@ -67,8 +67,12 @@ public class WKTLiteral extends AbstractDataLiteral implements ObjectLiteral<Geo
 
 	private final byte[] wkbBytes;
 
-	public WKTLiteral(String wkt) throws ParseException {
-		this(writeWKB(wkt));
+	public WKTLiteral(String wkt) {
+		try {
+			this.wkbBytes = writeWKB(wkt);
+		} catch (ParseException e) {
+			throw new IllegalArgumentException(e);
+		}
 	}
 
 	public WKTLiteral(Geometry geom) {

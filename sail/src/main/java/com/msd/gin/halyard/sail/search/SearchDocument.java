@@ -60,7 +60,7 @@ public class SearchDocument {
 			v = vf.createLiteral(label, vf.createIRI(datatype));
 		}
 		if (v instanceof IdentifiableValue) {
-			((IdentifiableValue) v).setId(rdfFactory, rdfFactory.idFromString(id));
+			((IdentifiableValue) v).setId(rdfFactory.idFromString(id), rdfFactory);
 		}
 		return v;
 	}

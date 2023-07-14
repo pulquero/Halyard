@@ -10,19 +10,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class WKTLiteralTest extends AbstractCustomLiteralTest {
 	@Override
-	protected Literal createLiteral() throws Exception {
+	protected Literal createLiteral() {
 		String wkt = "POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))";
 		return new WKTLiteral(wkt);
 	}
 
 	@Override
-	protected Literal createOtherLiteral() throws Exception {
+	protected Literal createOtherLiteral() {
 		String wkt = "POINT (30 10)";
 		return new WKTLiteral(wkt);
 	}
 
 	@Test
-	public void testGeometry() throws Exception {
+	public void testGeometry() {
 		String wkt = "POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))";
 		WKTLiteral l = new WKTLiteral(wkt);
 		Geometry expected = l.objectValue();

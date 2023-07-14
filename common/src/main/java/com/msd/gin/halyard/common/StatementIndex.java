@@ -316,11 +316,35 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			int endPos = startPos + len;
 			int prevLimit = cv.limit();
 			cv.limit(endPos);
-			Value value = rdfFactory.valueReader.readValue(cv, vf);
-			cv.limit(prevLimit);
-			if (value instanceof IdentifiableValue) {
-				((IdentifiableValue)value).setId(rdfFactory, id);
+			ValueType valueType = rdfFactory.valueReader.getValueType(cv);
+			Value value;
+			if (valueType != null) {
+				IdentifiableValue idValue;
+				byte[] serBytes = new byte[len];
+				cv.get(serBytes);
+				ByteArray ser = new ByteArray(serBytes);
+				switch (valueType) {
+					case IRI:
+						idValue = new IdentifiableIRI(ser, rdfFactory);
+						break;
+					case LITERAL:
+						idValue = new IdentifiableLiteral(ser, rdfFactory);
+						break;
+					case BNODE:
+						idValue = new IdentifiableBNode(ser, rdfFactory);
+						break;
+					case TRIPLE:
+						idValue = new IdentifiableTriple(ser, rdfFactory);
+						break;
+					default:
+						throw new AssertionError("Unexpected ValueType: " + valueType);
+				}
+				idValue.setId(id, rdfFactory);
+				value = idValue;
+			} else {
+				value = rdfFactory.valueReader.readValue(cv, vf);
 			}
+			cv.limit(prevLimit);
 			return value;
 		} else if(len == 0) {
 			return null;

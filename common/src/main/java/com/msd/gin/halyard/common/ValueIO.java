@@ -60,6 +60,7 @@ public class ValueIO {
 		"ka", "kk", "kn", "ko", "ky", "mk", "ml", "mn", "my", "or",
 		"ne", "ps", "ru", "sd", "sh", "sr", "ta", "tg", "th", "tt", "uk", "ur", "vi", "wuu", "yue", "zh"
 	);
+	private static final BiFunction<String,ValueFactory,Resource> DEFAULT_BNODE_TRANSFORMER = (id,valueFactory) -> valueFactory.createBNode(id);
 
 	interface ByteWriter {
 		ByteBuffer writeBytes(Literal l, ByteBuffer b);
@@ -535,13 +536,23 @@ public class ValueIO {
 		addByteReader(INT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
-				return new IntLiteral(b.getInt(), CoreDatatype.XSD.INTEGER);
+				int v = b.getInt();
+				if (vf instanceof IdValueFactory) {
+					return ((IdValueFactory)vf).createLiteral(v, CoreDatatype.XSD.INTEGER);
+				} else {
+					return vf.createLiteral(BigInteger.valueOf(v));
+				}
 			}
 		});
 		addByteReader(SHORT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
-				return new IntLiteral(b.getShort(), CoreDatatype.XSD.INTEGER);
+				int v = b.getShort();
+				if (vf instanceof IdValueFactory) {
+					return ((IdValueFactory)vf).createLiteral(v, CoreDatatype.XSD.INTEGER);
+				} else {
+					return vf.createLiteral(BigInteger.valueOf(v));
+				}
 			}
 		});
 
@@ -813,7 +824,7 @@ public class ValueIO {
 	}
 
 	public Reader createReader() {
-		return createReader((id,valueFactory) -> valueFactory.createBNode(id));
+		return createReader(DEFAULT_BNODE_TRANSFORMER);
 	}
 
 	public Reader createReader(BiFunction<String,ValueFactory,Resource> bnodeTransformer) {
@@ -1165,6 +1176,8 @@ public class ValueIO {
 					}
 				case BNODE_TYPE:
 					return bnodeTransformer.apply(readUncompressedString(b), vf);
+				case TRIPLE_TYPE:
+					return readTriple(b, vf);
 				case DATATYPE_LITERAL_TYPE:
 					{
 						int originalLimit = b.limit();
@@ -1175,14 +1188,42 @@ public class ValueIO {
 						String label = readUncompressedString(b);
 						return vf.createLiteral(label, datatype);
 					}
-				case TRIPLE_TYPE:
-					return readTriple(b, vf);
 				default:
 					ByteReader reader = byteReaders.get(type);
 					if (reader == null) {
 						throw new AssertionError(String.format("Unexpected type: %s", type));
 					}
 					return reader.readBytes(b, vf);
+			}
+		}
+
+		public ValueType getValueType(ByteBuffer b) {
+			int type = b.get(b.position()); // peek
+			switch(type) {
+				case IRI_TYPE:
+				case COMPRESSED_IRI_TYPE:
+				case IRI_HASH_TYPE:
+				case NAMESPACE_HASH_TYPE:
+				case ENCODED_IRI_TYPE:
+				case END_SLASH_ENCODED_IRI_TYPE:
+					return ValueType.IRI;
+				case BNODE_TYPE:
+					if (bnodeTransformer == DEFAULT_BNODE_TRANSFORMER) {
+						return ValueType.BNODE;
+					} else {
+						// unknown: BNode or skolem IRI
+						return null;
+					}
+				case TRIPLE_TYPE:
+					return ValueType.TRIPLE;
+				case DATATYPE_LITERAL_TYPE:
+					return ValueType.LITERAL;
+				default:
+					if (byteReaders.containsKey(type)) {
+						return ValueType.LITERAL;
+					} else {
+						throw new AssertionError(String.format("Unexpected type: %s", type));
+					}
 			}
 		}
 	}

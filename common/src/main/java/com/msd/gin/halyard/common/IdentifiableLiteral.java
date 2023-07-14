@@ -1,71 +1,124 @@
 package com.msd.gin.halyard.common;
 
-import java.util.Objects;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.DateTimeException;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalAmount;
 import java.util.Optional;
 
+import javax.xml.datatype.XMLGregorianCalendar;
+
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
-import org.eclipse.rdf4j.model.vocabulary.RDF;
-import org.eclipse.rdf4j.model.vocabulary.XSD;
 
-public final class IdentifiableLiteral extends AbstractIdentifiableLiteral {
-	private final String label;
-	private final IRI datatype;
-	private final CoreDatatype coreDatatype;
-	private final String lang;
-
-	IdentifiableLiteral(String label, IRI datatype, CoreDatatype coreDatatype) {
-		this.label = Objects.requireNonNull(label);
-		this.datatype = Objects.requireNonNullElse(datatype, XSD.STRING);
-		if (RDF.LANGSTRING.equals(datatype)) {
-			throw new IllegalArgumentException("Missing language tag");
-		}
-		this.coreDatatype = coreDatatype;
-		this.lang = null;
+public final class IdentifiableLiteral extends IdentifiableValue implements Literal {
+	IdentifiableLiteral(ByteArray ser, RDFFactory rdfFactory) {
+		super(ser, rdfFactory);
 	}
 
-	IdentifiableLiteral(String label, IRI datatype) {
-		this(label, datatype, CoreDatatype.from(datatype));
-	}
-
-	IdentifiableLiteral(String label, CoreDatatype coreDatatype) {
-		this(label, coreDatatype.getIri(), coreDatatype);
-	}
-
-	IdentifiableLiteral(String label, String lang) {
-		this.label = Objects.requireNonNull(label);
-		this.lang = Objects.requireNonNull(lang);
-		if (lang.isEmpty()) {
-			throw new IllegalArgumentException("Language tag cannot be empty");
-		}
-		this.datatype = RDF.LANGSTRING;
-		this.coreDatatype = CoreDatatype.RDF.LANGSTRING;
+	IdentifiableLiteral(Literal l) {
+		super(l);
 	}
 
 	IdentifiableLiteral(String label) {
-		this.label = Objects.requireNonNull(label);
-		this.lang = null;
-		this.datatype = XSD.STRING;
-		this.coreDatatype = CoreDatatype.XSD.STRING;
+		super(MATERIALIZED_VALUE_FACTORY.createLiteral(label));
+	}
+
+	IdentifiableLiteral(String label, IRI datatype) {
+		super(MATERIALIZED_VALUE_FACTORY.createLiteral(label, datatype));
+	}
+
+	IdentifiableLiteral(String label, CoreDatatype coreDatatype) {
+		super(MATERIALIZED_VALUE_FACTORY.createLiteral(label, coreDatatype));
+	}
+
+	IdentifiableLiteral(String label, String lang) {
+		super(MATERIALIZED_VALUE_FACTORY.createLiteral(label, lang));
+	}
+
+	private Literal getLiteral() {
+		return (Literal) getValue();
 	}
 
 	@Override
 	public String getLabel() {
-		return label;
+		return getLiteral().getLabel();
 	}
 
 	@Override
 	public Optional<String> getLanguage() {
-		return Optional.ofNullable(lang);
-	}
-
-	@Override
-	public IRI getDatatype() {
-		return datatype;
+		return getLiteral().getLanguage();
 	}
 
 	@Override
 	public CoreDatatype getCoreDatatype() {
-		return coreDatatype;
+		return getLiteral().getCoreDatatype();
+	}
+
+	@Override
+	public IRI getDatatype() {
+		return getLiteral().getDatatype();
+	}
+
+	@Override
+	public byte byteValue() {
+		return getLiteral().byteValue();
+	}
+
+	@Override
+	public short shortValue() {
+		return getLiteral().shortValue();
+	}
+
+	@Override
+	public int intValue() {
+		return getLiteral().intValue();
+	}
+
+	@Override
+	public long longValue() {
+		return getLiteral().longValue();
+	}
+
+	@Override
+	public BigInteger integerValue() {
+		return getLiteral().integerValue();
+	}
+
+	@Override
+	public BigDecimal decimalValue() {
+		return getLiteral().decimalValue();
+	}
+
+	@Override
+	public float floatValue() {
+		return getLiteral().floatValue();
+	}
+
+	@Override
+	public double doubleValue() {
+		return getLiteral().doubleValue();
+	}
+
+	@Override
+	public boolean booleanValue() {
+		return getLiteral().booleanValue();
+	}
+
+	@Override
+	public XMLGregorianCalendar calendarValue() {
+		return getLiteral().calendarValue();
+	}
+
+	@Override
+	public TemporalAccessor temporalAccessorValue() throws DateTimeException {
+		return getLiteral().temporalAccessorValue();
+	}
+
+	@Override
+	public TemporalAmount temporalAmountValue() throws DateTimeException {
+		return getLiteral().temporalAmountValue();
 	}
 }
