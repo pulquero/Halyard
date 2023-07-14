@@ -45,6 +45,7 @@ public class HalyardKeysTest extends AbstractHalyardToolTest {
     	conf.setInt(TableConfig.ID_SIZE, 4);
     	conf.setInt(TableConfig.ID_TYPE_INDEX, 0);
     	conf.setBoolean(TableConfig.ID_TYPE_NIBBLE, true);
+    	conf.setBoolean(TableConfig.ID_JAVA_HASH, false);
     	conf.setInt(TableConfig.KEY_SIZE_SUBJECT, 1);
     	conf.setInt(TableConfig.END_KEY_SIZE_SUBJECT, 1);
     	conf.setInt(TableConfig.KEY_SIZE_PREDICATE, 1);

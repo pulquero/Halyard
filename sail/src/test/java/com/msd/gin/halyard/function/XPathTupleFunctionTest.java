@@ -18,7 +18,7 @@ import static org.junit.Assert.*;
 
 public class XPathTupleFunctionTest {
 	@Test
-	public void testXPathNodeSet() throws Exception {
+	public void testXPathNodeSet() {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\"><desc>bar</desc><part id=\"1\"/><part id=\"2\"/></test>";
 		XMLLiteral l = new XMLLiteral(xml);
@@ -32,7 +32,7 @@ public class XPathTupleFunctionTest {
 	}
 
 	@Test
-	public void testXPathNodeSetOfAttributes() throws Exception {
+	public void testXPathNodeSetOfAttributes() {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\"><desc>bar</desc><part id=\"1\"/><part id=\"2\"/></test>";
 		XMLLiteral l = new XMLLiteral(xml);
@@ -46,7 +46,7 @@ public class XPathTupleFunctionTest {
 	}
 
 	@Test
-	public void testXPathNode() throws Exception {
+	public void testXPathNode() {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\"><desc>bar</desc><part id=\"1\"/><part id=\"2\"/></test>";
 		XMLLiteral l = new XMLLiteral(xml);
@@ -58,7 +58,7 @@ public class XPathTupleFunctionTest {
 	}
 
 	@Test
-	public void testXPathString() throws Exception {
+	public void testXPathString() {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\"><desc>bar</desc><part id=\"1\"/><part id=\"2\"/></test>";
 		XMLLiteral l = new XMLLiteral(xml);

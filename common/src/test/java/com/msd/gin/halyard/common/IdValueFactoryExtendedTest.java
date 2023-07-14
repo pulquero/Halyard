@@ -35,8 +35,6 @@ import static org.junit.Assert.*;
 
 @RunWith(Parameterized.class)
 public class IdValueFactoryExtendedTest {
-	private static final Date NOW = new Date();
-
 	private static List<Value> createData(ValueFactory vf) {
 		return Arrays.asList(
 			vf.createLiteral("foo"),
@@ -63,7 +61,7 @@ public class IdValueFactoryExtendedTest {
 			vf.createLiteral("z", XSD.INT),
 			vf.createIRI(RDF.NAMESPACE),
 			vf.createLiteral("xyz", vf.createIRI(RDF.NAMESPACE)),
-			vf.createLiteral(NOW),
+			vf.createLiteral(new Date(946684800000l)),  // "2000-01-01T00:00:00Z"^^xsd:dateTime
 			vf.createLiteral(LocalDateTime.of(1990, 6, 20, 0, 0, 0, 20005000)),
 			vf.createLiteral("13:03:22", XSD.TIME),
 			vf.createLiteral(LocalTime.of(13, 3, 22, 40030000)),
@@ -161,12 +159,16 @@ public class IdValueFactoryExtendedTest {
 		Configuration conf1 = new Configuration(false);
 		conf1.setInt(TableConfig.ID_SIZE, 8);
 		RDFFactory rdfFactory1 = RDFFactory.create(conf1);
-		assertEquals(rdfFactory1.id(expected), actual.getId(rdfFactory1));
+		ValueIdentifier actualId1 = actual.getId(rdfFactory1);
+		assertEquals(rdfFactory1.id(expected), actualId1);
+		assertEquals(expected.hashCode(), actualId1.hashCode());
 
 		Configuration conf2 = new Configuration(false);
 		conf2.setInt(TableConfig.ID_SIZE, 10);
 		RDFFactory rdfFactory2 = RDFFactory.create(conf2);
-		assertEquals(rdfFactory2.id(expected), actual.getId(rdfFactory2));
+		ValueIdentifier actualId2 = actual.getId(rdfFactory2);
+		assertEquals(rdfFactory2.id(expected), actualId2);
+		assertEquals(expected.hashCode(), actualId2.hashCode());
 	}
 
 	@Test

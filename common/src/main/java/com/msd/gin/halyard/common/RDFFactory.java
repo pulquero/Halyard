@@ -18,7 +18,6 @@ import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Result;
 import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
@@ -98,6 +97,9 @@ public final class RDFFactory {
 		// migrate old config
 		int version = halyardConf.getInt(TableConfig.TABLE_VERSION, 0);
 		if (version < TableConfig.CURRENT_VERSION && (conn instanceof TableKeyspace.TableKeyspaceConnection)) {
+			if (version < TableConfig.VERSION_4_7) {
+				halyardConf.setBoolean(TableConfig.ID_JAVA_HASH, false);
+			}
 			halyardConf.setInt(TableConfig.TABLE_VERSION, TableConfig.CURRENT_VERSION);
 			config = new HalyardTableConfiguration(halyardConf);
 			HalyardTableUtils.writeConfig(((TableKeyspace.TableKeyspaceConnection)conn).getTable(), config);
@@ -138,13 +140,25 @@ public final class RDFFactory {
 			throw new RuntimeException("New table format - please upgrade your installation");
 		}
 		valueIO = new ValueIO(halyardConfig);
-		String confIdAlgo = halyardConfig.get(TableConfig.ID_HASH);
-		int confIdSize = halyardConfig.getInt(TableConfig.ID_SIZE);
-		int idSize = Hashes.getHash(confIdAlgo, confIdSize).size();
 
+		String confIdAlgo = halyardConfig.get(TableConfig.ID_HASH);
+		boolean confIdJavaHash = halyardConfig.getBoolean(TableConfig.ID_JAVA_HASH);
+		int confIdSize = halyardConfig.getInt(TableConfig.ID_SIZE);
+		int idSize;
+		if (confIdSize == 0) {
+			idSize = Hashes.getHash(confIdAlgo, confIdSize).size();
+			if (confIdJavaHash) {
+				idSize += Integer.BYTES;
+			}
+		} else {
+			idSize = confIdSize;
+		}
 		int typeIndex = lessThan(lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.ID_TYPE_INDEX), 0), Short.BYTES), idSize);
+		if (confIdJavaHash) {
+			greaterThanOrEqual(idSize, typeIndex + 1 + Integer.BYTES); // salt & typing bytes + 4 bytes for the Java int hash code
+		}
 		ValueIdentifier.TypeNibble typeNibble = halyardConfig.getBoolean(TableConfig.ID_TYPE_NIBBLE) ? ValueIdentifier.TypeNibble.LITTLE_NIBBLE : ValueIdentifier.TypeNibble.BIG_NIBBLE;
-		idFormat = new ValueIdentifier.Format(confIdAlgo, idSize, typeIndex, typeNibble);
+		idFormat = new ValueIdentifier.Format(confIdAlgo, idSize, typeIndex, typeNibble, confIdJavaHash);
 		LOGGER.info("Identifier format: {}", idFormat);
 		typeSaltSize = idFormat.getSaltSize();
 
@@ -367,8 +381,7 @@ public final class RDFFactory {
 	}
 
 	ValueIdentifier id(Value v, byte[] ser) {
-		ValueType type = ValueType.valueOf(v);
-		return idFormat.id(type, v.isLiteral() ? ((Literal)v).getDatatype() : null, ser);
+		return idFormat.id(v, ser);
 	}
 
 	public ValueIdentifier idFromString(String s) {

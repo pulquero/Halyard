@@ -26,6 +26,9 @@ public final class ValueFactories {
     	if (v == null) {
     		return null;
     	}
+    	if ((v instanceof IdentifiableValue) && (vf instanceof IdValueFactory)) {
+    		return (T) ((IdentifiableValue)v).clone();
+    	}
     	if  (v.isIRI()) {
     		return (T) vf.createIRI(v.stringValue());
     	} else if (v.isLiteral()) {
@@ -35,8 +38,10 @@ public final class ValueFactories {
     			return (T) vf.createLiteral(l.getLabel());
     		} else if (cdt == CoreDatatype.RDF.LANGSTRING) {
 				return (T) vf.createLiteral(l.getLabel(), l.getLanguage().get());
+			} else if (cdt == CoreDatatype.NONE) {
+				return (T) vf.createLiteral(l.getLabel(), l.getDatatype());
 			} else {
-				return (T) vf.createLiteral(l.getLabel(), l.getDatatype(), l.getCoreDatatype());
+				return (T) vf.createLiteral(l.getLabel(), l.getCoreDatatype());
 			}
     	} else if (v.isBNode()) {
     		return (T) vf.createBNode(v.stringValue());

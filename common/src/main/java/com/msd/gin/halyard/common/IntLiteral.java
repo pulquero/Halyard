@@ -6,10 +6,13 @@ import java.util.Optional;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
+import org.eclipse.rdf4j.model.base.AbstractLiteral;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 
-public final class IntLiteral extends AbstractIdentifiableLiteral {
+public final class IntLiteral extends AbstractLiteral {
+	private static final long serialVersionUID = 4017662080461402992L;
+
 	private final String label;
 	private final int number;
 	private final CoreDatatype coreDatatype;

@@ -60,6 +60,7 @@ public class ValueIO {
 		"ka", "kk", "kn", "ko", "ky", "mk", "ml", "mn", "my", "or",
 		"ne", "ps", "ru", "sd", "sh", "sr", "ta", "tg", "th", "tt", "uk", "ur", "vi", "wuu", "yue", "zh"
 	);
+	private static final BiFunction<String,ValueFactory,Resource> DEFAULT_BNODE_TRANSFORMER = (id,valueFactory) -> valueFactory.createBNode(id);
 
 	interface ByteWriter {
 		ByteBuffer writeBytes(Literal l, ByteBuffer b);
@@ -127,18 +128,31 @@ public class ValueIO {
 	private static final byte DOI_HTTPS_SCHEME = 'D';
 
 	private static ByteBuffer writeCalendar(byte type, XMLGregorianCalendar cal, ByteBuffer b) {
-		BigDecimal fracSecs = cal.getFractionalSecond();
 		long subMillis;
-		if (fracSecs != null && fracSecs.scale() > 3) {
-			BigDecimal fracMillis = fracSecs.scaleByPowerOfTen(3);
-			subMillis = fracMillis.subtract(new BigDecimal(fracMillis.toBigInteger())).scaleByPowerOfTen(6).longValue();
+		int extraBytes;
+		BigDecimal fracSecs = cal.getFractionalSecond();
+		boolean hasMillis = (fracSecs != null);
+		if (hasMillis) {
+			if (fracSecs.scale() > 3) {
+				// if there is more than millisecond accuracy then store it
+				BigDecimal fracMillis = fracSecs.scaleByPowerOfTen(3);
+				subMillis = fracMillis.subtract(new BigDecimal(fracMillis.toBigInteger())).scaleByPowerOfTen(6).longValue();
+				extraBytes = Long.BYTES;
+			} else {
+				subMillis = -1L;
+				extraBytes = Byte.BYTES;
+			}
 		} else {
-			subMillis = 0L;
+			subMillis = -1L;
+			extraBytes = 0;
 		}
-		b = ensureCapacity(b, (subMillis > 0) ? 1 + Long.BYTES + Short.BYTES + Long.BYTES : 1 + Long.BYTES + Short.BYTES);
+		b = ensureCapacity(b, 1 + Long.BYTES + extraBytes + Short.BYTES);
 		b.put(type).putLong(cal.toGregorianCalendar().getTimeInMillis());
-		if (subMillis > 0) {
+		if (subMillis > 0L) {
 			b.putLong(subMillis);
+		} else if (hasMillis) {
+			// write byte to indicate millis are significant
+			b.put((byte) 0);
 		}
 		if(cal.getTimezone() != DatatypeConstants.FIELD_UNDEFINED) {
 			b.putShort((short) cal.getTimezone());
@@ -147,21 +161,26 @@ public class ValueIO {
 	}
 
 	private static XMLGregorianCalendar readCalendar(ByteBuffer b) {
-		long millis = b.getLong();
-		long subMillis = (b.remaining() >= 4) ? b.getLong() : 0L;
-		int tz = (b.remaining() >= 2) ? b.getShort() : Short.MIN_VALUE;
+		long ts = b.getLong();
+		int rem = b.remaining();
+		boolean hasMillis = (rem == Byte.BYTES || rem == Byte.BYTES + Short.BYTES);
+		if (hasMillis) {
+			b.get();
+		}
+		long subMillis = (rem == Long.BYTES || rem == Long.BYTES + Short.BYTES) ? b.getLong() : -1L;
+		int tz = (b.remaining() == 2) ? b.getShort() : Short.MIN_VALUE;
 		GregorianCalendar c = newGregorianCalendar();
 		if (tz != Short.MIN_VALUE) {
 			int tzHr = tz/60;
 			int tzMin = tz - 60 * tzHr;
 			c.setTimeZone(TimeZone.getTimeZone(String.format("GMT%+02d%02d", tzHr, tzMin)));
 		}
-		c.setTimeInMillis(millis);
+		c.setTimeInMillis(ts);
 		XMLGregorianCalendar cal = DATATYPE_FACTORY.newXMLGregorianCalendar(c);
-		if (subMillis > 0) {
+		if (subMillis > 0L) {
 			BigDecimal fracSecs = cal.getFractionalSecond().add(BigDecimal.valueOf(subMillis, 9)).stripTrailingZeros();
 			cal.setFractionalSecond(fracSecs);
-		} else if (BigDecimal.ZERO.compareTo(cal.getFractionalSecond()) == 0) {
+		} else if (!hasMillis) {
 			cal.setFractionalSecond(null);
 		}
 		if (tz == Short.MIN_VALUE) {
@@ -535,13 +554,23 @@ public class ValueIO {
 		addByteReader(INT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
-				return new IntLiteral(b.getInt(), CoreDatatype.XSD.INTEGER);
+				int v = b.getInt();
+				if (vf instanceof IdValueFactory) {
+					return ((IdValueFactory)vf).createLiteral(v, CoreDatatype.XSD.INTEGER);
+				} else {
+					return vf.createLiteral(BigInteger.valueOf(v));
+				}
 			}
 		});
 		addByteReader(SHORT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
-				return new IntLiteral(b.getShort(), CoreDatatype.XSD.INTEGER);
+				int v = b.getShort();
+				if (vf instanceof IdValueFactory) {
+					return ((IdValueFactory)vf).createLiteral(v, CoreDatatype.XSD.INTEGER);
+				} else {
+					return vf.createLiteral(BigInteger.valueOf(v));
+				}
 			}
 		});
 
@@ -813,7 +842,7 @@ public class ValueIO {
 	}
 
 	public Reader createReader() {
-		return createReader((id,valueFactory) -> valueFactory.createBNode(id));
+		return createReader(DEFAULT_BNODE_TRANSFORMER);
 	}
 
 	public Reader createReader(BiFunction<String,ValueFactory,Resource> bnodeTransformer) {
@@ -1165,6 +1194,8 @@ public class ValueIO {
 					}
 				case BNODE_TYPE:
 					return bnodeTransformer.apply(readUncompressedString(b), vf);
+				case TRIPLE_TYPE:
+					return readTriple(b, vf);
 				case DATATYPE_LITERAL_TYPE:
 					{
 						int originalLimit = b.limit();
@@ -1175,14 +1206,42 @@ public class ValueIO {
 						String label = readUncompressedString(b);
 						return vf.createLiteral(label, datatype);
 					}
-				case TRIPLE_TYPE:
-					return readTriple(b, vf);
 				default:
 					ByteReader reader = byteReaders.get(type);
 					if (reader == null) {
 						throw new AssertionError(String.format("Unexpected type: %s", type));
 					}
 					return reader.readBytes(b, vf);
+			}
+		}
+
+		public ValueType getValueType(ByteBuffer b) {
+			int type = b.get(b.position()); // peek
+			switch(type) {
+				case IRI_TYPE:
+				case COMPRESSED_IRI_TYPE:
+				case IRI_HASH_TYPE:
+				case NAMESPACE_HASH_TYPE:
+				case ENCODED_IRI_TYPE:
+				case END_SLASH_ENCODED_IRI_TYPE:
+					return ValueType.IRI;
+				case BNODE_TYPE:
+					if (bnodeTransformer == DEFAULT_BNODE_TRANSFORMER) {
+						return ValueType.BNODE;
+					} else {
+						// unknown: BNode or skolem IRI
+						return null;
+					}
+				case TRIPLE_TYPE:
+					return ValueType.TRIPLE;
+				case DATATYPE_LITERAL_TYPE:
+					return ValueType.LITERAL;
+				default:
+					if (byteReaders.containsKey(type)) {
+						return ValueType.LITERAL;
+					} else {
+						throw new AssertionError(String.format("Unexpected type: %s", type));
+					}
 			}
 		}
 	}

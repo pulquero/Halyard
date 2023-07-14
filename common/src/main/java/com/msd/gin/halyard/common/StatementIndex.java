@@ -298,7 +298,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	private Value parseValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, int len, ValueFactory vf) {
     	if(pattern != null) {
     		// if we have been given the value then don't bother to read it and skip to the next
-    		skipId(key, cq, keySize, rdfFactory.getIdSize());
+    		skipId(key, cq, keySize, rdfFactory.idFormat.size);
     		if (len > 0) {
     			cv.position(cv.position() + len);
     		}
@@ -316,11 +316,35 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			int endPos = startPos + len;
 			int prevLimit = cv.limit();
 			cv.limit(endPos);
-			Value value = rdfFactory.valueReader.readValue(cv, vf);
-			cv.limit(prevLimit);
-			if (value instanceof IdentifiableValue) {
-				((IdentifiableValue)value).setId(id, rdfFactory);
+			ValueType valueType = rdfFactory.valueReader.getValueType(cv);
+			Value value;
+			if (valueType != null) {
+				IdentifiableValue idValue;
+				byte[] serBytes = new byte[len];
+				cv.get(serBytes);
+				ByteArray ser = new ByteArray(serBytes);
+				switch (valueType) {
+					case IRI:
+						idValue = new IdentifiableIRI(ser, rdfFactory);
+						break;
+					case LITERAL:
+						idValue = new IdentifiableLiteral(ser, rdfFactory);
+						break;
+					case BNODE:
+						idValue = new IdentifiableBNode(ser, rdfFactory);
+						break;
+					case TRIPLE:
+						idValue = new IdentifiableTriple(ser, rdfFactory);
+						break;
+					default:
+						throw new AssertionError("Unexpected ValueType: " + valueType);
+				}
+				idValue.setId(id, rdfFactory);
+				value = idValue;
+			} else {
+				value = rdfFactory.valueReader.readValue(cv, vf);
 			}
+			cv.limit(prevLimit);
 			return value;
 		} else if(len == 0) {
 			return null;
@@ -330,7 +354,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
     }
 
 	private ValueIdentifier parseId(RDFRole<?> role, ByteBuffer key, ByteBuffer cn, int keySize) {
-		byte[] idBytes = new byte[rdfFactory.getIdSize()];
+		byte[] idBytes = new byte[rdfFactory.idFormat.size];
 		rdfFactory.idFormat.unrotate(key.array(), key.arrayOffset() + key.position(), keySize, role.getByteShift(), idBytes);
 		key.position(key.position()+keySize);
 		cn.get(idBytes, keySize, idBytes.length - keySize);

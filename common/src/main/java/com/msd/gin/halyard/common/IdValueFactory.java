@@ -1,14 +1,11 @@
 package com.msd.gin.halyard.common;
 
-import com.msd.gin.halyard.vocab.HALYARD;
-
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalAmount;
 import java.util.Date;
-import java.util.GregorianCalendar;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -24,19 +21,19 @@ import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
-import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 
 @ThreadSafe
 public class IdValueFactory implements ValueFactory, Serializable {
 	private static final long serialVersionUID = 5500427177071598798L;
+	private static final ValueFactory DELEGATE_VALUE_FACTORY = IdentifiableValue.MATERIALIZED_VALUE_FACTORY;
+
 	private final Literal TRUE;
 	private final Literal FALSE;
 	private transient RDFFactory rdfFactory;
 
 	public IdValueFactory(@Nullable RDFFactory rdfFactory) {
-		this.TRUE = new BooleanLiteral(true);
-		this.FALSE = new BooleanLiteral(false);
+		this.TRUE = new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(true));
+		this.FALSE = new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(false));
 		this.rdfFactory = rdfFactory;
 	}
 
@@ -79,30 +76,21 @@ public class IdValueFactory implements ValueFactory, Serializable {
 
 	@Override
 	public Literal createLiteral(String label, IRI datatype) {
-		if (HALYARD.ARRAY_TYPE.equals(datatype)) {
-			return new ArrayLiteral(label);
-		} else if (HALYARD.MAP_TYPE.equals(datatype)) {
-			return new MapLiteral(label);
-		} else {
-			return new IdentifiableLiteral(label, datatype);
-		}
-	}
-
-	@Override
-	public Literal createLiteral(String label, CoreDatatype datatype) {
 		return new IdentifiableLiteral(label, datatype);
 	}
 
 	@Override
+	public Literal createLiteral(String label, CoreDatatype coreDatatype) {
+		return new IdentifiableLiteral(label, coreDatatype);
+	}
+
+	@Override
 	public Literal createLiteral(String label, IRI datatype, CoreDatatype coreDatatype) {
-		if (CoreDatatype.NONE == coreDatatype) {
-			if (HALYARD.ARRAY_TYPE.equals(datatype)) {
-				return new ArrayLiteral(label);
-			} else if (HALYARD.MAP_TYPE.equals(datatype)) {
-				return new MapLiteral(label);
-			}
+		if (coreDatatype == CoreDatatype.NONE) {
+			return new IdentifiableLiteral(label, datatype);
+		} else {
+			return new IdentifiableLiteral(label, coreDatatype);
 		}
-		return new IdentifiableLiteral(label, datatype, coreDatatype);
 	}
 
 	@Override
@@ -112,64 +100,66 @@ public class IdValueFactory implements ValueFactory, Serializable {
 
 	@Override
 	public Literal createLiteral(byte value) {
-		return new IntLiteral(value, CoreDatatype.XSD.BYTE);
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(value));
 	}
 
 	@Override
 	public Literal createLiteral(short value) {
-		return new IntLiteral(value, CoreDatatype.XSD.SHORT);
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(value));
 	}
 
 	@Override
 	public Literal createLiteral(int value) {
-		return new IntLiteral(value, CoreDatatype.XSD.INT);
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(value));
+	}
+
+	public Literal createLiteral(int value, CoreDatatype coreDatatype) {
+		return new IdentifiableLiteral(new IntLiteral(value, coreDatatype));
 	}
 
 	@Override
 	public Literal createLiteral(long value) {
-		return new IdentifiableLiteral(Long.toString(value), CoreDatatype.XSD.LONG);
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(value));
 	}
 
 	@Override
 	public Literal createLiteral(float value) {
-		return new IdentifiableLiteral(IdentifiableLiteral.toString(value), CoreDatatype.XSD.FLOAT);
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(value));
 	}
 
 	@Override
 	public Literal createLiteral(double value) {
-		return new IdentifiableLiteral(IdentifiableLiteral.toString(value), CoreDatatype.XSD.DOUBLE);
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(value));
 	}
 
 	@Override
 	public Literal createLiteral(BigDecimal value) {
-		return new IdentifiableLiteral(value.toPlainString(), CoreDatatype.XSD.DECIMAL);
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(value));
 	}
 
 	@Override
 	public Literal createLiteral(BigInteger value) {
-		return new IdentifiableLiteral(value.toString(), CoreDatatype.XSD.INTEGER);
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(value));
 	}
 
 	@Override
 	public Literal createLiteral(XMLGregorianCalendar calendar) {
-		return new IdentifiableLiteral(calendar.toXMLFormat(), XMLDatatypeUtil.qnameToCoreDatatype(calendar.getXMLSchemaType()));
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(calendar));
 	}
 
 	@Override
 	public Literal createLiteral(Date date) {
-		GregorianCalendar c = new GregorianCalendar();
-		c.setTime(date);
-		return createLiteral(ValueIO.DATATYPE_FACTORY.newXMLGregorianCalendar(c));
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(date));
 	}
 
 	@Override
 	public Literal createLiteral(TemporalAccessor value) {
-		return new IdentifiableLiteralWrapper(SimpleValueFactory.getInstance().createLiteral(value));
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(value));
 	}
 
 	@Override
 	public Literal createLiteral(TemporalAmount value) {
-		return new IdentifiableLiteralWrapper(SimpleValueFactory.getInstance().createLiteral(value));
+		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(value));
 	}
 
 	@Override
@@ -179,11 +169,11 @@ public class IdValueFactory implements ValueFactory, Serializable {
 
 	@Override
 	public Statement createStatement(Resource subject, IRI predicate, Value object) {
-		return SimpleValueFactory.getInstance().createStatement(subject, predicate, object);
+		return DELEGATE_VALUE_FACTORY.createStatement(subject, predicate, object);
 	}
 
 	@Override
 	public Statement createStatement(Resource subject, IRI predicate, Value object, Resource context) {
-		return SimpleValueFactory.getInstance().createStatement(subject, predicate, object, context);
+		return DELEGATE_VALUE_FACTORY.createStatement(subject, predicate, object, context);
 	}
 }

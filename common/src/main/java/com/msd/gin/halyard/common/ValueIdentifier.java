@@ -12,6 +12,8 @@ import java.util.Objects;
 import javax.annotation.concurrent.ThreadSafe;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 
@@ -80,6 +82,7 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 		final int size;
 		final int typeIndex;
 		final TypeNibble typeNibble;
+		final boolean hasJavaHash;
 		transient ThreadLocal<HashFunction> hashFuncProvider;
 
 		/**
@@ -88,22 +91,27 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 		 * @param size byte size of the ID
 		 * @param typeIndex byte index to store type information
 		 * @param typeNibble byte nibble to store type information
+		 * @param hasJavaHash indicates whether to include the Java hash as part of the ID.
 		 */
-		Format(String algorithm, int size, int typeIndex, TypeNibble typeNibble) {
+		Format(String algorithm, int size, int typeIndex, TypeNibble typeNibble, boolean hasJavaHash) {
 			this.size = size;
 			this.algorithm = algorithm;
 			this.typeIndex = typeIndex;
 			this.typeNibble = typeNibble;
+			this.hasJavaHash = hasJavaHash;
 			initHashProvider();
 		}
 
 		private void initHashProvider() {
-			hashFuncProvider = new ThreadLocal<HashFunction>() {
-				@Override
-				protected HashFunction initialValue() {
-					return Hashes.getHash(algorithm, size);
-				}
-			};
+			int algoSize = hasJavaHash ? size - Integer.BYTES : size;
+			if (algoSize > 0) {
+				hashFuncProvider = new ThreadLocal<HashFunction>() {
+					@Override
+					protected HashFunction initialValue() {
+						return Hashes.getHash(algorithm, algoSize);
+					}
+				};
+			}
 		}
 
 		/**
@@ -127,15 +135,33 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 		/**
 		 * Thread-safe.
 		 */
-		ValueIdentifier id(ValueType type, IRI datatype, byte[] ser) {
-			byte[] hash = hashFuncProvider.get().apply(ser);
+		ValueIdentifier id(Value v, byte[] ser) {
+			byte[] hash = new byte[size];
+			if (hashFuncProvider != null) {
+				byte[] algoHash = hashFuncProvider.get().apply(ser);
+				System.arraycopy(algoHash, 0, hash, 0, algoHash.length);
+			}
+			if (hasJavaHash) {
+				int jhash = v.hashCode();
+				int i = size - 1;
+				hash[i--] = (byte) jhash;
+				jhash >>>= 8;
+				hash[i--] = (byte) jhash;
+				jhash >>>= 8;
+				hash[i--] = (byte) jhash;
+				jhash >>>= 8;
+				hash[i--] = (byte) jhash;
+			}
+			ValueType type = ValueType.valueOf(v);
+			IRI datatype = v.isLiteral() ? ((Literal)v).getDatatype() : null;
 			writeType(type, datatype, hash, 0);
 			return new ValueIdentifier(hash);
 		}
 
 		@Override
 		public String toString() {
-			return String.format("%s %d-bit (%d bytes), layout: %d %s (salts: %d)", algorithm, size*Byte.SIZE, size, typeIndex, typeNibble, getSaltSize());
+			String javaHash = hasJavaHash ? "+JavaHash" : "";
+			return String.format("%s%s %d-bit (%d bytes), layout: %d %s (salts: %d)", algorithm, javaHash, size*Byte.SIZE, size, typeIndex, typeNibble, getSaltSize());
 		}
 
 		@Override
@@ -150,12 +176,13 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 			return algorithm.equals(that.algorithm)
 				&& size == that.size
 				&& typeIndex == that.typeIndex
-				&& typeNibble == that.typeNibble;
+				&& typeNibble == that.typeNibble
+				&& hasJavaHash == that.hasJavaHash;
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(algorithm, size, typeIndex, typeNibble);
+			return Objects.hash(algorithm, size, typeIndex, typeNibble, hasJavaHash);
 		}
 
 		private int getTypeBits(byte[] idBytes) {
@@ -308,10 +335,13 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 		return Arrays.equals(this.idBytes, that.idBytes);
 	}
 
+	/**
+	 * This will coincide with the Java hash code of the Value, if present.
+	 */
 	@Override
 	public int hashCode() {
-		int h = idBytes[0] & 0xFF;
-		for (int i=1; i<Math.min(idBytes.length, 4); i++) {
+		int h = 0;
+		for (int i = Math.min(idBytes.length - Integer.BYTES, 0); i < idBytes.length; i++) {
 			h = (h << 8) | (idBytes[i] & 0xFF);
 		}
 		return h;

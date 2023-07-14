@@ -6,6 +6,10 @@
     <value>SHA-1</value>
   </property>
   <property>
+    <name>halyard.id.javaHash</name>
+    <value>true</value>
+  </property>
+  <property>
     <name>halyard.id.size</name>
     <value>0</value>
   </property>

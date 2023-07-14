@@ -11,10 +11,11 @@ public final class TableConfig {
     static final int VERSION_4_6 = 460;
     static final int VERSION_4_6_1 = 461;
     static final int VERSION_4_6_2 = 462;
-    // don't forget to also update the default in default-config.xml!
-    static final int CURRENT_VERSION = VERSION_4_6_2;
+    static final int VERSION_4_7 = 470;
+    static final int CURRENT_VERSION = VERSION_4_7;
 
     public static final String ID_HASH = "halyard.id.hash";
+    public static final String ID_JAVA_HASH = "halyard.id.javaHash";
     public static final String ID_SIZE = "halyard.id.size";
     public static final String ID_TYPE_INDEX = "halyard.id.type.index";
     public static final String ID_TYPE_NIBBLE = "halyard.id.type.nibble";

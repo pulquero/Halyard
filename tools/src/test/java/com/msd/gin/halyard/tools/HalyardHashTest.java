@@ -63,6 +63,7 @@ public class HalyardHashTest extends AbstractHalyardToolTest {
         Configuration conf = HBaseServerTestInstance.getInstanceConfig();
         conf.set(TableConfig.ID_HASH, "Murmur3-128");
         conf.setInt(TableConfig.ID_SIZE, 1);
+        conf.setBoolean(TableConfig.ID_JAVA_HASH, false);
         conf.setInt(TableConfig.ID_TYPE_INDEX, 0);
         conf.setBoolean(TableConfig.ID_TYPE_NIBBLE, false);
         conf.setInt(TableConfig.KEY_SIZE_SUBJECT, 1);

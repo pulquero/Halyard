@@ -34,7 +34,6 @@ import static org.junit.Assert.*;
 public class RDFFactoryTest {
     private static final StatementIndices stmtIndices = StatementIndices.create();
 	private static final RDFFactory rdfFactory = stmtIndices.getRDFFactory();
-	private static final Date NOW = new Date();
 
 	private static String longString(String s) {
 		String[] copies = new String[1000/s.length()+1];
@@ -69,7 +68,7 @@ public class RDFFactoryTest {
 			new Object[] {vf.createLiteral("z", XSD.INT), ValueIO.DATATYPE_LITERAL_TYPE},
 			new Object[] {vf.createIRI(RDF.NAMESPACE), ValueIO.NAMESPACE_HASH_TYPE},
 			new Object[] {vf.createLiteral("xyz", vf.createIRI(RDF.NAMESPACE)), ValueIO.DATATYPE_LITERAL_TYPE},
-			new Object[] {vf.createLiteral(NOW), ValueIO.DATETIME_TYPE},
+			new Object[] {vf.createLiteral(new Date(946684800000l)), ValueIO.DATETIME_TYPE},  // "2000-01-01T00:00:00Z"^^xsd:dateTime
 			new Object[] {vf.createLiteral(LocalDateTime.of(1990, 6, 20, 0, 0, 0, 20005000)), ValueIO.DATETIME_TYPE},
 			new Object[] {vf.createLiteral("13:03:22", XSD.TIME), ValueIO.TIME_TYPE},
 			new Object[] {vf.createLiteral(LocalTime.of(13, 3, 22, 40030000)), ValueIO.TIME_TYPE},
@@ -207,7 +206,7 @@ public class RDFFactoryTest {
 			int keyHashSize = role.keyHashSize();
 			assertEquals(testName, keyHashSize, keyHash.length);
 
-			byte[] idxIdBytes = new byte[rdfFactory.getIdSize()];
+			byte[] idxIdBytes = new byte[idFormat.size];
 			idFormat.unrotate(keyHash, 0, keyHashSize, role.getByteShift(), idxIdBytes);
 			role.writeQualifierHashTo(v.getId(), ByteBuffer.wrap(idxIdBytes, keyHashSize, idxIdBytes.length-keyHashSize));
 			assertEquals(testName, id, rdfFactory.id(idxIdBytes));
