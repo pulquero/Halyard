@@ -6,7 +6,6 @@ import java.util.function.Predicate;
 
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.query.BindingSet;
-import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunction;
 
 public final class MinAggregateFunction extends ThreadSafeAggregateFunction<ValueCollector<Value>,Value> {
 

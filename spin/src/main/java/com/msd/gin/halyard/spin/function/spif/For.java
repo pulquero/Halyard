@@ -10,6 +10,7 @@
  *******************************************************************************/
 package com.msd.gin.halyard.spin.function.spif;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -22,6 +23,7 @@ import org.eclipse.rdf4j.model.vocabulary.SPIF;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 
+import com.google.common.collect.Iterators;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
 
 public class For implements InverseMagicProperty {
@@ -47,24 +49,24 @@ public class For implements InverseMagicProperty {
 		final int from = ((Literal) args[0]).intValue();
 		final int to = ((Literal) args[1]).intValue();
 		return new CloseableIteratorIteration<>(
-				SingleValueToListTransformer.transform(new Iterator<>() {
+			Iterators.transform(new Iterator<Value>() {
 
-					int value = from;
+				int value = from;
 
-					@Override
-					public boolean hasNext() {
-						return (value <= to);
-					}
+				@Override
+				public boolean hasNext() {
+					return (value <= to);
+				}
 
-					@Override
-					public Value next() {
-						return valueFactory.createLiteral(value++);
-					}
+				@Override
+				public Value next() {
+					return valueFactory.createLiteral(value++);
+				}
 
-					@Override
-					public void remove() {
-						throw new UnsupportedOperationException();
-					}
-				}));
+				@Override
+				public void remove() {
+					throw new UnsupportedOperationException();
+				}
+			}, Collections::singletonList));
 	}
 }

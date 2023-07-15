@@ -22,7 +22,7 @@ public class TupleLiteralTest extends AbstractCustomLiteralTest {
 
 	@Test
 	public void testParsing1() throws Exception {
-		TupleLiteral expected = new TupleLiteral(VF.createIRI("http://whatever"), VF.createLiteral(5), VF.createLiteral("foo"));
+		TupleLiteral expected = new TupleLiteral(VF.createIRI("http://whatever"), VF.createLiteral(5), VF.createLiteral("foo bar"));
 		String s = expected.stringValue();
 		TupleLiteral actual = new TupleLiteral(s);
 		assertEquals(expected, actual);
@@ -30,7 +30,7 @@ public class TupleLiteralTest extends AbstractCustomLiteralTest {
 
 	@Test
 	public void testParsing2() throws Exception {
-		TupleLiteral expected = new TupleLiteral(VF.createIRI("http://whatever"), VF.createLiteral(5), VF.createLiteral("foo", "en"));
+		TupleLiteral expected = new TupleLiteral(VF.createIRI("http://whatever"), VF.createLiteral(5), VF.createLiteral("foo bar", "en"));
 		String s = expected.stringValue();
 		TupleLiteral actual = new TupleLiteral(s);
 		assertEquals(expected, actual);

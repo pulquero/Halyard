@@ -10,7 +10,7 @@
  *******************************************************************************/
 package com.msd.gin.halyard.spin.function.spif;
 
-import java.util.Iterator;
+import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -22,6 +22,7 @@ import org.eclipse.rdf4j.model.vocabulary.SPIF;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 
+import com.google.common.collect.Iterators;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
 
 public class Split implements InverseMagicProperty {
@@ -48,24 +49,6 @@ public class Split implements InverseMagicProperty {
 		final String regex = ((Literal) args[1]).stringValue();
 		final String[] parts = s.split(regex);
 		return new CloseableIteratorIteration<>(
-				SingleValueToListTransformer.transform(new Iterator<>() {
-
-					int pos = 0;
-
-					@Override
-					public boolean hasNext() {
-						return (pos < parts.length);
-					}
-
-					@Override
-					public Value next() {
-						return valueFactory.createLiteral(parts[pos++]);
-					}
-
-					@Override
-					public void remove() {
-						throw new UnsupportedOperationException();
-					}
-				}));
+			Iterators.transform(Iterators.<String,Value>transform(Iterators.forArray(parts), valueFactory::createLiteral), Collections::singletonList));
 	}
 }

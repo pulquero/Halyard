@@ -1,4 +1,6 @@
-package com.msd.gin.halyard.sail.search;
+package com.msd.gin.halyard.sail.search.function;
+
+import com.msd.gin.halyard.sail.search.function.GroupTerms;
 
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -7,12 +9,12 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class GroupTermsFunctionTest {
+public class GroupTermsTest {
 	private final ValueFactory vf = SimpleValueFactory.getInstance();
 
 	@Test
 	public void test() {
-		Literal group = (Literal) new GroupTermsFunction().evaluate(vf, vf.createLiteral("foo"), vf.createLiteral("bar"));
+		Literal group = (Literal) new GroupTerms().evaluate(vf, vf.createLiteral("foo"), vf.createLiteral("bar"));
 		assertEquals("(foo bar)", group.stringValue());
 	}
 }

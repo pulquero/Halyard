@@ -1,4 +1,4 @@
-package com.msd.gin.halyard.sail.search;
+package com.msd.gin.halyard.sail.search.function;
 
 import com.msd.gin.halyard.vocab.HALYARD;
 
@@ -15,7 +15,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.kohsuke.MetaInfServices;
 
 @MetaInfServices(Function.class)
-public class EscapeTermFunction implements Function {
+public class EscapeTerm implements Function {
 	private static final Pattern RESERVED_CHARACTERS = Pattern.compile("[\\<\\>\\+\\-\\=\\!\\(\\)\\{\\}\\[\\]\\^\\\"\\~\\*\\?\\:\\\\\\/]|(\\&\\&)|(\\|\\|)");
 
 	@Override

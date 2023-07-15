@@ -1,4 +1,6 @@
-package com.msd.gin.halyard.sail.search;
+package com.msd.gin.halyard.sail.search.function;
+
+import com.msd.gin.halyard.sail.search.function.PhraseTerms;
 
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -7,12 +9,12 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class PhraseTermsFunctionTest {
+public class PhraseTermsTest {
 	private final ValueFactory vf = SimpleValueFactory.getInstance();
 
 	@Test
 	public void test() {
-		Literal group = (Literal) new PhraseTermsFunction().evaluate(vf, vf.createLiteral("foo"), vf.createLiteral("bar"));
+		Literal group = (Literal) new PhraseTerms().evaluate(vf, vf.createLiteral("foo"), vf.createLiteral("bar"));
 		assertEquals("\"foo bar\"", group.stringValue());
 	}
 }

@@ -21,6 +21,7 @@ import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
+import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.eclipse.rdf4j.sail.Sail;
 import org.junit.After;
 import org.junit.Assert;
@@ -28,6 +29,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
+import com.msd.gin.halyard.common.TupleLiteral;
 
 /**
  * Runs the spif test cases.
@@ -155,6 +157,20 @@ public class SailSpifTest {
 		TupleQuery tq = conn.prepareTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "select ?x where {?x spif:foreach (1 2 3)}");
 		try (TupleQueryResult tqr = tq.evaluate()) {
 			for (int i = 1; i <= 3; i++) {
+				BindingSet bs = tqr.next();
+				assertThat(((Literal) bs.getValue("x")).intValue()).isEqualTo(i);
+			}
+			assertFalse(tqr.hasNext());
+		}
+	}
+
+	@Test
+	public void testForEachTupleLiteral() throws Exception {
+		ValueFactory vf = conn.getValueFactory();
+		String tl = NTriplesUtil.toNTriplesString(new TupleLiteral(vf.createLiteral(2), vf.createLiteral(3)));
+		TupleQuery tq = conn.prepareTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> prefix halyard: <http://merck.github.io/Halyard/ns#> " + "select ?x where {?x spif:foreach (1 "+ tl + " 4)}");
+		try (TupleQueryResult tqr = tq.evaluate()) {
+			for (int i = 1; i <= 4; i++) {
 				BindingSet bs = tqr.next();
 				assertThat(((Literal) bs.getValue("x")).intValue()).isEqualTo(i);
 			}

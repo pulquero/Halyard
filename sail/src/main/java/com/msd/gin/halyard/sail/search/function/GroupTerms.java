@@ -1,4 +1,4 @@
-package com.msd.gin.halyard.sail.search;
+package com.msd.gin.halyard.sail.search.function;
 
 import com.msd.gin.halyard.vocab.HALYARD;
 
@@ -10,10 +10,10 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.kohsuke.MetaInfServices;
 
 @MetaInfServices(Function.class)
-public class PhraseTermsFunction implements Function {
+public class GroupTerms implements Function {
 	@Override
 	public String getURI() {
-		return HALYARD.PHRASE_TERMS_FUNCTION.stringValue();
+		return HALYARD.GROUP_TERMS_FUNCTION.stringValue();
 	}
 
 	@Override
@@ -23,7 +23,7 @@ public class PhraseTermsFunction implements Function {
 		}
 
 		StringBuilder buf = new StringBuilder();
-		buf.append("\"");
+		buf.append("(");
 		String sep = "";
 		for (Value arg : args) {
 			if (!arg.isLiteral()) {
@@ -33,7 +33,7 @@ public class PhraseTermsFunction implements Function {
 			buf.append(arg.stringValue());
 			sep = " ";
 		}
-		buf.append("\"");
+		buf.append(")");
 		return valueFactory.createLiteral(buf.toString());
 	}
 

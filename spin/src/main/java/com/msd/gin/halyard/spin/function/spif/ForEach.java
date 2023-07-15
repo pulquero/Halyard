@@ -11,15 +11,20 @@
 package com.msd.gin.halyard.spin.function.spif;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteratorIteration;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.SPIF;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 
+import com.google.common.collect.Iterators;
+import com.msd.gin.halyard.common.TupleLiteral;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
 
 public class ForEach implements InverseMagicProperty {
@@ -33,6 +38,13 @@ public class ForEach implements InverseMagicProperty {
 	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
 			ValueFactory valueFactory, Value... args) throws QueryEvaluationException {
 		return new CloseableIteratorIteration<>(
-				SingleValueToListTransformer.transform(Arrays.<Value>asList(args).iterator()));
+			Iterators.transform(
+				Arrays.stream(args).flatMap(v -> {
+					if (TupleLiteral.isTupleLiteral(v)) {
+						return Arrays.stream(TupleLiteral.arrayValue((Literal)v, valueFactory));
+					} else {
+						return Stream.of(v);
+					}
+				}).iterator(), Collections::singletonList));
 	}
 }

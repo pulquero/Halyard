@@ -19,9 +19,13 @@ import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 public final class TupleLiteral extends AbstractDataLiteral implements ObjectLiteral<Value[]> {
 	private static final long serialVersionUID = 1465080710600525119L;
 
+	public static boolean isTupleLiteral(Value v) {
+		return v != null && v.isLiteral() && HALYARD.TUPLE_TYPE.equals(((Literal)v).getDatatype());
+	}
+
 	public static Value[] arrayValue(Literal l, ValueFactory vf) {
 		if (l instanceof TupleLiteral) {
-			return ((TupleLiteral)l).objectValue();
+			return ((TupleLiteral)l).values;
 		} else {
 			return parse(l.getLabel(), vf);
 		}
@@ -83,7 +87,7 @@ public final class TupleLiteral extends AbstractDataLiteral implements ObjectLit
 				values.add(v);
 			} else if (ch == ' ') {
 			} else {
-				throw new RDFParseException("Invalid tuple");
+				throw new RDFParseException(String.format("Invalid tuple: %s", s));
 			}
 		}
 		return values.toArray(new Value[values.size()]);
@@ -136,9 +140,9 @@ public final class TupleLiteral extends AbstractDataLiteral implements ObjectLit
 			return true;
 		}
 
-		if (o instanceof TupleLiteral) {
-			TupleLiteral other = (TupleLiteral) o;
-			return Arrays.equals(values, other.values);
+		if (o instanceof Literal) {
+			Literal other = (Literal) o;
+			return HALYARD.TUPLE_TYPE.equals(other.getDatatype()) && Arrays.equals(values, arrayValue(other, SimpleValueFactory.getInstance()));
 		} else {
 			return super.equals(o);
 		}

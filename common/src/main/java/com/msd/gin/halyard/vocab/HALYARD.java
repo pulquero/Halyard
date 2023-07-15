@@ -99,8 +99,10 @@ public final class HALYARD implements Vocabulary {
 
     public final static IRI PARALLEL_SPLIT_FUNCTION = SVF.createIRI(NAMESPACE, "forkAndFilterBy");
 
-    public final static IRI TUPLE_FUNCTION = SVF.createIRI(NAMESPACE, "tuple");
+    public final static IRI DATA_URL_FUNCTION = SVF.createIRI(NAMESPACE, "dataURL");
+
     public final static IRI GET_FUNCTION = SVF.createIRI(NAMESPACE, "get");
+    public final static IRI SLICE_FUNCTION = SVF.createIRI(NAMESPACE, "slice");
 
     public final static IRI MAX_WITH_FUNCTION = SVF.createIRI(NAMESPACE, "maxWith");
     public final static IRI MIN_WITH_FUNCTION = SVF.createIRI(NAMESPACE, "minWith");

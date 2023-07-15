@@ -6,6 +6,7 @@ import com.msd.gin.halyard.vocab.HALYARD;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateCollector;
@@ -39,8 +40,8 @@ public final class MinWithAggregateFactory implements AggregateFunctionFactory {
 		@Override
 		public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, ValueCollector<TupleLiteral> col) {
 			Value v = evaluate(bs);
-			if (v instanceof TupleLiteral) {
-				TupleLiteral l = (TupleLiteral) v;
+			if (TupleLiteral.isTupleLiteral(v)) {
+				TupleLiteral l = (v instanceof TupleLiteral) ? (TupleLiteral) v : new TupleLiteral(((Literal)v).getLabel());
 				if (distinctPredicate.test(l)) {
 					col.min(l);
 				}

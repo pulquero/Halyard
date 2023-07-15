@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.function;
 
-import com.msd.gin.halyard.common.TupleLiteral;
+import com.msd.gin.halyard.common.WKTLiteral;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import org.eclipse.rdf4j.model.Literal;
@@ -9,23 +9,23 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.kohsuke.MetaInfServices;
+import org.locationtech.jts.geom.Coordinate;
 
 @MetaInfServices(Function.class)
-public final class GetFunction implements Function {
+public final class WktPoint implements Function {
 
 	@Override
 	public String getURI() {
-		return HALYARD.GET_FUNCTION.stringValue();
+		return HALYARD.WKT_POINT_FUNCTION.stringValue();
 	}
 
 	@Override
 	public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
-		if (args.length != 2 || !(args[0] instanceof TupleLiteral) || !(args[1] instanceof Literal)) {
-			throw new ValueExprEvaluationException(String.format("%s requires a tuple and an index", getURI()));
+		if (args.length != 2 || !args[0].isLiteral() || !args[1].isLiteral()) {
+			throw new ValueExprEvaluationException(String.format("%s requires longitude and latitude", getURI()));
 		}
-		TupleLiteral tl = (TupleLiteral) args[0];
-		Literal idx = (Literal) args[1];
-		return tl.objectValue()[idx.intValue()];
+		Literal lon = (Literal) args[0];
+		Literal lat = (Literal) args[1];
+		return new WKTLiteral(WKTLiteral.getGeometryFactory().createPoint(new Coordinate(lon.doubleValue(), lat.doubleValue())));
 	}
-
 }
