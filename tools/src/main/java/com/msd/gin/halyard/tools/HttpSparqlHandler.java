@@ -35,6 +35,7 @@ import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.lang.management.ManagementFactory;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -108,6 +109,7 @@ import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailUpdate;
 import org.eclipse.rdf4j.rio.RDFFormat;
+import org.eclipse.rdf4j.rio.RDFParserRegistry;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.RDFWriterFactory;
 import org.eclipse.rdf4j.rio.RDFWriterRegistry;
@@ -135,8 +137,6 @@ public final class HttpSparqlHandler implements HttpHandler {
     private static final String CHARSET = StandardCharsets.UTF_8.name();
     private static final ValueFactory SVF = SimpleValueFactory.getInstance();
     private static final Pattern UNRESOLVED_PARAMETERS = Pattern.compile("\\{\\{(\\w+)\\}\\}");
-    private static final String SERVICE_DESCRIPTION_QUERY = "PREFIX halyard: <http://merck.github.io/Halyard/ns#> CONSTRUCT {?s ?p ?o} WHERE { GRAPH halyard:statsContext {?s ?p ?o}}";
-
 
     // Query parameter prefixes
     private static final String QUERY_PREFIX = "query=";
@@ -163,6 +163,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     private final Properties storedQueries;
     private final WriterConfig writerConfig;
     private final Runnable stopAction;
+    private final String serviceDescriptionQuery;
 
     /**
      * @param rep              Sail repository
@@ -180,6 +181,65 @@ public final class HttpSparqlHandler implements HttpHandler {
             }
         }
         this.stopAction = stopAction;
+        this.serviceDescriptionQuery = getServiceDescriptionQuery();
+    }
+
+    private String getServiceDescriptionQuery() {
+        List<String> inputFormats = new ArrayList<>();
+        for (RDFFormat rdfFormat : RDFParserRegistry.getInstance().getKeys()) {
+        	if (rdfFormat.hasStandardURI()) {
+        		inputFormats.add(NTriplesUtil.toNTriplesString(rdfFormat.getStandardURI()));
+        	}
+        }
+        List<String> outputFormats = new ArrayList<>();
+        for (RDFFormat rdfFormat : RDFWriterRegistry.getInstance().getKeys()) {
+        	if (rdfFormat.hasStandardURI()) {
+        		outputFormats.add(NTriplesUtil.toNTriplesString(rdfFormat.getStandardURI()));
+        	}
+        }
+        for (QueryResultFormat qrFormat : TupleQueryResultWriterRegistry.getInstance().getKeys()) {
+        	if (qrFormat.hasStandardURI()) {
+        		outputFormats.add(NTriplesUtil.toNTriplesString(qrFormat.getStandardURI()));
+        	}
+        }
+        for (QueryResultFormat qrFormat : BooleanQueryResultWriterRegistry.getInstance().getKeys()) {
+        	if (qrFormat.hasStandardURI()) {
+        		outputFormats.add(NTriplesUtil.toNTriplesString(qrFormat.getStandardURI()));
+        	}
+        }
+        return
+        		"PREFIX sd: <http://www.w3.org/ns/sparql-service-description#>"
+        		+ " PREFIX spin: <http://spinrdf.org/spin#>"
+        		+ " PREFIX halyard: <http://merck.github.io/Halyard/ns#>"
+        		+ " CONSTRUCT {"
+        		+ " ?sd a sd:Service; "
+        		+ " sd:endpoint ?endpoint; "
+        		+ " sd:extensionFunction ?func; "
+        		+ " sd:extensionAggregate ?aggr; "
+        		+ " sd:propertyFeature ?magicProp; "
+        		+ " sd:inputFormat ?inputFormat; "
+        		+ " sd:resultFormat ?resultFormat; "
+        		+ " sd:propertyFeature ?magicProp; "
+        		+ " sd:defaultDataset halyard:statsContext. "
+        		+ " ?func a sd:Function. "
+        		+ " ?aggr a sd:Aggregate. "
+        		+ " ?s ?p ?o"
+        		+ " }"
+        		+ " WHERE {"
+        		+ " {"
+        		+ " GRAPH halyard:statsContext {?s ?p ?o}"
+        		+ " } UNION {"
+        		+ " GRAPH halyard:functions {?func a sd:Function FILTER NOT EXISTS {?func rdfs:subClassOf <builtin:Functions>} }"
+        		+ " } UNION {"
+        		+ " GRAPH halyard:functions {?aggr a sd:Aggregate}"
+        		+ " } UNION {"
+        		+ " GRAPH halyard:functions {?magicProp a spin:MagicProperty}"
+        		+ " } UNION {"
+        		+ " VALUES ?inputFormat {" + String.join(" ", inputFormats) + "}"
+        		+ " } UNION {"
+        		+ " VALUES ?outputFormat {" + String.join(" ", outputFormats) + "}"
+        		+ " }"
+        		+ " }";
     }
 
     /**
@@ -293,7 +353,13 @@ public final class HttpSparqlHandler implements HttpHandler {
                 }
             } else {
             	// service description
-            	sparqlQuery.setQuery(SERVICE_DESCRIPTION_QUERY);
+            	sparqlQuery.setQuery(serviceDescriptionQuery);
+            	ValueFactory vf = repository.getValueFactory();
+            	sparqlQuery.addBinding("sd", vf.createBNode());
+            	InetSocketAddress serverAddr = exchange.getLocalAddress();
+            	String server = serverAddr.getHostName();
+            	int port = serverAddr.getPort();
+            	sparqlQuery.addBinding("endpoint", vf.createIRI("http://" + server + ":" + port + exchange.getRequestURI().toString()));
             }
         } else if ("POST".equalsIgnoreCase(requestMethod)) {
             Headers headers = exchange.getRequestHeaders();

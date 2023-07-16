@@ -101,6 +101,7 @@ public class HttpSparqlHandlerTest {
     private static final Value OBJ3 = factory.createLiteral("potato literal 2");
     private static final Resource CONTEXT3 = factory.createIRI("http://potato/");
 
+    private static SailRepository repository;
     private static SimpleHttpServer server;
     // SimpleHttpServer URL
     private static String SERVER_URL;
@@ -114,11 +115,11 @@ public class HttpSparqlHandlerTest {
     @BeforeClass
     public static void init() throws IOException {
         // Create sail repository
-        SailRepository repository = new SailRepository(new MemoryStore() {
+        repository = new SailRepository(new MemoryStore() {
 
 			@Override
-			protected NotifyingSailConnection getConnectionInternal() throws SailException {
-				return new ResultTrackingSailConnectionAdapter(super.getConnectionInternal());
+			public NotifyingSailConnection getConnection() throws SailException {
+				return new ResultTrackingSailConnectionAdapter(super.getConnection());
 			}
         });
         repository.init();
@@ -155,6 +156,7 @@ public class HttpSparqlHandlerTest {
     @AfterClass
     public static void clean() {
         server.stop();
+        repository.shutDown();
     }
 
     /**
@@ -666,6 +668,7 @@ public class HttpSparqlHandlerTest {
         urlConnection.setRequestProperty("Accept", TURTLE_CONTENT);
         assertEquals(HttpURLConnection.HTTP_OK, urlConnection.getResponseCode());
         assertEquals(TURTLE_CONTENT + CHARSET_SUFFIX, urlConnection.getContentType());
+        String sd = IOUtils.toString(urlConnection.getInputStream(), "UTF-8");
     }
 
     @Test
