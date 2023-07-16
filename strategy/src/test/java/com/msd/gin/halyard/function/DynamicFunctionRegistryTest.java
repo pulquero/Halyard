@@ -26,7 +26,7 @@ public class DynamicFunctionRegistryTest {
 	}
 
 	@Test
-	public void testXPathDaysFromDurationFunction() {
+	public void testDaysFromDuration() {
 		TripleSource ts = new EmptyTripleSource();
 		ValueFactory vf = ts.getValueFactory();
 		Value result = new DynamicFunctionRegistry().get("http://www.w3.org/2005/xpath-functions#days-from-duration").get().evaluate(ts,
@@ -35,11 +35,19 @@ public class DynamicFunctionRegistryTest {
 	}
 
 	@Test
-	public void testXPathSineFunction() {
+	public void testSin() {
 		TripleSource ts = new EmptyTripleSource();
 		ValueFactory vf = ts.getValueFactory();
 		Value result = new DynamicFunctionRegistry().get("http://www.w3.org/2005/xpath-functions/math#sin").get().evaluate(ts, vf.createLiteral(Math.PI / 2.0));
 		assertEquals(1.0, ((Literal) result).doubleValue(), 0.001);
+	}
+
+	@Test
+	public void testIsWholeNumber() {
+		TripleSource ts = new EmptyTripleSource();
+		ValueFactory vf = ts.getValueFactory();
+		Value result = new DynamicFunctionRegistry().get("http://saxon.sf.net/#is-whole-number").get().evaluate(ts, vf.createLiteral(3));
+		assertEquals(true, ((Literal) result).booleanValue());
 	}
 
 	@Test

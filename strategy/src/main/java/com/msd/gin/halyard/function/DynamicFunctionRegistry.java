@@ -45,6 +45,7 @@ import net.sf.saxon.ma.map.KeyValuePair;
 import net.sf.saxon.ma.map.MapItem;
 import net.sf.saxon.om.GroundedValue;
 import net.sf.saxon.om.StructuredQName;
+import net.sf.saxon.str.StringView;
 import net.sf.saxon.sxpath.IndependentContext;
 import net.sf.saxon.trans.SymbolicName;
 import net.sf.saxon.trans.XPathException;
@@ -53,6 +54,7 @@ import net.sf.saxon.value.AtomicValue;
 import net.sf.saxon.value.BigIntegerValue;
 import net.sf.saxon.value.DayTimeDurationValue;
 import net.sf.saxon.value.DurationValue;
+import net.sf.saxon.value.SequenceExtent;
 import net.sf.saxon.value.YearMonthDurationValue;
 
 public class DynamicFunctionRegistry extends FunctionRegistry {
@@ -146,7 +148,7 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 			LITERAL_CONVERTERS.put(XSD.BOOLEAN, Literal::booleanValue);
 			LITERAL_CONVERTERS.put(XSD.DAYTIMEDURATION, l -> Duration.parse(l.getLabel()));
 			LITERAL_CONVERTERS.put(XSD.YEARMONTHDURATION, l -> Period.parse(l.getLabel()));
-			LITERAL_CONVERTERS.put(XSD.DURATION, l -> DurationValue.makeDuration(l.getLabel()));
+			LITERAL_CONVERTERS.put(XSD.DURATION, l -> DurationValue.makeDuration(StringView.of(l.getLabel())));
 		}
 
 		XPathSparqlFunction(String name, Map<Integer, XPathFunction> arityMap) {
@@ -218,7 +220,7 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 		@Override
 		public XPathFunction resolveFunction(QName functionName, int arity) {
 			SymbolicName.F name = new SymbolicName.F(new StructuredQName("", functionName.getNamespaceURI(), functionName.getLocalPart()), arity);
-			return lib.isAvailable(name) ? new SaxonXPathFunction(name, lib, ctx) : null;
+			return lib.isAvailable(name, 31) ? new SaxonXPathFunction(name, lib, ctx) : null;
 		}
 	}
 
@@ -242,7 +244,7 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 			Expression[] staticArgs = new Expression[args.size()];
 			for (int i = 0; i < args.size(); i++) {
 				Object arg = args.get(i);
-				GroundedValue<?> v;
+				GroundedValue v;
 				try {
 					v = toGroundedValue(arg, xctx);
 				} catch (XPathException ex) {
@@ -256,7 +258,7 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 				throw new XPathFunctionException(String.format("No such function %s: %s", name, reasons));
 			}
 			try {
-				GroundedValue<?> result = expr.iterate(xctx).materialize();
+				GroundedValue result = SequenceExtent.from(expr.iterate(xctx)).reduce();
 				PJConverter converter = PJConverter.allocate(ctx.getConfiguration(), expr.getItemType(), expr.getCardinality(), Object.class);
 				return toObject(converter.convert(result, Object.class, xctx), xctx);
 			} catch (XPathException ex) {
@@ -267,15 +269,15 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 		/**
 		 * Convert from Java object to Saxon value.
 		 */
-		private GroundedValue<?> toGroundedValue(Object o, XPathContext xctx) throws XPathException {
-			GroundedValue<?> v;
+		private GroundedValue toGroundedValue(Object o, XPathContext xctx) throws XPathException {
+			GroundedValue v;
 			if (o instanceof Period) {
 				v = YearMonthDurationValue.fromMonths((int) ((Period) o).toTotalMonths());
 			} else if (o instanceof Duration) {
 				v = DayTimeDurationValue.fromJavaDuration((Duration) o);
 			} else if (o instanceof Object[]) {
 				Object[] arr = (Object[]) o;
-				List<GroundedValue<?>> gvs = new ArrayList<>(arr.length);
+				List<GroundedValue> gvs = new ArrayList<>(arr.length);
 				for (Object e : arr) {
 					gvs.add(toGroundedValue(e, xctx));
 				}
@@ -314,7 +316,7 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 			}
 		}
 
-		private Object fromGroundedValue(GroundedValue<?> v, XPathContext xctx) throws XPathException {
+		private Object fromGroundedValue(GroundedValue v, XPathContext xctx) throws XPathException {
 			if (!(v instanceof AtomicValue)) {
 				throw new XPathException("Unsupported type: "+v.getClass());
 			}

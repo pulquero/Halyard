@@ -109,6 +109,11 @@
 									<version>${saxon.version}</version>
 								</artifactItem>
 								<artifactItem>
+									<groupId>org.xmlresolver</groupId>
+									<artifactId>xmlresolver</artifactId>
+									<version>${xmlresolver.version}</version>
+								</artifactItem>
+								<artifactItem>
 									<groupId>org.lz4</groupId>
 									<artifactId>lz4-java</artifactId>
 									<version>${lz4.version}</version>

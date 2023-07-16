@@ -38,7 +38,8 @@
         <json.version>20140107</json.version>
         <elasticsearch.version>8.4.2</elasticsearch.version>
         <caffeine.version>2.8.1</caffeine.version>
-        <saxon.version>9.9.1-6</saxon.version>
+        <saxon.version>11.5</saxon.version>
+        <xmlresolver.version>4.6.4</xmlresolver.version>
         <slf4j.version>1.7.36</slf4j.version>
         <lz4.version>1.8.0</lz4.version>
         <icu4j.version>71.1</icu4j.version>
