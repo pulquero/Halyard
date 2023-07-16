@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.sail;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import com.msd.gin.halyard.model.ModelTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.ModelTripleSource;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
 import com.msd.gin.halyard.vocab.HALYARD;
 import com.msd.gin.halyard.vocab.VOID_EXT;

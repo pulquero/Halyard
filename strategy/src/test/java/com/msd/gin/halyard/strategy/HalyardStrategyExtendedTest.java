@@ -19,6 +19,8 @@ package com.msd.gin.halyard.strategy;
 import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertTrue;
 
+import com.msd.gin.halyard.vocab.HALYARD;
+
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -316,7 +318,7 @@ public class HalyardStrategyExtendedTest {
         }
     }
 
-    private int countSlowly(TupleQueryResult res) throws InterruptedException {
+    private static int countSlowly(TupleQueryResult res) throws InterruptedException {
     	int num = 0;
     	while (res.hasNext()) {
     		res.next();
@@ -324,5 +326,13 @@ public class HalyardStrategyExtendedTest {
     		Thread.sleep(100L); // allow time for threads to potentially do more work than is needed
     	}
     	return num;
+    }
+
+    @Test
+    public void testFunctionGraph() throws Exception {
+    	String q = "SELECT (COUNT(?s) as ?c) FROM <" + HALYARD.FUNCTION_GRAPH_CONTEXT + "> WHERE { ?s a <http://spinrdf.org/spin#Function> }";
+        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+	        assertEquals(162, ((Literal)res.next().getValue("c")).intValue());
+        }
     }
 }

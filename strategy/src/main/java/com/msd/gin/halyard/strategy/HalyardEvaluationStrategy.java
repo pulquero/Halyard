@@ -62,6 +62,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.EvaluationStatistics;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
+import org.eclipse.rdf4j.query.parser.sparql.aggregate.CustomAggregateFunctionRegistry;
 
 /**
  * Provides an efficient asynchronous parallel push {@code EvaluationStrategy} implementation for query evaluation in Halyard. This is the default strategy
@@ -100,6 +101,9 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	private QueryOptimizerPipeline pipeline;
 
+	final FunctionRegistry functionRegistry;
+	final CustomAggregateFunctionRegistry aggregateFunctionRegistry = CustomAggregateFunctionRegistry.getInstance();
+	final TupleFunctionRegistry tupleFunctionRegistry;
 	final AtomicReference<Literal> sharedValueOfNow = new AtomicReference<>();
 
 	/**
@@ -124,9 +128,10 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		this.dataset = dataset;
 		this.serviceResolver = serviceResolver;
 		this.executor = executor;
-		this.tupleEval = new HalyardTupleExprEvaluation(this, tupleFunctionRegistry, tripleSource, dataset,
-				executor);
-		this.valueEval = new HalyardValueExprEvaluation(this, functionRegistry, tripleSource, executor.getQueuePollTimeoutMillis());
+		this.functionRegistry = functionRegistry;
+		this.tupleFunctionRegistry = tupleFunctionRegistry;
+		this.tupleEval = new HalyardTupleExprEvaluation(this, tripleSource, dataset, executor);
+		this.valueEval = new HalyardValueExprEvaluation(this, tripleSource, executor.getQueuePollTimeoutMillis());
 		this.pipeline = new HalyardQueryOptimizerPipeline(this, tripleSource.getValueFactory(), statistics);
 	}
 
@@ -314,17 +319,18 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		QuadPattern nq = tupleEval.getQuadPattern(sp, bindings);
 		if (nq != null) {
 			ExtendedTripleSource tripleSource = (ExtendedTripleSource) tupleEval.getTripleSource(sp, bindings);
-			if (nq.isAllNamedContexts()) {
-				// can't optimize for this
-			    try (CloseableIteration<?, QueryEvaluationException> stmtIter = tupleEval.getStatements(nq, tripleSource)) {
-			    	return stmtIter.hasNext();
-			    }
-			} else {
-				return tripleSource.hasStatement(nq.subj, nq.pred, nq.obj, nq.ctxs);
+			if (tripleSource != null) {
+				if (nq.isAllNamedContexts()) {
+					// can't optimize for this
+				    try (CloseableIteration<?, QueryEvaluationException> stmtIter = tupleEval.getStatements(nq, tripleSource)) {
+				    	return stmtIter.hasNext();
+				    }
+				} else {
+					return tripleSource.hasStatement(nq.subj, nq.pred, nq.obj, nq.ctxs);
+				}
 			}
-        } else {
-        	return false;
-        }
+		}
+		return false;
 	}
 
 	@Override

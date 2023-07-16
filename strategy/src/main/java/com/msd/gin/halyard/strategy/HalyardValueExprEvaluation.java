@@ -99,7 +99,6 @@ import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
-import org.eclipse.rdf4j.query.algebra.evaluation.function.FunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.datetime.Now;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
@@ -150,7 +149,6 @@ class HalyardValueExprEvaluation {
 	private static final LoadingCache<Pair<String,String>,JavaObjectLiteral<Pattern>> REGEX_CACHE = Caffeine.newBuilder().maximumSize(100).expireAfterAccess(1L, TimeUnit.DAYS).build(new RegexCacheLoader());
 
     private final HalyardEvaluationStrategy parentStrategy;
-	private final FunctionRegistry functionRegistry;
     private final TripleSource tripleSource;
     private final ValueFactory valueFactory;
     private final Literal TRUE;
@@ -161,10 +159,9 @@ class HalyardValueExprEvaluation {
     private LoadingCache<String,Literal> langTagCache;
 	private int pollTimeoutMillis;
 
-	HalyardValueExprEvaluation(HalyardEvaluationStrategy parentStrategy, FunctionRegistry functionRegistry,
+	HalyardValueExprEvaluation(HalyardEvaluationStrategy parentStrategy,
 			TripleSource tripleSource, int pollTimeoutMillis) {
         this.parentStrategy = parentStrategy;
-		this.functionRegistry = functionRegistry;
         this.tripleSource = tripleSource;
         this.valueFactory = tripleSource.getValueFactory();
         this.TRUE = valueFactory.createLiteral(true);
@@ -862,7 +859,7 @@ class HalyardValueExprEvaluation {
      * Evaluates a function.
      */
     private ValuePipeEvaluationStep precompileFunctionCall(FunctionCall node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
-		Function function = functionRegistry.get(node.getURI()).orElseThrow(() -> new QueryEvaluationException(String.format("Unknown function '%s'", node.getURI())));
+		Function function = parentStrategy.functionRegistry.get(node.getURI()).orElseThrow(() -> new QueryEvaluationException(String.format("Unknown function '%s'", node.getURI())));
 
 		// the NOW function is a special case as it needs to keep a shared return
         // value for the duration of the query.

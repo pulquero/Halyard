@@ -22,6 +22,7 @@ import com.msd.gin.halyard.sail.HBaseSail;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -120,7 +121,7 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
                         try {
                             return value.toString().startsWith("@") ? FileUtils.readFileToString(Paths.get(qf).resolveSibling(value.toString().substring(1)).toFile(), StandardCharsets.UTF_8) : value;
                         } catch (IOException ex) {
-                            throw new RuntimeException(ex);
+                            throw new UncheckedIOException(ex);
                         }
                     });
                 }

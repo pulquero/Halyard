@@ -48,7 +48,6 @@ import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.ConvertingIteration;
-import org.eclipse.rdf4j.common.iteration.EmptyIteration;
 import org.eclipse.rdf4j.common.iteration.ExceptionConvertingIteration;
 import org.eclipse.rdf4j.common.iteration.FilterIteration;
 import org.eclipse.rdf4j.common.iteration.TimeLimitIteration;
@@ -134,7 +133,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	public final CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
 		if (RDF.TYPE.equals(pred) && SPIN.MAGIC_PROPERTY_CLASS.equals(obj)) {
 			// cache magic property definitions here
-			return new EmptyIteration<>();
+			return EMPTY_ITERATION;
 		} else {
 			QueryContexts queryContexts = new QueryContexts(contexts);
 			return getStatementsInternal(subj, pred, obj, queryContexts);

@@ -21,11 +21,12 @@ public final class Get implements Function {
 	@Override
 	public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
 		if (args.length != 2 || !TupleLiteral.isTupleLiteral(args[0]) || !args[1].isLiteral()) {
-			throw new ValueExprEvaluationException(String.format("%s requires a tuple and an index", getURI()));
+			throw new ValueExprEvaluationException(String.format("%s requires a tuple and a 1-based index", getURI()));
 		}
 		Value[] elements = TupleLiteral.arrayValue((Literal)args[0], valueFactory);
-		Literal idx = (Literal) args[1];
-		return elements[idx.intValue()];
+		Literal idxArg = (Literal) args[1];
+		int idx0 = idxArg.intValue() - 1;
+		return elements[idx0];
 	}
 
 }

@@ -1,7 +1,6 @@
 package com.msd.gin.halyard.algebra.evaluation;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.common.iteration.EmptyIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -24,7 +23,7 @@ public final class EmptyTripleSource implements TripleSource {
 
 	@Override
 	public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
-		return new EmptyIteration<>();
+		return EMPTY_ITERATION;
 	}
 
 	@Override

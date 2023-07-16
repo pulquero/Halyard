@@ -16,6 +16,7 @@
  */
 package com.msd.gin.halyard.strategy;
 
+import com.google.common.collect.Sets;
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.Algorithms;
@@ -24,6 +25,7 @@ import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.algebra.StarJoin;
 import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.algebra.evaluation.ModelTripleSource;
 import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
@@ -57,7 +59,10 @@ import com.msd.gin.halyard.strategy.collections.Sorter;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Serializable;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -73,9 +78,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
+import org.apache.commons.io.IOUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteratorIteration;
 import org.eclipse.rdf4j.common.iteration.ConvertingIteration;
@@ -83,16 +88,22 @@ import org.eclipse.rdf4j.common.iteration.EmptyIteration;
 import org.eclipse.rdf4j.common.iteration.FilterIteration;
 import org.eclipse.rdf4j.common.iteration.LookAheadIteration;
 import org.eclipse.rdf4j.common.iteration.SingletonIteration;
+import org.eclipse.rdf4j.common.iteration.UnionIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
+import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
+import org.eclipse.rdf4j.model.impl.LinkedHashModel;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDF4J;
+import org.eclipse.rdf4j.model.vocabulary.RDFS;
+import org.eclipse.rdf4j.model.vocabulary.SD;
 import org.eclipse.rdf4j.model.vocabulary.SESAME;
 import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -158,7 +169,6 @@ import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
-import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.DefaultEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.DescribeIteration;
@@ -172,7 +182,11 @@ import org.eclipse.rdf4j.query.impl.MapBindingSet;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateCollector;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunction;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunctionFactory;
-import org.eclipse.rdf4j.query.parser.sparql.aggregate.CustomAggregateFunctionRegistry;
+import org.eclipse.rdf4j.rio.RDFHandler;
+import org.eclipse.rdf4j.rio.RDFHandlerException;
+import org.eclipse.rdf4j.rio.RDFParser;
+import org.eclipse.rdf4j.rio.Rio;
+import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -187,16 +201,16 @@ final class HalyardTupleExprEvaluation {
 	private static final String ANON_OBJECT_VAR = "__obj";
 	private static final int MAX_INITIAL_HASH_JOIN_TABLE_SIZE = 5000;
 	private static final Resource[] ALL_CONTEXTS = new Resource[0];
+	private static final Set<IRI> VIRTUAL_CONTEXTS = Sets.newHashSet(HALYARD.FUNCTION_GRAPH_CONTEXT);
 
     private final HalyardEvaluationStrategy parentStrategy;
-	private final TupleFunctionRegistry tupleFunctionRegistry;
-	private final CustomAggregateFunctionRegistry aggregateFunctionRegistry = CustomAggregateFunctionRegistry.getInstance();
 	private final TripleSource tripleSource;
 	private final Dataset dataset;
     private final HalyardEvaluationExecutor executor;
     private final int hashJoinLimit;
     private final int collectionMemoryThreshold;
     private final int valueCacheSize;
+    private volatile TripleSource functionGraph;
 
     /**
 	 * Constructor used by {@link HalyardEvaluationStrategy} to create this helper class
@@ -208,9 +222,8 @@ final class HalyardTupleExprEvaluation {
 	 * @param executor
 	 */
 	HalyardTupleExprEvaluation(HalyardEvaluationStrategy parentStrategy,
-			TupleFunctionRegistry tupleFunctionRegistry, TripleSource tripleSource, Dataset dataset, HalyardEvaluationExecutor executor) {
+			TripleSource tripleSource, Dataset dataset, HalyardEvaluationExecutor executor) {
         this.parentStrategy = parentStrategy;
-		this.tupleFunctionRegistry = tupleFunctionRegistry;
 		this.tripleSource = tripleSource;
 		this.dataset = dataset;
 		this.executor = executor;
@@ -393,22 +406,22 @@ final class HalyardTupleExprEvaluation {
      * results of the evaluation of this statement pattern
      */
     private void evaluateStatementPattern(final BindingSetPipe parent, final StatementPattern sp, final BindingSet bindings) {
-		TripleSource ts = getTripleSource(sp, bindings);
-		if (ts == null) {
+        QuadPattern nq = getQuadPattern(sp, bindings);
+        if (nq != null) {
+    		TripleSource ts = getTripleSource(sp, bindings);
+    		if (ts != null) {
+    	        QueryEvaluationStep evalStep = evaluateStatementPattern(sp, nq, ts);
+        		try {
+    				executor.pullAndPushAsync(parent, evalStep, sp, bindings, parentStrategy);
+                } catch (QueryEvaluationException e) {
+                    parent.handleException(e);
+                }
+    		} else {
+    			parent.close(); // nothing to push
+    		}
+		} else {
 			parent.close(); // nothing to push
 		}
-
-		try {
-	        QuadPattern nq = getQuadPattern(sp, bindings);
-	        if (nq != null) {
-		        QueryEvaluationStep evalStep = evaluateStatementPattern(sp, nq, ts);
-				executor.pullAndPushAsync(parent, evalStep, sp, bindings, parentStrategy);
-			} else {
-				parent.close(); // nothing to push
-			}
-        } catch (QueryEvaluationException e) {
-            parent.handleException(e);
-        }
     }
 
     static final class QuadPattern {
@@ -531,20 +544,120 @@ final class HalyardTupleExprEvaluation {
     }
 
     CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(QuadPattern nq, TripleSource tripleSource) {
-    	CloseableIteration<? extends Statement, QueryEvaluationException> stIter = tripleSource.getStatements(nq.subj, nq.pred, nq.obj, nq.ctxs);
-        if (nq.isAllNamedContexts()) {
-            // Named contexts are matched by retrieving all statements from
-            // the store and filtering out the statements that do not have a context.
-            stIter = new FilterIteration<Statement, QueryEvaluationException>(stIter) {
+    	Resource[] mainCtxs;
+    	List<Resource> virtualCtxs;
+    	if (nq.ctxs.length == 0) {
+    		mainCtxs = nq.ctxs;
+    		virtualCtxs = Collections.emptyList();
+    	} else {
+	    	List<Resource> mainCtxList = new ArrayList<>(nq.ctxs.length);
+	    	virtualCtxs = new ArrayList<>(1);
+	    	for (Resource ctx : nq.ctxs) {
+	    		if (VIRTUAL_CONTEXTS.contains(ctx)) {
+	    			virtualCtxs.add(ctx);
+	    		} else {
+	    			mainCtxList.add(ctx);
+	    		}
+	    	}
+	    	if (virtualCtxs.isEmpty()) {
+	    		mainCtxs = nq.ctxs;
+	    	} else {
+	    		mainCtxs = !mainCtxList.isEmpty() ? mainCtxList.toArray(new Resource[mainCtxList.size()]) : null;
+	    	}
+    	}
 
-                @Override
-                protected boolean accept(Statement st) {
-                    return st.getContext() != null;
-                }
+    	CloseableIteration<? extends Statement, QueryEvaluationException> mainIter;
+    	if (mainCtxs != null) {
+	    	mainIter = tripleSource.getStatements(nq.subj, nq.pred, nq.obj, mainCtxs);
+	        if (nq.isAllNamedContexts()) {
+	            // Named contexts are matched by retrieving all statements from
+	            // the store and filtering out the statements that do not have a context.
+	            mainIter = new FilterIteration<Statement, QueryEvaluationException>(mainIter) {
+	
+	                @Override
+	                protected boolean accept(Statement st) {
+	                    return st.getContext() != null;
+	                }
+	
+	            };
+	        }
+    	} else {
+    		mainIter = null;
+    	}
 
-            };
-        }
-    	return stIter;
+        if (!virtualCtxs.isEmpty()) {
+    		List<CloseableIteration<? extends Statement, QueryEvaluationException>> iters = new ArrayList<>(1 + virtualCtxs.size());
+    		if (mainIter != null) {
+    			iters.add(mainIter);
+    		}
+    		for (Resource ctx : virtualCtxs) {
+    			if (HALYARD.FUNCTION_GRAPH_CONTEXT.equals(ctx)) {
+    				iters.add(getFunctionGraph().getStatements(nq.subj, nq.pred, nq.obj));
+    			}
+    		}
+    		return iters.size() > 1 ? new UnionIteration<>(iters) : iters.get(0);
+    	} else {
+    		return mainIter;
+    	}
+    }
+
+    private TripleSource getFunctionGraph() {
+		TripleSource localRef = functionGraph;
+		if (localRef == null) {
+			synchronized (this) {
+				localRef = functionGraph;
+				if (localRef == null) {
+					localRef = loadFunctionGraph();
+					functionGraph = localRef;
+				}
+			}
+		}
+		return localRef;
+    }
+
+    private TripleSource loadFunctionGraph() {
+    	// just use SimpleValueFactory for the model
+    	ValueFactory vf = SimpleValueFactory.getInstance();
+    	// read-only LinkedHashModel doesn't need synchronising
+    	Model model = new LinkedHashModel();
+    	IRI builtinFunctions = vf.createIRI("builtin:Functions");
+    	for (org.eclipse.rdf4j.query.algebra.evaluation.function.Function func : parentStrategy.functionRegistry.getAll()) {
+    		String funcIri = func.getURI();
+    		boolean isBuiltin = (funcIri.indexOf(':') == -1);
+    		if (isBuiltin) {
+    			funcIri = "builtin:" + funcIri;
+    		}
+    		IRI subj = vf.createIRI(funcIri);
+    		model.add(subj, RDF.TYPE, SD.FUNCTION);
+    		model.add(subj, RDFS.SUBCLASSOF, builtinFunctions);
+    	}
+    	for (AggregateFunctionFactory func : parentStrategy.aggregateFunctionRegistry.getAll()) {
+    		String funcIri = func.getIri();
+    		IRI subj = vf.createIRI(funcIri);
+    		model.add(subj, RDF.TYPE, SD.AGGREGATE);
+    	}
+		RDFHandler modelInserter = new AbstractRDFHandler() {
+			@Override
+			public void handleStatement(Statement st) throws RDFHandlerException {
+				model.add(st);
+			}
+		};
+    	getClass().getClassLoader().resources("schema/functions").forEach(url -> {
+    		try {
+	    		try (InputStream infIn = url.openStream()) {
+	    			for(String fileName : IOUtils.readLines(infIn, StandardCharsets.UTF_8)) {
+	    				RDFParser parser = Rio.createParser(Rio.getParserFormatForFileName(fileName).orElseThrow(Rio.unsupportedFormat(fileName)), vf);
+	    				parser.setRDFHandler(modelInserter);
+	    				try (InputStream rdfIn = getClass().getClassLoader().getResourceAsStream(fileName)) {
+	    					parser.parse(rdfIn);
+	    				}
+	    			}
+	    		}
+    		} catch (IOException ioe) {
+    			throw new UncheckedIOException(ioe);
+    		}
+    	});
+    	return new ModelTripleSource(model, vf);
     }
 
     private QueryEvaluationStep evaluateStatementPattern(StatementPattern sp, QuadPattern nq, TripleSource tripleSource) {
@@ -1280,7 +1393,7 @@ final class HalyardTupleExprEvaluation {
 			return Aggregator.create(new ConcatAggregateFunction(eval), distinct, new CSVCollector(sep, valueFactory));
 		} else if (operator instanceof AggregateFunctionCall) {
 			AggregateFunctionCall aggFuncCall = (AggregateFunctionCall) operator;
-			AggregateFunctionFactory aggFuncFactory = aggregateFunctionRegistry.get(aggFuncCall.getIRI())
+			AggregateFunctionFactory aggFuncFactory = parentStrategy.aggregateFunctionRegistry.get(aggFuncCall.getIRI())
 				.orElseThrow(() -> new QueryEvaluationException("Unknown aggregate function '" + aggFuncCall.getIRI() + "'"));
 			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
 			AggregateFunction aggFunc = aggFuncFactory.buildFunction(eval);
@@ -2798,7 +2911,7 @@ final class HalyardTupleExprEvaluation {
 	 */
 	private BindingSetPipeEvaluationStep precompileTupleFunctionCall(ExtendedTupleFunctionCall tfc, QueryEvaluationContext evalContext)
 			throws QueryEvaluationException {
-		TupleFunction func = tupleFunctionRegistry.get(tfc.getURI())
+		TupleFunction func = parentStrategy.tupleFunctionRegistry.get(tfc.getURI())
 				.orElseThrow(() -> new QueryEvaluationException("Unknown tuple function '" + tfc.getURI() + "'"));
 
 		List<ValueExpr> args = tfc.getArgs();
@@ -2807,8 +2920,8 @@ final class HalyardTupleExprEvaluation {
 			argSteps[i] = parentStrategy.precompile(args.get(i), evalContext);
 		}
 
-		Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
-		Function<BindingSetPipe,BindingSetPipe> pipeBuilder = parent -> {
+		java.util.function.Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
+		java.util.function.Function<BindingSetPipe,BindingSetPipe> pipeBuilder = parent -> {
 			return new BindingSetPipe(parent) {
 				@Override
 				protected boolean next(BindingSet bs) {

@@ -4,6 +4,9 @@ import com.msd.gin.halyard.common.ArrayLiteral;
 import com.msd.gin.halyard.common.MapLiteral;
 import com.msd.gin.halyard.common.ObjectLiteral;
 
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.net.URI;
 import java.time.Duration;
@@ -19,14 +22,24 @@ import javax.xml.xpath.XPathFunction;
 import javax.xml.xpath.XPathFunctionException;
 import javax.xml.xpath.XPathFunctionResolver;
 
+import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.model.vocabulary.RDFS;
+import org.eclipse.rdf4j.model.vocabulary.SP;
+import org.eclipse.rdf4j.model.vocabulary.SPIN;
+import org.eclipse.rdf4j.model.vocabulary.SPL;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.FunctionRegistry;
+import org.eclipse.rdf4j.rio.RDFFormat;
+import org.eclipse.rdf4j.rio.RDFWriter;
+import org.eclipse.rdf4j.rio.Rio;
 
 import net.sf.saxon.Configuration;
 import net.sf.saxon.expr.Expression;
@@ -37,6 +50,7 @@ import net.sf.saxon.expr.StaticProperty;
 import net.sf.saxon.expr.XPathContext;
 import net.sf.saxon.functions.FunctionLibrary;
 import net.sf.saxon.functions.FunctionLibraryList;
+import net.sf.saxon.functions.registry.BuiltInFunctionSet;
 import net.sf.saxon.functions.registry.ConstructorFunctionLibrary;
 import net.sf.saxon.ma.arrays.ArrayItem;
 import net.sf.saxon.ma.arrays.SimpleArrayItem;
@@ -50,6 +64,7 @@ import net.sf.saxon.sxpath.IndependentContext;
 import net.sf.saxon.trans.SymbolicName;
 import net.sf.saxon.trans.XPathException;
 import net.sf.saxon.type.AtomicType;
+import net.sf.saxon.type.ItemType;
 import net.sf.saxon.value.AtomicValue;
 import net.sf.saxon.value.BigIntegerValue;
 import net.sf.saxon.value.DayTimeDurationValue;
@@ -203,7 +218,7 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 
 
 	static final class SaxonXPathFunctionResolver implements XPathFunctionResolver {
-		private final FunctionLibrary lib;
+		private final FunctionLibraryList lib;
 		private final StaticContext ctx;
 
 		SaxonXPathFunctionResolver() {
@@ -330,5 +345,53 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 					});
 			return converter.convert(v, Object.class, xctx);
 		}
+	}
+
+	public static void main(String[] args) throws Exception {
+		Field funcTableField = BuiltInFunctionSet.class.getDeclaredField("functionTable");
+		funcTableField.setAccessible(true);
+		SimpleValueFactory vf = SimpleValueFactory.getInstance();
+		SaxonXPathFunctionResolver saxon = new SaxonXPathFunctionResolver();
+		try (OutputStream out = new FileOutputStream("xsl-functions.ttl")) {
+			RDFWriter writer = Rio.createWriter(RDFFormat.TURTLE, out);
+			writer.startRDF();
+			writer.handleNamespace(RDF.PREFIX, RDF.NAMESPACE);
+			writer.handleNamespace(RDFS.PREFIX, RDFS.NAMESPACE);
+			writer.handleNamespace(XSD.PREFIX, XSD.NAMESPACE);
+			writer.handleNamespace(SPIN.PREFIX, SPIN.NAMESPACE);
+			writer.handleNamespace(SP.PREFIX, SP.NAMESPACE);
+			writer.handleNamespace(SPL.PREFIX, SPL.NAMESPACE);
+			IRI xpathFunctionsClass = vf.createIRI(SPL.NAMESPACE, "XPathFunctions");
+			for (FunctionLibrary lib : saxon.lib.getLibraryList()) {
+				if (lib instanceof BuiltInFunctionSet) {
+					BuiltInFunctionSet funcs = (BuiltInFunctionSet) lib;
+					Map<String,BuiltInFunctionSet.Entry> funcTable = (Map<String,BuiltInFunctionSet.Entry>) funcTableField.get(funcs);
+					for (BuiltInFunctionSet.Entry funcInfo : funcTable.values()) {
+						IRI funcIri = toIRI(funcInfo.name, vf);
+						writer.handleStatement(vf.createStatement(funcIri, RDF.TYPE, SPIN.FUNCTION_CLASS));
+						writer.handleStatement(vf.createStatement(funcIri, RDFS.LABEL, vf.createLiteral(funcInfo.name.getDisplayName())));
+						writer.handleStatement(vf.createStatement(funcIri, RDFS.SUBCLASSOF, xpathFunctionsClass));
+						if (funcInfo.itemType.isAtomicType()) {
+							writer.handleStatement(vf.createStatement(funcIri, SPIN.RETURN_TYPE_PROPERTY, toIRI(funcInfo.itemType.getAtomizedItemType().getTypeName(), vf)));
+						}
+						for (int i=0; i<funcInfo.argumentTypes.length; i++) {
+							BNode constraint = vf.createBNode();
+							writer.handleStatement(vf.createStatement(funcIri, SPIN.CONSTRAINT_PROPERTY, constraint));
+							writer.handleStatement(vf.createStatement(constraint, RDF.TYPE, SPL.ARGUMENT_TEMPLATE));
+							writer.handleStatement(vf.createStatement(constraint, SPL.PREDICATE_PROPERTY, vf.createIRI(SP.NAMESPACE, "arg"+(i+1))));
+							ItemType argType = funcInfo.argumentTypes[i].getPrimaryType();
+							if (argType.isAtomicType()) {
+								writer.handleStatement(vf.createStatement(constraint, SPL.VALUE_TYPE_PROPERTY, toIRI(argType.getAtomizedItemType().getTypeName(), vf)));
+							}
+						}
+					}
+				}
+			}
+			writer.endRDF();
+		}
+	}
+
+	private static IRI toIRI(StructuredQName name, ValueFactory vf) {
+		return vf.createIRI(name.getURI()+'#'+name.getLocalPart());
 	}
 }

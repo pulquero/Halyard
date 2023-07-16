@@ -19,7 +19,7 @@ public class SliceTest {
 		Value v2 = vf.createIRI("http://foobar.org/");
 		Value v3 = vf.createLiteral(3);
 		TupleLiteral tl = new TupleLiteral(v1, v2, v3);
-		TupleLiteral slice = (TupleLiteral) new Slice().evaluate(ts, tl, vf.createLiteral(1), vf.createLiteral(2));
+		TupleLiteral slice = (TupleLiteral) new Slice().evaluate(ts, tl, vf.createLiteral(2), vf.createLiteral(2));
 		assertEquals(new TupleLiteral(v2, v3), slice);
 	}
 }

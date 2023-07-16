@@ -1,0 +1,86 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sp: <http://spinrdf.org/sp#> .
+@prefix spin: <http://spinrdf.org/spin#> .
+@prefix spl: <http://spinrdf.org/spl#> .
+@prefix halyard: <http://merck.github.io/Halyard/ns#> .
+
+halyard:dataURL a spin:Function ;
+	rdfs:label "data URL" ;
+	rdfs:comment "Creates a data URL with the given value." ;
+	spin:constraint [
+		a spl:Argument ;
+		spl:predicate sp:arg1 ;
+		rdfs:comment "Value" ;
+		spl:valueType rdfs:Literal
+	] ;
+	spin:constraint [
+		a spl:Argument ;
+		spl:predicate sp:arg2 ;
+		spl:optional true ;
+		rdfs:comment "Optional MIME type" ;
+		spl:valueType xsd:string
+	] ;
+	spin:returnType rdfs:Resource .
+
+halyard:get a spin:Function ;
+	rdfs:label "get" ;
+	rdfs:comment "Returns an element from a tuple." ;
+	spin:constraint [
+		a spl:Argument ;
+		spl:predicate sp:arg1 ;
+		rdfs:comment "Tuple" ;
+		spl:valueType halyard:tuple
+	] ;
+	spin:constraint [
+		a spl:Argument ;
+		spl:predicate sp:arg2 ;
+		rdfs:comment "1-based index" ;
+		spl:valueType xsd:int
+	] ;
+	spin:returnType rdfs:Resource .
+
+halyard:slice a spin:Function ;
+	rdfs:label "slice" ;
+	rdfs:comment "Returns a sub-tuple of a tuple." ;
+	spin:constraint [
+		a spl:Argument ;
+		spl:predicate sp:arg1 ;
+		rdfs:comment "Tuple" ;
+		spl:valueType halyard:tuple
+	] ;
+	spin:constraint [
+		a spl:Argument ;
+		spl:predicate sp:arg2 ;
+		rdfs:comment "1-based start index" ;
+		spl:valueType xsd:int
+	] ;
+	spin:constraint [
+		a spl:Argument ;
+		spl:predicate sp:arg3 ;
+		rdfs:comment "Length" ;
+		spl:valueType xsd:int
+	] ;
+	spin:returnType halyard:tuple.
+
+halyard:tuple a spin:Function ;
+	rdfs:label "tuple" ;
+	rdfs:comment "Tuple literal constructor function." ;
+	spin:returnType halyard:tuple .
+
+halyard:wktPoint a spin:Function ;
+	rdfs:label "WKT point" ;
+	rdfs:comment "Creates a WKT POINT literal." ;
+	spin:constraint [
+		a spl:Argument ;
+		spl:predicate sp:arg1 ;
+		rdfs:comment "Longitude" ;
+		spl:valueType xsd:double
+	] ;
+	spin:constraint [
+		a spl:Argument ;
+		spl:predicate sp:arg2 ;
+		rdfs:comment "Latitude" ;
+		spl:valueType xsd:double
+	] ;
+	spin:returnType <http://www.opengis.net/ont/geosparql#wktLiteral> .
+	

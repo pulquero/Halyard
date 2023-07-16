@@ -177,6 +177,12 @@ public class SpinInferencing {
 
 	public static void main(String[] args) throws Exception {
 		String[] schemas = { "/schema/owl-basic.ttl", "/schema/sp.ttl", "/schema/spin.ttl", "/schema/spl.spin.ttl", "/schema/spif.ttl" };
+		writeFullSchema(schemas);
+		writeFunctionSchema(schemas);
+	}
+
+	private static void writeFullSchema(String... schemas) throws IOException {
+		System.out.println("Writing full schema...");
 		Repository repo = new SailRepository(new SchemaCachingRDFSInferencer(new MemoryStore()));
 		try (RepositoryConnection conn = repo.getConnection()) {
 			conn.setIsolationLevel(IsolationLevels.NONE);
@@ -189,6 +195,44 @@ public class SpinInferencing {
 			try (FileOutputStream out = new FileOutputStream("spin-full-rdfs.ttl")) {
 				RDFWriter writer = Rio.createWriter(RDFFormat.TURTLE, out);
 				conn.exportStatements(null, null, null, true, writer);
+			}
+		}
+		repo.shutDown();
+	}
+
+	private static void writeFunctionSchema(String... schemas) throws IOException {
+		System.out.println("Writing function schema...");
+		String functionQuery = 
+		"PREFIX sp: <http://spinrdf.org/sp#>"
+		+ "PREFIX spif: <http://spinrdf.org/spif#>"
+		+ "PREFIX spin: <http://spinrdf.org/spin#>"
+		+ "PREFIX spl: <http://spinrdf.org/spl#>"
+		+ "CONSTRUCT {"
+		+ " ?s ?sp ?sv; "
+		+ " spin:constaint ?c."
+		+ " ?c ?cp ?cv."
+		+ "} WHERE {"
+		+ " VALUES ?type {spin:Function spin:MagicProperty} "
+		+ " ?s a ?type; "
+		+ " ?sp ?sv. "
+		+ " OPTIONAL { "
+		+ " ?s spin:constraint ?c."
+		+ " ?c ?cp ?cv. "
+		+ " } "
+		+ " FILTER (!isBlank(?sv) && !isBlank(?cv))"
+		+ "}";
+		Repository repo = new SailRepository(new MemoryStore());
+		try (RepositoryConnection conn = repo.getConnection()) {
+			conn.setIsolationLevel(IsolationLevels.NONE);
+			conn.begin();
+			for (String path : schemas) {
+				URL url = SpinInferencing.class.getResource(path);
+				conn.add(url, RDFFormat.TURTLE);
+			}
+			conn.commit();
+			try (FileOutputStream out = new FileOutputStream("spin-functions.ttl")) {
+				RDFWriter writer = Rio.createWriter(RDFFormat.TURTLE, out);
+				conn.prepareGraphQuery(functionQuery).evaluate(writer);
 			}
 		}
 		repo.shutDown();

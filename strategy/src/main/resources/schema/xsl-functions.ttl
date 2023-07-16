@@ -1,0 +1,2134 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix spin: <http://spinrdf.org/spin#> .
+@prefix sp: <http://spinrdf.org/sp#> .
+@prefix spl: <http://spinrdf.org/spl#> .
+
+<http://www.w3.org/2005/xpath-functions#sort> a spin:Function;
+  rdfs:label "fn:sort";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be49391, _:f817ba34bca34f2b84a2f65518be49392,
+    _:f817ba34bca34f2b84a2f65518be49393, _:f817ba34bca34f2b84a2f65518be49396, _:f817ba34bca34f2b84a2f65518be49397,
+    _:f817ba34bca34f2b84a2f65518be49398 .
+
+_:f817ba34bca34f2b84a2f65518be49391 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be49392 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be49393 a spl:Argument;
+  spl:predicate sp:arg3 .
+
+<http://www.w3.org/2005/xpath-functions#node-name> a spin:Function;
+  rdfs:label "fn:node-name";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:QName;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be49394 .
+
+_:f817ba34bca34f2b84a2f65518be49394 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#one-or-more> a spin:Function;
+  rdfs:label "fn:one-or-more";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be49395 .
+
+_:f817ba34bca34f2b84a2f65518be49395 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be49396 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be49397 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be49398 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#collection> a spin:Function;
+  rdfs:label "fn:collection";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be49399 .
+
+_:f817ba34bca34f2b84a2f65518be49399 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#root> a spin:Function;
+  rdfs:label "fn:root";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493910 .
+
+_:f817ba34bca34f2b84a2f65518be493910 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#transform> a spin:Function;
+  rdfs:label "fn:transform";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493911 .
+
+_:f817ba34bca34f2b84a2f65518be493911 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#fold-right> a spin:Function;
+  rdfs:label "fn:fold-right";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493912, _:f817ba34bca34f2b84a2f65518be493913,
+    _:f817ba34bca34f2b84a2f65518be493914 .
+
+_:f817ba34bca34f2b84a2f65518be493912 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be493913 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be493914 a spl:Argument;
+  spl:predicate sp:arg3 .
+
+<http://www.w3.org/2005/xpath-functions#insert-before> a spin:Function;
+  rdfs:label "fn:insert-before";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493915, _:f817ba34bca34f2b84a2f65518be493916,
+    _:f817ba34bca34f2b84a2f65518be493917 .
+
+_:f817ba34bca34f2b84a2f65518be493915 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be493916 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:integer .
+
+_:f817ba34bca34f2b84a2f65518be493917 a spl:Argument;
+  spl:predicate sp:arg3 .
+
+<http://www.w3.org/2005/xpath-functions#doc> a spin:Function;
+  rdfs:label "fn:doc";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493918 .
+
+_:f817ba34bca34f2b84a2f65518be493918 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#trace> a spin:Function;
+  rdfs:label "fn:trace";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493919, _:f817ba34bca34f2b84a2f65518be493920,
+    _:f817ba34bca34f2b84a2f65518be493921 .
+
+_:f817ba34bca34f2b84a2f65518be493919 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be493920 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be493921 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#true> a spin:Function;
+  rdfs:label "fn:true";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean .
+
+<http://www.w3.org/2005/xpath-functions#ends-with> a spin:Function;
+  rdfs:label "fn:ends-with";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493922, _:f817ba34bca34f2b84a2f65518be493923,
+    _:f817ba34bca34f2b84a2f65518be493925, _:f817ba34bca34f2b84a2f65518be493926, _:f817ba34bca34f2b84a2f65518be493927 .
+
+_:f817ba34bca34f2b84a2f65518be493922 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493923 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#month-from-dateTime> a spin:Function;
+  rdfs:label "fn:month-from-dateTime";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493924 .
+
+_:f817ba34bca34f2b84a2f65518be493924 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:dateTime .
+
+_:f817ba34bca34f2b84a2f65518be493925 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493926 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493927 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#string-to-codepoints> a spin:Function;
+  rdfs:label "fn:string-to-codepoints";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493928 .
+
+_:f817ba34bca34f2b84a2f65518be493928 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#codepoint-equal> a spin:Function;
+  rdfs:label "fn:codepoint-equal";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493929, _:f817ba34bca34f2b84a2f65518be493930 .
+
+_:f817ba34bca34f2b84a2f65518be493929 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493930 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#boolean> a spin:Function;
+  rdfs:label "fn:boolean";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493931 .
+
+_:f817ba34bca34f2b84a2f65518be493931 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#timezone-from-dateTime> a spin:Function;
+  rdfs:label "fn:timezone-from-dateTime";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:dayTimeDuration;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493932 .
+
+_:f817ba34bca34f2b84a2f65518be493932 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:dateTime .
+
+<http://www.w3.org/2005/xpath-functions#local-name-from-QName> a spin:Function;
+  rdfs:label "fn:local-name-from-QName";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:NCName;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493933 .
+
+_:f817ba34bca34f2b84a2f65518be493933 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:QName .
+
+<http://www.w3.org/2005/xpath-functions#doc-available> a spin:Function;
+  rdfs:label "fn:doc-available";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493934 .
+
+_:f817ba34bca34f2b84a2f65518be493934 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#namespace-uri-from-QName> a spin:Function;
+  rdfs:label "fn:namespace-uri-from-QName";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyURI;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493935 .
+
+_:f817ba34bca34f2b84a2f65518be493935 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:QName .
+
+<http://www.w3.org/2005/xpath-functions#hours-from-dateTime> a spin:Function;
+  rdfs:label "fn:hours-from-dateTime";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493936 .
+
+_:f817ba34bca34f2b84a2f65518be493936 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:dateTime .
+
+<http://www.w3.org/2005/xpath-functions#codepoints-to-string> a spin:Function;
+  rdfs:label "fn:codepoints-to-string";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493937 .
+
+_:f817ba34bca34f2b84a2f65518be493937 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:integer .
+
+<http://www.w3.org/2005/xpath-functions#for-each> a spin:Function;
+  rdfs:label "fn:for-each";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493938, _:f817ba34bca34f2b84a2f65518be493939 .
+
+_:f817ba34bca34f2b84a2f65518be493938 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be493939 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+<http://www.w3.org/2005/xpath-functions#parse-json> a spin:Function;
+  rdfs:label "fn:parse-json";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493940, _:f817ba34bca34f2b84a2f65518be493941,
+    _:f817ba34bca34f2b84a2f65518be493942 .
+
+_:f817ba34bca34f2b84a2f65518be493940 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493941 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be493942 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#namespace-uri-for-prefix> a spin:Function;
+  rdfs:label "fn:namespace-uri-for-prefix";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyURI;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493943, _:f817ba34bca34f2b84a2f65518be493944 .
+
+_:f817ba34bca34f2b84a2f65518be493943 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493944 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+<http://www.w3.org/2005/xpath-functions#minutes-from-time> a spin:Function;
+  rdfs:label "fn:minutes-from-time";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493945 .
+
+_:f817ba34bca34f2b84a2f65518be493945 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:time .
+
+<http://www.w3.org/2005/xpath-functions#matches> a spin:Function;
+  rdfs:label "fn:matches";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493946, _:f817ba34bca34f2b84a2f65518be493947,
+    _:f817ba34bca34f2b84a2f65518be493948, _:f817ba34bca34f2b84a2f65518be493949, _:f817ba34bca34f2b84a2f65518be493950 .
+
+_:f817ba34bca34f2b84a2f65518be493946 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493947 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493948 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493949 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493950 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#xml-to-json> a spin:Function;
+  rdfs:label "fn:xml-to-json";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493951, _:f817ba34bca34f2b84a2f65518be493952,
+    _:f817ba34bca34f2b84a2f65518be493953 .
+
+_:f817ba34bca34f2b84a2f65518be493951 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be493952 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be493953 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+<http://www.w3.org/2005/xpath-functions#fold-left> a spin:Function;
+  rdfs:label "fn:fold-left";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493954, _:f817ba34bca34f2b84a2f65518be493955,
+    _:f817ba34bca34f2b84a2f65518be493956 .
+
+_:f817ba34bca34f2b84a2f65518be493954 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be493955 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be493956 a spl:Argument;
+  spl:predicate sp:arg3 .
+
+<http://www.w3.org/2005/xpath-functions#escape-html-uri> a spin:Function;
+  rdfs:label "fn:escape-html-uri";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493957 .
+
+_:f817ba34bca34f2b84a2f65518be493957 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#function-arity> a spin:Function;
+  rdfs:label "fn:function-arity";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493958 .
+
+_:f817ba34bca34f2b84a2f65518be493958 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#in-scope-prefixes> a spin:Function;
+  rdfs:label "fn:in-scope-prefixes";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493959 .
+
+_:f817ba34bca34f2b84a2f65518be493959 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#year-from-dateTime> a spin:Function;
+  rdfs:label "fn:year-from-dateTime";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493960 .
+
+_:f817ba34bca34f2b84a2f65518be493960 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:dateTime .
+
+<http://www.w3.org/2005/xpath-functions#normalize-space> a spin:Function;
+  rdfs:label "fn:normalize-space";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493965 .
+
+<http://www.w3.org/2005/xpath-functions#last> a spin:Function;
+  rdfs:label "fn:last";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer .
+
+<http://www.w3.org/2005/xpath-functions#serialize> a spin:Function;
+  rdfs:label "fn:serialize";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493961, _:f817ba34bca34f2b84a2f65518be493962,
+    _:f817ba34bca34f2b84a2f65518be493963 .
+
+_:f817ba34bca34f2b84a2f65518be493961 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be493962 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be493963 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#months-from-duration> a spin:Function;
+  rdfs:label "fn:months-from-duration";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493964 .
+
+_:f817ba34bca34f2b84a2f65518be493964 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:duration .
+
+_:f817ba34bca34f2b84a2f65518be493965 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#element-with-id> a spin:Function;
+  rdfs:label "fn:element-with-id";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493966, _:f817ba34bca34f2b84a2f65518be493967,
+    _:f817ba34bca34f2b84a2f65518be493968 .
+
+_:f817ba34bca34f2b84a2f65518be493966 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493967 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be493968 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#function-name> a spin:Function;
+  rdfs:label "fn:function-name";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:QName;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493969 .
+
+_:f817ba34bca34f2b84a2f65518be493969 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#collation-key> a spin:Function;
+  rdfs:label "fn:collation-key";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:base64Binary;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493970, _:f817ba34bca34f2b84a2f65518be493971,
+    _:f817ba34bca34f2b84a2f65518be493972 .
+
+_:f817ba34bca34f2b84a2f65518be493970 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493971 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493972 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#days-from-duration> a spin:Function;
+  rdfs:label "fn:days-from-duration";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493973 .
+
+_:f817ba34bca34f2b84a2f65518be493973 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:duration .
+
+<http://www.w3.org/2005/xpath-functions#load-xquery-module> a spin:Function;
+  rdfs:label "fn:load-xquery-module";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493974, _:f817ba34bca34f2b84a2f65518be493975,
+    _:f817ba34bca34f2b84a2f65518be493976 .
+
+_:f817ba34bca34f2b84a2f65518be493974 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493975 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be493976 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#contains> a spin:Function;
+  rdfs:label "fn:contains";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493977, _:f817ba34bca34f2b84a2f65518be493978,
+    _:f817ba34bca34f2b84a2f65518be493979, _:f817ba34bca34f2b84a2f65518be493980, _:f817ba34bca34f2b84a2f65518be493981 .
+
+_:f817ba34bca34f2b84a2f65518be493977 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493978 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493979 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493980 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493981 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#adjust-date-to-timezone> a spin:Function;
+  rdfs:label "fn:adjust-date-to-timezone";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:date;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493982, _:f817ba34bca34f2b84a2f65518be493984,
+    _:f817ba34bca34f2b84a2f65518be493985 .
+
+_:f817ba34bca34f2b84a2f65518be493982 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:date .
+
+<http://www.w3.org/2005/xpath-functions#prefix-from-QName> a spin:Function;
+  rdfs:label "fn:prefix-from-QName";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:NCName;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493983 .
+
+_:f817ba34bca34f2b84a2f65518be493983 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:QName .
+
+_:f817ba34bca34f2b84a2f65518be493984 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:date .
+
+_:f817ba34bca34f2b84a2f65518be493985 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:dayTimeDuration .
+
+<http://www.w3.org/2005/xpath-functions#min> a spin:Function;
+  rdfs:label "fn:min";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyAtomicType;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493986, _:f817ba34bca34f2b84a2f65518be493987,
+    _:f817ba34bca34f2b84a2f65518be493988 .
+
+_:f817ba34bca34f2b84a2f65518be493986 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be493987 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493988 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+<http://www.w3.org/2005/xpath-functions#innermost> a spin:Function;
+  rdfs:label "fn:innermost";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493989 .
+
+_:f817ba34bca34f2b84a2f65518be493989 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#seconds-from-duration> a spin:Function;
+  rdfs:label "fn:seconds-from-duration";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:decimal;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493990 .
+
+_:f817ba34bca34f2b84a2f65518be493990 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:duration .
+
+<http://www.w3.org/2005/xpath-functions#translate> a spin:Function;
+  rdfs:label "fn:translate";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493991, _:f817ba34bca34f2b84a2f65518be493992,
+    _:f817ba34bca34f2b84a2f65518be493993 .
+
+_:f817ba34bca34f2b84a2f65518be493991 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493992 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493993 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#day-from-dateTime> a spin:Function;
+  rdfs:label "fn:day-from-dateTime";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493994 .
+
+_:f817ba34bca34f2b84a2f65518be493994 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:dateTime .
+
+<http://www.w3.org/2005/xpath-functions#QName> a spin:Function;
+  rdfs:label "fn:QName";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:QName;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493995, _:f817ba34bca34f2b84a2f65518be493996 .
+
+_:f817ba34bca34f2b84a2f65518be493995 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493996 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#round-half-to-even> a spin:Function;
+  rdfs:label "fn:round-half-to-even";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493997, _:f817ba34bca34f2b84a2f65518be4939110,
+    _:f817ba34bca34f2b84a2f65518be4939111 .
+
+_:f817ba34bca34f2b84a2f65518be493997 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#unparsed-text-available> a spin:Function;
+  rdfs:label "fn:unparsed-text-available";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be493998, _:f817ba34bca34f2b84a2f65518be493999,
+    _:f817ba34bca34f2b84a2f65518be4939100 .
+
+_:f817ba34bca34f2b84a2f65518be493998 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be493999 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939100 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#remove> a spin:Function;
+  rdfs:label "fn:remove";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939101, _:f817ba34bca34f2b84a2f65518be4939102 .
+
+_:f817ba34bca34f2b84a2f65518be4939101 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939102 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:integer .
+
+<http://www.w3.org/2005/xpath-functions#day-from-date> a spin:Function;
+  rdfs:label "fn:day-from-date";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939103 .
+
+_:f817ba34bca34f2b84a2f65518be4939103 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:date .
+
+<http://www.w3.org/2005/xpath-functions#substring-before> a spin:Function;
+  rdfs:label "fn:substring-before";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939104, _:f817ba34bca34f2b84a2f65518be4939105,
+    _:f817ba34bca34f2b84a2f65518be4939106, _:f817ba34bca34f2b84a2f65518be4939107, _:f817ba34bca34f2b84a2f65518be4939108 .
+
+_:f817ba34bca34f2b84a2f65518be4939104 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939105 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939106 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939107 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939108 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#base-uri> a spin:Function;
+  rdfs:label "fn:base-uri";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyURI;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939109 .
+
+_:f817ba34bca34f2b84a2f65518be4939109 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939110 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939111 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:integer .
+
+<http://www.w3.org/2005/xpath-functions#year-from-date> a spin:Function;
+  rdfs:label "fn:year-from-date";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939112 .
+
+_:f817ba34bca34f2b84a2f65518be4939112 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:date .
+
+<http://www.w3.org/2005/xpath-functions#current-time> a spin:Function;
+  rdfs:label "fn:current-time";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:time .
+
+<http://www.w3.org/2005/xpath-functions#count> a spin:Function;
+  rdfs:label "fn:count";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939113 .
+
+_:f817ba34bca34f2b84a2f65518be4939113 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#snapshot> a spin:Function;
+  rdfs:label "fn:snapshot";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939114 .
+
+_:f817ba34bca34f2b84a2f65518be4939114 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#exists> a spin:Function;
+  rdfs:label "fn:exists";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939115 .
+
+_:f817ba34bca34f2b84a2f65518be4939115 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#namespace-uri> a spin:Function;
+  rdfs:label "fn:namespace-uri";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyURI;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939116 .
+
+<http://www.w3.org/2005/xpath-functions#static-base-uri> a spin:Function;
+  rdfs:label "fn:static-base-uri";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyURI .
+
+_:f817ba34bca34f2b84a2f65518be4939116 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#string> a spin:Function;
+  rdfs:label "fn:string";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939117 .
+
+_:f817ba34bca34f2b84a2f65518be4939117 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#default-language> a spin:Function;
+  rdfs:label "fn:default-language";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:language .
+
+<http://www.w3.org/2005/xpath-functions#not> a spin:Function;
+  rdfs:label "fn:not";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939118 .
+
+_:f817ba34bca34f2b84a2f65518be4939118 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#format-date> a spin:Function;
+  rdfs:label "fn:format-date";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939119, _:f817ba34bca34f2b84a2f65518be4939120,
+    _:f817ba34bca34f2b84a2f65518be4939121, _:f817ba34bca34f2b84a2f65518be4939122, _:f817ba34bca34f2b84a2f65518be4939123,
+    _:f817ba34bca34f2b84a2f65518be4939124, _:f817ba34bca34f2b84a2f65518be4939125 .
+
+_:f817ba34bca34f2b84a2f65518be4939119 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:date .
+
+_:f817ba34bca34f2b84a2f65518be4939120 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939121 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:date .
+
+_:f817ba34bca34f2b84a2f65518be4939122 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939123 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939124 a spl:Argument;
+  spl:predicate sp:arg4;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939125 a spl:Argument;
+  spl:predicate sp:arg5;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#years-from-duration> a spin:Function;
+  rdfs:label "fn:years-from-duration";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939126 .
+
+_:f817ba34bca34f2b84a2f65518be4939126 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:duration .
+
+<http://www.w3.org/2005/xpath-functions#format-dateTime> a spin:Function;
+  rdfs:label "fn:format-dateTime";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939127, _:f817ba34bca34f2b84a2f65518be4939128,
+    _:f817ba34bca34f2b84a2f65518be4939129, _:f817ba34bca34f2b84a2f65518be4939130, _:f817ba34bca34f2b84a2f65518be4939131,
+    _:f817ba34bca34f2b84a2f65518be4939134, _:f817ba34bca34f2b84a2f65518be4939135 .
+
+_:f817ba34bca34f2b84a2f65518be4939127 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:dateTime .
+
+_:f817ba34bca34f2b84a2f65518be4939128 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939129 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939130 a spl:Argument;
+  spl:predicate sp:arg4;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939131 a spl:Argument;
+  spl:predicate sp:arg5;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#format-integer> a spin:Function;
+  rdfs:label "fn:format-integer";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939132, _:f817ba34bca34f2b84a2f65518be4939133,
+    _:f817ba34bca34f2b84a2f65518be4939137, _:f817ba34bca34f2b84a2f65518be4939138, _:f817ba34bca34f2b84a2f65518be4939139 .
+
+_:f817ba34bca34f2b84a2f65518be4939132 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:integer .
+
+_:f817ba34bca34f2b84a2f65518be4939133 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939134 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:dateTime .
+
+_:f817ba34bca34f2b84a2f65518be4939135 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#seconds-from-dateTime> a spin:Function;
+  rdfs:label "fn:seconds-from-dateTime";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:decimal;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939136 .
+
+_:f817ba34bca34f2b84a2f65518be4939136 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:dateTime .
+
+_:f817ba34bca34f2b84a2f65518be4939137 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:integer .
+
+_:f817ba34bca34f2b84a2f65518be4939138 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939139 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#exactly-one> a spin:Function;
+  rdfs:label "fn:exactly-one";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939140 .
+
+_:f817ba34bca34f2b84a2f65518be4939140 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#filter> a spin:Function;
+  rdfs:label "fn:filter";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939141, _:f817ba34bca34f2b84a2f65518be4939142 .
+
+_:f817ba34bca34f2b84a2f65518be4939141 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939142 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+<http://www.w3.org/2005/xpath-functions#apply> a spin:Function;
+  rdfs:label "fn:apply";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939143, _:f817ba34bca34f2b84a2f65518be4939144 .
+
+_:f817ba34bca34f2b84a2f65518be4939143 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939144 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+<http://www.w3.org/2005/xpath-functions#hours-from-time> a spin:Function;
+  rdfs:label "fn:hours-from-time";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939145 .
+
+_:f817ba34bca34f2b84a2f65518be4939145 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:time .
+
+<http://www.w3.org/2005/xpath-functions#round> a spin:Function;
+  rdfs:label "fn:round";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939146, _:f817ba34bca34f2b84a2f65518be4939148,
+    _:f817ba34bca34f2b84a2f65518be4939149 .
+
+_:f817ba34bca34f2b84a2f65518be4939146 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#ceiling> a spin:Function;
+  rdfs:label "fn:ceiling";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939147 .
+
+_:f817ba34bca34f2b84a2f65518be4939147 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939148 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939149 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:integer .
+
+<http://www.w3.org/2005/xpath-functions#iri-to-uri> a spin:Function;
+  rdfs:label "fn:iri-to-uri";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939150 .
+
+_:f817ba34bca34f2b84a2f65518be4939150 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#tokenize> a spin:Function;
+  rdfs:label "fn:tokenize";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939151, _:f817ba34bca34f2b84a2f65518be4939152,
+    _:f817ba34bca34f2b84a2f65518be4939153, _:f817ba34bca34f2b84a2f65518be4939154, _:f817ba34bca34f2b84a2f65518be4939155,
+    _:f817ba34bca34f2b84a2f65518be4939156 .
+
+_:f817ba34bca34f2b84a2f65518be4939151 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939152 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939153 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939154 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939155 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939156 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#id> a spin:Function;
+  rdfs:label "fn:id";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939157, _:f817ba34bca34f2b84a2f65518be4939161,
+    _:f817ba34bca34f2b84a2f65518be4939162 .
+
+_:f817ba34bca34f2b84a2f65518be4939157 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#number> a spin:Function;
+  rdfs:label "fn:number";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:double;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939158 .
+
+_:f817ba34bca34f2b84a2f65518be4939158 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+<http://www.w3.org/2005/xpath-functions#subsequence> a spin:Function;
+  rdfs:label "fn:subsequence";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939159, _:f817ba34bca34f2b84a2f65518be4939160,
+    _:f817ba34bca34f2b84a2f65518be4939163, _:f817ba34bca34f2b84a2f65518be4939164, _:f817ba34bca34f2b84a2f65518be4939165 .
+
+_:f817ba34bca34f2b84a2f65518be4939159 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939160 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be4939161 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939162 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be4939163 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939164 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be4939165 a spl:Argument;
+  spl:predicate sp:arg3 .
+
+<http://www.w3.org/2005/xpath-functions#seconds-from-time> a spin:Function;
+  rdfs:label "fn:seconds-from-time";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:decimal;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939166 .
+
+_:f817ba34bca34f2b84a2f65518be4939166 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:time .
+
+<http://www.w3.org/2005/xpath-functions#max> a spin:Function;
+  rdfs:label "fn:max";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyAtomicType;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939167, _:f817ba34bca34f2b84a2f65518be4939168,
+    _:f817ba34bca34f2b84a2f65518be4939172 .
+
+_:f817ba34bca34f2b84a2f65518be4939167 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939168 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#replace> a spin:Function;
+  rdfs:label "fn:replace";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939169, _:f817ba34bca34f2b84a2f65518be4939170,
+    _:f817ba34bca34f2b84a2f65518be4939171, _:f817ba34bca34f2b84a2f65518be4939173, _:f817ba34bca34f2b84a2f65518be4939174,
+    _:f817ba34bca34f2b84a2f65518be4939175, _:f817ba34bca34f2b84a2f65518be4939176 .
+
+_:f817ba34bca34f2b84a2f65518be4939169 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939170 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939171 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939172 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939173 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939174 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939175 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939176 a spl:Argument;
+  spl:predicate sp:arg4;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#outermost> a spin:Function;
+  rdfs:label "fn:outermost";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939177 .
+
+_:f817ba34bca34f2b84a2f65518be4939177 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#name> a spin:Function;
+  rdfs:label "fn:name";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939178 .
+
+_:f817ba34bca34f2b84a2f65518be4939178 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#position> a spin:Function;
+  rdfs:label "fn:position";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer .
+
+<http://www.w3.org/2005/xpath-functions#function-lookup> a spin:Function;
+  rdfs:label "fn:function-lookup";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939179, _:f817ba34bca34f2b84a2f65518be4939180 .
+
+_:f817ba34bca34f2b84a2f65518be4939179 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:QName .
+
+_:f817ba34bca34f2b84a2f65518be4939180 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:integer .
+
+<http://www.w3.org/2005/xpath-functions#lang> a spin:Function;
+  rdfs:label "fn:lang";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939181, _:f817ba34bca34f2b84a2f65518be4939182 .
+
+_:f817ba34bca34f2b84a2f65518be4939181 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939182 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+<http://www.w3.org/2005/xpath-functions#lang> a spin:Function;
+  rdfs:label "fn:lang";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939183 .
+
+_:f817ba34bca34f2b84a2f65518be4939183 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#timezone-from-date> a spin:Function;
+  rdfs:label "fn:timezone-from-date";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:dayTimeDuration;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939184 .
+
+_:f817ba34bca34f2b84a2f65518be4939184 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:date .
+
+<http://www.w3.org/2005/xpath-functions#adjust-dateTime-to-timezone> a spin:Function;
+  rdfs:label "fn:adjust-dateTime-to-timezone";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:dateTime;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939185, _:f817ba34bca34f2b84a2f65518be4939186,
+    _:f817ba34bca34f2b84a2f65518be4939187 .
+
+_:f817ba34bca34f2b84a2f65518be4939185 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:dateTime .
+
+_:f817ba34bca34f2b84a2f65518be4939186 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:dateTime .
+
+_:f817ba34bca34f2b84a2f65518be4939187 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:dayTimeDuration .
+
+<http://www.w3.org/2005/xpath-functions#generate-id> a spin:Function;
+  rdfs:label "fn:generate-id";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939188 .
+
+_:f817ba34bca34f2b84a2f65518be4939188 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#encode-for-uri> a spin:Function;
+  rdfs:label "fn:encode-for-uri";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939189 .
+
+_:f817ba34bca34f2b84a2f65518be4939189 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#hours-from-duration> a spin:Function;
+  rdfs:label "fn:hours-from-duration";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939190 .
+
+_:f817ba34bca34f2b84a2f65518be4939190 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:duration .
+
+<http://www.w3.org/2005/xpath-functions#current-dateTime> a spin:Function;
+  rdfs:label "fn:current-dateTime";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:dateTime .
+
+<http://www.w3.org/2005/xpath-functions#format-time> a spin:Function;
+  rdfs:label "fn:format-time";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939191, _:f817ba34bca34f2b84a2f65518be4939192,
+    _:f817ba34bca34f2b84a2f65518be4939193, _:f817ba34bca34f2b84a2f65518be4939194, _:f817ba34bca34f2b84a2f65518be4939195,
+    _:f817ba34bca34f2b84a2f65518be4939196, _:f817ba34bca34f2b84a2f65518be4939197 .
+
+_:f817ba34bca34f2b84a2f65518be4939191 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:time .
+
+_:f817ba34bca34f2b84a2f65518be4939192 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939193 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:time .
+
+_:f817ba34bca34f2b84a2f65518be4939194 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939195 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939196 a spl:Argument;
+  spl:predicate sp:arg4;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939197 a spl:Argument;
+  spl:predicate sp:arg5;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#copy-of> a spin:Function;
+  rdfs:label "fn:copy-of";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939198 .
+
+_:f817ba34bca34f2b84a2f65518be4939198 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#environment-variable> a spin:Function;
+  rdfs:label "fn:environment-variable";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939199 .
+
+_:f817ba34bca34f2b84a2f65518be4939199 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#floor> a spin:Function;
+  rdfs:label "fn:floor";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939200 .
+
+_:f817ba34bca34f2b84a2f65518be4939200 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#has-children> a spin:Function;
+  rdfs:label "fn:has-children";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939203 .
+
+<http://www.w3.org/2005/xpath-functions#resolve-uri> a spin:Function;
+  rdfs:label "fn:resolve-uri";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyURI;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939201, _:f817ba34bca34f2b84a2f65518be4939202,
+    _:f817ba34bca34f2b84a2f65518be4939204 .
+
+_:f817ba34bca34f2b84a2f65518be4939201 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939202 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939203 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939204 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#empty> a spin:Function;
+  rdfs:label "fn:empty";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939205 .
+
+_:f817ba34bca34f2b84a2f65518be4939205 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#avg> a spin:Function;
+  rdfs:label "fn:avg";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyAtomicType;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939206 .
+
+_:f817ba34bca34f2b84a2f65518be4939206 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+<http://www.w3.org/2005/xpath-functions#timezone-from-time> a spin:Function;
+  rdfs:label "fn:timezone-from-time";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:dayTimeDuration;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939207 .
+
+_:f817ba34bca34f2b84a2f65518be4939207 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:time .
+
+<http://www.w3.org/2005/xpath-functions#for-each-pair> a spin:Function;
+  rdfs:label "fn:for-each-pair";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939208, _:f817ba34bca34f2b84a2f65518be4939209,
+    _:f817ba34bca34f2b84a2f65518be4939210 .
+
+_:f817ba34bca34f2b84a2f65518be4939208 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939209 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be4939210 a spl:Argument;
+  spl:predicate sp:arg3 .
+
+<http://www.w3.org/2005/xpath-functions#available-environment-variables> a spin:Function;
+  rdfs:label "fn:available-environment-variables";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#minutes-from-dateTime> a spin:Function;
+  rdfs:label "fn:minutes-from-dateTime";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939211 .
+
+_:f817ba34bca34f2b84a2f65518be4939211 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:dateTime .
+
+<http://www.w3.org/2005/xpath-functions#index-of> a spin:Function;
+  rdfs:label "fn:index-of";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939212, _:f817ba34bca34f2b84a2f65518be4939213,
+    _:f817ba34bca34f2b84a2f65518be4939214, _:f817ba34bca34f2b84a2f65518be4939215, _:f817ba34bca34f2b84a2f65518be4939216 .
+
+_:f817ba34bca34f2b84a2f65518be4939212 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939213 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939214 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939215 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939216 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#normalize-unicode> a spin:Function;
+  rdfs:label "fn:normalize-unicode";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939217, _:f817ba34bca34f2b84a2f65518be4939218,
+    _:f817ba34bca34f2b84a2f65518be4939219 .
+
+_:f817ba34bca34f2b84a2f65518be4939217 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939218 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939219 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#analyze-string> a spin:Function;
+  rdfs:label "fn:analyze-string";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939220, _:f817ba34bca34f2b84a2f65518be4939221,
+    _:f817ba34bca34f2b84a2f65518be4939222, _:f817ba34bca34f2b84a2f65518be4939223, _:f817ba34bca34f2b84a2f65518be4939224 .
+
+_:f817ba34bca34f2b84a2f65518be4939220 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939221 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939222 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939223 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939224 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#sum> a spin:Function;
+  rdfs:label "fn:sum";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyAtomicType;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939225, _:f817ba34bca34f2b84a2f65518be4939226,
+    _:f817ba34bca34f2b84a2f65518be4939227 .
+
+_:f817ba34bca34f2b84a2f65518be4939225 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939226 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939227 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+<http://www.w3.org/2005/xpath-functions#random-number-generator> a spin:Function;
+  rdfs:label "fn:random-number-generator";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939230 .
+
+<http://www.w3.org/2005/xpath-functions#resolve-QName> a spin:Function;
+  rdfs:label "fn:resolve-QName";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:QName;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939228, _:f817ba34bca34f2b84a2f65518be4939229 .
+
+_:f817ba34bca34f2b84a2f65518be4939228 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939229 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be4939230 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+<http://www.w3.org/2005/xpath-functions#json-to-xml> a spin:Function;
+  rdfs:label "fn:json-to-xml";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939231, _:f817ba34bca34f2b84a2f65518be4939232,
+    _:f817ba34bca34f2b84a2f65518be4939233 .
+
+_:f817ba34bca34f2b84a2f65518be4939231 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939232 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be4939233 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#head> a spin:Function;
+  rdfs:label "fn:head";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939234 .
+
+_:f817ba34bca34f2b84a2f65518be4939234 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#contains-token> a spin:Function;
+  rdfs:label "fn:contains-token";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939235, _:f817ba34bca34f2b84a2f65518be4939236,
+    _:f817ba34bca34f2b84a2f65518be4939237, _:f817ba34bca34f2b84a2f65518be4939238, _:f817ba34bca34f2b84a2f65518be4939239 .
+
+_:f817ba34bca34f2b84a2f65518be4939235 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939236 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939237 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939238 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939239 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#string-length> a spin:Function;
+  rdfs:label "fn:string-length";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939256 .
+
+<http://www.w3.org/2005/xpath-functions#dateTime> a spin:Function;
+  rdfs:label "fn:dateTime";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:dateTime;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939240, _:f817ba34bca34f2b84a2f65518be4939241 .
+
+_:f817ba34bca34f2b84a2f65518be4939240 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:date .
+
+_:f817ba34bca34f2b84a2f65518be4939241 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:time .
+
+<http://www.w3.org/2005/xpath-functions#month-from-date> a spin:Function;
+  rdfs:label "fn:month-from-date";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939242 .
+
+_:f817ba34bca34f2b84a2f65518be4939242 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:date .
+
+<http://www.w3.org/2005/xpath-functions#minutes-from-duration> a spin:Function;
+  rdfs:label "fn:minutes-from-duration";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939243 .
+
+_:f817ba34bca34f2b84a2f65518be4939243 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:duration .
+
+<http://www.w3.org/2005/xpath-functions#idref> a spin:Function;
+  rdfs:label "fn:idref";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939244, _:f817ba34bca34f2b84a2f65518be4939245,
+    _:f817ba34bca34f2b84a2f65518be4939246 .
+
+_:f817ba34bca34f2b84a2f65518be4939244 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939245 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939246 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+<http://www.w3.org/2005/xpath-functions#adjust-time-to-timezone> a spin:Function;
+  rdfs:label "fn:adjust-time-to-timezone";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:time;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939247, _:f817ba34bca34f2b84a2f65518be4939257,
+    _:f817ba34bca34f2b84a2f65518be4939258 .
+
+_:f817ba34bca34f2b84a2f65518be4939247 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:time .
+
+<http://www.w3.org/2005/xpath-functions#lower-case> a spin:Function;
+  rdfs:label "fn:lower-case";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939248 .
+
+_:f817ba34bca34f2b84a2f65518be4939248 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#implicit-timezone> a spin:Function;
+  rdfs:label "fn:implicit-timezone";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:dayTimeDuration .
+
+<http://www.w3.org/2005/xpath-functions#reverse> a spin:Function;
+  rdfs:label "fn:reverse";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939249 .
+
+_:f817ba34bca34f2b84a2f65518be4939249 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#format-number> a spin:Function;
+  rdfs:label "fn:format-number";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939250, _:f817ba34bca34f2b84a2f65518be4939251,
+    _:f817ba34bca34f2b84a2f65518be4939252, _:f817ba34bca34f2b84a2f65518be4939253, _:f817ba34bca34f2b84a2f65518be4939254 .
+
+_:f817ba34bca34f2b84a2f65518be4939250 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939251 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939252 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939253 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939254 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#parse-xml-fragment> a spin:Function;
+  rdfs:label "fn:parse-xml-fragment";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939255 .
+
+_:f817ba34bca34f2b84a2f65518be4939255 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939256 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939257 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:time .
+
+_:f817ba34bca34f2b84a2f65518be4939258 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:dayTimeDuration .
+
+<http://www.w3.org/2005/xpath-functions#error> a spin:Function;
+  rdfs:label "fn:error";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939259, _:f817ba34bca34f2b84a2f65518be4939260,
+    _:f817ba34bca34f2b84a2f65518be4939261, _:f817ba34bca34f2b84a2f65518be4939275, _:f817ba34bca34f2b84a2f65518be4939277,
+    _:f817ba34bca34f2b84a2f65518be4939278 .
+
+_:f817ba34bca34f2b84a2f65518be4939259 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:QName .
+
+_:f817ba34bca34f2b84a2f65518be4939260 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939261 a spl:Argument;
+  spl:predicate sp:arg3 .
+
+<http://www.w3.org/2005/xpath-functions#substring-after> a spin:Function;
+  rdfs:label "fn:substring-after";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939262, _:f817ba34bca34f2b84a2f65518be4939263,
+    _:f817ba34bca34f2b84a2f65518be4939285, _:f817ba34bca34f2b84a2f65518be4939286, _:f817ba34bca34f2b84a2f65518be4939287 .
+
+_:f817ba34bca34f2b84a2f65518be4939262 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939263 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#parse-ietf-date> a spin:Function;
+  rdfs:label "fn:parse-ietf-date";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:dateTime;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939264 .
+
+_:f817ba34bca34f2b84a2f65518be4939264 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#deep-equal> a spin:Function;
+  rdfs:label "fn:deep-equal";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939265, _:f817ba34bca34f2b84a2f65518be4939266,
+    _:f817ba34bca34f2b84a2f65518be4939267, _:f817ba34bca34f2b84a2f65518be4939268, _:f817ba34bca34f2b84a2f65518be4939269 .
+
+_:f817ba34bca34f2b84a2f65518be4939265 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939266 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be4939267 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#data> a spin:Function;
+  rdfs:label "fn:data";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyAtomicType;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939270 .
+
+_:f817ba34bca34f2b84a2f65518be4939268 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939269 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+<http://www.w3.org/2005/xpath-functions#uri-collection> a spin:Function;
+  rdfs:label "fn:uri-collection";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyURI;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939271 .
+
+_:f817ba34bca34f2b84a2f65518be4939270 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939271 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#unparsed-text> a spin:Function;
+  rdfs:label "fn:unparsed-text";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939272, _:f817ba34bca34f2b84a2f65518be4939273,
+    _:f817ba34bca34f2b84a2f65518be4939274 .
+
+_:f817ba34bca34f2b84a2f65518be4939272 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939273 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939274 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939275 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:QName .
+
+<http://www.w3.org/2005/xpath-functions#string-join> a spin:Function;
+  rdfs:label "fn:string-join";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939276, _:f817ba34bca34f2b84a2f65518be4939279,
+    _:f817ba34bca34f2b84a2f65518be4939280 .
+
+_:f817ba34bca34f2b84a2f65518be4939276 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939277 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:QName .
+
+_:f817ba34bca34f2b84a2f65518be4939278 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939279 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939280 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#upper-case> a spin:Function;
+  rdfs:label "fn:upper-case";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939281 .
+
+_:f817ba34bca34f2b84a2f65518be4939281 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#json-doc> a spin:Function;
+  rdfs:label "fn:json-doc";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939282, _:f817ba34bca34f2b84a2f65518be4939283,
+    _:f817ba34bca34f2b84a2f65518be4939284 .
+
+_:f817ba34bca34f2b84a2f65518be4939282 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939283 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939284 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+<http://www.w3.org/2005/xpath-functions#false> a spin:Function;
+  rdfs:label "fn:false";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean .
+
+_:f817ba34bca34f2b84a2f65518be4939285 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939286 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939287 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#concat> a spin:Function;
+  rdfs:label "fn:concat";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939288 .
+
+_:f817ba34bca34f2b84a2f65518be4939288 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+<http://www.w3.org/2005/xpath-functions#current-date> a spin:Function;
+  rdfs:label "fn:current-date";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:date .
+
+<http://www.w3.org/2005/xpath-functions#tail> a spin:Function;
+  rdfs:label "fn:tail";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939289 .
+
+_:f817ba34bca34f2b84a2f65518be4939289 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#distinct-values> a spin:Function;
+  rdfs:label "fn:distinct-values";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyAtomicType;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939290, _:f817ba34bca34f2b84a2f65518be4939291,
+    _:f817ba34bca34f2b84a2f65518be4939292 .
+
+_:f817ba34bca34f2b84a2f65518be4939290 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939291 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:anyAtomicType .
+
+_:f817ba34bca34f2b84a2f65518be4939292 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#document-uri> a spin:Function;
+  rdfs:label "fn:document-uri";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:anyURI;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939300 .
+
+<http://www.w3.org/2005/xpath-functions#nilled> a spin:Function;
+  rdfs:label "fn:nilled";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939293 .
+
+_:f817ba34bca34f2b84a2f65518be4939293 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#starts-with> a spin:Function;
+  rdfs:label "fn:starts-with";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:boolean;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939294, _:f817ba34bca34f2b84a2f65518be4939295,
+    _:f817ba34bca34f2b84a2f65518be4939296, _:f817ba34bca34f2b84a2f65518be4939297, _:f817ba34bca34f2b84a2f65518be4939298 .
+
+_:f817ba34bca34f2b84a2f65518be4939294 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939295 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939296 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939297 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939298 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#parse-xml> a spin:Function;
+  rdfs:label "fn:parse-xml";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939299 .
+
+_:f817ba34bca34f2b84a2f65518be4939299 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939300 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#compare> a spin:Function;
+  rdfs:label "fn:compare";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:integer;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939301, _:f817ba34bca34f2b84a2f65518be4939302,
+    _:f817ba34bca34f2b84a2f65518be4939303, _:f817ba34bca34f2b84a2f65518be4939304, _:f817ba34bca34f2b84a2f65518be4939305 .
+
+_:f817ba34bca34f2b84a2f65518be4939301 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939302 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939303 a spl:Argument;
+  spl:predicate sp:arg3;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939304 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939305 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#unparsed-text-lines> a spin:Function;
+  rdfs:label "fn:unparsed-text-lines";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939306, _:f817ba34bca34f2b84a2f65518be4939308,
+    _:f817ba34bca34f2b84a2f65518be4939309 .
+
+_:f817ba34bca34f2b84a2f65518be4939306 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#abs> a spin:Function;
+  rdfs:label "fn:abs";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939307 .
+
+_:f817ba34bca34f2b84a2f65518be4939307 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939308 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939309 a spl:Argument;
+  spl:predicate sp:arg2;
+  spl:valueType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#unordered> a spin:Function;
+  rdfs:label "fn:unordered";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939310 .
+
+_:f817ba34bca34f2b84a2f65518be4939310 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#zero-or-one> a spin:Function;
+  rdfs:label "fn:zero-or-one";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939311 .
+
+_:f817ba34bca34f2b84a2f65518be4939311 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#default-collation> a spin:Function;
+  rdfs:label "fn:default-collation";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string .
+
+<http://www.w3.org/2005/xpath-functions#path> a spin:Function;
+  rdfs:label "fn:path";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939312 .
+
+_:f817ba34bca34f2b84a2f65518be4939312 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+<http://www.w3.org/2005/xpath-functions#local-name> a spin:Function;
+  rdfs:label "fn:local-name";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939316 .
+
+<http://www.w3.org/2005/xpath-functions#substring> a spin:Function;
+  rdfs:label "fn:substring";
+  rdfs:subClassOf spl:XPathFunctions;
+  spin:returnType xsd:string;
+  spin:constraint _:f817ba34bca34f2b84a2f65518be4939313, _:f817ba34bca34f2b84a2f65518be4939314,
+    _:f817ba34bca34f2b84a2f65518be4939315, _:f817ba34bca34f2b84a2f65518be4939317, _:f817ba34bca34f2b84a2f65518be4939318 .
+
+_:f817ba34bca34f2b84a2f65518be4939313 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939314 a spl:Argument;
+  spl:predicate sp:arg2 .
+
+_:f817ba34bca34f2b84a2f65518be4939315 a spl:Argument;
+  spl:predicate sp:arg3 .
+
+_:f817ba34bca34f2b84a2f65518be4939316 a spl:Argument;
+  spl:predicate sp:arg1 .
+
+_:f817ba34bca34f2b84a2f65518be4939317 a spl:Argument;
+  spl:predicate sp:arg1;
+  spl:valueType xsd:string .
+
+_:f817ba34bca34f2b84a2f65518be4939318 a spl:Argument;
+  spl:predicate sp:arg2 .
