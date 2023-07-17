@@ -77,6 +77,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -995,25 +996,20 @@ final class HalyardTupleExprEvaluation {
         return (parent, bindings) -> {
 	        step.evaluate(new BindingSetPipe(parent) {
 	            final List<ProjectionElemList> projections = multiProjection.getProjections();
-	            final BindingSet prev[] = new BindingSet[projections.size()];
+	            final AtomicReferenceArray<BindingSet> previouslyPushed = new AtomicReferenceArray<>(projections.size());
 	
 	            @Override
 	            protected boolean next(BindingSet bs) {
-	                for (int i=0; i<prev.length; i++) {
+	                for (int i=0; i<projections.size(); i++) {
 	                    BindingSet nb = ProjectionIterator.project(projections.get(i), bs, bindings);
 	                    //ignore duplicates
-	                    boolean push = false;
-	                    synchronized (prev) {
-	                        if (!nb.equals(prev[i])) {
-	                            prev[i] = nb;
-	                            push = true;
-	                        }
-	                    }
-	                    if (push) {
+	                    BindingSet prev = previouslyPushed.get(i);
+                        if (!nb.equals(prev)) {
+                        	previouslyPushed.compareAndSet(i, prev, nb);
 	                        if (!parent.push(nb)) {
 	                            return false;
 	                        }
-	                    }
+                        }
 	                }
 	                return true;
 	            }

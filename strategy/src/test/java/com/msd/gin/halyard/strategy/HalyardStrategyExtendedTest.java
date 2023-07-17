@@ -21,6 +21,9 @@ import static junit.framework.TestCase.assertTrue;
 
 import com.msd.gin.halyard.vocab.HALYARD;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -29,8 +32,10 @@ import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDF4J;
 import org.eclipse.rdf4j.model.vocabulary.SESAME;
 import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.GraphQueryResult;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.QueryLanguage;
+import org.eclipse.rdf4j.query.QueryResult;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
@@ -318,14 +323,13 @@ public class HalyardStrategyExtendedTest {
         }
     }
 
-    private static int countSlowly(TupleQueryResult res) throws InterruptedException {
-    	int num = 0;
-    	while (res.hasNext()) {
-    		res.next();
-    		num++;
-    		Thread.sleep(100L); // allow time for threads to potentially do more work than is needed
-    	}
-    	return num;
+    @Test
+    public void testConstruct() throws Exception {
+        con.add(getClass().getResource("/testdata-query/dataset-query.trig"));
+    	String q = "PREFIX ex: <http://example.org/> PREFIX foaf: <http://xmlns.com/foaf/0.1/> CONSTRUCT {ex:Person rdfs:subClassOf ex:Thing. ?p a ex:Person} WHERE { [] foaf:knows+ ?p }";
+        try (GraphQueryResult res = con.prepareGraphQuery(QueryLanguage.SPARQL, q).evaluate()) {
+	        assertEquals(4, countDistinct(res));
+        }
     }
 
     @Test
@@ -334,5 +338,23 @@ public class HalyardStrategyExtendedTest {
         try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
 	        assertEquals(162, ((Literal)res.next().getValue("c")).intValue());
         }
+    }
+
+    private static int countDistinct(QueryResult<?> res) throws InterruptedException {
+    	Set<Object> distinct = new HashSet<>();
+    	while (res.hasNext()) {
+    		distinct.add(res.next());
+    	}
+    	return distinct.size();
+    }
+
+    private static int countSlowly(QueryResult<?> res) throws InterruptedException {
+    	int num = 0;
+    	while (res.hasNext()) {
+    		res.next();
+    		num++;
+    		Thread.sleep(100L); // allow time for threads to potentially do more work than is needed
+    	}
+    	return num;
     }
 }
