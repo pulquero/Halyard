@@ -17,18 +17,25 @@
 package com.msd.gin.halyard.strategy.collections;
 
 import java.io.Closeable;
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
+import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.query.BindingSet;
 import org.mapdb.DB;
+import org.mapdb.DB.HTreeSetMaker;
 import org.mapdb.DBMaker;
+import org.mapdb.Serializer;
 
 /**
- * TODO
- * This is a MapDB implementation, however a hash set backed by HDFS is expected here.
+ * This is a MapDB implementation.
  * Thread-safe.
  * @author Adam Sotona (MSD)
  * @param <E> Serializable element type
@@ -38,15 +45,29 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
     private static final String SET_NAME = "temp";
 
     private final int memoryThreshold;
+    private final Serializer<E> serializer;
     private Set<E> set;
     private DB db;
 
-    public static <E extends Serializable> BigHashSet<E> create(int memoryThreshold) {
-    	return new BigHashSet<>(memoryThreshold);
+    public static <E extends Serializable> BigHashSet<E> create(int memoryThreshold, Serializer<E> serializer) {
+    	return new BigHashSet<>(memoryThreshold, serializer);
     }
 
-    private BigHashSet(int memoryThreshold) {
+    public static BigHashSet<Value> createValueSet(int memoryThreshold, ValueFactory vf) {
+    	return create(memoryThreshold, new ValueSerializer(vf));
+    }
+
+    public static BigHashSet<BindingSet> createBindingSetSet(int memoryThreshold, ValueFactory vf) {
+    	return create(memoryThreshold, new BindingSetSerializer(vf));
+    }
+
+    public static <E extends Serializable> BigHashSet<E> create(int memoryThreshold) {
+    	return create(memoryThreshold, null);
+    }
+
+    private BigHashSet(int memoryThreshold, Serializer<E> serializer) {
     	this.memoryThreshold = memoryThreshold;
+    	this.serializer = serializer;
     	this.set = new HashSet<>(1024);
     }
 
@@ -77,8 +98,12 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
     		return;
     	}
 
-    	db = DBMaker.newTempFileDB().deleteFilesAfterClose().closeOnJvmShutdown().transactionDisable().asyncWriteEnable().make();
-        Set<E> dbSet = db.getHashSet(SET_NAME);
+    	db = DBMaker.newTempFileDB().deleteFilesAfterClose().closeOnJvmShutdown().mmapFileEnableIfSupported().transactionDisable().asyncWriteEnable().make();
+    	HTreeSetMaker setMaker = db.createHashSet(SET_NAME);
+    	if (serializer != null) {
+    		setMaker = setMaker.serializer(serializer);
+    	}
+        Set<E> dbSet = setMaker.make();
         dbSet.addAll(set);
         set = dbSet;
     }
@@ -118,5 +143,41 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
 	        	db = null;
 	        }
     	}
+    }
+
+
+	private static class ValueSerializer extends AbstractValueSerializer<Value> {
+    	ValueSerializer(ValueFactory vf) {
+    		super(vf);
+    	}
+
+    	@Override
+		public void serialize(DataOutput out, Value value) throws IOException {
+			ByteBuffer tmp = newTempBuffer();
+			writeValue(value, out, tmp);
+		}
+
+		@Override
+		public Value deserialize(DataInput in, int available) throws IOException {
+			return readValue(in);
+		}
+    }
+
+
+    private static class BindingSetSerializer extends AbstractValueSerializer<BindingSet> {
+		BindingSetSerializer(ValueFactory vf) {
+			super(vf);
+		}
+
+		@Override
+		public void serialize(DataOutput out, BindingSet bs) throws IOException {
+			ByteBuffer tmp = newTempBuffer();
+			writeBindingSet(bs, out, tmp);
+		}
+
+		@Override
+		public BindingSet deserialize(DataInput in, int available) throws IOException {
+			return readBindingSet(in);
+		}
     }
 }

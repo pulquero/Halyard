@@ -5,6 +5,9 @@ import com.ibm.icu.text.UnicodeCompressor;
 import com.ibm.icu.text.UnicodeDecompressor;
 
 import java.io.ByteArrayOutputStream;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -347,9 +350,10 @@ public class ValueIO {
 		if (defaultValueIO == null) {
 			synchronized (ValueIO.class) {
 				if (defaultValueIO == null) {
-					defaultValueIO = new ValueIO(new HalyardTableConfiguration((Iterable<Map.Entry<String, String>>) (Iterable<?>) System.getProperties().entrySet()));
-					defaultWriter = getDefault().createWriter();
-					defaultReader = getDefault().createReader();
+					ValueIO valueIO = new ValueIO(new HalyardTableConfiguration((Iterable<Map.Entry<String, String>>) (Iterable<?>) System.getProperties().entrySet()));
+					defaultWriter = valueIO.createWriter();
+					defaultReader = valueIO.createReader();
+					defaultValueIO = valueIO;
 				}
 			}
 		}
@@ -839,7 +843,9 @@ public class ValueIO {
 			int sizePos = buf.position();
 			int startPos = buf.position() + sizeHeaderBytes;
 			buf.position(startPos);
-			buf = writeTo(v, buf);
+			if (v != null) {
+				buf = writeTo(v, buf);
+			}
 			int endPos = buf.position();
 			int len = endPos - startPos;
 			buf.position(sizePos);
@@ -852,6 +858,29 @@ public class ValueIO {
 			}
 			buf.position(endPos);
 			return buf;
+		}
+
+		public ByteBuffer writeValueWithSizeHeader(Value v, DataOutput out, int sizeHeaderBytes, ByteBuffer tmp) throws IOException {
+			int len;
+			if (v != null) {
+				tmp.clear();
+				tmp = writeTo(v, tmp);
+				tmp.flip();
+				len = tmp.remaining();
+			} else {
+				len = 0;
+			}
+			if (sizeHeaderBytes == Short.BYTES) {
+				out.writeShort((short) len);
+			} else if (sizeHeaderBytes == Integer.BYTES) {
+				out.writeInt(len);
+			} else {
+				throw new AssertionError();
+			}
+			if (len > 0) {
+				out.write(tmp.array(), tmp.arrayOffset(), len);
+			}
+			return tmp;
 		}
 
 		public byte[] toBytes(Value v) {
@@ -1045,11 +1074,31 @@ public class ValueIO {
 			} else {
 				throw new AssertionError();
 			}
+			if (len == 0) {
+				return null;
+			}
 			int originalLimit = buf.limit();
 			buf.limit(buf.position() + len);
 			Value v = readValue(buf, vf);
 			buf.limit(originalLimit);
 			return v;
+		}
+
+		public Value readValueWithSizeHeader(DataInput in, ValueFactory vf, int sizeHeaderBytes) throws IOException {
+			int len;
+			if (sizeHeaderBytes == Short.BYTES) {
+				len = in.readShort();
+			} else if (sizeHeaderBytes == Integer.BYTES) {
+				len = in.readInt();
+			} else {
+				throw new AssertionError();
+			}
+			if (len == 0) {
+				return null;
+			}
+			byte[] b = new byte[len];
+			in.readFully(b);
+			return readValue(ByteBuffer.wrap(b), vf);
 		}
 
 		public Value readValue(ByteBuffer b, ValueFactory vf) {

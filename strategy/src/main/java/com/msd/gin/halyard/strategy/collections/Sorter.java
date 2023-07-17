@@ -25,20 +25,22 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 
 import org.mapdb.DB;
+import org.mapdb.DB.BTreeMapMaker;
 import org.mapdb.DBMaker;
+import org.mapdb.Serializer;
 
 /**
  * Sorter does not preserve unique instances. All equal instances are mapped to a single instance.
- * TODO
- * This is a MapDB implementation, however a merge-sort backed by HDFS is expected here.
+ * This is a MapDB implementation.
  * @author Adam Sotona (MSD)
  * @param <E> Comparable and Serializable element type
  */
-public class Sorter <E extends Comparable<E> & Serializable> implements Iterable<Map.Entry<E, Long>>, Closeable {
+public class Sorter<E extends Comparable<E> & Serializable> implements Iterable<Map.Entry<E, Long>>, Closeable {
 
     private static final String MAP_NAME = "temp";
 
     private final int memoryThreshold;
+    private final Serializer<E> serializer;
     private NavigableMap<E, Long> map;
     private DB db;
     private final long limit;
@@ -50,12 +52,18 @@ public class Sorter <E extends Comparable<E> & Serializable> implements Iterable
      * @param limit long limit, where Long.MAXLONG means no limit
      * @param distinct optional boolean switch to do not preserve multiple equal elements
      * @param memoryThreshold memory usage threshold at which to swap to disk
+     * @param serializer custom serializer to use (can be null)
      */
-    public Sorter(long limit, boolean distinct, int memoryThreshold) {
+    public Sorter(long limit, boolean distinct, int memoryThreshold, Serializer<E> serializer) {
         this.map = new TreeMap<>();
         this.limit = limit;
         this.distinct = distinct;
         this.memoryThreshold = memoryThreshold;
+        this.serializer = serializer;
+    }
+
+    public Sorter(long limit, boolean distinct, int memoryThreshold) {
+    	this(limit, distinct, memoryThreshold, null);
     }
 
     /**
@@ -106,8 +114,12 @@ public class Sorter <E extends Comparable<E> & Serializable> implements Iterable
     		return;
     	}
 
-    	db = DBMaker.newTempFileDB().deleteFilesAfterClose().closeOnJvmShutdown().transactionDisable().asyncWriteEnable().make();
-        NavigableMap<E,Long> dbMap = db.createTreeMap(MAP_NAME).make();
+    	db = DBMaker.newTempFileDB().deleteFilesAfterClose().closeOnJvmShutdown().mmapFileEnableIfSupported().transactionDisable().asyncWriteEnable().make();
+    	BTreeMapMaker mapMaker = db.createTreeMap(MAP_NAME);
+    	if (serializer != null) {
+    		mapMaker = mapMaker.keySerializerWrap(serializer);
+    	}
+        NavigableMap<E,Long> dbMap = mapMaker.make();
         dbMap.putAll(map);
         map = dbMap;
     }

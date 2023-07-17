@@ -99,6 +99,10 @@ public final class Hashes {
 		return StandardCharsets.UTF_8.decode(ENCODER.encode(b));
 	}
 
+	public static byte[] toBytes(String s) {
+		return s.getBytes(StandardCharsets.UTF_8);
+	}
+
 
 	public static abstract class HashFunction implements Function<byte[],byte[]> {
 		private final String name;

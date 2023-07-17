@@ -8,8 +8,6 @@ import java.io.ObjectStreamException;
 import java.nio.ByteBuffer;
 
 final class SerializedValue implements Externalizable {
-	private static final long serialVersionUID = -5353524716487912852L;
-
 	private byte[] ser;
 
 	public SerializedValue() {}

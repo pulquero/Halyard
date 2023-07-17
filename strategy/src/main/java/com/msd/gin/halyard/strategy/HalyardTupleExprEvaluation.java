@@ -54,14 +54,18 @@ import com.msd.gin.halyard.strategy.aggregators.SumAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.ThreadSafeAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.ValueCollector;
 import com.msd.gin.halyard.strategy.aggregators.WildcardCountAggregateFunction;
+import com.msd.gin.halyard.strategy.collections.AbstractValueSerializer;
 import com.msd.gin.halyard.strategy.collections.BigHashSet;
 import com.msd.gin.halyard.strategy.collections.Sorter;
 import com.msd.gin.halyard.vocab.HALYARD;
 
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1099,7 +1103,14 @@ final class HalyardTupleExprEvaluation {
             this.minorOrder = minorOrder;
         }
 
-        @Override
+        ComparableBindingSetWrapper(BindingSet bs, Value[] values, boolean[] ascending, long minorOrder) {
+			this.bs = bs;
+			this.values = values;
+			this.ascending = ascending;
+			this.minorOrder = minorOrder;
+		}
+
+		@Override
         public int compareTo(ComparableBindingSetWrapper o) {
             if (bs.equals(o.bs)) return 0;
             for (int i=0; i<values.length; i++) {
@@ -1122,12 +1133,44 @@ final class HalyardTupleExprEvaluation {
         }
     }
 
+    private static class ComparableBindingSetWrapperSerializer extends AbstractValueSerializer<ComparableBindingSetWrapper> {
+		ComparableBindingSetWrapperSerializer(ValueFactory vf) {
+			super(vf);
+		}
+
+		@Override
+		public void serialize(DataOutput out, ComparableBindingSetWrapper cbsw) throws IOException {
+			ByteBuffer tmp = newTempBuffer();
+			writeBindingSet(cbsw.bs, out, tmp);
+			out.writeInt(cbsw.values.length);
+			for (int i=0; i<cbsw.values.length; i++) {
+				writeValue(cbsw.values[i], out, tmp);
+				out.writeBoolean(cbsw.ascending[i]);
+			}
+			out.writeLong(cbsw.minorOrder);
+		}
+
+		@Override
+		public ComparableBindingSetWrapper deserialize(DataInput in, int available) throws IOException {
+			BindingSet bs = readBindingSet(in);
+			int len = in.readInt();
+			Value[] values = new Value[len];
+			boolean[] ascending = new boolean[len];
+			for (int i=0; i<len; i++) {
+				values[i] = readValue(in);
+				ascending[i] = in.readBoolean();
+			}
+			long minorOrder = in.readLong();
+			return new ComparableBindingSetWrapper(bs, values, ascending, minorOrder);
+		}
+    }
+
     /**
      * Precompile {@link Order} query model nodes
      * @param order
      */
     private BindingSetPipeEvaluationStep precompileOrder(final Order order, QueryEvaluationContext evalContext) {
-        final Sorter<ComparableBindingSetWrapper> sorter = new Sorter<>(getLimit(order), isReducedOrDistinct(order), collectionMemoryThreshold);
+        final Sorter<ComparableBindingSetWrapper> sorter = new Sorter<>(getLimit(order), isReducedOrDistinct(order), collectionMemoryThreshold, new ComparableBindingSetWrapperSerializer(tripleSource.getValueFactory()));
         List<OrderElem> orderElems = order.getElements();
         QueryValueEvaluationStep[] elemSteps = new QueryValueEvaluationStep[orderElems.size()];
         boolean[] ascending = new boolean[elemSteps.length];
@@ -1140,13 +1183,13 @@ final class HalyardTupleExprEvaluation {
         return (parent, bindings) -> {
 	        step.evaluate(new BindingSetPipe(parent) {
 	            final AtomicLong minorOrder = new AtomicLong();
-	
+
 	            @Override
 	            public boolean handleException(Throwable e) {
 	                sorter.close();
 	                return parent.handleException(e);
 	            }
-	
+
 	            @Override
 	            protected boolean next(BindingSet bs) {
 	                try {
@@ -1158,7 +1201,6 @@ final class HalyardTupleExprEvaluation {
 	                }
 	            }
 
-	        	
 	            private void pushOrdered() {
                     for (Map.Entry<ComparableBindingSetWrapper, Long> me : sorter) {
                         for (long i = me.getValue(); i > 0; i--) {
@@ -1175,7 +1217,7 @@ final class HalyardTupleExprEvaluation {
                     sorter.close();
                     parent.close();
 	            }
-	
+
 	            @Override
 	            public String toString() {
 	            	return "OrderBindingSetPipe";
@@ -1405,11 +1447,11 @@ final class HalyardTupleExprEvaluation {
     }
 
 	private DistinctValues createDistinctValues() {
-		return new DistinctValues(collectionMemoryThreshold);
+		return new DistinctValues(collectionMemoryThreshold, tripleSource.getValueFactory());
 	}
 
 	private DistinctBindingSets createDistinctBindingSets() {
-		return new DistinctBindingSets(collectionMemoryThreshold);
+		return new DistinctBindingSets(collectionMemoryThreshold, tripleSource.getValueFactory());
 	}
 
 	private static class Aggregator<T extends AggregateCollector, D> implements AutoCloseable {
@@ -1472,16 +1514,18 @@ final class HalyardTupleExprEvaluation {
 
 	private static class DistinctValues implements Predicate<Value>, AutoCloseable {
 		private final int threshold;
+		private final ValueFactory vf;
 		private BigHashSet<Value> distinctValues;
 
-		DistinctValues(int threshold) {
+		DistinctValues(int threshold, ValueFactory vf) {
 			this.threshold = threshold;
+			this.vf = vf;
 		}
 
 		@Override
 		public boolean test(Value v) {
 			if (distinctValues == null) {
-				distinctValues = BigHashSet.create(threshold);
+				distinctValues = BigHashSet.createValueSet(threshold, vf);
 			}
 			try {
 				return distinctValues.add(v);
@@ -1501,16 +1545,18 @@ final class HalyardTupleExprEvaluation {
 
 	private static class DistinctBindingSets implements Predicate<BindingSet>, AutoCloseable {
 		private final int threshold;
+		private final ValueFactory vf;
 		private BigHashSet<BindingSet> distinctBindingSets;
 
-		DistinctBindingSets(int threshold) {
+		DistinctBindingSets(int threshold, ValueFactory vf) {
 			this.threshold = threshold;
+			this.vf = vf;
 		}
 
 		@Override
 		public boolean test(BindingSet v) {
 			if (distinctBindingSets == null) {
-				distinctBindingSets = BigHashSet.create(threshold);
+				distinctBindingSets = BigHashSet.createBindingSetSet(threshold, vf);
 			}
 			try {
 				return distinctBindingSets.add(v);
@@ -1563,7 +1609,7 @@ final class HalyardTupleExprEvaluation {
         BindingSetPipeEvaluationStep step = precompileTupleExpr(distinct.getArg(), evalContext);
         return (parent, bindings) -> {
 	        step.evaluate(new BindingSetPipe(parentStrategy.track(parent, distinct)) {
-	            private final BigHashSet<BindingSet> set = BigHashSet.create(collectionMemoryThreshold);
+	            private final BigHashSet<BindingSet> set = BigHashSet.createBindingSetSet(collectionMemoryThreshold, tripleSource.getValueFactory());
 	            @Override
 	            public boolean handleException(Throwable e) {
 	                set.close();
@@ -2434,7 +2480,7 @@ final class HalyardTupleExprEvaluation {
         BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(intersection.getLeftArg(), evalContext);
         return (topPipe, bindings) -> {
 	        rightStep.evaluate(new BindingSetPipe(topPipe) {
-	            private final BigHashSet<BindingSet> secondSet = BigHashSet.create(collectionMemoryThreshold);
+	            private final BigHashSet<BindingSet> secondSet = BigHashSet.createBindingSetSet(collectionMemoryThreshold, tripleSource.getValueFactory());
 	            @Override
 	            public boolean handleException(Throwable e) {
 	                secondSet.close();
@@ -2491,7 +2537,7 @@ final class HalyardTupleExprEvaluation {
         BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(difference.getLeftArg(), evalContext);
         return (topPipe, bindings) -> {
 	        rightStep.evaluate(new BindingSetPipe(topPipe) {
-	            private final BigHashSet<BindingSet> excludeSet = BigHashSet.create(collectionMemoryThreshold);
+	            private final BigHashSet<BindingSet> excludeSet = BigHashSet.createBindingSetSet(collectionMemoryThreshold, tripleSource.getValueFactory());
 	            @Override
 	            public boolean handleException(Throwable e) {
 	                excludeSet.close();
@@ -2747,7 +2793,7 @@ final class HalyardTupleExprEvaluation {
 					sp = new StatementPattern(allSubjVar, allPredVar, allObjVar);
 				}
 				evaluateStatementPattern(new BindingSetPipe(parent) {
-					private final BigHashSet<Value> set = BigHashSet.create(collectionMemoryThreshold);
+					private final BigHashSet<Value> set = BigHashSet.createValueSet(collectionMemoryThreshold, tripleSource.getValueFactory());
 					@Override
 					protected boolean next(BindingSet bs) {
 						Value ctx = (contextVar != null) ? bs.getValue(contextVar.getName()) : null;

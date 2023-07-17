@@ -23,7 +23,6 @@ import java.util.ServiceLoader;
 import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.impl.SimpleNamespace;
@@ -179,7 +178,7 @@ final class HalyardTableConfiguration {
 			wellKnownIris = HashBiMap.create(1024);
 			for (IRI iri : getIRIs(VOCAB_IMPLS)) {
 				String s = iri.stringValue();
-				Integer hash = Hashes.hash32(Bytes.toBytes(s));
+				Integer hash = Hashes.hash32(Hashes.toBytes(s));
 				addIRI(hash, new IdentifiableIRI(s));
 			}
 			config.put(TableConfig.VOCABS, JSONObject.valueToString(wellKnownIris.inverse()));
@@ -198,7 +197,7 @@ final class HalyardTableConfiguration {
 				wellKnownNamespaces = HashBiMap.create(256);
 				for (Namespace namespace : NAMESPACE_IMPLS.values()) {
 					String name = namespace.getName();
-					Short hash = Hashes.hash16(Bytes.toBytes(name));
+					Short hash = Hashes.hash16(Hashes.toBytes(name));
 					addNamespace(hash, name);
 				}
 				config.put(TableConfig.NAMESPACES, JSONObject.valueToString(wellKnownNamespaces.inverse()));
@@ -262,12 +261,12 @@ final class HalyardTableConfiguration {
 				try (BufferedReader reader = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream("languageTags"), "US-ASCII"))) {
 					reader.lines().forEach(langTag -> {
 						LOGGER.debug("Loading language {}", langTag);
-						Short hash = Hashes.hash16(Bytes.toBytes(langTag));
+						Short hash = Hashes.hash16(Hashes.toBytes(langTag));
 						addLanguageTag(hash, langTag);
 						// add lowercase alternative
 						String lcLangTag = langTag.toLowerCase();
 						if (!lcLangTag.equals(langTag)) {
-							Short lcHash = Hashes.hash16(Bytes.toBytes(lcLangTag));
+							Short lcHash = Hashes.hash16(Hashes.toBytes(lcLangTag));
 							addLanguageTag(lcHash, lcLangTag);
 						}
 					});

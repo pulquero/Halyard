@@ -2,6 +2,7 @@ package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.vocab.HALYARD;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.temporal.TemporalAccessor;
@@ -27,10 +28,11 @@ import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 
 @ThreadSafe
-public class IdValueFactory implements ValueFactory {
+public class IdValueFactory implements ValueFactory, Serializable {
+	private static final long serialVersionUID = 5500427177071598798L;
 	private final Literal TRUE;
 	private final Literal FALSE;
-	private final RDFFactory rdfFactory;
+	private transient RDFFactory rdfFactory;
 
 	public IdValueFactory(@Nullable RDFFactory rdfFactory) {
 		this.TRUE = new BooleanLiteral(true);

@@ -8,7 +8,7 @@ import javax.annotation.Nullable;
 import org.eclipse.rdf4j.model.Value;
 
 public abstract class IdentifiableValue implements Value {
-	private transient IdSer cachedIV = IdSer.NONE;
+	private IdSer cachedIV = IdSer.NONE;
 
 	protected final ValueIdentifier getCompatibleId(Object o) {
 		if (o instanceof IdentifiableValue) {
