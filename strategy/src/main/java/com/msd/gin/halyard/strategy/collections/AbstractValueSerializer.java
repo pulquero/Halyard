@@ -24,6 +24,10 @@ public abstract class AbstractValueSerializer<E> implements Serializer<E>, Exter
 	protected static final ValueIO.Reader READER = ValueIO.getDefaultReader();
 	protected transient ValueFactory vf;
 
+	public AbstractValueSerializer() {
+		// required for deserialization
+	}
+
 	protected AbstractValueSerializer(ValueFactory vf) {
 		this.vf = vf;
 	}

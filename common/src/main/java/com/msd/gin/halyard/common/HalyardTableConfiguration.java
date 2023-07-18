@@ -312,11 +312,11 @@ final class HalyardTableConfiguration {
 		return wellKnownIris.inverse().get(iri);
 	}
 
-	public IRI getIRI(Integer hash) {
+	public IRI getIRI(int hash) {
 		return wellKnownIris.get(hash);
 	}
 
-	public String getNamespace(Short hash) {
+	public String getNamespace(short hash) {
 		return wellKnownNamespaces.get(hash);
 	}
 
@@ -324,11 +324,11 @@ final class HalyardTableConfiguration {
 		return wellKnownNamespaces.inverse().get(ns);
 	}
 
-	public IRIEncodingNamespace getIRIEncodingNamespace(Short hash) {
+	public IRIEncodingNamespace getIRIEncodingNamespace(short hash) {
 		return iriEncoders.get(hash);
 	}
 
-	public String getLanguageTag(Short hash) {
+	public String getLanguageTag(short hash) {
 		return wellKnownLangs.get(hash);
 	}
 

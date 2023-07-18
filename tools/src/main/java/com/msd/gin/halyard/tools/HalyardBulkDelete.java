@@ -137,7 +137,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         protected void map(ImmutableBytesWritable rowKey, Result value, Context output) throws IOException, InterruptedException {
             StatementIndex<?,?,?,?> index = stmtIndices.toIndex(rowKey.get()[rowKey.getOffset()]);
             for (Cell c : value.rawCells()) {
-                Statement st = stmtIndices.parseStatement(null, null, null, null, c, valueReader, vf);
+                Statement st = stmtIndices.parseStatement(null, null, null, null, c, vf);
                 if ((ctxs == null || ctxs.contains(st.getContext())) && (subj == null || subj.equals(st.getSubject())) && (pred == null || pred.equals(st.getPredicate())) && (obj == null || obj.equals(st.getObject()))) {
                     deleteCell(c, st, output);
                 } else if (HALYARD.TRIPLE_GRAPH_CONTEXT.equals(st.getContext())) {

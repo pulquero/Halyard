@@ -477,7 +477,11 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             	s = queue.take();
             }
             if (ex != null) {
-                throw new IOException("Exception while parsing: " + baseUri, ex);
+            	final String localBaseUri;
+            	synchronized (this) {
+                    localBaseUri = baseUri;
+            	}
+        		throw new IOException("Exception while parsing: " + localBaseUri, ex);
             }
             return s == END_STATEMENT ? null : s;
         }
@@ -496,66 +500,68 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             setParsers();
             try {
                 Configuration conf = context.getConfiguration();
-                for (int i=0; i<paths.length; i++) try {
-                    Path file = paths[i];
-                    final String localBaseUri = file.toString();
-                    synchronized (this) {
-                        this.baseUri = localBaseUri; //synchronised parameters must be set inside a sync block
-                        if (seek != null) try {
-                            finishedSize += seek.getPos();
-                        } catch (IOException e) {
-                            //ignore
-                        }
-                    }
-                    this.offset = (int)offsets[i];
-                    this.count = (maxSize > 0 && sizes[i] > maxSize) ? (int)Math.ceil((double)sizes[i] / (double)maxSize) : 1;
-                    close();
-                    context.setStatus("Parsing " + localBaseUri);
-                    FileSystem fs = file.getFileSystem(conf);
-                    FSDataInputStream fileIn = fs.open(file);
-                    CompressionCodec codec = new CompressionCodecFactory(conf).getCodec(file);
-                    final InputStream localIn;
-                    if (codec != null) {
-                    	localIn = codec.createInputStream(fileIn, CodecPool.getDecompressor(codec));
-                    } else {
-                    	localIn = fileIn;
-                    }
-                    synchronized (this) {
-                        this.seek = fileIn; //synchronised parameters must be set inside a sync block
-                        this.in = localIn; //synchronised parameters must be set inside a sync block
-                    }
-                    RDFParser parser = Rio.createParser(Rio.getParserFormatForFileName(localBaseUri).get());
-                    parser.setRDFHandler(this);
-                    parser.setParseErrorListener(this);
-                    parser.set(BasicParserSettings.PRESERVE_BNODE_IDS, true);
-                    parser.set(BasicParserSettings.VERIFY_URI_SYNTAX, !allowInvalidIris);
-                    parser.set(BasicParserSettings.VERIFY_RELATIVE_URIS, !allowInvalidIris);
-                    if (skipInvalidLines) {
-                        parser.set(NTriplesParserSettings.FAIL_ON_INVALID_LINES, false);
-                        parser.getParserConfig().addNonFatalError(NTriplesParserSettings.FAIL_ON_INVALID_LINES);
-                    }
-                   	parser.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, verifyDataTypeValues);
-                    parser.set(BasicParserSettings.VERIFY_LANGUAGE_TAGS, verifyDataTypeValues);
-                    if (defaultRdfContextPattern != null || overrideRdfContext) {
-                        IRI defaultRdfContext;
-                        if (defaultRdfContextPattern != null) {
-                            String context = MessageFormat.format(defaultRdfContextPattern, localBaseUri, file.toUri().getPath(), file.getName());
-                            validateIRIs(context);
-                            defaultRdfContext = valueFactory.createIRI(context);
-                        } else {
-                            defaultRdfContext = null;
-                        }
-                        valueFactory.setDefaultContext(defaultRdfContext, overrideRdfContext);
-                    }
-                    parser.setValueFactory(valueFactory);
-                    parser.parse(localIn, localBaseUri);
-                } catch (Exception e) {
-                    if (allowInvalidIris && skipInvalidLines && !verifyDataTypeValues) {
-                        LOG.warn("Exception while parsing RDF", e);
-                    } else {
-                        throw e;
-                    }
-                }
+                for (int i=0; i<paths.length; i++) {
+                	try {
+	                    Path file = paths[i];
+	                    final String localBaseUri = file.toString();
+	                    synchronized (this) {
+	                        this.baseUri = localBaseUri; //synchronised parameters must be set inside a sync block
+	                        if (seek != null) try {
+	                            finishedSize += seek.getPos();
+	                        } catch (IOException e) {
+	                            //ignore
+	                        }
+	                    }
+	                    this.offset = (int)offsets[i];
+	                    this.count = (maxSize > 0 && sizes[i] > maxSize) ? (int)Math.ceil((double)sizes[i] / (double)maxSize) : 1;
+	                    close();
+	                    context.setStatus("Parsing " + localBaseUri);
+	                    FileSystem fs = file.getFileSystem(conf);
+	                    FSDataInputStream fileIn = fs.open(file);
+	                    CompressionCodec codec = new CompressionCodecFactory(conf).getCodec(file);
+	                    final InputStream localIn;
+	                    if (codec != null) {
+	                    	localIn = codec.createInputStream(fileIn, CodecPool.getDecompressor(codec));
+	                    } else {
+	                    	localIn = fileIn;
+	                    }
+	                    synchronized (this) {
+	                        this.seek = fileIn; //synchronised parameters must be set inside a sync block
+	                        this.in = localIn; //synchronised parameters must be set inside a sync block
+	                    }
+	                    RDFParser parser = Rio.createParser(Rio.getParserFormatForFileName(localBaseUri).get());
+	                    parser.setRDFHandler(this);
+	                    parser.setParseErrorListener(this);
+	                    parser.set(BasicParserSettings.PRESERVE_BNODE_IDS, true);
+	                    parser.set(BasicParserSettings.VERIFY_URI_SYNTAX, !allowInvalidIris);
+	                    parser.set(BasicParserSettings.VERIFY_RELATIVE_URIS, !allowInvalidIris);
+	                    if (skipInvalidLines) {
+	                        parser.set(NTriplesParserSettings.FAIL_ON_INVALID_LINES, false);
+	                        parser.getParserConfig().addNonFatalError(NTriplesParserSettings.FAIL_ON_INVALID_LINES);
+	                    }
+	                   	parser.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, verifyDataTypeValues);
+	                    parser.set(BasicParserSettings.VERIFY_LANGUAGE_TAGS, verifyDataTypeValues);
+	                    if (defaultRdfContextPattern != null || overrideRdfContext) {
+	                        IRI defaultRdfContext;
+	                        if (defaultRdfContextPattern != null) {
+	                            String context = MessageFormat.format(defaultRdfContextPattern, localBaseUri, file.toUri().getPath(), file.getName());
+	                            validateIRIs(context);
+	                            defaultRdfContext = valueFactory.createIRI(context);
+	                        } else {
+	                            defaultRdfContext = null;
+	                        }
+	                        valueFactory.setDefaultContext(defaultRdfContext, overrideRdfContext);
+	                    }
+	                    parser.setValueFactory(valueFactory);
+	                    parser.parse(localIn, localBaseUri);
+	                } catch (Exception e) {
+	                    if (allowInvalidIris && skipInvalidLines && !verifyDataTypeValues) {
+	                        LOG.warn("Exception while parsing RDF", e);
+	                    } else {
+	                        throw e;
+	                    }
+	                }
+	            }
             } catch (Exception e) {
                 ex = e;
             } finally {

@@ -34,4 +34,16 @@ public final class ServiceRoot extends QueryRoot {
     		service.setResultSizeActual(resultSizeActual);
     	}
 	}
+
+	@Override
+	public boolean equals(Object other) {
+		if (this == other) {
+			return true;
+		}
+		if (other instanceof ServiceRoot && super.equals(other)) {
+			ServiceRoot o = (ServiceRoot) other;
+			return service.equals(o.service);
+		}
+		return false;
+	}
 }

@@ -134,7 +134,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
                 Scan scan = stmtIndices.scan(s, p, null, null);
                 try (ResultScanner scanner = keyspaceConn.getScanner(scan)) {
                     for (Result r : scanner) {
-                        for (Statement st : stmtIndices.parseStatements(s, p, null, null, r, valueReader, vf)) {
+                        for (Statement st : stmtIndices.parseStatements(s, p, null, null, r, vf)) {
 	                        if (st.getSubject().equals(instance) && st.getPredicate().equals(RDF.TYPE) && (st.getObject() instanceof IRI)) {
 	                            res.add((IRI)st.getObject());
 	                        }
@@ -253,7 +253,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
         @Override
         protected void map(ImmutableBytesWritable key, Result value, Context output) throws IOException, InterruptedException {
             if (decimationFactor == 0 || random.nextInt(decimationFactor) == 0) {
-                statementChange(output, stmtIndices.parseStatement(null, null, null, null, value.rawCells()[0], valueReader, vf));
+                statementChange(output, stmtIndices.parseStatement(null, null, null, null, value.rawCells()[0], vf));
             }
             if (++counter % STATUS_UPDATE_INTERVAL == 0) {
                 output.setStatus(MessageFormat.format("{0} cc:{1} pc:{2} pd:{3} pr:{4} pdr:{5}", counter, ccCounter, pcCounter, pdCounter, prCounter, pdrCounter));

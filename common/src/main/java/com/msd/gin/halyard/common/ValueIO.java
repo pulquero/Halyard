@@ -197,7 +197,6 @@ public class ValueIO {
 		int uncompressedLen = uncompressed.remaining();
 		ByteBuffer compressed = compress(uncompressed);
 		b = ensureCapacity(b, Integer.BYTES + compressed.remaining());
-		assert uncompressedLen <= Integer.MAX_VALUE;
 		return b.putInt(uncompressedLen).put(compressed);
 	}
 
@@ -597,7 +596,7 @@ public class ValueIO {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				b.mark();
-				Short langHash = b.getShort(); // 16-bit hash
+				short langHash = b.getShort(); // 16-bit hash
 				String label = readString(b);
 				String lang = config.getLanguageTag(langHash);
 				if (lang == null) {
@@ -827,14 +826,12 @@ public class ValueIO {
 		private Writer() {
 		}
 
-		public ValueIO getValueIO() {
-			return ValueIO.this;
-		}
-
-		private ByteBuffer writeTriple(Resource subj, IRI pred, Value obj, ByteBuffer buf) {
-			buf = writeValueWithSizeHeader(subj, buf, Short.BYTES);
-			buf = writeValueWithSizeHeader(pred, buf, Short.BYTES);
-			buf = writeValueWithSizeHeader(obj, buf, Integer.BYTES);
+		private ByteBuffer writeTriple(Triple t, ByteBuffer buf) {
+			buf = ensureCapacity(buf, 1);
+			buf.put(TRIPLE_TYPE);
+			buf = writeValueWithSizeHeader(t.getSubject(), buf, Short.BYTES);
+			buf = writeValueWithSizeHeader(t.getPredicate(), buf, Short.BYTES);
+			buf = writeValueWithSizeHeader(t.getObject(), buf, Integer.BYTES);
 			return buf;
 		}
 
@@ -900,11 +897,7 @@ public class ValueIO {
 			} else if (v.isLiteral()) {
 				return writeLiteral((Literal)v, b);
 			} else if (v.isTriple()) {
-				Triple t = (Triple) v;
-				b = ensureCapacity(b, 1);
-				b.put(TRIPLE_TYPE);
-				b = writeTriple(t.getSubject(), t.getPredicate(), t.getObject(), b);
-				return b;
+				return writeTriple((Triple)v, b);
 			} else {
 				throw new AssertionError(String.format("Unexpected RDF value: %s (%s)", v, v.getClass().getName()));
 			}
@@ -1054,10 +1047,6 @@ public class ValueIO {
 			this.bnodeTransformer = bnodeTransformer;
 		}
 
-		public ValueIO getValueIO() {
-			return ValueIO.this;
-		}
-
 		private Triple readTriple(ByteBuffer b, ValueFactory vf) {
 			Resource s = (Resource) readValueWithSizeHeader(b, vf, Short.BYTES);
 			IRI p = (IRI) readValueWithSizeHeader(b, vf, Short.BYTES);
@@ -1107,73 +1096,85 @@ public class ValueIO {
 				case IRI_TYPE:
 					return vf.createIRI(readUncompressedString(b));
 				case COMPRESSED_IRI_TYPE:
-					int schemeType = b.get();
-					String prefix;
-					switch (schemeType) {
-						case HTTP_SCHEME:
-							prefix = "http://";
-							break;
-						case HTTPS_SCHEME:
-							prefix = "https://";
-							break;
-						case DOI_HTTP_SCHEME:
-							prefix = "http://dx.doi.org/";
-							break;
-						case DOI_HTTPS_SCHEME:
-							prefix = "https://dx.doi.org/";
-							break;
-						default:
-							throw new AssertionError(String.format("Unexpected scheme type: %d", schemeType));
+					{
+						int schemeType = b.get();
+						String prefix;
+						switch (schemeType) {
+							case HTTP_SCHEME:
+								prefix = "http://";
+								break;
+							case HTTPS_SCHEME:
+								prefix = "https://";
+								break;
+							case DOI_HTTP_SCHEME:
+								prefix = "http://dx.doi.org/";
+								break;
+							case DOI_HTTPS_SCHEME:
+								prefix = "https://dx.doi.org/";
+								break;
+							default:
+								throw new AssertionError(String.format("Unexpected scheme type: %d", schemeType));
+						}
+						String s = readUncompressedString(b);
+						return vf.createIRI(prefix + s);
 					}
-					String s = readUncompressedString(b);
-					return vf.createIRI(prefix + s);
 				case IRI_HASH_TYPE:
-					b.mark();
-					Integer irihash = b.getInt(); // 32-bit hash
-					IRI iri = config.getIRI(irihash);
-					if (iri == null) {
-						b.limit(b.position()).reset();
-						throw new IllegalStateException(String.format("Unknown IRI hash: %s (%d)", Hashes.encode(b), irihash));
+					{
+						b.mark();
+						int irihash = b.getInt(); // 32-bit hash
+						IRI iri = config.getIRI(irihash);
+						if (iri == null) {
+							b.limit(b.position()).reset();
+							throw new IllegalStateException(String.format("Unknown IRI hash: %s (%d)", Hashes.encode(b), irihash));
+						}
+						return iri;
 					}
-					return iri;
 				case NAMESPACE_HASH_TYPE:
-					b.mark();
-					Short nshash = b.getShort(); // 16-bit hash
-					String namespace = config.getNamespace(nshash);
-					String localName = readUncompressedString(b);
-					if (namespace == null) {
-						b.limit(b.position()).reset();
-						throw new IllegalStateException(String.format("Unknown namespace hash: %s (%d) (local name %s)", Hashes.encode(b), nshash, localName));
+					{
+						b.mark();
+						short nshash = b.getShort(); // 16-bit hash
+						String namespace = config.getNamespace(nshash);
+						String localName = readUncompressedString(b);
+						if (namespace == null) {
+							b.limit(b.position()).reset();
+							throw new IllegalStateException(String.format("Unknown namespace hash: %s (%d) (local name %s)", Hashes.encode(b), nshash, localName));
+						}
+						return vf.createIRI(namespace, localName);
 					}
-					return vf.createIRI(namespace, localName);
 				case ENCODED_IRI_TYPE:
-					b.mark();
-					nshash = b.getShort(); // 16-bit hash
-					IRIEncodingNamespace iriEncoder = config.getIRIEncodingNamespace(nshash);
-					if (iriEncoder == null) {
-						b.limit(b.position()).reset();
-						throw new IllegalStateException(String.format("Unknown IRI encoder hash: %s (%d)", Hashes.encode(b), nshash));
+					{
+						b.mark();
+						short nshash = b.getShort(); // 16-bit hash
+						IRIEncodingNamespace iriEncoder = config.getIRIEncodingNamespace(nshash);
+						if (iriEncoder == null) {
+							b.limit(b.position()).reset();
+							throw new IllegalStateException(String.format("Unknown IRI encoder hash: %s (%d)", Hashes.encode(b), nshash));
+						}
+						return vf.createIRI(iriEncoder.getName(), iriEncoder.readBytes(b));
 					}
-					return vf.createIRI(iriEncoder.getName(), iriEncoder.readBytes(b));
 				case END_SLASH_ENCODED_IRI_TYPE:
-					b.mark();
-					nshash = b.getShort(); // 16-bit hash
-					iriEncoder = config.getIRIEncodingNamespace(nshash);
-					if (iriEncoder == null) {
-						b.limit(b.position()).reset();
-						throw new IllegalStateException(String.format("Unknown IRI encoder hash: %s (%d)", Hashes.encode(b), nshash));
+					{
+						b.mark();
+						short nshash = b.getShort(); // 16-bit hash
+						IRIEncodingNamespace iriEncoder = config.getIRIEncodingNamespace(nshash);
+						if (iriEncoder == null) {
+							b.limit(b.position()).reset();
+							throw new IllegalStateException(String.format("Unknown IRI encoder hash: %s (%d)", Hashes.encode(b), nshash));
+						}
+						return vf.createIRI(iriEncoder.getName()+iriEncoder.readBytes(b)+'/');
 					}
-					return vf.createIRI(iriEncoder.getName()+iriEncoder.readBytes(b)+'/');
 				case BNODE_TYPE:
 					return bnodeTransformer.apply(readUncompressedString(b), vf);
 				case DATATYPE_LITERAL_TYPE:
-					int originalLimit = b.limit();
-					int dtSize = b.getShort();
-					b.limit(b.position()+dtSize);
-					IRI datatype = (IRI) readValue(b, vf);
-					b.limit(originalLimit);
-					String label = readUncompressedString(b);
-					return vf.createLiteral(label, datatype);
+					{
+						int originalLimit = b.limit();
+						int dtSize = b.getShort();
+						b.limit(b.position()+dtSize);
+						IRI datatype = (IRI) readValue(b, vf);
+						b.limit(originalLimit);
+						String label = readUncompressedString(b);
+						return vf.createLiteral(label, datatype);
+					}
 				case TRIPLE_TYPE:
 					return readTriple(b, vf);
 				default:

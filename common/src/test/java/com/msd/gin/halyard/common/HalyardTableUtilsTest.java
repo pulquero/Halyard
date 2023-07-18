@@ -92,7 +92,6 @@ public class HalyardTableUtilsTest {
     @Test
     public void testBigLiteral() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
-        ValueIO.Reader reader = rdfFactory.valueReader;
 
         Resource subj = vf.createIRI("http://testBigLiteral/subject/");
         IRI pred = vf.createIRI("http://testBigLiteral/pred/");
@@ -107,10 +106,10 @@ public class HalyardTableUtilsTest {
         RDFPredicate p = rdfFactory.createPredicate(pred);
         RDFObject o = rdfFactory.createObject(obj);
         try (ResultScanner rs = table.getScanner(stmtIndices.scan(s, p, o, null))) {
-            assertEquals(obj, stmtIndices.parseStatements(s, p, o, null, rs.next(), reader, vf)[0].getObject());
+            assertEquals(obj, stmtIndices.parseStatements(s, p, o, null, rs.next(), vf)[0].getObject());
         }
         try (ResultScanner rs = table.getScanner(stmtIndices.scan(s, p, null, null))) {
-            assertEquals(obj, stmtIndices.parseStatements(s, p, null, null, rs.next(), reader, vf)[0].getObject());
+            assertEquals(obj, stmtIndices.parseStatements(s, p, null, null, rs.next(), vf)[0].getObject());
         }
     }
 
@@ -131,7 +130,6 @@ public class HalyardTableUtilsTest {
     @Test
     public void testConflictingHash() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
-        ValueIO.Reader reader = rdfFactory.valueReader;
 
         Resource subj = vf.createIRI("http://testConflictingHash/subject/");
         IRI pred1 = vf.createIRI("http://testConflictingHash/pred1/");
@@ -160,7 +158,7 @@ public class HalyardTableUtilsTest {
         RDFPredicate p1 = rdfFactory.createPredicate(pred1);
         RDFObject o1 = rdfFactory.createObject(obj1);
         try (ResultScanner rs = table.getScanner(stmtIndices.scan(s, p1, o1, null))) {
-            Statement[] res = stmtIndices.parseStatements(s, p1, o1, null, rs.next(), reader, vf);
+            Statement[] res = stmtIndices.parseStatements(s, p1, o1, null, rs.next(), vf);
             assertEquals(1, res.length);
             assertEquals(vf.createStatement(subj, pred1, obj1), res[0]);
         }
@@ -192,9 +190,8 @@ public class HalyardTableUtilsTest {
     @Test
     public void testNoResult() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
-        ValueIO.Reader reader = rdfFactory.valueReader;
 
-        assertEquals(0, stmtIndices.parseStatements(null, null, null, null, Result.EMPTY_RESULT, reader, vf).length);
+        assertEquals(0, stmtIndices.parseStatements(null, null, null, null, Result.EMPTY_RESULT, vf).length);
     }
 
     @Test

@@ -30,7 +30,6 @@ import com.msd.gin.halyard.common.RDFSubject;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.TimestampedValueFactory;
 import com.msd.gin.halyard.common.ValueConstraint;
-import com.msd.gin.halyard.common.ValueIO;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
@@ -74,7 +73,6 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	private final long timeoutSecs;
 	private final QueryPreparer.Factory queryPreparerFactory;
 	protected final RDFFactory rdfFactory;
-	private final ValueIO.Reader valueReader;
 	private final HBaseSail.ScanSettings settings;
 	private final HBaseSail.Ticker ticker;
 
@@ -88,7 +86,6 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		this.stmtIndices = stmtIndices;
 		this.queryPreparerFactory = qpFactory;
 		this.rdfFactory = stmtIndices.getRDFFactory();
-		this.valueReader = stmtIndices.getRDFFactory().valueReader;
 		this.timeoutSecs = timeoutSecs;
 		this.settings = settings;
 		this.ticker = ticker;
@@ -153,7 +150,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 
 	private CloseableIteration<? extends Statement, QueryEvaluationException> getStatementsInternal(Resource subj, IRI pred, Value obj, QueryContexts queryContexts) {
 		CloseableIteration<? extends Statement, QueryEvaluationException> iter = timeLimit(
-				new ExceptionConvertingIteration<Statement, QueryEvaluationException>(createStatementScanner(subj, pred, obj, queryContexts.contextsToScan, valueReader)) {
+				new ExceptionConvertingIteration<Statement, QueryEvaluationException>(createStatementScanner(subj, pred, obj, queryContexts.contextsToScan)) {
 			@Override
 			protected QueryEvaluationException convert(Exception e) {
 				return new QueryEvaluationException(e);
@@ -170,8 +167,8 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		return iter;
 	}
 
-	protected CloseableIteration<? extends Statement, IOException> createStatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contexts, ValueIO.Reader reader) {
-		return new StatementScanner(subj, pred, obj, contexts, reader);
+	protected CloseableIteration<? extends Statement, IOException> createStatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contexts) {
+		return new StatementScanner(subj, pred, obj, contexts);
 	}
 
 	protected boolean hasStatementInternal(Resource subj, IRI pred, Value obj, QueryContexts queryContexts) throws QueryEvaluationException {
@@ -249,8 +246,8 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		protected Iterator<Resource> contexts;
 		private ResultScanner rs = null;
 
-		public StatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contextsList, ValueIO.Reader reader) {
-			super(reader, HBaseTripleSource.this.stmtIndices, HBaseTripleSource.this.vf);
+		public StatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contextsList) {
+			super(HBaseTripleSource.this.stmtIndices, HBaseTripleSource.this.vf);
 			this.subj = rdfFactory.createSubject(subj);
 			this.pred = rdfFactory.createPredicate(pred);
 			this.obj = rdfFactory.createObject(obj);
@@ -298,7 +295,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	@Override
 	public final CloseableIteration<? extends Triple, QueryEvaluationException> getRdfStarTriples(Resource subj, IRI pred, Value obj) throws QueryEvaluationException {
 		CloseableIteration<? extends Triple, QueryEvaluationException> iter = new ConvertingIteration<Statement, Triple, QueryEvaluationException>(
-				new ExceptionConvertingIteration<Statement, QueryEvaluationException>(createStatementScanner(subj, pred, obj, Collections.singletonList(HALYARD.TRIPLE_GRAPH_CONTEXT), valueReader)) {
+				new ExceptionConvertingIteration<Statement, QueryEvaluationException>(createStatementScanner(subj, pred, obj, Collections.singletonList(HALYARD.TRIPLE_GRAPH_CONTEXT))) {
 				@Override
 				protected QueryEvaluationException convert(Exception e) {
 					return new QueryEvaluationException(e);

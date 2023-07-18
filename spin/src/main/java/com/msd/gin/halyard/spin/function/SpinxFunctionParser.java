@@ -80,7 +80,7 @@ public class SpinxFunctionParser implements FunctionParser {
 					url = new URL(location);
 				}
 				try (Reader reader = new InputStreamReader(
-						url.openStream())) {
+						url.openStream(), "UTF-8")) {
 					engine.eval(reader);
 				} catch (IOException e) {
 					throw new QueryEvaluationException(e);

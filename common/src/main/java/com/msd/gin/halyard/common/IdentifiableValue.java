@@ -71,7 +71,9 @@ public abstract class IdentifiableValue implements Value {
 		final RDFFactory rdfFactory;
 
 		private IdSer() {
-			this(null, null, null);
+			this.id = null;
+			this.ser = null;
+			this.rdfFactory = null;
 		}
 
 		/**

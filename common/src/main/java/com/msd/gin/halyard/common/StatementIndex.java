@@ -243,12 +243,12 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return cv;
 	}
 
-	Statement parseStatement(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, ByteBuffer key, ByteBuffer cn, ByteBuffer cv, ValueIO.Reader reader, ValueFactory vf) {
+	Statement parseStatement(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx, ByteBuffer key, ByteBuffer cn, ByteBuffer cv, ValueFactory vf) {
 		RDFValue<?,?>[] args = new RDFValue<?,?>[] {subj, pred, obj, ctx};
-		Value v1 = parseRDFValue(role1, args[argIndices[0]], key, cn, cv, role1.keyHashSize(), reader, vf);
-		Value v2 = parseRDFValue(role2, args[argIndices[1]], key, cn, cv, role2.keyHashSize(), reader, vf);
-		Value v3 = parseRDFValue(role3, args[argIndices[2]], key, cn, cv, role3.keyHashSize(), reader, vf);
-		Value v4 = parseLastRDFValue(role4, args[argIndices[3]], key, cn, cv, role4.keyHashSize(), reader, vf);
+		Value v1 = parseRDFValue(role1, args[argIndices[0]], key, cn, cv, role1.keyHashSize(), vf);
+		Value v2 = parseRDFValue(role2, args[argIndices[1]], key, cn, cv, role2.keyHashSize(), vf);
+		Value v3 = parseRDFValue(role3, args[argIndices[2]], key, cn, cv, role3.keyHashSize(), vf);
+		Value v4 = parseLastRDFValue(role4, args[argIndices[3]], key, cn, cv, role4.keyHashSize(), vf);
 		return createStatement(new Value[] {v1, v2, v3, v4}, vf);
 	}
 
@@ -264,7 +264,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
     }
 
-    private Value parseRDFValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, ValueIO.Reader reader, ValueFactory vf) {
+    private Value parseRDFValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, ValueFactory vf) {
     	byte marker = cv.get(cv.position()); // peek
     	int len;
     	if (marker == WELL_KNOWN_IRI_MARKER) {
@@ -281,10 +281,10 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 					throw new AssertionError(String.format("Unsupported size length: %d", role.sizeLength()));
 			}
     	}
-   		return parseValue(role, pattern, key, cq, cv, keySize, len, reader, vf);
+   		return parseValue(role, pattern, key, cq, cv, keySize, len, vf);
     }
 
-    private Value parseLastRDFValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, ValueIO.Reader reader, ValueFactory vf) {
+    private Value parseLastRDFValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, ValueFactory vf) {
     	byte marker = cv.hasRemaining() ? cv.get(cv.position()) : 0;  // peek
     	int len;
     	if (marker == WELL_KNOWN_IRI_MARKER) {
@@ -292,10 +292,10 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
     	} else {
     		len = cv.remaining();
     	}
-   		return parseValue(role, pattern, key, cq, cv, keySize, len, reader, vf);
+   		return parseValue(role, pattern, key, cq, cv, keySize, len, vf);
     }
 
-	private Value parseValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, int len, ValueIO.Reader reader, ValueFactory vf) {
+	private Value parseValue(RDFRole<?> role, @Nullable RDFValue<?,?> pattern, ByteBuffer key, ByteBuffer cq, ByteBuffer cv, int keySize, int len, ValueFactory vf) {
     	if(pattern != null) {
     		// if we have been given the value then don't bother to read it and skip to the next
     		skipId(key, cq, keySize, rdfFactory.getIdSize());
@@ -316,7 +316,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			int endPos = startPos + len;
 			int prevLimit = cv.limit();
 			cv.limit(endPos);
-			Value value = reader.readValue(cv, vf);
+			Value value = rdfFactory.valueReader.readValue(cv, vf);
 			cv.limit(prevLimit);
 			if (value instanceof IdentifiableValue) {
 				((IdentifiableValue)value).setId(rdfFactory, id);

@@ -22,7 +22,6 @@ import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.common.ValueIO;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -346,7 +345,6 @@ public abstract class AbstractHalyardTool implements Tool {
         protected RDFFactory rdfFactory;
         protected ValueFactory vf;
         protected StatementIndices stmtIndices;
-        protected ValueIO.Reader valueReader;
 
         protected final void openKeyspace(Configuration conf, String source, String restorePath) throws IOException {
             keyspace = HalyardTableUtils.getKeyspace(conf, source, restorePath);
@@ -354,7 +352,6 @@ public abstract class AbstractHalyardTool implements Tool {
             rdfFactory = RDFFactory.create(keyspaceConn);
             vf = new IdValueFactory(rdfFactory);
             stmtIndices = new StatementIndices(conf, rdfFactory);
-            valueReader = rdfFactory.valueReader;
         }
 
         protected void closeKeyspace() throws IOException {
@@ -376,7 +373,6 @@ public abstract class AbstractHalyardTool implements Tool {
         protected RDFFactory rdfFactory;
         protected ValueFactory vf;
         protected StatementIndices stmtIndices;
-        protected ValueIO.Reader valueReader;
 
         protected final void openKeyspace(Configuration conf, String source, String restorePath) throws IOException {
             keyspace = HalyardTableUtils.getKeyspace(conf, source, restorePath);
@@ -384,7 +380,6 @@ public abstract class AbstractHalyardTool implements Tool {
             rdfFactory = RDFFactory.create(keyspaceConn);
             vf = new IdValueFactory(rdfFactory);
             stmtIndices = new StatementIndices(conf, rdfFactory);
-            valueReader = rdfFactory.valueReader;
         }
 
         protected void closeKeyspace() throws IOException {

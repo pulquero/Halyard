@@ -44,7 +44,6 @@ public class StatementIndexScanTest {
 	private static KeyspaceConnection keyspaceConn;
 	private static RDFFactory rdfFactory;
 	private static StatementIndices stmtIndices;
-	private static ValueIO.Reader reader;
     private static Set<Statement> allStatements;
     private static Set<Statement> defaultGraphStatements;
     private static Set<Statement> namedGraphStatements;
@@ -62,7 +61,6 @@ public class StatementIndexScanTest {
         keyspaceConn = new TableKeyspace.TableKeyspaceConnection(table);
 		rdfFactory = RDFFactory.create(keyspaceConn);
 		stmtIndices = new StatementIndices(conf, rdfFactory);
-		reader = rdfFactory.valueReader;
 
         stringLiterals = new HashSet<>();
         nonstringLiterals = new HashSet<>();
@@ -122,7 +120,7 @@ public class StatementIndexScanTest {
     }
 
     private static Statement[] parseStatements(RDFSubject s, RDFPredicate p, RDFObject o, RDFContext c, Result r) {
-        return stmtIndices.parseStatements(s, p, o, c, r, reader, vf);
+        return stmtIndices.parseStatements(s, p, o, c, r, vf);
     }
 
     @Test

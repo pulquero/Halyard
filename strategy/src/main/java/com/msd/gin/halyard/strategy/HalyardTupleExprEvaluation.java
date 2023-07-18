@@ -767,7 +767,7 @@ final class HalyardTupleExprEvaluation {
             }
         }
         if (ctxVar != null && !ctxVar.isConstant() && stmt.getContext() != null) {
-            final String ctxName = (ctxVar != null) ? ctxVar.getName() : null;
+            final String ctxName = ctxVar.getName();
             if (!result.hasBinding(ctxName)) {
                 result.addBinding(ctxName, stmt.getContext());
             }
@@ -1134,6 +1134,10 @@ final class HalyardTupleExprEvaluation {
     }
 
     private static class ComparableBindingSetWrapperSerializer extends AbstractValueSerializer<ComparableBindingSetWrapper> {
+		public ComparableBindingSetWrapperSerializer() {
+			// required for deserialization
+		}
+
 		ComparableBindingSetWrapperSerializer(ValueFactory vf) {
 			super(vf);
 		}
@@ -2506,7 +2510,7 @@ final class HalyardTupleExprEvaluation {
 	                        try {
 	                            return secondSet.contains(bs) ? parent.push(bs) : true;
 	                        } catch (IOException e) {
-	                            return handleException(e);
+	                            return super.handleException(e);
 	                        }
 	                    }
 	                    @Override

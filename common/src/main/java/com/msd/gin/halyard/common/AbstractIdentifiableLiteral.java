@@ -123,7 +123,7 @@ public abstract class AbstractIdentifiableLiteral extends IdentifiableValue impl
 			String thatLang = that.getLanguage().orElse(null);
 			return this.getLabel().equals(that.getLabel())
 					&& this.getDatatype().equals(that.getDatatype())
-					&& ((thisLang == null && thatLang == null) || thisLang.equalsIgnoreCase(thatLang));
+					&& ((thisLang == thatLang) || (thisLang != null && thisLang.equalsIgnoreCase(thatLang)));
 		} else {
 			return false;
 		}

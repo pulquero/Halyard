@@ -147,6 +147,10 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
 
 
 	private static class ValueSerializer extends AbstractValueSerializer<Value> {
+    	public ValueSerializer() {
+    		// required for deserialization
+    	}
+
     	ValueSerializer(ValueFactory vf) {
     		super(vf);
     	}
@@ -165,6 +169,10 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
 
 
     private static class BindingSetSerializer extends AbstractValueSerializer<BindingSet> {
+		public BindingSetSerializer() {
+			// required for deserialization
+		}
+
 		BindingSetSerializer(ValueFactory vf) {
 			super(vf);
 		}

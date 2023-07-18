@@ -49,9 +49,6 @@ public class IdentifierTupleFunction implements ExtendedTupleFunction {
 			if (!(args[1] instanceof IRI)) {
 				throw new ValueExprEvaluationException("Second argument must be a predicate");
 			}
-			if (!(args[2] instanceof Value)) {
-				throw new ValueExprEvaluationException("Third argument must be an object");
-			}
 			ns = HALYARD.STATEMENT_ID_NS;
 			byte[] stmtId = rdfFactory.statementId((Resource) args[0], (IRI) args[1], args[2]);
 			id = Hashes.encode(stmtId);

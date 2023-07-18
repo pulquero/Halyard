@@ -98,6 +98,8 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 					case MAX_VERSIONS_QUERY_PARAM:
 						scanSettings.maxVersions = Integer.parseInt(nvp.getValue());
 						break;
+					default:
+						// ignore
 				}
 			}
 			federatedService = new HBaseFederatedService(sail);
