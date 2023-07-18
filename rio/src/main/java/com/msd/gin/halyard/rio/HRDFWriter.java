@@ -74,13 +74,16 @@ public final class HRDFWriter extends AbstractRDFWriter {
 		Resource subj = st.getSubject();
 		IRI pred = st.getPredicate();
 		Resource c = st.getContext();
-		ByteBuffer buf = ByteBuffer.allocate(256);
+		ByteBuffer tmp = ByteBuffer.allocate(ValueIO.DEFAULT_BUFFER_SIZE);
+		boolean contextUnchanged = (c == null) || c.equals(prevContext);
+		boolean subjUnchanged = subj.equals(prevSubject);
+		boolean predUnchanged = pred.equals(prevPredicate);
 		int type = HRDF.CSPO;
-		if (c == null || c.equals(prevContext)) {
+		if (contextUnchanged) {
 			type--;
-			if (subj.equals(prevSubject)) {
+			if (subjUnchanged) {
 				type--;
-				if (pred.equals(prevPredicate)) {
+				if (predUnchanged) {
 					type--;
 				}
 			}
@@ -88,24 +91,23 @@ public final class HRDFWriter extends AbstractRDFWriter {
 		if (c != null) {
 			type += HRDF.QUADS;
 		}
-		buf.put((byte) type);
-		boolean skip = (c == null) || c.equals(prevContext);
-		if (!skip) {
-			buf = valueWriter.writeValueWithSizeHeader(c, buf, Short.BYTES);
-		}
-		skip = subj.equals(prevSubject) && skip;
-		if (!skip) {
-			buf = valueWriter.writeValueWithSizeHeader(subj, buf, Short.BYTES);
-		}
-		skip = pred.equals(prevPredicate) && skip;
-		if (!skip) {
-			buf = valueWriter.writeValueWithSizeHeader(pred, buf, Short.BYTES);
-		}
-		buf = valueWriter.writeValueWithSizeHeader(st.getObject(), buf, Integer.BYTES);
 		try {
-			out.write(buf.array(), buf.arrayOffset(), buf.position());
-		} catch(IOException e) {
-			throw new RDFHandlerException(e);
+			out.writeByte((byte) type);
+			boolean skip = contextUnchanged;
+			if (!skip) {
+				tmp = valueWriter.writeValueWithSizeHeader(c, out, Short.BYTES, tmp);
+			}
+			skip = subjUnchanged && skip;
+			if (!skip) {
+				tmp = valueWriter.writeValueWithSizeHeader(subj, out, Short.BYTES, tmp);
+			}
+			skip = predUnchanged && skip;
+			if (!skip) {
+				tmp = valueWriter.writeValueWithSizeHeader(pred, out, Short.BYTES, tmp);
+			}
+			tmp = valueWriter.writeValueWithSizeHeader(st.getObject(), out, Integer.BYTES, tmp);
+		} catch (IOException ioe) {
+			throw new RDFHandlerException(ioe);
 		}
 		prevContext = c;
 		prevSubject = subj;
