@@ -438,7 +438,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 					final ResultScanner rs;
 
 					StatementScanner(RDFFactory rdfFactory) throws IOException {
-						super(sail.getRDFFactory().valueReader, sail.getStatementIndices(), sail.getValueFactory());
+						super(sail.getStatementIndices(), sail.getValueFactory());
 						rs = keyspaceConn.getScanner(sail.getStatementIndices().getCSPOIndex().scan());
 					}
 

@@ -4,7 +4,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
@@ -68,30 +67,5 @@ public final class IdentifiableLiteral extends AbstractIdentifiableLiteral {
 	@Override
 	public CoreDatatype getCoreDatatype() {
 		return coreDatatype;
-	}
-
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) {
-			return true;
-		}
-		ValueIdentifier thatId = getCompatibleId(o);
-		if (thatId != null) {
-			return getId(null).equals(thatId);
-		}
-		if (o instanceof Literal) {
-			Literal that = (Literal) o;
-			String thatLang = that.getLanguage().orElse(null);
-			return this.label.equals(that.getLabel())
-					&& this.datatype.equals(that.getDatatype())
-					&& ((this.lang == null && thatLang == null) || this.lang.equalsIgnoreCase(thatLang));
-		} else {
-			return false;
-		}
-	}
-
-	@Override
-	public int hashCode() {
-		return label.hashCode();
 	}
 }

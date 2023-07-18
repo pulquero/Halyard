@@ -22,7 +22,6 @@ import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFObject;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.common.ValueIO;
 import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.sail.search.SearchDocument;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
@@ -37,7 +36,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hbase.client.Result;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
@@ -71,11 +69,11 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 	}
 
 	@Override
-	protected CloseableIteration<? extends Statement, IOException> createStatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contexts, ValueIO.Reader reader) throws QueryEvaluationException {
+	protected CloseableIteration<? extends Statement, IOException> createStatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contexts) throws QueryEvaluationException {
 		if (HalyardEvaluationStrategy.isSearchStatement(obj)) {
-			return new LiteralSearchStatementScanner(subj, pred, obj.stringValue(), contexts, reader);
+			return new LiteralSearchStatementScanner(subj, pred, obj.stringValue(), contexts);
 		} else {
-			return super.createStatementScanner(subj, pred, obj, contexts, reader);
+			return super.createStatementScanner(subj, pred, obj, contexts);
 		}
 	}
 
@@ -87,8 +85,8 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 		Iterator<RDFObject> objects = null;
 		private final String literalSearchQuery;
 
-		public LiteralSearchStatementScanner(Resource subj, IRI pred, String literalSearchQuery, List<Resource> contexts, ValueIO.Reader reader) throws SailException {
-			super(subj, pred, null, contexts, reader);
+		public LiteralSearchStatementScanner(Resource subj, IRI pred, String literalSearchQuery, List<Resource> contexts) throws SailException {
+			super(subj, pred, null, contexts);
 			this.literalSearchQuery = literalSearchQuery;
 		}
 

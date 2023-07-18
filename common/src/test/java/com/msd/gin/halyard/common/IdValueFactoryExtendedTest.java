@@ -187,7 +187,7 @@ public class IdValueFactoryExtendedTest {
 		Configuration conf = new Configuration(false);
 		conf.setInt(TableConfig.ID_SIZE, 8);
 		RDFFactory rdfFactory = RDFFactory.create(conf);
-		actual.setId(rdfFactory, rdfFactory.id(actual));
+		actual.setId(rdfFactory.id(actual), rdfFactory);
 		assertEquals(rdfFactory.getSerializedForm(expected), actual.getSerializedForm(rdfFactory));
 	}
 
@@ -196,14 +196,20 @@ public class IdValueFactoryExtendedTest {
 		Configuration conf1 = new Configuration(false);
 		conf1.setInt(TableConfig.ID_SIZE, 8);
 		RDFFactory rdfFactory1 = RDFFactory.create(conf1);
-		actual.setId(rdfFactory1, rdfFactory1.id(actual));
-		other.setId(rdfFactory1, rdfFactory1.id(other));
+		ValueIdentifier actualId = rdfFactory1.id(actual);
+		ValueIdentifier otherId = rdfFactory1.id(other);
+		assertEquals(actualId.hashCode(), otherId.hashCode());
+		assertEquals(actualId, otherId);
+		actual.setId(actualId, rdfFactory1);
+		other.setId(otherId, rdfFactory1);
 		assertEquals(actual, other);
 
 		Configuration conf2 = new Configuration(false);
 		conf2.setInt(TableConfig.ID_SIZE, 10);
 		RDFFactory rdfFactory2 = RDFFactory.create(conf2);
-		other.setId(rdfFactory2, rdfFactory2.id(other));
+		otherId = rdfFactory2.id(other);
+		assertNotEquals(actualId, otherId);
+		other.setId(otherId, rdfFactory2);
 		assertEquals(actual, other);
 	}
 }

@@ -663,7 +663,7 @@ public class SpinParser {
 			parsedUpdate.addUpdateExpr(visitor.getUpdateExpr());
 			return parsedUpdate;
 		} else {
-			throw new MalformedSpinException(String.format("Unrecognised command type: %s", queryType));
+			return null;
 		}
 	}
 

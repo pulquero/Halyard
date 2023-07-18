@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Objects;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -304,15 +305,7 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 			return false;
 		}
 		ValueIdentifier that = (ValueIdentifier) o;
-		if (this.idBytes.length != that.idBytes.length) {
-			return false;
-		}
-		for (int i=this.idBytes.length-1; i>=0; i--) {
-			if (this.idBytes[i] != that.idBytes[i]) {
-				return false;
-			}
-		}
-		return true;
+		return Arrays.equals(this.idBytes, that.idBytes);
 	}
 
 	@Override

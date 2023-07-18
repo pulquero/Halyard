@@ -30,6 +30,6 @@ final class SerializedValue implements Externalizable {
 	public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
 		int size = in.readInt();
 		ser = new byte[size];
-		in.read(ser);
+		in.readFully(ser);
 	}
 }

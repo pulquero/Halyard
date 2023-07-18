@@ -101,7 +101,7 @@ public final class ElasticSettings {
 	}
 
 	public static ElasticSettings merge(Configuration conf, ElasticSettings defaults) {
-		ElasticSettings merged = new ElasticSettings();
+		ElasticSettings merged;
 		String esIndexUrl = conf.get(HBaseSail.ELASTIC_INDEX_URL);
 		if (esIndexUrl != null) {
 			try {

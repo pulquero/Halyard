@@ -16,7 +16,6 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.ValueFactory;
 
 public abstract class AbstractStatementScanner extends AbstractCloseableIteration<Statement, IOException> {
-	private final ValueIO.Reader reader;
 	protected final StatementIndices indices;
 	protected final ValueFactory vf;
 	protected RDFSubject subj;
@@ -28,8 +27,7 @@ public abstract class AbstractStatementScanner extends AbstractCloseableIteratio
 	private int stmtIndex = 0;
 	private int stmtLength = 0;
 
-	protected AbstractStatementScanner(ValueIO.Reader reader, StatementIndices indices, ValueFactory vf) {
-		this.reader = reader;
+	protected AbstractStatementScanner(StatementIndices indices, ValueFactory vf) {
 		this.indices = indices;
 		this.vf = vf;
 	}
@@ -45,7 +43,7 @@ public abstract class AbstractStatementScanner extends AbstractCloseableIteratio
 					if (res == null) {
 						return false; // no more Results
 					}
-					stmts = indices.parseStatements(subj, pred, obj, ctx, res, reader, vf);
+					stmts = indices.parseStatements(subj, pred, obj, ctx, res, vf);
 					stmtIndex = 0;
 					stmtLength = stmts.length;
 				}

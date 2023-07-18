@@ -68,7 +68,7 @@ import org.eclipse.rdf4j.model.IRI;
 public final class HalyardTableUtils {
 
     static final byte[] CF_NAME = Bytes.toBytes("e");
-    public static final byte[] CONFIG_ROW_KEY = new byte[] {(byte) 0xff};
+    static final byte[] CONFIG_ROW_KEY = new byte[] {(byte) 0xff};
     static final byte[] CONFIG_COL = Bytes.toBytes("config");
 
 	static final int DEFAULT_MAX_VERSIONS = 1;

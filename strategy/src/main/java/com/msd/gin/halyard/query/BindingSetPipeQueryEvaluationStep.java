@@ -14,7 +14,7 @@ public interface BindingSetPipeQueryEvaluationStep extends QueryEvaluationStep {
 	void evaluate(BindingSetPipe parent, BindingSet bindings);
 	/**
 	 * NB: synchronous.
-	 * @param parent
+	 * @param handler
 	 * @param bindings
 	 */
 	void evaluate(Consumer<BindingSet> handler, BindingSet bindings);

@@ -51,7 +51,7 @@ public abstract class IdentifiableValue implements Value {
 		return new IdSer(id, new ByteArray(ser), rdfFactory);
 	}
 
-	public final void setId(@Nonnull RDFFactory rdfFactory, @Nonnull ValueIdentifier id) {
+	public final void setId(@Nonnull ValueIdentifier id, @Nonnull RDFFactory rdfFactory) {
 		IdSer current = cachedIV;
 		if (current.rdfFactory != rdfFactory) {
 			cachedIV = new IdSer(id, null, rdfFactory);
@@ -71,7 +71,9 @@ public abstract class IdentifiableValue implements Value {
 		final RDFFactory rdfFactory;
 
 		private IdSer() {
-			this(null, null, null);
+			this.id = null;
+			this.ser = null;
+			this.rdfFactory = null;
 		}
 
 		/**
