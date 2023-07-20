@@ -74,6 +74,7 @@ public class HalyardPreSplitTest extends AbstractHalyardToolTest {
 			HalyardTableUtils.getTable(conn, "preSplitTable2", true, -1).close();
 		}
 
+		// -1 as can't modify existing table
         assertEquals(-1, run(new String[]{"-d", "1", "-l",  "0", "-s", file.toURI().toURL().toString(), "-t", "preSplitTable2"}));
     }
 }

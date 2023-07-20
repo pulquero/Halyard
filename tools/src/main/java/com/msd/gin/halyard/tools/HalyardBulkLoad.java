@@ -76,6 +76,8 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.model.vocabulary.SD;
 import org.eclipse.rdf4j.rio.ParseErrorListener;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFHandlerException;
@@ -415,6 +417,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
     	}
 
         private final BlockingQueue<Statement> queue;
+        private final IdValueFactory idValueFactory;
         private final CachingValueFactory valueFactory;
         private final TaskAttemptContext context;
         private final Path paths[];
@@ -427,6 +430,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         private volatile Exception ex = null;
         private long finishedSize = 0L;
         private int offset, count;
+        private boolean namespaceContextStatementWritten;
 
         private String baseUri = "";
         private Seekable seek;
@@ -460,7 +464,8 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             	// presplit - table not yet created
             	rdfFactory = RDFFactory.create(conf);
             }
-            this.valueFactory = new CachingValueFactory(new IdValueFactory(rdfFactory), conf.getInt(VALUE_CACHE_SIZE_PROPERTY, DEFAULT_VALUE_CACHE_SIZE));
+            this.idValueFactory = new IdValueFactory(rdfFactory);
+            this.valueFactory = new CachingValueFactory(idValueFactory, conf.getInt(VALUE_CACHE_SIZE_PROPERTY, DEFAULT_VALUE_CACHE_SIZE));
             this.allowInvalidIris = conf.getBoolean(ALLOW_INVALID_IRIS_PROPERTY, false);
             this.skipInvalidLines = conf.getBoolean(SKIP_INVALID_LINES_PROPERTY, false);
             this.verifyDataTypeValues = conf.getBoolean(VERIFY_DATATYPE_VALUES_PROPERTY, false);
@@ -572,7 +577,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         }
 
         @Override
-        public void handleStatement(Statement st) throws RDFHandlerException {
+        public void handleStatement(Statement st) {
             if (count == 1 || Math.floorMod(st.hashCode(), count) == offset) {
             	if (!queue.offer(st)) {
             		context.getCounter(Counters.PARSE_QUEUE_FULL).increment(1);
@@ -586,7 +591,12 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         }
 
         @Override
-        public void handleNamespace(String prefix, String uri) throws RDFHandlerException {
+        public void handleNamespace(String prefix, String uri) {
+        	if (!namespaceContextStatementWritten) {
+	        	// NB: use idValueFactory so the graph context doesn't get overridden
+	    		handleStatement(idValueFactory.createStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.NAMED_GRAPH_CLASS, HALYARD.SYSTEM_GRAPH_CONTEXT));
+	    		namespaceContextStatementWritten = true;
+        	}
             if (prefix.length() > 0) {
                 handleStatement(valueFactory.createStatement(valueFactory.createIRI(uri), HALYARD.NAMESPACE_PREFIX_PROPERTY, valueFactory.createLiteral(prefix), HALYARD.SYSTEM_GRAPH_CONTEXT));
             }
