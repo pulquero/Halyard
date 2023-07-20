@@ -218,7 +218,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private RDFFactory rdfFactory;
 	private StatementIndices stmtIndices;
 	private ValueFactory valueFactory;
-	private final FunctionRegistry functionRegistry = new DynamicFunctionRegistry();
+	private final FunctionRegistry functionRegistry = DynamicFunctionRegistry.getInstance();
 	private final CustomAggregateFunctionRegistry aggregateFunctionRegistry = CustomAggregateFunctionRegistry.getInstance();
 	private final TupleFunctionRegistry tupleFunctionRegistry = TupleFunctionRegistry.getInstance();
 	private final SpinParser spinParser = new SpinParser(Input.TEXT_FIRST, functionRegistry, tupleFunctionRegistry);

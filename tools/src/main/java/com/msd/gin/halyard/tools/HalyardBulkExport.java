@@ -114,8 +114,8 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
             sail.getFunctionRegistry().add(fn);
         	try {
             	HBaseRepository repo = new HBaseRepository(sail);
-            	repo.init();
 	            try {
+	            	repo.init();
 	                HalyardExport.QueryResultWriter writer;
 	                if (EsOutputFormat.class.getName().equals(target)) {
 	                	writer = new EsOutputResultWriter(log, sail.getRDFFactory(), sail.getValueFactory(), context);

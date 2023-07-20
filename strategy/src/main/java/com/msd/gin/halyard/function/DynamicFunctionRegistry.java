@@ -73,6 +73,12 @@ import net.sf.saxon.value.SequenceExtent;
 import net.sf.saxon.value.YearMonthDurationValue;
 
 public class DynamicFunctionRegistry extends FunctionRegistry {
+	private static final DynamicFunctionRegistry INSTANCE = new DynamicFunctionRegistry();
+
+	public static DynamicFunctionRegistry getInstance() {
+		return INSTANCE;
+	}
+
 	private final FunctionResolver resolver;
 
 	public DynamicFunctionRegistry() {

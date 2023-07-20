@@ -229,10 +229,10 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 					}
 				});
 				sail.setTrackResultSize(true);
-                SailRepository rep = new SailRepository(sail);
                 Function fn = new ParallelSplitFunction(qis.getRepeatIndex());
                 sail.getFunctionRegistry().add(fn);
                 try {
+                    SailRepository rep = new SailRepository(sail);
                     try {
                         rep.init();
                         try(SailRepositoryConnection con = rep.getConnection()) {
