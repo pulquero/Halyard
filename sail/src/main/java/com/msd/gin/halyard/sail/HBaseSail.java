@@ -82,6 +82,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.FunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
+import org.eclipse.rdf4j.query.parser.sparql.aggregate.CustomAggregateFunctionRegistry;
 import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.SailException;
 import org.slf4j.Logger;
@@ -218,6 +219,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private StatementIndices stmtIndices;
 	private ValueFactory valueFactory;
 	private final FunctionRegistry functionRegistry = new DynamicFunctionRegistry();
+	private final CustomAggregateFunctionRegistry aggregateFunctionRegistry = CustomAggregateFunctionRegistry.getInstance();
 	private final TupleFunctionRegistry tupleFunctionRegistry = TupleFunctionRegistry.getInstance();
 	private final SpinParser spinParser = new SpinParser(Input.TEXT_FIRST, functionRegistry, tupleFunctionRegistry);
 	private final ScanSettings scanSettings = new ScanSettings();
@@ -619,6 +621,10 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	public FunctionRegistry getFunctionRegistry() {
 		return functionRegistry;
+	}
+
+	public CustomAggregateFunctionRegistry getAggregateFunctionRegistry() {
+		return aggregateFunctionRegistry;
 	}
 
 	@Override

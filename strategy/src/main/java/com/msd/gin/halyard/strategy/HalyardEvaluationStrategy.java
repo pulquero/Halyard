@@ -102,7 +102,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	private QueryOptimizerPipeline pipeline;
 
 	final FunctionRegistry functionRegistry;
-	final CustomAggregateFunctionRegistry aggregateFunctionRegistry = CustomAggregateFunctionRegistry.getInstance();
+	final CustomAggregateFunctionRegistry aggregateFunctionRegistry;
 	final TupleFunctionRegistry tupleFunctionRegistry;
 	final AtomicReference<Literal> sharedValueOfNow = new AtomicReference<>();
 
@@ -121,7 +121,9 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	 */
 	public HalyardEvaluationStrategy(StrategyConfig config, TripleSource tripleSource,
 			TupleFunctionRegistry tupleFunctionRegistry,
-			FunctionRegistry functionRegistry, Dataset dataset, FederatedServiceResolver serviceResolver,
+			FunctionRegistry functionRegistry,
+			CustomAggregateFunctionRegistry aggregateFunctionRegistry,
+			Dataset dataset, FederatedServiceResolver serviceResolver,
 			HalyardEvaluationStatistics statistics, HalyardEvaluationExecutor executor) {
 		this.config = config;
 		this.tripleSource = tripleSource;
@@ -129,6 +131,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		this.serviceResolver = serviceResolver;
 		this.executor = executor;
 		this.functionRegistry = functionRegistry;
+		this.aggregateFunctionRegistry = aggregateFunctionRegistry;
 		this.tupleFunctionRegistry = tupleFunctionRegistry;
 		this.tupleEval = new HalyardTupleExprEvaluation(this, tripleSource, dataset, executor);
 		this.valueEval = new HalyardValueExprEvaluation(this, tripleSource, executor.getQueuePollTimeoutMillis());
@@ -137,8 +140,11 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	HalyardEvaluationStrategy(Configuration conf, TripleSource tripleSource, Dataset dataset,
 			FederatedServiceResolver serviceResolver, HalyardEvaluationStatistics statistics) {
-		this(new StrategyConfig(conf), tripleSource, TupleFunctionRegistry.getInstance(), FunctionRegistry.getInstance(),
-				dataset, serviceResolver, statistics, new HalyardEvaluationExecutor(conf));
+		this(new StrategyConfig(conf), tripleSource,
+			TupleFunctionRegistry.getInstance(),
+			FunctionRegistry.getInstance(),
+			CustomAggregateFunctionRegistry.getInstance(),
+			dataset, serviceResolver, statistics, new HalyardEvaluationExecutor(conf));
 	}
 
 	@Override
