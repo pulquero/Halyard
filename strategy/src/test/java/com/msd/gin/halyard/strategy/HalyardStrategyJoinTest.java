@@ -2,6 +2,7 @@ package com.msd.gin.halyard.strategy;
 
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algorithms;
+import com.msd.gin.halyard.algebra.NAryTupleOperator;
 import com.msd.gin.halyard.algebra.StarJoin;
 
 import java.io.InputStream;
@@ -33,8 +34,6 @@ import static org.junit.Assert.assertEquals;
 
 @RunWith(Parameterized.class)
 public class HalyardStrategyJoinTest {
-	private static final String STAR_JOIN_ALGORITHM_NAME = "Star join";
-
 	@Parameterized.Parameters(name = "{0}")
 	public static Collection<Object[]> data() {
 		List<Object[]> testValues = new ArrayList<>();
@@ -91,7 +90,7 @@ public class HalyardStrategyJoinTest {
     @Test
     public void testJoinOn1Var_duplicate() throws Exception {
         String q = "prefix : <http://example/> select ?x where {:x2 :p ?x. :x2 :p ?x}";
-        joinTest(q, "/test-cases/join-results-1-duplicate.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+        joinTest(q, "/test-cases/join-results-1-duplicate.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
@@ -103,19 +102,19 @@ public class HalyardStrategyJoinTest {
     @Test
     public void testJoinOn2Var() throws Exception {
         String q = "prefix : <http://example/> select ?x ?y where {?x :p ?y. ?x :t ?y}";
-        joinTest(q, "/test-cases/join-results-2.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+        joinTest(q, "/test-cases/join-results-2.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
     public void testJoinOn2Var_duplicate() throws Exception {
         String q = "prefix : <http://example/> select ?x ?y where {?x :s ?y. ?x :s ?y}";
-        joinTest(q, "/test-cases/join-results-2-duplicate.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+        joinTest(q, "/test-cases/join-results-2-duplicate.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
     public void testJoinOn2Var_constant() throws Exception {
         String q = "prefix : <http://example/> select ?x ?y where {:y3 :s ?x, ?y}";
-        joinTest(q, "/test-cases/join-results-2-constant.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+        joinTest(q, "/test-cases/join-results-2-constant.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
@@ -145,19 +144,19 @@ public class HalyardStrategyJoinTest {
     @Test
     public void testStarJoin_empty_bound() throws Exception {
         String q = "prefix : <http://example/> select * where {:x1 :p ?y. :x1 :z ?v}";
-        joinTest(q, "/test-cases/join-results-empty.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+        joinTest(q, "/test-cases/join-results-empty.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
     public void testStarJoin_empty_unbound() throws Exception {
         String q = "prefix : <http://example/> select * where {?x :p ?y. ?x :z ?v}";
-        joinTest(q, "/test-cases/join-results-empty.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+        joinTest(q, "/test-cases/join-results-empty.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
     public void testStarJoin() throws Exception {
         String q = "prefix : <http://example/> select * where {?x :p ?u. ?x :r ?v}";
-        joinTest(q, "/test-cases/star-join-results.srx", 1, starJoinMin == 1 ? STAR_JOIN_ALGORITHM_NAME : expectedAlgo());
+        joinTest(q, "/test-cases/star-join-results.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
@@ -299,8 +298,8 @@ public class HalyardStrategyJoinTest {
     private static String getJoinAlgorithm(TupleExpr join) {
     	if (join instanceof BinaryTupleOperator) {
     		return ((BinaryTupleOperator) join).getAlgorithmName();
-    	} else if (join instanceof StarJoin) {
-    		return STAR_JOIN_ALGORITHM_NAME;
+    	} else if (join instanceof NAryTupleOperator) {
+    		return ((NAryTupleOperator) join).getAlgorithmName();
     	} else {
     		throw new AssertionError();
     	}

@@ -13,6 +13,7 @@ import org.eclipse.rdf4j.query.algebra.TupleExpr;
 public abstract class NAryTupleOperator extends AbstractQueryModelNode implements TupleExpr {
 	private static final long serialVersionUID = -3171973153588379214L;
 	private TupleExpr[] args;
+	private String algorithmName;
 
 	public void setArgs(List<? extends TupleExpr> exprs) {
 		args = new TupleExpr[exprs.size()];
@@ -89,6 +90,14 @@ public abstract class NAryTupleOperator extends AbstractQueryModelNode implement
 		return bindingNames;
 	}
 
+	public void setAlgorithm(String classSimpleName) {
+		this.algorithmName = classSimpleName;
+	}
+
+	public String getAlgorithmName() {
+		return algorithmName;
+	}
+
 	@Override
 	public boolean equals(Object other) {
 		if (other instanceof NAryTupleOperator) {
@@ -122,5 +131,12 @@ public abstract class NAryTupleOperator extends AbstractQueryModelNode implement
 		}
 
 		return clone;
+	}
+
+	@Override
+	public String toString() {
+		ExtendedQueryModelTreePrinter treePrinter = new ExtendedQueryModelTreePrinter();
+		this.visit(treePrinter);
+		return treePrinter.getTreeString();
 	}
 }

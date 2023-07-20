@@ -345,7 +345,7 @@ final class HalyardTupleExprEvaluation {
     }
 
     private BindingSetPipeEvaluationStep precompileStatementPattern(StatementPattern sp) {
-    	return (parent, bindings) -> evaluateStatementPattern(parent, sp, bindings);
+    	return (parent, bindings) -> evaluateStatementPattern(parent, sp, sp, bindings);
     }
 
     TripleSource getTripleSource(StatementPattern sp, BindingSet bindings) {
@@ -407,17 +407,18 @@ final class HalyardTupleExprEvaluation {
      * Evaluate the statement pattern using the supplied bindings
      * @param parent to push or enqueue evaluation results
      * @param sp the {@code StatementPattern} to evaluate
+     * @param trackExpr the query model node to use for the purposes of tracking and prioritisation
      * @param bindings the set of names to which values are bound. For example, select ?s, ?p, ?o has the names s, p and o and the values bound to them are the
      * results of the evaluation of this statement pattern
      */
-    private void evaluateStatementPattern(final BindingSetPipe parent, final StatementPattern sp, final BindingSet bindings) {
+    private void evaluateStatementPattern(final BindingSetPipe parent, final StatementPattern sp, final TupleExpr trackExpr, final BindingSet bindings) {
         QuadPattern nq = getQuadPattern(sp, bindings);
         if (nq != null) {
     		TripleSource ts = getTripleSource(sp, bindings);
     		if (ts != null) {
     	        QueryEvaluationStep evalStep = evaluateStatementPattern(sp, nq, ts);
         		try {
-    				executor.pullAndPushAsync(parent, evalStep, sp, bindings, parentStrategy);
+    				executor.pullAndPushAsync(parent, evalStep, trackExpr, bindings, parentStrategy);
                 } catch (QueryEvaluationException e) {
                     parent.handleException(e);
                 }
@@ -2604,8 +2605,7 @@ final class HalyardTupleExprEvaluation {
     }
 
     private BindingSetPipeEvaluationStep precompileStarJoin(StarJoin starJoin, QueryEvaluationContext evalContext) {
-    	if (starJoin.getScope() == StatementPattern.Scope.DEFAULT_CONTEXTS && (tripleSource instanceof ExtendedTripleSource)) {
-    		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+    	if (starJoin.getScope() == StatementPattern.Scope.DEFAULT_CONTEXTS) {
 	    	StatementPattern[] sps = new StatementPattern[starJoin.getArgCount()];
 	    	for (int i=0; i<sps.length; i++) {
 	    		TupleExpr te = starJoin.getArg(i);
@@ -2619,6 +2619,7 @@ final class HalyardTupleExprEvaluation {
 	    	Var ctxVar = starJoin.getContextVar();
 	    	boolean allAreStmts = (sps[sps.length-1] != null);
 	    	if (allAreStmts) {
+	        	starJoin.setAlgorithm(Algorithms.STAR_JOIN);
 	    		BindingSetPipeEvaluationStep firstStep = precompileTupleExpr(sps[0], evalContext);
 		    	return (parent, bindings) -> {
 		        	BindingSetPipeEvaluationStep step;
@@ -2638,53 +2639,60 @@ final class HalyardTupleExprEvaluation {
 		        		preds[i] = pred;
 		        	}
 		        	getFullSubject = true; // TODO currently only support getFullSubject mode
-		        	if (getFullSubject) {
-		        		// TODO replace this with single evaluateStatemetns if only one sps left
-		        		step = (p, stepBindings) -> executor.pullAndPushAsync(p, evalBindings -> {
-		        			List<BindingSet>[] resultsPerSp = (List<BindingSet>[]) new List<?>[sps.length];
-		    	        	Resource common = (Resource) Algebra.getVarValue(commonVar, evalBindings);
-		    	        	Resource ctx = (Resource) Algebra.getVarValue(ctxVar, evalBindings);
-		        			Resource[] ctxs = (ctxVar != null) ? new Resource[] {ctx} : ALL_CONTEXTS;
-		        			CloseableIteration<? extends Statement, QueryEvaluationException> iter = tripleSource.getStatements(common, null, null, ctxs);
-							while (iter.hasNext()) {
-								Statement stmt = iter.next();
-								for (int i=startIndex; i<sps.length; i++) {
-									StatementPattern sp = sps[i];
-									Value pred = Algebra.getVarValue(sp.getPredicateVar(), evalBindings);
-									Value obj = Algebra.getVarValue(sp.getObjectVar(), evalBindings);
-									if ((pred == null || pred.equals(stmt.getPredicate())) && (obj == null || obj.equals(stmt.getObject()))) {
-										QuadPattern nq = getQuadPattern(sp, evalBindings);
-										if (filterStatement(sp, stmt, nq)) {
-											BindingSet spBs = convertStatement(sp, stmt, evalBindings);
-											List<BindingSet> bsList = resultsPerSp[i];
-											if (bsList == null) {
-												resultsPerSp[i] = Collections.singletonList(spBs);
-											} else if (bsList.size() == 1) {
-												List<BindingSet> newBsList = new ArrayList<>(2);
-												newBsList.add(bsList.get(0));
-												newBsList.add(spBs);
-												resultsPerSp[i] = newBsList;
-											} else {
-												bsList.add(spBs);
+		        	if (getFullSubject || !(tripleSource instanceof ExtendedTripleSource)) {
+		        		if (sps.length-startIndex > 1) {
+		        			// multiple statement patterns
+		        			QueryEvaluationStep evalStep = evalBindings -> {
+			        			List<BindingSet>[] resultsPerSp = (List<BindingSet>[]) new List<?>[sps.length];
+			    	        	Resource common = (Resource) Algebra.getVarValue(commonVar, evalBindings);
+			    	        	Resource ctx = (Resource) Algebra.getVarValue(ctxVar, evalBindings);
+			        			Resource[] ctxs = (ctxVar != null) ? new Resource[] {ctx} : ALL_CONTEXTS;
+			        			CloseableIteration<? extends Statement, QueryEvaluationException> iter = tripleSource.getStatements(common, null, null, ctxs);
+								while (iter.hasNext()) {
+									Statement stmt = iter.next();
+									for (int i=startIndex; i<sps.length; i++) {
+										StatementPattern sp = sps[i];
+										Value pred = Algebra.getVarValue(sp.getPredicateVar(), evalBindings);
+										Value obj = Algebra.getVarValue(sp.getObjectVar(), evalBindings);
+										if ((pred == null || pred.equals(stmt.getPredicate())) && (obj == null || obj.equals(stmt.getObject()))) {
+											QuadPattern nq = getQuadPattern(sp, evalBindings);
+											if (filterStatement(sp, stmt, nq)) {
+												BindingSet spBs = convertStatement(sp, stmt, evalBindings);
+												List<BindingSet> bsList = resultsPerSp[i];
+												if (bsList == null) {
+													resultsPerSp[i] = Collections.singletonList(spBs);
+												} else if (bsList.size() == 1) {
+													List<BindingSet> newBsList = new ArrayList<>(2);
+													newBsList.add(bsList.get(0));
+													newBsList.add(spBs);
+													resultsPerSp[i] = newBsList;
+												} else {
+													bsList.add(spBs);
+												}
 											}
 										}
 									}
 								}
-							}
-							List<BindingSet> results = resultsPerSp[startIndex];
-							if (results == null) {
-								return new EmptyIteration<>();
-							}
-							for (int i=startIndex+1; i<resultsPerSp.length; i++) {
-								List<BindingSet> bsList = resultsPerSp[i];
-								results = join(results, bsList);
+								List<BindingSet> results = resultsPerSp[startIndex];
 								if (results == null) {
 									return new EmptyIteration<>();
 								}
-							}
-							return new CloseableIteratorIteration<>(results.iterator());
-		        		}, starJoin, stepBindings, parentStrategy);
+								for (int i=startIndex+1; i<resultsPerSp.length; i++) {
+									List<BindingSet> bsList = resultsPerSp[i];
+									results = join(results, bsList);
+									if (results == null) {
+										return new EmptyIteration<>();
+									}
+								}
+								return new CloseableIteratorIteration<>(results.iterator());
+			        		};
+			        		step = (p, stepBindings) -> executor.pullAndPushAsync(p, evalStep, starJoin, stepBindings, parentStrategy);
+		        		} else {
+		        			// single statement pattern
+		        			step = (p, stepBindings) -> evaluateStatementPattern(p, sps[startIndex], starJoin, stepBindings);
+		        		}
 		        	} else {
+		        		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
 		        		// TODO: getStatements(Resource subj, Set<IRI> preds, Resource... ctxs)
 		        		throw new AssertionError();
 		        	}
@@ -2697,6 +2705,7 @@ final class HalyardTupleExprEvaluation {
 	    	}
     	}
 
+    	starJoin.setAlgorithm(Algorithms.NESTED_LOOPS);
     	int i = starJoin.getArgCount() - 1;
     	BindingSetPipeEvaluationStep step = precompileTupleExpr(starJoin.getArg(i), evalContext);
     	for (i--; i>=0; i--) {
@@ -2828,7 +2837,7 @@ final class HalyardTupleExprEvaluation {
 							return handleException(ioe);
 						}
 					}
-				}, sp, bindings);
+				}, sp, zlp, bindings);
 			} else {
 				QueryBindingSet result = new QueryBindingSet(bindings);
 				if (obj == null && subj != null) {
