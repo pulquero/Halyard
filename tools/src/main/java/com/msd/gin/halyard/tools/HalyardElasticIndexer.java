@@ -487,34 +487,35 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
 		}
 
 		private Object toObject(Value v) throws IOException {
-			if (v.isLiteral()) {
-				Literal l = (Literal) v;
-	    		Optional<XSD> xsd = l.getCoreDatatype().asXSDDatatype();
-	    		if (xsd.map(XSD::isNumericDatatype).orElse(false)) {
-	   				try {
-		    			if (xsd.map(XSD::isIntegerDatatype).orElse(false)) {
-		    				return l.longValue();
-		    			} else {
-		    				return l.doubleValue();
+			if (v != null) {
+				if (v.isLiteral()) {
+					Literal l = (Literal) v;
+		    		Optional<XSD> xsd = l.getCoreDatatype().asXSDDatatype();
+		    		if (xsd.map(XSD::isNumericDatatype).orElse(false)) {
+		   				try {
+			    			if (xsd.map(XSD::isIntegerDatatype).orElse(false)) {
+			    				return l.longValue();
+			    			} else {
+			    				return l.doubleValue();
+			    			}
+		   				} catch (NumberFormatException nfe) {
+		   	    			return l.getLabel();
+		   				}
+		    		} else if (HALYARD.TUPLE_TYPE.equals(l.getDatatype())) {
+		    			Value[] varr = TupleLiteral.arrayValue(l, valueFactory);
+		    			Object[] oarr = new Object[varr.length];
+		    			for (int i=0; i<varr.length; i++) {
+		    				oarr[i] = toObject(varr[i]);
 		    			}
-	   				} catch (NumberFormatException nfe) {
-	   	    			return l.getLabel();
-	   				}
-	    		} else if (HALYARD.TUPLE_TYPE.equals(l.getDatatype())) {
-	    			Value[] varr = TupleLiteral.arrayValue(l, valueFactory);
-	    			Object[] oarr = new Object[varr.length];
-	    			for (int i=0; i<varr.length; i++) {
-	    				oarr[i] = toObject(varr[i]);
-	    			}
-	    			return oarr;
-	    		} else {
-	    			return l.getLabel();
-	    		}
-			} else if (v.isIRI()) {
-				return v.stringValue();
-			} else {
-				return null;
+		    			return oarr;
+		    		} else {
+		    			return l.getLabel();
+		    		}
+				} else if (v.isIRI()) {
+					return v.stringValue();
+				}
 			}
+			return null;
 		}
 
 		public abstract void writeNumericField(String key, Number value) throws IOException;
