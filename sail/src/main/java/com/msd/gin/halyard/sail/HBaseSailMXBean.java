@@ -4,6 +4,7 @@ import com.msd.gin.halyard.sail.HBaseSail.QueryInfo;
 import com.msd.gin.halyard.sail.HBaseSail.ScanSettings;
 
 public interface HBaseSailMXBean {
+	String getTableName();
 	boolean isPushStrategyEnabled();
 	int getEvaluationTimeout();
 	ElasticSettings getElasticSettings();

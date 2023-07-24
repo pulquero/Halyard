@@ -370,6 +370,11 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	}
 
 	@Override
+	public String getTableName() {
+		return tableName.getNameWithNamespaceInclAsString();
+	}
+
+	@Override
 	public boolean isPushStrategyEnabled() {
 		return pushStrategy;
 	}

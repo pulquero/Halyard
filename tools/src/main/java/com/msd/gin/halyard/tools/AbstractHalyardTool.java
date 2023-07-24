@@ -247,15 +247,19 @@ public abstract class AbstractHalyardTool implements Tool {
         return requiredOptions;
     }
 
-    protected final boolean isDryRun() {
-    	return getConf().getBoolean(DRY_RUN_PROPERTY, false);
+    protected static final boolean isDryRun(Configuration conf) {
+    	return conf.getBoolean(DRY_RUN_PROPERTY, false);
     }
 
     protected final void bulkLoad(TableName tableName, Path workDir) throws IOException {
-    	if (isDryRun()) {
+    	bulkLoad(getConf(), tableName, workDir);
+    }
+
+    protected static final void bulkLoad(Configuration conf, TableName tableName, Path workDir) throws IOException {
+    	if (isDryRun(conf)) {
     		LOG.info("Skipping bulk load - dry run");
     	} else {
-    		BulkLoadHFiles.create(getConf()).bulkLoad(tableName, workDir);
+    		BulkLoadHFiles.create(conf).bulkLoad(tableName, workDir);
     	}
     }
 
