@@ -81,8 +81,10 @@ import org.eclipse.rdf4j.rio.RDFWriterRegistry;
 import org.eclipse.rdf4j.rio.Rio;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ErrorCause;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.transport.ElasticsearchTransport;
 
 /**
@@ -470,7 +472,14 @@ public final class HalyardExport extends AbstractHalyardTool {
 
 	    		BulkResponse resp = esClient.bulk(bulkf -> bulkf.index(indexName).operations(ops));
 	    		if (resp.errors()) {
-	    			throw new ExportException("There were errors with exporting to Elastic search");
+	    			StringBuilder errs = new StringBuilder();
+	    			for (BulkResponseItem item : resp.items()) {
+	    				ErrorCause err = item.error();
+	    				if (err != null) {
+	    					errs.append(err.type()).append(": ").append(err.reason()).append("\n");
+	    				}
+	    			}
+	    			throw new ExportException("There were errors with exporting to Elasticsearch:\n"+errs);
 	    		}
         	}
         }
