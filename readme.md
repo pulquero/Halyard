@@ -36,3 +36,6 @@ See [Documentation](https://pulquero.github.io/Halyard) for usage examples, arch
  * `tools` - a set of command line and Apache Hadoop MapReduce tools for loading, updating, querying, and exporting the data with maximum performance
  * `sdk` - a distributable bundle of Eclipse RDF4J and Halyard for command line use on an Apache Hadoop cluster with configured HBase
  * `webapps` - a re-distribution of Eclipse RDF4J Web Applications (RDF4J-Server and RDF4J-Workbench), patched and enhanced to include Halyard as another RDF repository option
+
+## Guides
+[Elasticsearch Export](/tools/elasticsearch.md)
