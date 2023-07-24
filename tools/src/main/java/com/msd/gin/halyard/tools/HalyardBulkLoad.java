@@ -88,8 +88,8 @@ import org.eclipse.rdf4j.rio.RDFParserRegistry;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
-import org.eclipse.rdf4j.rio.helpers.NTriplesParserSettings;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
+import org.eclipse.rdf4j.rio.ntriples.NTriplesParserSettings;
 import org.eclipse.rdf4j.rio.trix.TriXParser;
 import org.eclipse.rdf4j.rio.turtle.TurtleParser;
 
@@ -333,7 +333,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         protected List<FileStatus> listStatus(JobContext job) throws IOException {
             List<FileStatus> filteredList = new ArrayList<>();
             for (FileStatus fs : super.listStatus(job)) {
-                if (Rio.getParserFormatForFileName(fs.getPath().getName()) != null) {
+                if (Rio.getParserFormatForFileName(fs.getPath().getName()).isPresent()) {
                     filteredList.add(fs);
                 }
             }
@@ -427,14 +427,13 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         private final String defaultRdfContextPattern;
         private final boolean overrideRdfContext;
         private final long maxSize;
-        private volatile Exception ex = null;
+        private volatile String baseUri;
+        private volatile Exception ex;
         private long finishedSize = 0L;
         private int offset, count;
         private boolean namespaceContextStatementWritten;
 
-        private String baseUri = "";
-        private Seekable seek;
-        private InputStream in;
+        private InputStream inStream;
 
         public ParserPump(CombineFileSplit split, TaskAttemptContext context) throws IOException {
             this.context = context;
@@ -482,18 +481,14 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             	s = queue.take();
             }
             if (ex != null) {
-            	final String localBaseUri;
-            	synchronized (this) {
-                    localBaseUri = baseUri;
-            	}
-        		throw new IOException("Exception while parsing: " + localBaseUri, ex);
+        		throw new IOException("Exception while parsing: " + baseUri, ex);
             }
             return s == END_STATEMENT ? null : s;
         }
 
         public synchronized float getProgress() {
             try {
-                long seekPos = (seek != null) ? seek.getPos() : 0L;
+                long seekPos = (inStream instanceof Seekable) ? ((Seekable)inStream).getPos() : 0L;
                 return (float)(finishedSize + seekPos) / (float)size;
             } catch (IOException e) {
                 return (float)finishedSize / (float)size;
@@ -506,66 +501,72 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             try {
                 Configuration conf = context.getConfiguration();
                 for (int i=0; i<paths.length; i++) {
-                	try {
-	                    Path file = paths[i];
-	                    final String localBaseUri = file.toString();
-	                    synchronized (this) {
-	                        this.baseUri = localBaseUri; //synchronised parameters must be set inside a sync block
-	                        if (seek != null) try {
-	                            finishedSize += seek.getPos();
+                    synchronized (this) {
+                        if (inStream instanceof Seekable) {
+                        	try {
+	                            finishedSize += ((Seekable)inStream).getPos();  // end position of previous file
 	                        } catch (IOException e) {
 	                            //ignore
 	                        }
-	                    }
-	                    this.offset = (int)offsets[i];
-	                    this.count = (maxSize > 0 && sizes[i] > maxSize) ? (int)Math.ceil((double)sizes[i] / (double)maxSize) : 1;
-	                    close();
+                        }
+                    }
+                    close();
+                    Path file = paths[i];
+                    final String localBaseUri = file.toString();
+                    RDFFormat rdfFormat = Rio.getParserFormatForFileName(localBaseUri).orElse(null);
+                    if (rdfFormat != null) {
+                        this.baseUri = localBaseUri;
+	                    this.offset = (int) offsets[i];
+	                    this.count = (maxSize > 0 && sizes[i] > maxSize) ? (int) Math.ceil((double)sizes[i] / (double)maxSize) : 1;
 	                    context.setStatus("Parsing " + localBaseUri);
-	                    FileSystem fs = file.getFileSystem(conf);
-	                    FSDataInputStream fileIn = fs.open(file);
-	                    CompressionCodec codec = new CompressionCodecFactory(conf).getCodec(file);
-	                    final InputStream localIn;
-	                    if (codec != null) {
-	                    	localIn = codec.createInputStream(fileIn, CodecPool.getDecompressor(codec));
-	                    } else {
-	                    	localIn = fileIn;
-	                    }
-	                    synchronized (this) {
-	                        this.seek = fileIn; //synchronised parameters must be set inside a sync block
-	                        this.in = localIn; //synchronised parameters must be set inside a sync block
-	                    }
-	                    RDFParser parser = Rio.createParser(Rio.getParserFormatForFileName(localBaseUri).get());
-	                    parser.setRDFHandler(this);
-	                    parser.setParseErrorListener(this);
-	                    parser.set(BasicParserSettings.PRESERVE_BNODE_IDS, true);
-	                    parser.set(BasicParserSettings.VERIFY_URI_SYNTAX, !allowInvalidIris);
-	                    parser.set(BasicParserSettings.VERIFY_RELATIVE_URIS, !allowInvalidIris);
-	                    if (skipInvalidLines) {
-	                        parser.set(NTriplesParserSettings.FAIL_ON_INVALID_LINES, false);
-	                        parser.getParserConfig().addNonFatalError(NTriplesParserSettings.FAIL_ON_INVALID_LINES);
-	                    }
-	                   	parser.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, verifyDataTypeValues);
-	                    parser.set(BasicParserSettings.VERIFY_LANGUAGE_TAGS, verifyDataTypeValues);
-	                    if (defaultRdfContextPattern != null || overrideRdfContext) {
-	                        IRI defaultRdfContext;
-	                        if (defaultRdfContextPattern != null) {
-	                            String context = MessageFormat.format(defaultRdfContextPattern, localBaseUri, file.toUri().getPath(), file.getName());
-	                            validateIRIs(context);
-	                            defaultRdfContext = valueFactory.createIRI(context);
-	                        } else {
-	                            defaultRdfContext = null;
-	                        }
-	                        valueFactory.setDefaultContext(defaultRdfContext, overrideRdfContext);
-	                    }
-	                    parser.setValueFactory(valueFactory);
-	                    parser.parse(localIn, localBaseUri);
-	                } catch (Exception e) {
-	                    if (allowInvalidIris && skipInvalidLines && !verifyDataTypeValues) {
-	                        LOG.warn("Exception while parsing RDF", e);
-	                    } else {
-	                        throw e;
-	                    }
-	                }
+		                try {
+		                    FileSystem fs = file.getFileSystem(conf);
+		                    FSDataInputStream fileIn = fs.open(file);
+		                    CompressionCodec codec = new CompressionCodecFactory(conf).getCodec(file);
+		                    final InputStream localStream;
+		                    if (codec != null) {
+		                    	localStream = codec.createInputStream(fileIn, CodecPool.getDecompressor(codec));
+		                    } else {
+		                    	localStream = fileIn;
+		                    }
+		                    synchronized (this) {
+		                        this.inStream = localStream; //synchronised parameters must be set inside a sync block
+		                    }
+		                    RDFParser parser = Rio.createParser(rdfFormat);
+		                    parser.setRDFHandler(this);
+		                    parser.setParseErrorListener(this);
+		                    parser.set(BasicParserSettings.PRESERVE_BNODE_IDS, true);
+		                    parser.set(BasicParserSettings.VERIFY_URI_SYNTAX, !allowInvalidIris);
+		                    parser.set(BasicParserSettings.VERIFY_RELATIVE_URIS, !allowInvalidIris);
+		                    if (skipInvalidLines) {
+		                        parser.set(NTriplesParserSettings.FAIL_ON_INVALID_LINES, false);
+		                        parser.getParserConfig().addNonFatalError(NTriplesParserSettings.FAIL_ON_INVALID_LINES);
+		                    }
+		                   	parser.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, verifyDataTypeValues);
+		                    parser.set(BasicParserSettings.VERIFY_LANGUAGE_TAGS, verifyDataTypeValues);
+		                    if (defaultRdfContextPattern != null || overrideRdfContext) {
+		                        IRI defaultRdfContext;
+		                        if (defaultRdfContextPattern != null) {
+		                            String context = MessageFormat.format(defaultRdfContextPattern, localBaseUri, file.toUri().getPath(), file.getName());
+		                            validateIRIs(context);
+		                            defaultRdfContext = valueFactory.createIRI(context);
+		                        } else {
+		                            defaultRdfContext = null;
+		                        }
+		                        valueFactory.setDefaultContext(defaultRdfContext, overrideRdfContext);
+		                    }
+		                    parser.setValueFactory(valueFactory);
+		                    parser.parse(localStream, localBaseUri);
+		                } catch (Exception e) {
+		                    if (allowInvalidIris && skipInvalidLines && !verifyDataTypeValues) {
+		                        LOG.warn("Exception while parsing RDF", e);
+		                    } else {
+		                        throw e;
+		                    }
+		                }
+                    } else {
+                    	LOG.warn("Skipping unsupported file: {}", localBaseUri);
+                    }
 	            }
             } catch (Exception e) {
                 ex = e;
@@ -604,9 +605,9 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
 
         @Override
         public synchronized void close() throws IOException {
-            if (in != null) {
-                in.close();
-                in = null;
+            if (inStream != null) {
+                inStream.close();
+                inStream = null;
             }
         }
 
@@ -627,7 +628,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         }
     }
 
-    private static String listRDF() {
+    private static String listRDFFormats() {
         StringBuilder sb = new StringBuilder();
         for (RDFFormat fmt : RDFParserRegistry.getInstance().getKeys()) {
             sb.append("* ").append(fmt.getName()).append(" (");
@@ -650,7 +651,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             TOOL_NAME,
             "Halyard Bulk Load is a MapReduce application designed to efficiently load RDF data from Hadoop Filesystem (HDFS) into HBase in the form of a Halyard dataset.",
             "Halyard Bulk Load consumes RDF files in various formats supported by RDF4J RIO, including:\n"
-                + listRDF()
+                + listRDFFormats()
                 + "All the supported RDF formats can be also compressed with one of the compression codecs supported by Hadoop, including:\n"
                 + "* Gzip (.gz)\n"
                 + "* Bzip2 (.bz2)\n"
