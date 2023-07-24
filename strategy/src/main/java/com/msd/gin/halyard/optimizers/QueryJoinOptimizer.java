@@ -429,16 +429,9 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 						maxJoinSize = joinSize;
 					}
 
-					List<TupleExpr[]> l;
-
-					if (joinSizes.containsKey(joinSize)) {
-						l = joinSizes.get(joinSize);
-					} else {
-						l = new ArrayList<>();
-					}
 					TupleExpr[] tupleTuple = new TupleExpr[] { firstArg, secondArg };
+					List<TupleExpr[]> l = joinSizes.computeIfAbsent(joinSize, key -> new ArrayList<>());
 					l.add(tupleTuple);
-					joinSizes.put(joinSize, l);
 				}
 			}
 
@@ -534,9 +527,8 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 				TupleExpr tupleExpr = expressions.get(0);
 				TupleExpr optimizedExpr = optimizeTupleExpr(tupleExpr);
 				Map<TupleExpr,Double> cardinalityMap = getCardinalityMap(optimizedExpr);
-				double cardinality = cardinalityMap.get(optimizedExpr);
 				setResultSizeEstimates(cardinalityMap);
-				optimizedExpr.setCostEstimate(getTupleExprCost(tupleExpr, optimizedExpr, cardinality, varsMap, varFreqMap));
+				optimizedExpr.setCostEstimate(getTupleExprCost(tupleExpr, optimizedExpr, cardinalityMap, varsMap, varFreqMap));
 				return new TupleExpr[] {tupleExpr, optimizedExpr};
 			}
 
@@ -550,8 +542,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 				TupleExpr optimizedExpr = optimizeTupleExpr(tupleExpr);
 				// Calculate a score for this tuple expression
 				Map<TupleExpr,Double> cardinalityMap = getCardinalityMap(optimizedExpr);
-				double cardinality = cardinalityMap.get(optimizedExpr);
-				double cost = getTupleExprCost(tupleExpr, optimizedExpr, cardinality, varsMap, varFreqMap);
+				double cost = getTupleExprCost(tupleExpr, optimizedExpr, cardinalityMap, varsMap, varFreqMap);
 
 				if (cost < lowestCost || resultNew == null) {
 					// More specific path expression found
@@ -589,7 +580,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			}
 		}
 
-		private double getTupleExprCost(TupleExpr tupleExpr, TupleExpr optimizedExpr, double cardinality,
+		private double getTupleExprCost(TupleExpr tupleExpr, TupleExpr optimizedExpr, Map<TupleExpr,Double> cardinalityMap,
 				Map<TupleExpr, List<Var>> varsMap, Map<Var, Integer> varFreqMap) {
 
 			// BindingSetAssignment has a typical constant cost. This cost is not based on statistics so is much more
@@ -609,7 +600,8 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 				return 1.0;
 			}
 
-			double cost = cardinality;
+			// in most cases, cost is driven by cardinality
+			double cost = cardinalityMap.get(optimizedExpr);
 
 			List<Var> vars = varsMap.get(tupleExpr);
 
