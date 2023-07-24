@@ -72,6 +72,7 @@ import javax.management.openmbean.TabularData;
 import org.apache.commons.io.output.StringBuilderWriter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapreduce.JobStatus;
 import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.lang.FileFormat;
 import org.eclipse.rdf4j.common.lang.service.FileFormatServiceRegistry;
@@ -147,6 +148,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     private static final String USING_NAMED_GRAPH_PREFIX = "using-named-graph-uri=";
 
     private static final String TRACK_RESULT_SIZE = "track-result-size=";
+    private static final String MAP_REDUCE = "map-reduce=";
     private static final String TARGET = "target=";
 
     static final String JSON_CONTENT = "application/json";
@@ -504,6 +506,8 @@ public final class HttpSparqlHandler implements HttpHandler {
             sparqlQuery.addNamedGraph(SVF.createIRI(getParameterValue(param, USING_NAMED_GRAPH_PREFIX)));
         } else if (param.startsWith(TRACK_RESULT_SIZE)) {
         	sparqlQuery.trackResultSize = Boolean.valueOf(getParameterValue(param, TRACK_RESULT_SIZE));
+        } else if (param.startsWith(MAP_REDUCE)) {
+        	sparqlQuery.mapReduce = Boolean.valueOf(getParameterValue(param, MAP_REDUCE));
         } else {
             int i = param.indexOf("=");
             if (i >= 0) {
@@ -533,7 +537,7 @@ public final class HttpSparqlHandler implements HttpHandler {
      * @throws RDF4JException If an error occurs due to illegal SPARQL query (e.g. incorrect syntax)
      * @throws GeneralSecurityException 
      */
-    private void evaluateQuery(SparqlQuery sparqlQuery, HttpExchange exchange) throws IOException, RDF4JException, GeneralSecurityException {
+    private void evaluateQuery(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
         String queryString = sparqlQuery.getQuery();
         // sniff query type and perform content negotiation before opening a connection
         ParsedQuery sniffedQuery = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, queryString, null);
@@ -630,56 +634,86 @@ public final class HttpSparqlHandler implements HttpHandler {
        	LOGGER.info("Query successfully processed");
     }
 
-    private void evaluateUpdate(SparqlQuery sparqlQuery, HttpExchange exchange) throws IOException, RDF4JException {
+    private void evaluateUpdate(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
         String updateString = sparqlQuery.getUpdate();
-        ParsedUpdate parsedUpdate;
-    	try(SailRepositoryConnection connection = repository.getConnection()) {
-    		if (connection.getSailConnection() instanceof ResultTrackingSailConnection) {
-    			((ResultTrackingSailConnection)connection.getSailConnection()).setTrackResultSize(sparqlQuery.trackResultSize);
-    		}
-	        SailUpdate update = (SailUpdate) connection.prepareUpdate(QueryLanguage.SPARQL, updateString, null);
-	        sparqlQuery.addBindingsTo(update);
-	    	parsedUpdate = update.getParsedUpdate();
-	        Dataset dataset = sparqlQuery.getDataset();
+        Dataset dataset = sparqlQuery.getDataset();
+        if (sparqlQuery.mapReduce) {
 	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
-	            // This will include default graphs and named graphs from  the request parameters
-	        	if (!parsedUpdate.getDatasetMapping().isEmpty()) {
-	        		throw new IllegalArgumentException("Can't provide graph-uri parameters for queries containing USING, USING NAMED or WITH clauses");
-	        	}
-	        	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
-	        		parsedUpdate.map(expr, dataset);
-	        	}
+	        	throw new IllegalArgumentException("Map-reduce doesn't support graph-uri parameters");
 	        }
-	        LOGGER.info("Executing update: {}", updateString);
-	        update.execute();
-    	}
-
-    	if (sparqlQuery.trackResultSize) {
-	        StringBuilderWriter buf = new StringBuilderWriter(128);
-        	JsonGenerator json = new ObjectMapper().createGenerator(buf);
-        	json.writeStartObject();
-        	json.writeArrayFieldStart("results");
-	    	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
-	    		if (expr instanceof Modify) {
-	    			Modify modify = (Modify) expr;
-	    			json.writeStartObject();
-	    			if (modify.getDeleteExpr() != null) {
-	    				json.writeNumberField("totalDeleted", modify.getDeleteExpr().getResultSizeActual());
-	    			}
-	    			if (modify.getInsertExpr() != null) {
-	    				json.writeNumberField("totalInserted", modify.getInsertExpr().getResultSizeActual());
-	    			}
-	    			json.writeEndObject();
-	    		}
-	    	}
-	    	json.writeEndArray();
-	    	json.writeEndObject();
-	    	json.close();
-	    	buf.close();
-	    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
-	    	sendResponse(exchange, HttpURLConnection.HTTP_OK, buf.toString());
+    		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
+    		List<JobStatus> jobs = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlQuery.bindings);
+    		if (jobs != null) {
+		        StringBuilderWriter buf = new StringBuilderWriter(128);
+	        	JsonGenerator json = new ObjectMapper().createGenerator(buf);
+	        	json.writeStartObject();
+	        	json.writeArrayFieldStart("jobs");
+	        	for (JobStatus job : jobs) {
+	        		json.writeStartObject();
+	        		json.writeStringField("jobName", job.getJobName());
+	        		json.writeStringField("jobID", job.getJobID().getJtIdentifier());
+	        		json.writeStringField("state", job.getState().toString());
+	        		json.writeStringField("tracking", job.getTrackingUrl());
+		        	json.writeEndObject();
+	        	}
+	        	json.writeEndArray();
+	        	json.writeEndObject();
+	        	json.close();
+	        	buf.close();
+		    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
+		    	sendResponse(exchange, HttpURLConnection.HTTP_OK, buf.toString());
+    		} else {
+    			throw new Exception("Map reduce failed");
+    		}
         } else {
-        	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
+	        ParsedUpdate parsedUpdate;
+	    	try(SailRepositoryConnection connection = repository.getConnection()) {
+	    		if (connection.getSailConnection() instanceof ResultTrackingSailConnection) {
+	    			((ResultTrackingSailConnection)connection.getSailConnection()).setTrackResultSize(sparqlQuery.trackResultSize);
+	    		}
+		        SailUpdate update = (SailUpdate) connection.prepareUpdate(QueryLanguage.SPARQL, updateString, null);
+		        sparqlQuery.addBindingsTo(update);
+		    	parsedUpdate = update.getParsedUpdate();
+		        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
+		            // This will include default graphs and named graphs from  the request parameters
+		        	if (!parsedUpdate.getDatasetMapping().isEmpty()) {
+		        		throw new IllegalArgumentException("Can't provide graph-uri parameters for queries containing USING, USING NAMED or WITH clauses");
+		        	}
+		        	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
+		        		parsedUpdate.map(expr, dataset);
+		        	}
+		        }
+		        LOGGER.info("Executing update: {}", updateString);
+		        update.execute();
+	    	}
+	
+	    	if (sparqlQuery.trackResultSize) {
+		        StringBuilderWriter buf = new StringBuilderWriter(128);
+	        	JsonGenerator json = new ObjectMapper().createGenerator(buf);
+	        	json.writeStartObject();
+	        	json.writeArrayFieldStart("results");
+		    	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
+		    		if (expr instanceof Modify) {
+		    			Modify modify = (Modify) expr;
+		    			json.writeStartObject();
+		    			if (modify.getDeleteExpr() != null) {
+		    				json.writeNumberField("totalDeleted", modify.getDeleteExpr().getResultSizeActual());
+		    			}
+		    			if (modify.getInsertExpr() != null) {
+		    				json.writeNumberField("totalInserted", modify.getInsertExpr().getResultSizeActual());
+		    			}
+		    			json.writeEndObject();
+		    		}
+		    	}
+		    	json.writeEndArray();
+		    	json.writeEndObject();
+		    	json.close();
+		    	buf.close();
+		    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
+		    	sendResponse(exchange, HttpURLConnection.HTTP_OK, buf.toString());
+	        } else {
+	        	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
+	        }
         }
        	LOGGER.info("Update successfully processed");
     }
@@ -845,6 +879,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         // Dataset containing default graphs and named graphs
         private final SimpleDataset dataset = new SimpleDataset();
         private boolean trackResultSize;
+        private boolean mapReduce;
         private String target;
 
         public String getQuery() {

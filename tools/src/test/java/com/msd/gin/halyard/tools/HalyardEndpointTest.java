@@ -152,6 +152,17 @@ public class HalyardEndpointTest {
     }
 
     @Test
+    public void testMapReduceUpdate() throws Exception {
+        File script = new File(this.getClass().getResource("testScript-update-mapreduce.sh").getPath());
+        script.setExecutable(true);
+        Path path = Paths.get(ROOT + name.getMethodName());
+        runEndpoint("-s", TABLE, script.getPath(), path.toString());
+        assertTrue(Files.exists(path));
+        String contents = Files.readString(path);
+        assertTrue(contents, contents.startsWith("{\"jobs\":["));
+    }
+
+    @Test
     public void testStoredQueries() throws Exception {
         File queries = new File(this.getClass().getResource("test.properties").getPath());
         File script = new File(this.getClass().getResource("testScript-storedQueries.sh").getPath());

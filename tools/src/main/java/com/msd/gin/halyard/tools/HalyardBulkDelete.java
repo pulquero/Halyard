@@ -291,7 +291,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 	            if (job.waitForCompletion(true)) {
 					bulkLoad(hTableName, workDir);
 	                LOG.info("Bulk Delete completed.");
-	                if (!isDryRun() && job.getCounters().findCounter(Counters.REMOVED_TRIPLED_KVS).getValue() > 0) {
+	                if (!isDryRun(getConf()) && job.getCounters().findCounter(Counters.REMOVED_TRIPLED_KVS).getValue() > 0) {
 	                	// maybe more triples to delete
 	                	LOG.info("Removing any orphaned triples...");
 		                RDFContext rdfGraphCtx = rdfFactory.createContext(HALYARD.TRIPLE_GRAPH_CONTEXT);

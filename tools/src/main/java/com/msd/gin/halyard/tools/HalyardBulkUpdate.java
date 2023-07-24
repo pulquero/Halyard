@@ -24,16 +24,19 @@ import com.msd.gin.halyard.repository.HBaseUpdate;
 import com.msd.gin.halyard.sail.ElasticSettings;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.MissingOptionException;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
@@ -47,6 +50,7 @@ import org.apache.hadoop.hbase.protobuf.generated.AuthenticationProtos;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.JobStatus;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -80,18 +84,10 @@ import org.eclipse.rdf4j.sail.SailException;
  * @author Adam Sotona (MSD)
  */
 public final class HalyardBulkUpdate extends AbstractHalyardTool {
+	private static final String TOOL_NAME = "bulkupdate";
 
-    /**
-     * String name of a custom SPARQL function to decimate parallel evaluation based on Mapper index
-     */
-    public static final String DECIMATE_FUNCTION_NAME = "decimateBy";
-
-    /**
-     * Full URI of a custom SPARQL function to decimate parallel evaluation based on Mapper index
-     */
-    public static final String DECIMATE_FUNCTION_URI = HALYARD.NAMESPACE + DECIMATE_FUNCTION_NAME;
-    static final String TABLE_NAME_PROPERTY = "halyard.table.name";
-    static final String STAGE_PROPERTY = "halyard.update.stage";
+    private static final String TABLE_NAME_PROPERTY = confProperty(TOOL_NAME, "table.name");
+    private static final String STAGE_PROPERTY = confProperty(TOOL_NAME, "update.stage");
     private static final long STATUS_UPDATE_INTERVAL = 10000L;
 
     enum Counters {
@@ -268,17 +264,17 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 
     public HalyardBulkUpdate() {
         super(
-            "bulkupdate",
+            TOOL_NAME,
             "Halyard Bulk Update is a MapReduce application that executes multiple SPARQL Update operations in parallel in the Mapper phase. "
                 + "The Shuffle and Reduce phase are responsible for the efficient update of the dataset in a bulk mode (similar to the Halyard Bulk Load). "
                 + "Halyard Bulk Update supports large-scale DELETE/INSERT operations that are not executed separately, but instead they are processed as a single atomic bulk operation at the end of the execution.",
             "Example: halyard bulkupdate -s my_dataset -q hdfs:///myupdates/*.sparql -w hdfs:///my_tmp_workdir"
         );
-        addOption("s", "source-dataset", "dataset_table", "Source HBase table with Halyard RDF store", true, true);
+        addOption("s", "source-dataset", "dataset_table", TABLE_NAME_PROPERTY, "Source HBase table with Halyard RDF store", true, true);
         addOption("q", "update-operations", "sparql_update_operations", "folder or path pattern with SPARQL update operations (this or --update-operation is required)", false, true);
         addOption(null, "update-operation", "sparql_update_operation", "SPARQL update operation to be executed (this or -q is required)", false, true);
         addOption("w", "work-dir", "shared_folder", "Unique non-existent folder within shared filesystem to server as a working directory for the temporary HBase files,  the files are moved to their final HBase locations during the last stage of the load process", true, true);
-        addOption("e", "target-timestamp", "timestamp", "Optionally specify timestamp of all updated records (default is actual time of the operation)", false, true);
+        addOption("e", "target-timestamp", "timestamp", TIMESTAMP_PROPERTY, "Optionally specify timestamp of all updated records (default is actual time of the operation)", false, true);
         addOption("i", "elastic-index", "elastic_index_url", HBaseSail.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
         addKeyValueOption("$", "binding=value", BINDING_PROPERTY_PREFIX, "Optionally specify bindings");
         addOption(null, "dry-run", null, DRY_RUN_PROPERTY, "Skip loading of HFiles", false, true);
@@ -286,7 +282,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 
 
     public int run(CommandLine cmd) throws Exception {
-        String source = cmd.getOptionValue('s');
+        configureString(cmd, 's', null);
         String queryFiles = cmd.getOptionValue('q');
         String query = cmd.getOptionValue("update-operation");
         if (queryFiles == null && query == null) {
@@ -296,7 +292,27 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         configureString(cmd, 'i', null);
         configureBindings(cmd, '$');
         configureBoolean(cmd, "dry-run");
-        TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
+        configureLong(cmd, 'e', System.currentTimeMillis());
+        return (run(getConf(), queryFiles, query, workdir) != null) ? 0 : -1;
+    }
+
+    static List<JobStatus> executeUpdate(Configuration conf, String source, String query, Map<String,Value> bindings) throws Exception {
+    	Configuration jobConf = new Configuration(conf);
+    	jobConf.set(TABLE_NAME_PROPERTY, source);
+    	for (Map.Entry<String,Value> binding : bindings.entrySet()) {
+    		conf.set(BINDING_PROPERTY_PREFIX+binding.getKey(), NTriplesUtil.toNTriplesString(binding.getValue(), true));
+    	}
+    	String workdir = "work/" + TOOL_NAME + "-" + UUID.randomUUID();
+    	try {
+    		return run(jobConf, null, query, workdir);
+    	} finally {
+    		FileSystem.get(conf).delete(new Path(workdir), true);
+    	}
+    }
+
+    private static List<JobStatus> run(Configuration conf, String queryFiles, String query, String workdir) throws IOException, InterruptedException, ClassNotFoundException {
+    	String source = conf.get(TABLE_NAME_PROPERTY);
+        TableMapReduceUtil.addDependencyJarsForClasses(conf,
                NTriplesUtil.class,
                Rio.class,
                AbstractRDFHandler.class,
@@ -305,12 +321,11 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                Table.class,
                HBaseConfiguration.class,
                AuthenticationProtos.class);
-        HBaseConfiguration.addHbaseResources(getConf());
-        getConf().setStrings(TABLE_NAME_PROPERTY, source);
-        getConf().setLong(TIMESTAMP_PROPERTY, cmd.hasOption('e') ? Long.parseLong(cmd.getOptionValue('e')) : System.currentTimeMillis());
+        HBaseConfiguration.addHbaseResources(conf);
+        List<JobStatus> jobStatuses = new ArrayList<>();
         int stages = 1;
         for (int stage = 0; stage < stages; stage++) {
-            Job job = Job.getInstance(getConf(), "HalyardBulkUpdate -> " + workdir + " -> " + source + " stage #" + stage);
+            Job job = Job.getInstance(conf, "HalyardBulkUpdate -> " + workdir + " -> " + source + " stage #" + stage);
             job.getConfiguration().setInt(STAGE_PROPERTY, stage);
             job.setJarByClass(HalyardBulkUpdate.class);
             job.setMapperClass(SPARQLUpdateMapper.class);
@@ -318,7 +333,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
             job.setMapOutputValueClass(KeyValue.class);
             job.setInputFormatClass(QueryInputFormat.class);
             job.setSpeculativeExecution(false);
-			Connection conn = HalyardTableUtils.getConnection(getConf());
+			Connection conn = HalyardTableUtils.getConnection(conf);
 			try (Table hTable = HalyardTableUtils.getTable(conn, source, false, 0)) {
 				RegionLocator regionLocator = conn.getRegionLocator(hTable.getName());
 				HFileOutputFormat2.configureIncrementalLoad(job, hTable.getDescriptor(), regionLocator);
@@ -343,15 +358,16 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                     LOG.info("Bulk Update will process {} MapReduce stages.", stages);
                 }
                 if (job.waitForCompletion(true)) {
-    				bulkLoad(hTable.getName(), outPath);
+                	jobStatuses.add(job.getStatus());
+    				bulkLoad(conf, hTable.getName(), outPath);
                     LOG.info("Stage #{} of {} completed.", stage+1, stages);
                 } else {
             		LOG.error("Stage #{} of {} failed to complete.", stage+1, stages);
-                    return -1;
+                    return null;
                 }
             }
         }
         LOG.info("Bulk Update completed.");
-        return 0;
+        return jobStatuses;
     }
 }
