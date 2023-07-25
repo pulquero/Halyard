@@ -2,7 +2,6 @@ package com.msd.gin.halyard.sail.geosparql;
 
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
-import com.msd.gin.halyard.optimizers.HalyardFilterOptimizer;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.ArrayList;
@@ -38,10 +37,7 @@ public class WithinDistanceInterpreter implements QueryOptimizer {
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-		HalyardFilterOptimizer.decompose(tupleExpr, dataset, bindings);
-		HalyardFilterOptimizer.pushDown(tupleExpr, dataset, bindings);
 		rewrite(tupleExpr);
-		HalyardFilterOptimizer.merge(tupleExpr, dataset, bindings);
 	}
 
 	private void rewrite(TupleExpr tupleExpr) {

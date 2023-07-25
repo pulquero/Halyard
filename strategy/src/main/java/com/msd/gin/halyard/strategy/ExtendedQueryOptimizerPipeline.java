@@ -20,6 +20,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.StandardQueryOptimiz
 
 public class ExtendedQueryOptimizerPipeline implements QueryOptimizerPipeline {
 	private static boolean assertsEnabled = false;
+	static final HalyardFilterOptimizer FILTER_OPTIMIZER = new HalyardFilterOptimizer();
 
 	static {
 		assert assertsEnabled = true;
@@ -49,13 +50,10 @@ public class ExtendedQueryOptimizerPipeline implements QueryOptimizerPipeline {
 			StandardQueryOptimizerPipeline.UNION_SCOPE_CHANGE_OPTIMIZER,
 			StandardQueryOptimizerPipeline.QUERY_MODEL_NORMALIZER,
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
-			HalyardFilterOptimizer.DECOMPOSE,
-			HalyardFilterOptimizer.PUSH_DOWN,
 			new ConstrainedValueOptimizer(),
 			new QueryJoinOptimizer(statistics),
 			StandardQueryOptimizerPipeline.ITERATIVE_EVALUATION_OPTIMIZER,
-			HalyardFilterOptimizer.PUSH_DOWN,
-			HalyardFilterOptimizer.MERGE,
+			FILTER_OPTIMIZER, // after join optimizer so we push down on the best statements
 			StandardQueryOptimizerPipeline.ORDER_LIMIT_OPTIMIZER
 		));
 	}

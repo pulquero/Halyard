@@ -36,9 +36,10 @@ import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 /**
  *
@@ -105,6 +106,15 @@ public class HalyardFilterOptimizerTest {
 		testOptimizer(expected, query);
 	}
 
+	@Test
+	public void testNestedFilter() {
+		String expectedQuery = "SELECT * WHERE { { FILTER( NOT EXISTS {{?o ?p2 ?v1. FILTER(?v1 < 4) }\n {?o ?p2 ?v2. FILTER(?v2 > 0 && ?v2 < 4)}\n ?o ?p2 ?v3.} && NOT EXISTS {?o ?p2 []}) ?s ?p ?o . } ?o ?r ?z. ?z ?k ?m. }";
+
+		String query = "SELECT * WHERE {?s ?p ?o . ?o ?r ?z. FILTER NOT EXISTS {?o ?p2 []}\n ?z ?k ?m. FILTER NOT EXISTS {?o ?p2 ?v1, ?v2, ?v3. FILTER(?v2 < 4) FILTER(?v1 < 4) FILTER(?v2 > 0)} }";
+
+		testOptimizer(expectedQuery, query);
+	}
+
 	void testOptimizer(String expectedQuery, String actualQuery) {
 		ParsedQuery pq = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, actualQuery, null);
 		QueryOptimizer opt = getOptimizer();
@@ -123,18 +133,18 @@ public class HalyardFilterOptimizerTest {
 	}
 
 	@Test
-    public void testPropagateFilterMoreAgresivelly() {
+    public void testPropagateFilterMoreAggressively() {
 		TupleExpr expr = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, "select * where {?a ?b ?c, ?d. filter (?d = ?nonexistent)}", "http://baseuri/").getTupleExpr();
 		getOptimizer().optimize(expr, null, null);
         expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
             @Override
-            public void meet(Join node) throws RuntimeException {
-                assertEquals(expr.toString(), "Filter", node.getRightArg().getSignature());
+            public void meet(Join node) {
+                assertEquals("Filter", node.getRightArg().getSignature(), expr.toString());
                 super.meet(node);
             }
             @Override
-            public void meet(Filter node) throws RuntimeException {
-                assertEquals(expr.toString(), "StatementPattern", node.getArg().getSignature());
+            public void meet(Filter node) {
+                assertEquals("StatementPattern", node.getArg().getSignature(), expr.toString());
             }
         });
     }
@@ -154,8 +164,8 @@ public class HalyardFilterOptimizerTest {
         getOptimizer().optimize(expr, null, null);
         expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>(){
             @Override
-            public void meet(Filter node) throws RuntimeException {
-                assertEquals(expr.toString(), "StarJoin", node.getParentNode().getSignature());
+            public void meet(Filter node) {
+                assertEquals("StarJoin", node.getParentNode().getSignature(), expr.toString());
             }
         });
     }

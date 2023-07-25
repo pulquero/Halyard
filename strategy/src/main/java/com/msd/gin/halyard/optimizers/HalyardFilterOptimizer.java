@@ -38,6 +38,7 @@ import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.Reduced;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
+import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.Union;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
@@ -129,6 +130,12 @@ public final class HalyardFilterOptimizer implements QueryOptimizer {
 		public void meet(StatementPattern node) {
 			// skip children
 		}
+
+		// Halyard
+		@Override
+		public void meet(TripleRef node) {
+			// skip children
+		}
 	}
 
 	private static class FilterOrganizer extends /*Halyard*/AbstractExtendedQueryModelVisitor<RuntimeException> {
@@ -141,6 +148,12 @@ public final class HalyardFilterOptimizer implements QueryOptimizer {
 		// Halyard
 		@Override
 		public void meet(StatementPattern node) {
+			// skip children
+		}
+
+		// Halyard
+		@Override
+		public void meet(TripleRef node) {
 			// skip children
 		}
 	}
@@ -195,8 +208,14 @@ public final class HalyardFilterOptimizer implements QueryOptimizer {
 		@Override
 		public void meet(StatementPattern sp) {
 			if (sp.getBindingNames().containsAll(filterVars)) {
-				// All required vars are bound by the left expr
 				relocate(filter, sp);
+			}
+		}
+
+		@Override
+		public void meet(TripleRef tr) {
+			if (tr.getBindingNames().containsAll(filterVars)) {
+				relocate(filter, tr);
 			}
 		}
 

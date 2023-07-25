@@ -20,7 +20,6 @@ import com.msd.gin.halyard.optimizers.ConstrainedValueOptimizer;
 import com.msd.gin.halyard.optimizers.ExtendedEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.HalyardConstantOptimizer;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
-import com.msd.gin.halyard.optimizers.HalyardFilterOptimizer;
 import com.msd.gin.halyard.optimizers.HalyardQueryJoinOptimizer;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.optimizers.QueryJoinOptimizer;
@@ -76,13 +75,10 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 			StandardQueryOptimizerPipeline.UNION_SCOPE_CHANGE_OPTIMIZER,
 			StandardQueryOptimizerPipeline.QUERY_MODEL_NORMALIZER,
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
-			HalyardFilterOptimizer.DECOMPOSE,
-			HalyardFilterOptimizer.PUSH_DOWN,
 			new ConstrainedValueOptimizer(),
 			(statistics instanceof HalyardEvaluationStatistics) ? new HalyardQueryJoinOptimizer((HalyardEvaluationStatistics) statistics) : new QueryJoinOptimizer(statistics),
 			StandardQueryOptimizerPipeline.ITERATIVE_EVALUATION_OPTIMIZER,
-			HalyardFilterOptimizer.PUSH_DOWN,
-			HalyardFilterOptimizer.MERGE,
+			ExtendedQueryOptimizerPipeline.FILTER_OPTIMIZER, // after join optimizer so we push down on the best statements
 			StandardQueryOptimizerPipeline.ORDER_LIMIT_OPTIMIZER,
 			joinAlgoOptimizer
 		));
