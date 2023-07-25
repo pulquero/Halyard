@@ -41,7 +41,7 @@ public final class GroupIntoTuplesAggregateFactory implements AggregateFunctionF
 		@Override
 		public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, TupleCollector col) {
 			Value v = evaluate(bs);
-			if (distinctPredicate.test(v)) {
+			if (v != null && distinctPredicate.test(v)) {
 				col.add(v);
 			}
 		}
@@ -57,7 +57,8 @@ public final class GroupIntoTuplesAggregateFactory implements AggregateFunctionF
 		@Override
 		public Value getFinalValue() {
 			// NB: values.size() is expensive
-			return new TupleLiteral(values.toArray(new Value[0]));
+			Value[] arr = values.toArray(new Value[0]);
+			return (arr.length > 0) ? new TupleLiteral(arr) : null;
 		}
 	}
 }

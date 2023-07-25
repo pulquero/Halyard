@@ -462,7 +462,9 @@ public final class HalyardExport extends AbstractHalyardTool {
 	    			if (id != null) {
 		    			for (String binding : auxBindingNames) {
 		    				Value v = bs.getValue(binding);
-	    					writer.writeObjectField(binding, v);
+		    				if (v != null) {
+		    					writer.writeObjectField(binding, v);
+		    				}
 		    			}
 		    			writer.close();
 		    			ops.add(BulkOperation.of(opf -> opf.create(idxf -> idxf.id(id).document(doc))));

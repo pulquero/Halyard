@@ -167,7 +167,9 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
 	    			if (id != null) {
 		    			for (String binding : auxBindingNames) {
 	        				Value v = bs.getValue(binding);
-	       					writer.writeObjectField(binding, v);
+	        				if (v != null) {
+	        					writer.writeObjectField(binding, v);
+	        				}
 	        			}
 		    			writer.close();
 		    			outputJson.set(writer.toString());
