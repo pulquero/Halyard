@@ -32,7 +32,7 @@ public final class ModeAggregateFactory implements AggregateFunctionFactory {
 	}
 
 
-	static final class ModeAggregateFunction extends ThreadSafeAggregateFunction<ModeCollector,Value> {
+	private static final class ModeAggregateFunction extends ThreadSafeAggregateFunction<ModeCollector,Value> {
 		ModeAggregateFunction(Function<BindingSet, Value> evaluator) {
 			super(evaluator);
 		}
@@ -47,7 +47,7 @@ public final class ModeAggregateFactory implements AggregateFunctionFactory {
 	}
 
 
-	public static final class ModeCollector implements AggregateCollector {
+	private static final class ModeCollector implements AggregateCollector {
 		private final ConcurrentHashMap<Value,AtomicLong> freqTable = new ConcurrentHashMap<>();
 
 		void add(Value l) {

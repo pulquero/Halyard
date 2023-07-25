@@ -9,8 +9,8 @@ import org.eclipse.rdf4j.query.algebra.evaluation.util.ValueComparator;
 final class TupleLiteralComparator implements Comparator<TupleLiteral> {
 	private final ValueComparator comparator = new ValueComparator();
 
-	public TupleLiteralComparator(boolean flag) {
-		comparator.setStrict(flag);
+	public TupleLiteralComparator(boolean isStrict) {
+		comparator.setStrict(isStrict);
 	}
 
 	public boolean isStrict() {

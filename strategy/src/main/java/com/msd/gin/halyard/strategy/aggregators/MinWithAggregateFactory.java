@@ -32,7 +32,7 @@ public final class MinWithAggregateFactory implements AggregateFunctionFactory {
 	}
 
 
-	public static final class MinWithAggregateFunction extends ThreadSafeAggregateFunction<ValueCollector<TupleLiteral>,Value> {
+	private static final class MinWithAggregateFunction extends ThreadSafeAggregateFunction<ValueCollector<TupleLiteral>,Value> {
 		MinWithAggregateFunction(Function<BindingSet, Value> evaluator) {
 			super(evaluator);
 		}
@@ -41,7 +41,7 @@ public final class MinWithAggregateFactory implements AggregateFunctionFactory {
 		public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, ValueCollector<TupleLiteral> col) {
 			Value v = evaluate(bs);
 			if (TupleLiteral.isTupleLiteral(v)) {
-				TupleLiteral l = (v instanceof TupleLiteral) ? (TupleLiteral) v : new TupleLiteral(((Literal)v).getLabel());
+				TupleLiteral l = TupleLiteral.asTupleLiteral(v);
 				if (distinctPredicate.test(l)) {
 					col.min(l);
 				}

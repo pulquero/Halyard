@@ -33,7 +33,7 @@ public final class GroupIntoTuplesAggregateFactory implements AggregateFunctionF
 	}
 
 
-	public static final class GroupIntoTuplesAggregateFunction extends ThreadSafeAggregateFunction<TupleCollector,Value> {
+	private static final class GroupIntoTuplesAggregateFunction extends ThreadSafeAggregateFunction<TupleCollector,Value> {
 		GroupIntoTuplesAggregateFunction(Function<BindingSet, Value> evaluator) {
 			super(evaluator);
 		}
@@ -47,7 +47,7 @@ public final class GroupIntoTuplesAggregateFactory implements AggregateFunctionF
 		}
 	}
 
-	public static final class TupleCollector implements AggregateCollector {
+	private static final class TupleCollector implements AggregateCollector {
 		private final Queue<Value> values = new ConcurrentLinkedQueue<>();
 
 		public void add(Value v) {

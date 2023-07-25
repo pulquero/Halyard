@@ -23,6 +23,10 @@ public final class TupleLiteral extends AbstractDataLiteral implements ObjectLit
 		return v != null && v.isLiteral() && HALYARD.TUPLE_TYPE.equals(((Literal)v).getDatatype());
 	}
 
+	public static TupleLiteral asTupleLiteral(Value v) {
+		return (v instanceof TupleLiteral) ? (TupleLiteral) v : new TupleLiteral(((Literal)v).getLabel());
+	}
+
 	public static Value[] arrayValue(Literal l, ValueFactory vf) {
 		if (l instanceof TupleLiteral) {
 			return ((TupleLiteral)l).values;
