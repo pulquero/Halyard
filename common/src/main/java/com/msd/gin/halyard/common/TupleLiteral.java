@@ -65,11 +65,11 @@ public final class TupleLiteral extends AbstractDataLiteral implements ObjectLit
 					i++;
 				}
 				String label = NTriplesUtil.unescapeString(s.subSequence(start, i).toString());
-				i++;
-				ch = i < len ? s.charAt(i++) : ' ';
+				i++;  // end quote
+				ch = i < len ? s.charAt(i) : ' ';  // peak ahead
 				Literal v;
 				if (ch == '^') {
-					i += 2;
+					i += 3;
 					start = i;
 					while (i < len && (ch = s.charAt(i)) != '>') {
 						if (ch == '\\') {
@@ -80,7 +80,7 @@ public final class TupleLiteral extends AbstractDataLiteral implements ObjectLit
 					IRI dt = vf.createIRI(s.subSequence(start, i).toString());
 					v = vf.createLiteral(label, dt);
 				} else if (ch == '@') {
-					start = i;
+					start = i + 1;
 					while (i < len && (ch = s.charAt(i)) != ' ') {
 						i++;
 					}
