@@ -159,7 +159,7 @@ public class HalyardEndpointTest {
         runEndpoint("-s", TABLE, script.getPath(), path.toString());
         assertTrue(Files.exists(path));
         String contents = Files.readString(path);
-        assertTrue(contents, contents.startsWith("{\"jobs\":["));
+        assertTrue(contents, contents.startsWith("{\"jobs\":[{"));
     }
 
     @Test

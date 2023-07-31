@@ -50,7 +50,6 @@ import org.apache.hadoop.hbase.protobuf.generated.AuthenticationProtos;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.JobStatus;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -165,10 +164,8 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 							protected int insertStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
 								int insertedKvs = super.insertStatement(subj, pred, obj, ctx, timestamp);
 								long _addedStmts = addedStmts.incrementAndGet();
-								long _addedKvs = addedKvs.addAndGet(insertedKvs);
+								addedKvs.addAndGet(insertedKvs);
 								if (_addedStmts % STATUS_UPDATE_INTERVAL == 0) {
-									context.getCounter(Counters.ADDED_STATEMENTS).setValue(_addedStmts);
-									context.getCounter(Counters.ADDED_KVS).setValue(_addedKvs);
 									updateStatus(context);
 								}
 								return insertedKvs;
@@ -188,10 +185,8 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 							protected int deleteStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
 								int deletedKvs = super.deleteStatement(subj, pred, obj, ctx, timestamp);
 								long _removedStmts = removedStmts.incrementAndGet();
-								long _removedKvs = removedKvs.addAndGet(deletedKvs);
+								removedKvs.addAndGet(deletedKvs);
 								if (_removedStmts % STATUS_UPDATE_INTERVAL == 0) {
-									context.getCounter(Counters.REMOVED_STATEMENTS).setValue(_removedStmts);
-									context.getCounter(Counters.REMOVED_KVS).setValue(_removedKvs);
 									updateStatus(context);
 								}
 								return deletedKvs;
@@ -257,6 +252,10 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 			long _removedStmts = removedStmts.get();
 			long _addedKvs = addedKvs.get();
 			long _removedKvs = removedKvs.get();
+			context.getCounter(Counters.ADDED_STATEMENTS).setValue(_addedStmts);
+			context.getCounter(Counters.ADDED_KVS).setValue(_addedKvs);
+			context.getCounter(Counters.REMOVED_STATEMENTS).setValue(_removedStmts);
+			context.getCounter(Counters.REMOVED_KVS).setValue(_removedKvs);
             context.setStatus(String.format("%s - %d (%d) added %d (%d) removed", queryName, _addedStmts, _addedKvs, _removedStmts, _removedKvs));
             LOG.info("{} statements ({} KeyValues) added and {} ({} KeyValues) removed",     _addedStmts, _addedKvs, _removedStmts, _removedKvs);
 		}
@@ -296,7 +295,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         return (run(getConf(), queryFiles, query, workdir) != null) ? 0 : -1;
     }
 
-    static List<JobStatus> executeUpdate(Configuration conf, String source, String query, Map<String,Value> bindings) throws Exception {
+    static List<Info> executeUpdate(Configuration conf, String source, String query, Map<String,Value> bindings) throws Exception {
     	Configuration jobConf = new Configuration(conf);
     	jobConf.set(TABLE_NAME_PROPERTY, source);
     	for (Map.Entry<String,Value> binding : bindings.entrySet()) {
@@ -310,7 +309,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
     	}
     }
 
-    private static List<JobStatus> run(Configuration conf, String queryFiles, String query, String workdir) throws IOException, InterruptedException, ClassNotFoundException {
+    private static List<Info> run(Configuration conf, String queryFiles, String query, String workdir) throws IOException, InterruptedException, ClassNotFoundException {
     	String source = conf.get(TABLE_NAME_PROPERTY);
         TableMapReduceUtil.addDependencyJarsForClasses(conf,
                NTriplesUtil.class,
@@ -322,7 +321,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                HBaseConfiguration.class,
                AuthenticationProtos.class);
         HBaseConfiguration.addHbaseResources(conf);
-        List<JobStatus> jobStatuses = new ArrayList<>();
+        List<Info> infos = new ArrayList<>();
         int stages = 1;
         for (int stage = 0; stage < stages; stage++) {
             Job job = Job.getInstance(conf, "HalyardBulkUpdate -> " + workdir + " -> " + source + " stage #" + stage);
@@ -358,7 +357,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                     LOG.info("Bulk Update will process {} MapReduce stages.", stages);
                 }
                 if (job.waitForCompletion(true)) {
-                	jobStatuses.add(job.getStatus());
+                	infos.add(Info.from(job));
     				bulkLoad(conf, hTable.getName(), outPath);
                     LOG.info("Stage #{} of {} completed.", stage+1, stages);
                 } else {
@@ -368,6 +367,24 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
             }
         }
         LOG.info("Bulk Update completed.");
-        return jobStatuses;
+        return infos;
+    }
+
+    static final class Info {
+    	public String name;
+    	public String id;
+    	public String trackingURL;
+    	public long totalInserted;
+    	public long totalDeleted;
+
+    	static Info from(Job job) throws IOException {
+    		Info info = new Info();
+    		info.name = job.getJobName();
+    		info.id = job.getJobID().getJtIdentifier();
+    		info.trackingURL = job.getTrackingURL();
+    		info.totalInserted = job.getCounters().findCounter(Counters.ADDED_STATEMENTS).getValue();
+    		info.totalDeleted = job.getCounters().findCounter(Counters.ADDED_STATEMENTS).getValue();
+    		return info;
+    	}
     }
 }

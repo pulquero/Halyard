@@ -112,10 +112,6 @@ public final class HalyardStats extends AbstractHalyardTool {
     private static final long DEFAULT_GRAPH_THRESHOLD = 1000;
     private static final long DEFAULT_PARTITION_THRESHOLD = 5000;
 
-    enum Counters {
-		KEYS
-	}
-
     static final class HashTracker {
 		final int offset;
 		final int len;

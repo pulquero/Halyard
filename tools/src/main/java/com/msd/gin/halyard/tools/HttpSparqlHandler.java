@@ -72,7 +72,6 @@ import javax.management.openmbean.TabularData;
 import org.apache.commons.io.output.StringBuilderWriter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapreduce.JobStatus;
 import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.lang.FileFormat;
 import org.eclipse.rdf4j.common.lang.service.FileFormatServiceRegistry;
@@ -647,21 +646,12 @@ public final class HttpSparqlHandler implements HttpHandler {
 	        	throw new IllegalArgumentException("Map-reduce doesn't support graph-uri parameters");
 	        }
     		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
-    		List<JobStatus> jobs = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlQuery.bindings);
-    		if (jobs != null) {
+    		List<HalyardBulkUpdate.Info> infos = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlQuery.bindings);
+    		if (infos != null) {
 		        StringBuilderWriter buf = new StringBuilderWriter(128);
 	        	JsonGenerator json = new ObjectMapper().createGenerator(buf);
 	        	json.writeStartObject();
-	        	json.writeArrayFieldStart("jobs");
-	        	for (JobStatus job : jobs) {
-	        		json.writeStartObject();
-	        		json.writeStringField("jobName", job.getJobName());
-	        		json.writeStringField("jobID", job.getJobID().getJtIdentifier());
-	        		json.writeStringField("state", job.getState().toString());
-	        		json.writeStringField("tracking", job.getTrackingUrl());
-		        	json.writeEndObject();
-	        	}
-	        	json.writeEndArray();
+	        	json.writeObjectField("jobs", infos);
 	        	json.writeEndObject();
 	        	json.close();
 	        	buf.close();
