@@ -2,6 +2,7 @@ package com.msd.gin.halyard.common;
 
 import java.io.ObjectStreamException;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -77,7 +78,7 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 
 	public final ValueIdentifier getId(@Nonnull RDFFactory rdfFactory) {
 		IdSer current = cachedIV;
-		if (rdfFactory != null && current.rdfFactory != rdfFactory) {
+		if (current.rdfFactory != rdfFactory) {
 			materialize(current);
 			current = createIdSer(null, true, null, rdfFactory);
 			cachedIV = current;
@@ -162,7 +163,7 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 		IdSer(@Nullable ValueIdentifier id, @Nullable ByteArray ser, @Nonnull RDFFactory rdfFactory) {
 			this.id = id;
 			this.ser = ser;
-			this.rdfFactory = rdfFactory;
+			this.rdfFactory = Objects.requireNonNull(rdfFactory);
 		}
 	}
 }

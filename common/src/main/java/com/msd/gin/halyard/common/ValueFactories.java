@@ -26,7 +26,9 @@ public final class ValueFactories {
     	if (v == null) {
     		return null;
     	}
-    	if ((v instanceof IdentifiableValue) && (vf instanceof IdValueFactory)) {
+    	if (v instanceof AbstractDataLiteral) {
+    		return v;  // these are ValueFactory independent and also expensive
+    	} else if ((v instanceof IdentifiableValue) && (vf instanceof IdValueFactory)) {
     		return (T) ((IdentifiableValue)v).clone();
     	}
     	if  (v.isIRI()) {

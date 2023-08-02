@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 
@@ -157,7 +158,7 @@ public final class HalyardExport extends AbstractHalyardTool {
             long count = counter.incrementAndGet();
             if ((count % 10000l) == 0) {
                 long time = System.currentTimeMillis();
-                log.logStatus(MessageFormat.format("Exported {0} records/triples in average speed {1}/s", count, (1000 * count)/(time - startTime)));
+                log.logStatus(MessageFormat.format("Exported {0} records/triples in average speed {1}/s", count, countPerSecond(count, time - startTime)));
             }
             return count;
         }
@@ -168,12 +169,20 @@ public final class HalyardExport extends AbstractHalyardTool {
         public final void close() throws ExportException {
             long time = System.currentTimeMillis()+1;
             long count = counter.get();
-            log.logStatus(MessageFormat.format("Export finished with {0} records/triples in average speed {1}/s", count, (1000 * count)/(time - startTime)));
+            log.logStatus(MessageFormat.format("Export finished with {0} records/triples in average speed {1}/s", count, countPerSecond(count, time - startTime)));
             try {
                 doClose();
             } catch (Exception e) {
                 throw new ExportException(e);
             }
+        }
+        private double countPerSecond(long count, long millis) {
+        	long secs = TimeUnit.MILLISECONDS.toSeconds(millis);
+        	if (secs == 0L) {
+        		return Double.POSITIVE_INFINITY;
+        	} else {
+        		return count/secs;
+        	}
         }
         protected abstract void doClose() throws Exception;
     }

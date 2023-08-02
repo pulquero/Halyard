@@ -552,21 +552,26 @@ public final class HttpSparqlHandler implements HttpHandler {
         		String esIndexUrl = sparqlQuery.target;
         		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
         		Configuration conf = sail.getConfiguration();
-        		HalyardExport.ElasticsearchWriter writer = new HalyardExport.ElasticsearchWriter(new HalyardExport.StatusLog() {
-					public void tick() {}
-					public void logStatus(String msg) {
-						LOGGER.info(msg);
-					}
-				}, ElasticSettings.from(esIndexUrl, conf), sail.getRDFFactory(), repository.getValueFactory());
         		evaluator = query -> {
 		            LOGGER.info("Indexing results from query: {}", queryString);
-        			writer.writeTupleQueryResult(((TupleQuery)query).evaluate());
+		            long exportedCount;
+	        		try (HalyardExport.ElasticsearchWriter writer = new HalyardExport.ElasticsearchWriter(new HalyardExport.StatusLog() {
+							public void tick() {}
+							public void logStatus(String msg) {
+								LOGGER.info(msg);
+							}
+						}, ElasticSettings.from(esIndexUrl, conf), sail.getRDFFactory(), repository.getValueFactory())) {
+		            	writer.writeTupleQueryResult(((TupleQuery)query).evaluate());
+		            	exportedCount = writer.getExportedCount();
+		            } catch (GeneralSecurityException e) {
+		            	throw new IOException(e);
+					}
         	    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
 		            exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
 		            BufferedOutputStream response = new BufferedOutputStream(exchange.getResponseBody());
                 	JsonGenerator json = new ObjectMapper().createGenerator(response);
                 	json.writeStartObject();
-                	json.writeNumberField("totalExported", writer.getExportedCount());
+                	json.writeNumberField("totalExported", exportedCount);
                 	json.writeEndObject();
                 	json.close();
                 	return response;
