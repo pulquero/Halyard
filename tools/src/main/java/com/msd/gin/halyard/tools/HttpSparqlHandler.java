@@ -36,7 +36,6 @@ import java.io.UnsupportedEncodingException;
 import java.lang.management.ManagementFactory;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
-import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -50,7 +49,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
-import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -69,9 +67,12 @@ import javax.management.ReflectionException;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.TabularData;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.StringBuilderWriter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.lang.FileFormat;
 import org.eclipse.rdf4j.common.lang.service.FileFormatServiceRegistry;
@@ -133,22 +134,21 @@ import org.slf4j.LoggerFactory;
 public final class HttpSparqlHandler implements HttpHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpSparqlHandler.class);
 
-    private static final String AND_DELIMITER = "&";
-    private static final String CHARSET = StandardCharsets.UTF_8.name();
+    private static final Charset CHARSET = StandardCharsets.UTF_8;
     private static final ValueFactory SVF = SimpleValueFactory.getInstance();
     private static final Pattern UNRESOLVED_PARAMETERS = Pattern.compile("\\{\\{(\\w+)\\}\\}");
 
     // Query parameter prefixes
-    private static final String QUERY_PREFIX = "query=";
-    private static final String DEFAULT_GRAPH_PREFIX = "default-graph-uri=";
-    private static final String NAMED_GRAPH_PREFIX = "named-graph-uri=";
-    private static final String UPDATE_PREFIX = "update=";
-    private static final String USING_GRAPH_URI_PREFIX = "using-graph-uri=";
-    private static final String USING_NAMED_GRAPH_PREFIX = "using-named-graph-uri=";
+    private static final String QUERY_PARAM = "query";
+    private static final String DEFAULT_GRAPH_PARAM = "default-graph-uri";
+    private static final String NAMED_GRAPH_PARAM = "named-graph-uri";
+    private static final String UPDATE_PARAM = "update";
+    private static final String USING_GRAPH_URI_PARAM = "using-graph-uri";
+    private static final String USING_NAMED_GRAPH_PARAM = "using-named-graph-uri";
 
-    private static final String TRACK_RESULT_SIZE = "track-result-size=";
-    private static final String MAP_REDUCE = "map-reduce=";
-    private static final String TARGET = "target=";
+    private static final String TRACK_RESULT_SIZE_PARAM = "track-result-size";
+    private static final String MAP_REDUCE_PARAM = "map-reduce";
+    private static final String TARGET_PARAM = "target";
 
     static final String JSON_CONTENT = "application/json";
     // Request content type (only for POST requests)
@@ -343,9 +343,9 @@ public final class HttpSparqlHandler implements HttpHandler {
             // automatically decodes query (requestQuery must remain unencoded due to parsing by '&' delimiter)
             String requestQueryRaw = exchange.getRequestURI().getRawQuery();
             if (requestQueryRaw != null) {
-                StringTokenizer stk = new StringTokenizer(requestQueryRaw, AND_DELIMITER);
-                while (stk.hasMoreTokens()) {
-                    parseQueryParameter(stk.nextToken(), sparqlQuery);
+            	List<NameValuePair> queryParams = URLEncodedUtils.parse(requestQueryRaw, CHARSET);
+            	for (NameValuePair nvp : queryParams) {
+                    parseQueryParameter(nvp, sparqlQuery);
                 }
 
                 String query = sparqlQuery.getQuery();
@@ -380,7 +380,7 @@ public final class HttpSparqlHandler implements HttpHandler {
                 MimeType mimeType = new MimeType(headers.getFirst("Content-Type"));
                 String baseType = mimeType.getBaseType();
                 String charset = mimeType.getParameter("charset");
-                if (charset != null && !charset.equalsIgnoreCase(CHARSET)) {
+                if (charset != null && !charset.equalsIgnoreCase(CHARSET.name())) {
                     throw new IllegalArgumentException("Illegal Content-Type charset. Only UTF-8 is supported");
                 }
 
@@ -388,12 +388,10 @@ public final class HttpSparqlHandler implements HttpHandler {
                 if (baseType.equals(ENCODED_CONTENT)) {
                     // Retrieve from the message body parameter query and optional parameters defaultGraphs and
                     // namedGraphs
-                    try (Scanner requestBodyScanner = new Scanner(exchange.getRequestBody(), CHARSET).useDelimiter(AND_DELIMITER)) {
-                        while (requestBodyScanner.hasNext()) {
-                            String keyValue = requestBodyScanner.next();
-                            parseQueryParameter(keyValue, sparqlQuery);
-                            parseUpdateParameter(keyValue, sparqlQuery);
-                        }
+                	List<NameValuePair> queryParams = URLEncodedUtils.parse(IOUtils.toString(exchange.getRequestBody(), CHARSET), CHARSET);
+                	for (NameValuePair nvp : queryParams) {
+                        parseQueryParameter(nvp, sparqlQuery);
+                        parseUpdateParameter(nvp, sparqlQuery);
                     }
 
                     String query = sparqlQuery.getQuery();
@@ -412,9 +410,9 @@ public final class HttpSparqlHandler implements HttpHandler {
                     // automatically decodes query (requestQuery must remain unencoded due to parsing by '&' delimiter)
                     String requestQueryRaw = exchange.getRequestURI().getRawQuery();
                     if (requestQueryRaw != null) {
-                        StringTokenizer stk = new StringTokenizer(requestQueryRaw, AND_DELIMITER);
-                        while (stk.hasMoreTokens()) {
-                            parseQueryParameter(stk.nextToken(), sparqlQuery);
+                    	List<NameValuePair> queryParams = URLEncodedUtils.parse(requestQueryRaw, CHARSET);
+                    	for (NameValuePair nvp : queryParams) {
+                            parseQueryParameter(nvp, sparqlQuery);
                         }
                     }
                 } else if (baseType.equals(UNENCODED_UPDATE_CONTENT)) {
@@ -428,9 +426,9 @@ public final class HttpSparqlHandler implements HttpHandler {
                     // automatically decodes query (requestQuery must remain unencoded due to parsing by '&' delimiter)
                     String requestQueryRaw = exchange.getRequestURI().getRawQuery();
                     if (requestQueryRaw != null) {
-                        StringTokenizer stk = new StringTokenizer(requestQueryRaw, AND_DELIMITER);
-                        while (stk.hasMoreTokens()) {
-                            parseUpdateParameter(stk.nextToken(), sparqlQuery);
+                    	List<NameValuePair> queryParams = URLEncodedUtils.parse(requestQueryRaw, CHARSET);
+                    	for (NameValuePair nvp : queryParams) {
+                            parseUpdateParameter(nvp, sparqlQuery);
                         }
                     }
                 } else {
@@ -465,66 +463,52 @@ public final class HttpSparqlHandler implements HttpHandler {
     /**
      * Parse single parameter from HTTP request parameters or body.
      *
-     * @param param       single raw String parameter
+     * @param param       single query parameter
      * @param sparqlQuery SparqlQuery to fill from the parsed parameter
      * @throws UnsupportedEncodingException which never happens
      */
-    private void parseQueryParameter(String param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException {
-        if (param.startsWith(QUERY_PREFIX)) {
-            sparqlQuery.setQuery(getParameterValue(param, QUERY_PREFIX));
-        } else if (param.startsWith(DEFAULT_GRAPH_PREFIX)) {
-            sparqlQuery.addDefaultGraph(SVF.createIRI(getParameterValue(param, DEFAULT_GRAPH_PREFIX)));
-        } else if (param.startsWith(NAMED_GRAPH_PREFIX)) {
-            sparqlQuery.addNamedGraph(SVF.createIRI(getParameterValue(param, NAMED_GRAPH_PREFIX)));
-        } else if (param.startsWith(TRACK_RESULT_SIZE)) {
-        	sparqlQuery.trackResultSize = Boolean.valueOf(getParameterValue(param, TRACK_RESULT_SIZE));
-        } else if (param.startsWith(TARGET)) {
-        	sparqlQuery.target = getParameterValue(param, TARGET);
+    private void parseQueryParameter(NameValuePair param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException {
+    	String name = param.getName();
+    	String value = param.getValue();
+        if (QUERY_PARAM.equals(name)) {
+            sparqlQuery.setQuery(value);
+        } else if (DEFAULT_GRAPH_PARAM.equals(name)) {
+            sparqlQuery.addDefaultGraph(SVF.createIRI(value));
+        } else if (NAMED_GRAPH_PARAM.equals(name)) {
+            sparqlQuery.addNamedGraph(SVF.createIRI(value));
+        } else if (TRACK_RESULT_SIZE_PARAM.equals(name)) {
+        	sparqlQuery.trackResultSize = Boolean.valueOf(value);
+        } else if (TARGET_PARAM.equals(name)) {
+        	sparqlQuery.target = value;
         } else {
-            int i = param.indexOf("=");
-            if (i >= 0) {
-                String name = URLDecoder.decode(param.substring(0, i), CHARSET);
-                String value = URLDecoder.decode(param.substring(i + 1), CHARSET);
-                if (name.startsWith("$")) {
-                	sparqlQuery.addBinding(name.substring(1), NTriplesUtil.parseValue(value, repository.getValueFactory()));
-                } else {
-                    sparqlQuery.addParameter(name, value);
-                }
+            if (name.startsWith("$")) {
+            	sparqlQuery.addBinding(name.substring(1), NTriplesUtil.parseValue(value, repository.getValueFactory()));
             } else {
-                throw new IllegalArgumentException("Invalid request parameter: " + param);
+                sparqlQuery.addParameter(name, value);
             }
         }
     }
 
-    private void parseUpdateParameter(String param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException {
-        if (param.startsWith(UPDATE_PREFIX)) {
-            sparqlQuery.setUpdate(getParameterValue(param, UPDATE_PREFIX));
-        } else if (param.startsWith(USING_GRAPH_URI_PREFIX)) {
-            sparqlQuery.addDefaultGraph(SVF.createIRI(getParameterValue(param, USING_GRAPH_URI_PREFIX)));
-        } else if (param.startsWith(USING_NAMED_GRAPH_PREFIX)) {
-            sparqlQuery.addNamedGraph(SVF.createIRI(getParameterValue(param, USING_NAMED_GRAPH_PREFIX)));
-        } else if (param.startsWith(TRACK_RESULT_SIZE)) {
-        	sparqlQuery.trackResultSize = Boolean.valueOf(getParameterValue(param, TRACK_RESULT_SIZE));
-        } else if (param.startsWith(MAP_REDUCE)) {
-        	sparqlQuery.mapReduce = Boolean.valueOf(getParameterValue(param, MAP_REDUCE));
+    private void parseUpdateParameter(NameValuePair param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException {
+    	String name = param.getName();
+    	String value = param.getValue();
+        if (UPDATE_PARAM.equals(name)) {
+            sparqlQuery.setUpdate(value);
+        } else if (USING_GRAPH_URI_PARAM.equals(name)) {
+            sparqlQuery.addDefaultGraph(SVF.createIRI(value));
+        } else if (USING_NAMED_GRAPH_PARAM.equals(name)) {
+            sparqlQuery.addNamedGraph(SVF.createIRI(value));
+        } else if (TRACK_RESULT_SIZE_PARAM.equals(name)) {
+        	sparqlQuery.trackResultSize = Boolean.valueOf(value);
+        } else if (MAP_REDUCE_PARAM.equals(name)) {
+        	sparqlQuery.mapReduce = Boolean.valueOf(value);
         } else {
-            int i = param.indexOf("=");
-            if (i >= 0) {
-                String name = URLDecoder.decode(param.substring(0, i), CHARSET);
-                String value = URLDecoder.decode(param.substring(i + 1), CHARSET);
-                if (name.startsWith("$")) {
-                	sparqlQuery.addBinding(name.substring(1), NTriplesUtil.parseValue(value, repository.getValueFactory()));
-                } else {
-                    sparqlQuery.addParameter(name, value);
-                }
+            if (name.startsWith("$")) {
+            	sparqlQuery.addBinding(name.substring(1), NTriplesUtil.parseValue(value, repository.getValueFactory()));
             } else {
-                throw new IllegalArgumentException("Invalid request parameter: " + param);
+                sparqlQuery.addParameter(name, value);
             }
         }
-    }
-
-    private static String getParameterValue(String param, String prefix) throws UnsupportedEncodingException {
-   		return URLDecoder.decode(param.substring(prefix.length()), CHARSET);
     }
 
     /**
