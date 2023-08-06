@@ -79,7 +79,9 @@ import org.eclipse.rdf4j.common.lang.service.FileFormatServiceRegistry;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.query.AbstractTupleQueryResultHandler;
+import org.eclipse.rdf4j.query.Binding;
+import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.BooleanQuery;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.GraphQuery;
@@ -87,6 +89,7 @@ import org.eclipse.rdf4j.query.MalformedQueryException;
 import org.eclipse.rdf4j.query.Operation;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.TupleQuery;
+import org.eclipse.rdf4j.query.TupleQueryResultHandlerException;
 import org.eclipse.rdf4j.query.algebra.Modify;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
 import org.eclipse.rdf4j.query.impl.SimpleDataset;
@@ -98,12 +101,13 @@ import org.eclipse.rdf4j.query.parser.ParsedUpdate;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.eclipse.rdf4j.query.resultio.BooleanQueryResultFormat;
 import org.eclipse.rdf4j.query.resultio.BooleanQueryResultWriter;
-import org.eclipse.rdf4j.query.resultio.BooleanQueryResultWriterFactory;
 import org.eclipse.rdf4j.query.resultio.BooleanQueryResultWriterRegistry;
 import org.eclipse.rdf4j.query.resultio.QueryResultFormat;
+import org.eclipse.rdf4j.query.resultio.QueryResultIO;
 import org.eclipse.rdf4j.query.resultio.TupleQueryResultFormat;
+import org.eclipse.rdf4j.query.resultio.TupleQueryResultParser;
+import org.eclipse.rdf4j.query.resultio.TupleQueryResultParserRegistry;
 import org.eclipse.rdf4j.query.resultio.TupleQueryResultWriter;
-import org.eclipse.rdf4j.query.resultio.TupleQueryResultWriterFactory;
 import org.eclipse.rdf4j.query.resultio.TupleQueryResultWriterRegistry;
 import org.eclipse.rdf4j.repository.sail.SailQuery;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
@@ -112,8 +116,8 @@ import org.eclipse.rdf4j.repository.sail.SailUpdate;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParserRegistry;
 import org.eclipse.rdf4j.rio.RDFWriter;
-import org.eclipse.rdf4j.rio.RDFWriterFactory;
 import org.eclipse.rdf4j.rio.RDFWriterRegistry;
+import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.RioSetting;
 import org.eclipse.rdf4j.rio.WriterConfig;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
@@ -135,7 +139,6 @@ public final class HttpSparqlHandler implements HttpHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpSparqlHandler.class);
 
     private static final Charset CHARSET = StandardCharsets.UTF_8;
-    private static final ValueFactory SVF = SimpleValueFactory.getInstance();
     private static final Pattern UNRESOLVED_PARAMETERS = Pattern.compile("\\{\\{(\\w+)\\}\\}");
 
     // Query parameter prefixes
@@ -260,6 +263,17 @@ public final class HttpSparqlHandler implements HttpHandler {
         }
     }
 
+    private static boolean isUpdate(String operation) {
+		String strippedOperation = QueryParserUtil.removeSPARQLQueryProlog(operation).toUpperCase();
+
+		if (strippedOperation.startsWith("SELECT") || strippedOperation.startsWith("CONSTRUCT")
+				|| strippedOperation.startsWith("DESCRIBE") || strippedOperation.startsWith("ASK")) {
+			return false;
+		} else {
+			return true;
+		}
+    }
+
     /**
      * Handle HTTP requests containing SPARQL queries.
      *
@@ -287,7 +301,13 @@ public final class HttpSparqlHandler implements HttpHandler {
         		if (sparqlQuery.getQuery() != null) {
         			evaluateQuery(sparqlQuery, exchange);
         		} else if (sparqlQuery.getUpdate() != null) {
-        			evaluateUpdate(sparqlQuery, exchange);
+        			if (sparqlQuery.getFlatFileFormat() != null) {
+        				executeUpdateTemplate(sparqlQuery, exchange);
+        			} else {
+        				evaluateUpdate(sparqlQuery, exchange);
+        			}
+        		} else if (sparqlQuery.getGraphFormat() != null) {
+        			loadData(sparqlQuery, exchange);
         		}
         	}
         } catch (IllegalArgumentException | MalformedObjectNameException | MalformedQueryException e) {
@@ -329,7 +349,11 @@ public final class HttpSparqlHandler implements HttpHandler {
             if (query == null) {
                 throw new IllegalArgumentException("No stored query for path: " + path);
             }
-            sparqlQuery.setQuery(query);
+            if (isUpdate(query)) {
+            	sparqlQuery.setUpdate(query);
+            } else {
+            	sparqlQuery.setQuery(query);
+            }
         }
         if ("GET".equalsIgnoreCase(requestMethod)) {
             try (InputStream requestBody = exchange.getRequestBody()) {
@@ -432,7 +456,27 @@ public final class HttpSparqlHandler implements HttpHandler {
                         }
                     }
                 } else {
-                    throw new IllegalArgumentException("Content-Type of POST request has to be one of " + Arrays.asList(ENCODED_CONTENT, UNENCODED_QUERY_CONTENT, UNENCODED_UPDATE_CONTENT));
+                	RDFFormat rdfFormat = Rio.getParserFormatForMIMEType(baseType).orElse(null);
+                	QueryResultFormat qrFormat = (rdfFormat == null) ? QueryResultIO.getParserFormatForMIMEType(baseType).orElse(null) : null;
+                	if (rdfFormat != null) {
+                		if (sparqlQuery.getQuery() != null || sparqlQuery.getUpdate() != null) {
+                			throw new IllegalArgumentException("Unexpected query for RDF data");
+                		}
+                		sparqlQuery.setGraphFormat(rdfFormat);
+                	} else if (qrFormat != null) {
+                		if (sparqlQuery.getUpdate() == null) {
+                			throw new IllegalArgumentException("Missing update query for flat file data");
+                		}
+                		sparqlQuery.setFlatFileFormat(qrFormat);
+                	} else {
+                		List<String> supportedTypes = new ArrayList<>();
+                		supportedTypes.add(ENCODED_CONTENT);
+                		supportedTypes.add(UNENCODED_QUERY_CONTENT);
+                		supportedTypes.add(UNENCODED_UPDATE_CONTENT);
+                		RDFParserRegistry.getInstance().getKeys().stream().map(RDFFormat::getMIMETypes).flatMap(List::stream).forEach(supportedTypes::add);
+                		TupleQueryResultParserRegistry.getInstance().getKeys().stream().map(QueryResultFormat::getMIMETypes).flatMap(List::stream).forEach(supportedTypes::add);
+                		throw new IllegalArgumentException("Content-Type of POST request has to be one of " + supportedTypes);
+                	}
                 }
             } catch (MimeTypeParseException e) {
                 throw new IllegalArgumentException("Illegal Content-Type header content");
@@ -473,9 +517,9 @@ public final class HttpSparqlHandler implements HttpHandler {
         if (QUERY_PARAM.equals(name)) {
             sparqlQuery.setQuery(value);
         } else if (DEFAULT_GRAPH_PARAM.equals(name)) {
-            sparqlQuery.addDefaultGraph(SVF.createIRI(value));
+            sparqlQuery.addDefaultGraph(repository.getValueFactory().createIRI(value));
         } else if (NAMED_GRAPH_PARAM.equals(name)) {
-            sparqlQuery.addNamedGraph(SVF.createIRI(value));
+            sparqlQuery.addNamedGraph(repository.getValueFactory().createIRI(value));
         } else if (TRACK_RESULT_SIZE_PARAM.equals(name)) {
         	sparqlQuery.trackResultSize = Boolean.valueOf(value);
         } else if (TARGET_PARAM.equals(name)) {
@@ -495,9 +539,9 @@ public final class HttpSparqlHandler implements HttpHandler {
         if (UPDATE_PARAM.equals(name)) {
             sparqlQuery.setUpdate(value);
         } else if (USING_GRAPH_URI_PARAM.equals(name)) {
-            sparqlQuery.addDefaultGraph(SVF.createIRI(value));
+            sparqlQuery.addDefaultGraph(repository.getValueFactory().createIRI(value));
         } else if (USING_NAMED_GRAPH_PARAM.equals(name)) {
-            sparqlQuery.addNamedGraph(SVF.createIRI(value));
+            sparqlQuery.addNamedGraph(repository.getValueFactory().createIRI(value));
         } else if (TRACK_RESULT_SIZE_PARAM.equals(name)) {
         	sparqlQuery.trackResultSize = Boolean.valueOf(value);
         } else if (MAP_REDUCE_PARAM.equals(name)) {
@@ -521,116 +565,118 @@ public final class HttpSparqlHandler implements HttpHandler {
      * @throws GeneralSecurityException 
      */
     private void evaluateQuery(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
-        String queryString = sparqlQuery.getQuery();
-        // sniff query type and perform content negotiation before opening a connection
-        ParsedQuery sniffedQuery = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, queryString, null);
-        List<String> acceptedMimeTypes = new ArrayList<>();
-        List<String> acceptHeaders = exchange.getRequestHeaders().get("Accept");
-        if (acceptHeaders != null) for (String header : acceptHeaders) {
-            acceptedMimeTypes.addAll(parseAcceptHeader(header));
-        }
-        QueryEvaluator evaluator;
-        if (sniffedQuery instanceof ParsedTupleQuery) {
-        	if (sparqlQuery.target != null) {
-        		String esIndexUrl = sparqlQuery.target;
-        		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
-        		Configuration conf = sail.getConfiguration();
-        		evaluator = query -> {
-		            LOGGER.info("Indexing results from query: {}", queryString);
-		            long exportedCount;
-	        		try (HalyardExport.ElasticsearchWriter writer = new HalyardExport.ElasticsearchWriter(new HalyardExport.StatusLog() {
-							public void tick() {}
-							public void logStatus(String msg) {
-								LOGGER.info(msg);
-							}
-						}, ElasticSettings.from(esIndexUrl, conf), sail.getRDFFactory(), repository.getValueFactory())) {
-		            	writer.writeTupleQueryResult(((TupleQuery)query).evaluate());
-		            	exportedCount = writer.getExportedCount();
-		            } catch (GeneralSecurityException e) {
-		            	throw new IOException(e);
-					}
-        	    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
-		            exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
-		            BufferedOutputStream response = new BufferedOutputStream(exchange.getResponseBody());
-                	JsonGenerator json = new ObjectMapper().createGenerator(response);
-                	json.writeStartObject();
-                	json.writeNumberField("totalExported", exportedCount);
-                	json.writeEndObject();
-                	json.close();
-                	return response;
-        		};
-        	} else {
-	            TupleQueryResultWriterRegistry registry = TupleQueryResultWriterRegistry.getInstance();
-	            QueryResultFormat format = setFormat(registry, exchange.getRequestURI().getPath(),
-	                    acceptedMimeTypes, TupleQueryResultFormat.CSV, exchange.getResponseHeaders());
-	            TupleQueryResultWriterFactory writerFactory = registry.get(format).orElseThrow(() -> new IOException("Format not supported: "+format));
-	            evaluator = query -> {
-		            LOGGER.info("Evaluating tuple query: {}", queryString);
-		            exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
-		            BufferedOutputStream response = new BufferedOutputStream(exchange.getResponseBody());
-	                TupleQueryResultWriter w = writerFactory.getWriter(response);
-	                w.setWriterConfig(writerConfig);
-	                ((TupleQuery) query).evaluate(w);
-		            return response;
-	            };
+    	if (sparqlQuery.target != null) {
+    		String esIndexUrl = sparqlQuery.target;
+    		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
+    		Configuration conf = sail.getConfiguration();
+            long exportedCount;
+            try (SailRepositoryConnection connection = repository.getConnection()) {
+    	        SailQuery query = connection.prepareQuery(QueryLanguage.SPARQL, sparqlQuery.getQuery(), null);
+    			if (!(query instanceof TupleQuery)) {
+    				throw new IllegalArgumentException("Only SELECT queries are supported for Elasticsearch export");
+    			}
+    	        sparqlQuery.addBindingsTo(query);
+    	        Dataset dataset = sparqlQuery.getDataset();
+    	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
+    	            // This will include default graphs and named graphs from  the request parameters but default graphs and
+    	            // named graphs contained in the string query will be ignored
+    	            query.getParsedQuery().setDataset(dataset);
+    	        }
+	            LOGGER.info("Indexing results from query: {}", query.getParsedQuery().getSourceString());
+        		try (HalyardExport.ElasticsearchWriter writer = new HalyardExport.ElasticsearchWriter(new HalyardExport.StatusLog() {
+						public void tick() {}
+						public void logStatus(String msg) {
+							LOGGER.info(msg);
+						}
+					}, ElasticSettings.from(esIndexUrl, conf), sail.getRDFFactory(), repository.getValueFactory())) {
+	            	writer.writeTupleQueryResult(((TupleQuery)query).evaluate());
+	            	exportedCount = writer.getExportedCount();
+	            } catch (GeneralSecurityException e) {
+	            	throw new IOException(e);
+				}
         	}
-        } else if (sniffedQuery instanceof ParsedGraphQuery) {
-            RDFWriterRegistry registry = RDFWriterRegistry.getInstance();
-            RDFFormat format = setFormat(registry, exchange.getRequestURI().getPath(),
-                    acceptedMimeTypes, RDFFormat.NTRIPLES, exchange.getResponseHeaders());
-            RDFWriterFactory writerFactory = registry.get(format).orElseThrow(() -> new IOException("Format not supported: "+format));
-            evaluator = query -> {
-	            LOGGER.info("Evaluating graph query: {}", queryString);
-	            exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
-	            BufferedOutputStream response = new BufferedOutputStream(exchange.getResponseBody());
-                RDFWriter w = writerFactory.getWriter(response);
-                w.setWriterConfig(writerConfig);
-                ((GraphQuery) query).evaluate(w);
-	            return response;
-            };
-        } else if (sniffedQuery instanceof ParsedBooleanQuery) {
-            BooleanQueryResultWriterRegistry registry = BooleanQueryResultWriterRegistry.getInstance();
-            QueryResultFormat format = setFormat(registry, exchange.getRequestURI().getPath(),
-                    acceptedMimeTypes, BooleanQueryResultFormat.JSON, exchange.getResponseHeaders());
-            BooleanQueryResultWriterFactory writerFactory = registry.get(format).orElseThrow(() -> new IOException("Format not supported: "+format));
-            evaluator = query -> {
-	            LOGGER.info("Evaluating boolean query: {}", queryString);
-	            exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
-	            BufferedOutputStream response = new BufferedOutputStream(exchange.getResponseBody());
-                BooleanQueryResultWriter w = writerFactory.getWriter(response);
-                w.setWriterConfig(writerConfig);
-                w.handleBoolean(((BooleanQuery) query).evaluate());
-	            return response;
-            };
-        } else {
-        	throw new MalformedQueryException("Invalid query");
-        }
-        OutputStream response;
-        try(SailRepositoryConnection connection = repository.getConnection()) {
-	        SailQuery query = connection.prepareQuery(QueryLanguage.SPARQL, queryString, null);
-	        sparqlQuery.addBindingsTo(query);
-	        Dataset dataset = sparqlQuery.getDataset();
-	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
-	            // This will include default graphs and named graphs from  the request parameters but default graphs and
-	            // named graphs contained in the string query will be ignored
-	            query.getParsedQuery().setDataset(dataset);
-	        }
-	        response = evaluator.evaluate(query);
+
+            exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
+            exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
+            BufferedOutputStream response = new BufferedOutputStream(exchange.getResponseBody());
+        	JsonGenerator json = new ObjectMapper().createGenerator(response);
+        	json.writeStartObject();
+        	json.writeNumberField("totalExported", exportedCount);
+        	json.writeEndObject();
+        	json.close();
+            // commit the response only if there are no exceptions
+            response.close();
+    	} else {
+    		QueryEvaluator<?,?> evaluator = getQueryEvaluator(sparqlQuery, exchange);
+            OutputStream response;
+            try(SailRepositoryConnection connection = repository.getConnection()) {
+    	        SailQuery query = connection.prepareQuery(QueryLanguage.SPARQL, sparqlQuery.getQuery(), null);
+    	        sparqlQuery.addBindingsTo(query);
+    	        Dataset dataset = sparqlQuery.getDataset();
+    	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
+    	            // This will include default graphs and named graphs from  the request parameters but default graphs and
+    	            // named graphs contained in the string query will be ignored
+    	            query.getParsedQuery().setDataset(dataset);
+    	        }
+
+    	        evaluator.setContentType(exchange);
+                exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
+                response = new BufferedOutputStream(exchange.getResponseBody());
+    	        evaluator.evaluate(query, response);
+        	}
+            // commit the response *after* closing the connection
+            response.close();
     	}
-        // commit the response *after* closing the connection
-        response.close();
        	LOGGER.info("Query successfully processed");
     }
 
+    private QueryEvaluator<?,?> getQueryEvaluator(SparqlQuery sparqlQuery, HttpExchange exchange) throws IOException {
+        // sniff query type and perform content negotiation before opening a connection
+        ParsedQuery sniffedQuery = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, sparqlQuery.getQuery(), null);
+        if (sniffedQuery instanceof ParsedTupleQuery) {
+            return new QueryEvaluator<>(TupleQueryResultWriterRegistry.getInstance(), TupleQueryResultFormat.CSV) {
+            	@Override
+            	void evaluate(SailQuery query, OutputStream out) throws IOException {
+		            LOGGER.info("Evaluating tuple query: {}", query.getParsedQuery().getSourceString());
+	                TupleQueryResultWriter w = writerFactory.getWriter(out);
+	                w.setWriterConfig(writerConfig);
+	                ((TupleQuery) query).evaluate(w);
+            	}
+            };
+        } else if (sniffedQuery instanceof ParsedGraphQuery) {
+            return new QueryEvaluator<>(RDFWriterRegistry.getInstance(), RDFFormat.TURTLE) {
+            	@Override
+            	void evaluate(SailQuery query, OutputStream out) throws IOException {
+		            LOGGER.info("Evaluating graph query: {}", query.getParsedQuery().getSourceString());
+	                RDFWriter w = writerFactory.getWriter(out);
+	                w.setWriterConfig(writerConfig);
+	                ((GraphQuery) query).evaluate(w);
+            	}
+            };
+        } else if (sniffedQuery instanceof ParsedBooleanQuery) {
+            return new QueryEvaluator<>(BooleanQueryResultWriterRegistry.getInstance(), BooleanQueryResultFormat.JSON) {
+            	@Override
+            	void evaluate(SailQuery query, OutputStream out) throws IOException {
+		            LOGGER.info("Evaluating boolean query: {}", query.getParsedQuery().getSourceString());
+	                BooleanQueryResultWriter w = writerFactory.getWriter(out);
+	                w.setWriterConfig(writerConfig);
+	                w.handleBoolean(((BooleanQuery) query).evaluate());
+            	}
+            };
+        } else {
+        	throw new AssertionError("Unexpected query type: " + sniffedQuery.getClass());
+        }
+    }
+
     private void evaluateUpdate(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
-        String updateString = sparqlQuery.getUpdate();
-        Dataset dataset = sparqlQuery.getDataset();
         if (sparqlQuery.mapReduce) {
+            String updateString = sparqlQuery.getUpdate();
+            Dataset dataset = sparqlQuery.getDataset();
 	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
 	        	throw new IllegalArgumentException("Map-reduce doesn't support graph-uri parameters");
 	        }
     		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
-    		List<HalyardBulkUpdate.Info> infos = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlQuery.bindings);
+    		List<HalyardBulkUpdate.JsonInfo> infos = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlQuery.bindings);
     		if (infos != null) {
 		        StringBuilderWriter buf = new StringBuilderWriter(128);
 	        	JsonGenerator json = new ObjectMapper().createGenerator(buf);
@@ -645,46 +691,12 @@ public final class HttpSparqlHandler implements HttpHandler {
     			throw new Exception("Map reduce failed");
     		}
         } else {
-	        ParsedUpdate parsedUpdate;
-	    	try(SailRepositoryConnection connection = repository.getConnection()) {
-	    		if (connection.getSailConnection() instanceof ResultTrackingSailConnection) {
-	    			((ResultTrackingSailConnection)connection.getSailConnection()).setTrackResultSize(sparqlQuery.trackResultSize);
-	    		}
-		        SailUpdate update = (SailUpdate) connection.prepareUpdate(QueryLanguage.SPARQL, updateString, null);
-		        sparqlQuery.addBindingsTo(update);
-		    	parsedUpdate = update.getParsedUpdate();
-		        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
-		            // This will include default graphs and named graphs from  the request parameters
-		        	if (!parsedUpdate.getDatasetMapping().isEmpty()) {
-		        		throw new IllegalArgumentException("Can't provide graph-uri parameters for queries containing USING, USING NAMED or WITH clauses");
-		        	}
-		        	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
-		        		parsedUpdate.map(expr, dataset);
-		        	}
-		        }
-		        LOGGER.info("Executing update: {}", updateString);
-		        update.execute();
-	    	}
-	
-	    	if (sparqlQuery.trackResultSize) {
+        	List<JsonUpdateInfo> infos = executeUpdate(sparqlQuery, null);
+        	if (infos != null) {
 		        StringBuilderWriter buf = new StringBuilderWriter(128);
 	        	JsonGenerator json = new ObjectMapper().createGenerator(buf);
 	        	json.writeStartObject();
-	        	json.writeArrayFieldStart("results");
-		    	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
-		    		if (expr instanceof Modify) {
-		    			Modify modify = (Modify) expr;
-		    			json.writeStartObject();
-		    			if (modify.getDeleteExpr() != null) {
-		    				json.writeNumberField("totalDeleted", modify.getDeleteExpr().getResultSizeActual());
-		    			}
-		    			if (modify.getInsertExpr() != null) {
-		    				json.writeNumberField("totalInserted", modify.getInsertExpr().getResultSizeActual());
-		    			}
-		    			json.writeEndObject();
-		    		}
-		    	}
-		    	json.writeEndArray();
+	        	json.writeObjectField("results", infos);
 		    	json.writeEndObject();
 		    	json.close();
 		    	buf.close();
@@ -695,6 +707,114 @@ public final class HttpSparqlHandler implements HttpHandler {
 	        }
         }
        	LOGGER.info("Update successfully processed");
+    }
+
+    private List<JsonUpdateInfo> executeUpdate(SparqlQuery sparqlQuery, BindingSet extraBindings) throws IOException {
+        String updateString = sparqlQuery.getUpdate();
+        Dataset dataset = sparqlQuery.getDataset();
+        ParsedUpdate parsedUpdate;
+    	try(SailRepositoryConnection connection = repository.getConnection()) {
+    		if (connection.getSailConnection() instanceof ResultTrackingSailConnection) {
+    			((ResultTrackingSailConnection)connection.getSailConnection()).setTrackResultSize(sparqlQuery.trackResultSize);
+    		}
+	        SailUpdate update = (SailUpdate) connection.prepareUpdate(QueryLanguage.SPARQL, updateString, null);
+	        sparqlQuery.addBindingsTo(update);
+	        if (extraBindings != null) {
+		        for (Binding binding : extraBindings) {
+		        	update.setBinding(binding.getName(), binding.getValue());
+		        }
+	        }
+	    	parsedUpdate = update.getParsedUpdate();
+	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
+	            // This will include default graphs and named graphs from  the request parameters
+	        	if (!parsedUpdate.getDatasetMapping().isEmpty()) {
+	        		throw new IllegalArgumentException("Can't provide graph-uri parameters for queries containing USING, USING NAMED or WITH clauses");
+	        	}
+	        	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
+	        		parsedUpdate.map(expr, dataset);
+	        	}
+	        }
+	        LOGGER.info("Executing update: {}", updateString);
+	        update.execute();
+    	}
+
+    	if (sparqlQuery.trackResultSize) {
+    		List<JsonUpdateInfo> infos = new ArrayList<>();
+	    	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
+	    		if (expr instanceof Modify) {
+	    			Modify modify = (Modify) expr;
+	    			JsonUpdateInfo info = new JsonUpdateInfo();
+	    			if (modify.getDeleteExpr() != null) {
+	    				long count = modify.getDeleteExpr().getResultSizeActual();
+	    				if (count > 0) {
+	    					info.totalDeleted = count;
+	    				}
+	    			}
+	    			if (modify.getInsertExpr() != null) {
+	    				long count = modify.getInsertExpr().getResultSizeActual();
+	    				if (count > 0) {
+	    					info.totalInserted = count;
+	    				}
+	    			}
+	    			infos.add(info);
+	    		}
+	    	}
+	    	return infos;
+    	} else {
+    		return null;
+    	}
+    }
+
+    private void loadData(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
+       	LOGGER.info("Loading data");
+    	try(SailRepositoryConnection connection = repository.getConnection()) {
+    		try (InputStream in = exchange.getRequestBody()) {
+    			connection.add(in, sparqlQuery.getGraphFormat());
+    		}
+    	}
+       	LOGGER.info("Load successfully");
+    	exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, -1);
+    }
+
+    private void executeUpdateTemplate(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
+    	final class UpdateTupleQueryResultHandler extends AbstractTupleQueryResultHandler {
+        	JsonUpdateInfo total;
+
+    		@Override
+    		public void handleSolution(BindingSet bs) {
+    			try {
+					List<JsonUpdateInfo> infos = executeUpdate(sparqlQuery, bs);
+					if (infos != null) {
+						if (total == null) {
+							total = new JsonUpdateInfo();
+						}
+						for (JsonUpdateInfo info : infos) {
+							total.totalInserted += info.totalInserted;
+							total.totalDeleted += info.totalDeleted;
+						}
+					}
+				} catch (IOException e) {
+					throw new TupleQueryResultHandlerException(e);
+				}
+    		}
+    	}
+
+    	TupleQueryResultParser parser = QueryResultIO.createTupleParser(sparqlQuery.getFlatFileFormat(), repository.getValueFactory());
+    	UpdateTupleQueryResultHandler handler = new UpdateTupleQueryResultHandler();
+    	parser.setQueryResultHandler(handler);
+    	if (handler.total != null) {
+	        StringBuilderWriter buf = new StringBuilderWriter(128);
+        	JsonGenerator json = new ObjectMapper().createGenerator(buf);
+        	json.writeStartObject();
+        	json.writeObjectField("results", handler.total);
+	    	json.writeEndObject();
+	    	json.close();
+	    	buf.close();
+	    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
+	    	sendResponse(exchange, HttpURLConnection.HTTP_OK, buf.toString());
+        } else {
+        	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
+        }
     }
 
     private void sendManagementData(HttpExchange exchange) throws IOException, MalformedObjectNameException {
@@ -798,7 +918,7 @@ public final class HttpSparqlHandler implements HttpHandler {
      * @param <S>
      * @return
      */
-    private <FF extends FileFormat, S extends Object> FF setFormat(FileFormatServiceRegistry<FF, S> reg,
+    private static <FF extends FileFormat, S extends Object> FF setFormat(FileFormatServiceRegistry<FF, S> reg,
                                                                    String path, List<String> mimeTypes,
                                                                    FF defaultFormat, Headers h) {
         if (path != null) {
@@ -837,13 +957,14 @@ public final class HttpSparqlHandler implements HttpHandler {
      * @param acceptHeader
      * @return parsed Accept header
      */
-    private List<String> parseAcceptHeader(String acceptHeader) {
+    private static List<String> parseAcceptHeader(String acceptHeader) {
         List<String> mimeTypes = Arrays.asList(acceptHeader.trim().split(","));
         for (int i = 0; i < mimeTypes.size(); i++) {
             mimeTypes.set(i, mimeTypes.get(i).trim().split(";", 0)[0]);
         }
         return mimeTypes;
     }
+
 
     /**
      * Help class for retrieving the whole SPARQL query, including optional parameters defaultGraphs and namedGraphs,
@@ -860,6 +981,8 @@ public final class HttpSparqlHandler implements HttpHandler {
         private boolean trackResultSize;
         private boolean mapReduce;
         private String target;
+        private RDFFormat graphData;
+        private QueryResultFormat flatData;
 
         public String getQuery() {
         	return replaceParameters(query);
@@ -919,6 +1042,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         }
 
         public void addBindingsTo(Operation op) {
+           	LOGGER.info("Adding bindings: {}", bindings);
 	        for (Map.Entry<String, Value> binding : bindings.entrySet()) {
 	        	op.setBinding(binding.getKey(), binding.getValue());
 	        }
@@ -928,9 +1052,58 @@ public final class HttpSparqlHandler implements HttpHandler {
             return dataset;
         }
 
+        public void setGraphFormat(RDFFormat format) {
+        	this.graphData = format;
+        }
+
+        public RDFFormat getGraphFormat() {
+        	return graphData;
+        }
+
+        public void setFlatFileFormat(QueryResultFormat format) {
+        	this.flatData = format;
+        }
+
+        public QueryResultFormat getFlatFileFormat() {
+        	return flatData;
+        }
     }
 
-    private static interface QueryEvaluator {
-    	OutputStream evaluate(SailQuery query) throws IOException;
+
+    private static abstract class QueryEvaluator<FF extends FileFormat,S> {
+    	final FileFormatServiceRegistry<FF, S> registry;
+    	final FF defaultFormat;
+    	S writerFactory;
+
+    	QueryEvaluator(FileFormatServiceRegistry<FF, S> registry, FF defaultFormat) {
+    		this.registry = registry;
+    		this.defaultFormat = defaultFormat;
+    	}
+
+    	void setContentType(HttpExchange exchange) {
+            List<String> acceptedMimeTypes = new ArrayList<>();
+            List<String> acceptHeaders = exchange.getRequestHeaders().get("Accept");
+            if (acceptHeaders != null) for (String header : acceptHeaders) {
+                acceptedMimeTypes.addAll(parseAcceptHeader(header));
+            }
+            FF format = setFormat(registry, exchange.getRequestURI().getPath(),
+                    acceptedMimeTypes, defaultFormat, exchange.getResponseHeaders());
+            writerFactory = registry.get(format).orElseThrow(() -> new AssertionError("Format not supported: "+format));
+    	}
+
+    	abstract void evaluate(SailQuery query, OutputStream out) throws IOException;
+    }
+
+
+    static class JsonUpdateInfo {
+    	public long totalInserted;
+    	public long totalDeleted;
+
+    	static JsonUpdateInfo from(long inserted, long deleted) {
+    		JsonUpdateInfo info = new JsonUpdateInfo();
+    		info.totalInserted = inserted;
+    		info.totalDeleted = deleted;
+    		return info;
+    	}
     }
 }

@@ -295,7 +295,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         return (run(getConf(), queryFiles, query, workdir) != null) ? 0 : -1;
     }
 
-    static List<Info> executeUpdate(Configuration conf, String source, String query, Map<String,Value> bindings) throws Exception {
+    static List<JsonInfo> executeUpdate(Configuration conf, String source, String query, Map<String,Value> bindings) throws Exception {
     	Configuration jobConf = new Configuration(conf);
     	jobConf.set(TABLE_NAME_PROPERTY, source);
     	for (Map.Entry<String,Value> binding : bindings.entrySet()) {
@@ -309,7 +309,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
     	}
     }
 
-    private static List<Info> run(Configuration conf, String queryFiles, String query, String workdir) throws IOException, InterruptedException, ClassNotFoundException {
+    private static List<JsonInfo> run(Configuration conf, String queryFiles, String query, String workdir) throws IOException, InterruptedException, ClassNotFoundException {
     	String source = conf.get(TABLE_NAME_PROPERTY);
         TableMapReduceUtil.addDependencyJarsForClasses(conf,
                NTriplesUtil.class,
@@ -321,7 +321,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                HBaseConfiguration.class,
                AuthenticationProtos.class);
         HBaseConfiguration.addHbaseResources(conf);
-        List<Info> infos = new ArrayList<>();
+        List<JsonInfo> infos = new ArrayList<>();
         int stages = 1;
         for (int stage = 0; stage < stages; stage++) {
             Job job = Job.getInstance(conf, "HalyardBulkUpdate -> " + workdir + " -> " + source + " stage #" + stage);
@@ -357,7 +357,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                     LOG.info("Bulk Update will process {} MapReduce stages.", stages);
                 }
                 if (job.waitForCompletion(true)) {
-                	infos.add(Info.from(job));
+                	infos.add(JsonInfo.from(job));
     				bulkLoad(conf, hTable.getName(), outPath);
                     LOG.info("Stage #{} of {} completed.", stage+1, stages);
                 } else {
@@ -370,15 +370,14 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         return infos;
     }
 
-    static final class Info {
+
+    static final class JsonInfo extends HttpSparqlHandler.JsonUpdateInfo {
     	public String name;
     	public String id;
     	public String trackingURL;
-    	public long totalInserted;
-    	public long totalDeleted;
 
-    	static Info from(Job job) throws IOException {
-    		Info info = new Info();
+    	static JsonInfo from(Job job) throws IOException {
+    		JsonInfo info = new JsonInfo();
     		info.name = job.getJobName();
     		info.id = job.getJobID().getJtIdentifier();
     		info.trackingURL = job.getTrackingURL();

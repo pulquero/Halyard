@@ -46,6 +46,7 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
+import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.eclipse.rdf4j.sail.NotifyingSailConnection;
 import org.eclipse.rdf4j.sail.SailException;
@@ -199,7 +200,7 @@ public class HttpSparqlHandlerTest {
         HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
         urlConnection.setDoOutput(true);
         urlConnection.setRequestMethod("POST");
-        urlConnection.setRequestProperty("Content-Type", "text/plain");
+        urlConnection.setRequestProperty("Content-Type", "video/mpeg");
         OutputStreamWriter out = new OutputStreamWriter(urlConnection.getOutputStream());
         out.write("ASK {}");
         out.close();
@@ -641,8 +642,8 @@ public class HttpSparqlHandlerTest {
         String json = IOUtils.toString(urlConnection.getInputStream(), "UTF-8");
         // check parses
         new JSONObject(json);
-        // -1 as SailRepository doesn't support tracked updates
-        assertEquals("{\"results\":[{\"totalInserted\":-1}]}", json);
+        // 0 as SailRepository doesn't support tracked updates
+        assertEquals("{\"results\":[{\"totalInserted\":0,\"totalDeleted\":0}]}", json);
     }
 
     @Test
@@ -657,6 +658,19 @@ public class HttpSparqlHandlerTest {
         out.close();
         String result = IOUtils.toString(urlConnection.getInputStream(), "UTF-8");
         assertEquals("count\r\n1\r\n", result);
+    }
+
+    @Test
+    public void testLoadData() throws IOException {
+        URL url = new URL(SERVER_URL);
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.setDoOutput(true);
+        urlConnection.setRequestMethod("POST");
+        urlConnection.setRequestProperty("Content-Type", RDFFormat.TURTLE.getDefaultMIMEType());
+        OutputStreamWriter out = new OutputStreamWriter(urlConnection.getOutputStream());
+        out.write("<http://newdata/s> <http://newdata/p> <http://newdata/o> .");
+        out.close();
+        assertEquals(HttpURLConnection.HTTP_OK, urlConnection.getResponseCode());
     }
 
     @Test
