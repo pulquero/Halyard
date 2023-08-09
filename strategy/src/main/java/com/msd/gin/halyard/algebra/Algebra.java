@@ -19,7 +19,7 @@ public final class Algebra {
 
 	public static UnaryTupleOperator ensureRooted(TupleExpr tupleExpr) {
 		if (!(tupleExpr instanceof QueryRoot)) {
-			tupleExpr = new QueryRoot(tupleExpr);
+			tupleExpr = new ExtendedQueryRoot(tupleExpr);
 		}
 		return (UnaryTupleOperator) tupleExpr;
 	}

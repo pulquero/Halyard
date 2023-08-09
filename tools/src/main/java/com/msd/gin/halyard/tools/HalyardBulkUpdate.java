@@ -279,7 +279,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         addOption(null, "dry-run", null, DRY_RUN_PROPERTY, "Skip loading of HFiles", false, true);
     }
 
-
+    @Override
     public int run(CommandLine cmd) throws Exception {
         configureString(cmd, 's', null);
         String queryFiles = cmd.getOptionValue('q');
