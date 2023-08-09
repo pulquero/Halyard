@@ -336,21 +336,22 @@ public class HBaseUpdate extends SailUpdate {
 
 				if (context != null) {
 					if (RDF4J.NIL.equals(context) || SESAME.NIL.equals(context)) {
-						deleteStatement(subject, predicate, object, (Resource) null);
+						return deleteStatement(subject, predicate, object, (Resource) null);
 					} else {
-						deleteStatement(subject, predicate, object, context);
+						return deleteStatement(subject, predicate, object, context);
 					}
 				} else {
 					IRI[] removeCtxs = getDefaultRemoveGraphs(uc.getDataset());
-					deleteStatement(subject, predicate, object, removeCtxs);
+					return deleteStatement(subject, predicate, object, removeCtxs);
 				}
-				return true;
 			}
 
-			private void deleteStatement(Resource s, IRI p, Value o, Resource... ctxs) {
-				if (isNew(s, p, o, ctxs)) {
+			private boolean deleteStatement(Resource s, IRI p, Value o, Resource... ctxs) {
+				boolean isNew = isNew(s, p, o, ctxs);
+				if (isNew) {
 					con.removeStatement(uc, s, p, o, ctxs);
 				}
+				return isNew;
 			}
 		}
 
@@ -408,21 +409,22 @@ public class HBaseUpdate extends SailUpdate {
 
 					IRI with = uc.getDataset().getDefaultInsertGraph();
 					if (with == null && toBeInserted.getContext() == null) {
-						insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject());
+						return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject());
 					} else if (toBeInserted.getContext() == null) {
-						insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), with);
+						return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), with);
 					} else {
-						insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), toBeInserted.getContext());
+						return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), toBeInserted.getContext());
 					}
-					return true;
 				}
 				return false;
 			}
 
-			private void insertStatement(Resource s, IRI p, Value o, Resource... ctxs) {
-				if (isNew(s, p, o, ctxs)) {
+			private boolean insertStatement(Resource s, IRI p, Value o, Resource... ctxs) {
+				boolean isNew = isNew(s, p, o, ctxs);
+				if (isNew) {
 					con.addStatement(uc, s, p, o, ctxs);
 				}
+				return isNew;
 			}
 
 			private Statement createStatementFromPattern(StatementPattern pattern, BindingSet sourceBinding, MapBindingSet bnodeMapping) throws SailException {
