@@ -299,13 +299,13 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
     	Configuration jobConf = new Configuration(conf);
     	jobConf.set(TABLE_NAME_PROPERTY, source);
     	for (Map.Entry<String,Value> binding : bindings.entrySet()) {
-    		conf.set(BINDING_PROPERTY_PREFIX+binding.getKey(), NTriplesUtil.toNTriplesString(binding.getValue(), true));
+    		jobConf.set(BINDING_PROPERTY_PREFIX+binding.getKey(), NTriplesUtil.toNTriplesString(binding.getValue(), true));
     	}
     	String workdir = "work/" + TOOL_NAME + "-" + UUID.randomUUID();
     	try {
     		return run(jobConf, null, query, workdir);
     	} finally {
-    		FileSystem.get(conf).delete(new Path(workdir), true);
+    		FileSystem.get(jobConf).delete(new Path(workdir), true);
     	}
     }
 
