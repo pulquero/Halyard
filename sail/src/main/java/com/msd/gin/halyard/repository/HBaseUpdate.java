@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import org.eclipse.rdf4j.common.exception.RDF4JException;
+import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.common.iteration.TimeLimitIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
@@ -38,13 +40,16 @@ import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.UpdateExecutionException;
+import org.eclipse.rdf4j.query.algebra.Clear;
 import org.eclipse.rdf4j.query.algebra.Filter;
 import org.eclipse.rdf4j.query.algebra.Modify;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
+import org.eclipse.rdf4j.query.algebra.StatementPattern.Scope;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.TupleFunctionCall;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
+import org.eclipse.rdf4j.query.algebra.ValueConstant;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
@@ -587,6 +592,63 @@ public class HBaseUpdate extends SailUpdate {
 						}
 						return;
 					}
+				}
+			}
+		}
+
+		@Override
+		protected void executeClear(Clear clearExpr, UpdateContext uc, int maxExecutionTime) throws SailException {
+			try {
+				ValueConstant graph = clearExpr.getGraph();
+
+				long deletedCount;
+				Stopwatch stopwatch;
+				if (con.isTrackResultTime()) {
+					clearExpr.setTotalTimeNanosActual(Math.max(0, clearExpr.getTotalTimeNanosActual()));
+					stopwatch = Stopwatch.createStarted();
+				} else {
+					stopwatch = null;
+				}
+				if (graph != null) {
+					Resource context = (Resource) graph.getValue();
+					deletedCount = con.clearGraph(uc, context);
+				} else {
+					Scope scope = clearExpr.getScope();
+					if (Scope.NAMED_CONTEXTS.equals(scope)) {
+						CloseableIteration<? extends Resource, SailException> contextIDs = con.getContextIDs();
+						try {
+							if (maxExecutionTime > 0) {
+								contextIDs = new TimeLimitIteration<Resource, SailException>(contextIDs, TimeUnit.SECONDS.toMillis(maxExecutionTime)) {
+
+									@Override
+									protected void throwInterruptedException() throws SailException {
+										throw new SailException("execution took too long");
+									}
+								};
+							}
+							deletedCount = 0L;
+							while (contextIDs.hasNext()) {
+								deletedCount += con.clearGraph(uc, contextIDs.next());
+							}
+						} finally {
+							contextIDs.close();
+						}
+					} else if (Scope.DEFAULT_CONTEXTS.equals(scope)) {
+						deletedCount = con.clearGraph(uc, (Resource) null);
+					} else {
+						deletedCount = con.clearGraph(uc);
+					}
+				}
+				if (con.isTrackResultTime()) {
+					stopwatch.stop();
+					clearExpr.setTotalTimeNanosActual(clearExpr.getTotalTimeNanosActual() + stopwatch.elapsed(TimeUnit.NANOSECONDS));
+				}
+				if (con.isTrackResultSize()) {
+					clearExpr.setResultSizeActual(deletedCount);
+				}
+			} catch (SailException e) {
+				if (!clearExpr.isSilent()) {
+					throw e;
 				}
 			}
 		}

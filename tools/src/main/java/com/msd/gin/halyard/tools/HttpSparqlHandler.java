@@ -90,6 +90,7 @@ import org.eclipse.rdf4j.query.Operation;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResultHandlerException;
+import org.eclipse.rdf4j.query.algebra.Clear;
 import org.eclipse.rdf4j.query.algebra.Modify;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
 import org.eclipse.rdf4j.query.impl.SimpleDataset;
@@ -746,16 +747,22 @@ public final class HttpSparqlHandler implements HttpHandler {
 	    			JsonUpdateInfo info = new JsonUpdateInfo();
 	    			if (modify.getDeleteExpr() != null) {
 	    				long count = modify.getDeleteExpr().getResultSizeActual();
-	    				if (count > 0) {
+	    				if (count > 0L) {
 	    					info.totalDeleted = count;
 	    				}
 	    			}
 	    			if (modify.getInsertExpr() != null) {
 	    				long count = modify.getInsertExpr().getResultSizeActual();
-	    				if (count > 0) {
+	    				if (count > 0L) {
 	    					info.totalInserted = count;
 	    				}
 	    			}
+	    			infos.add(info);
+	    		} else if (expr instanceof Clear) {
+	    			Clear clear = (Clear) expr;
+	    			JsonUpdateInfo info = new JsonUpdateInfo();
+	    			// -1 means unknown
+					info.totalDeleted = clear.getResultSizeActual();
 	    			infos.add(info);
 	    		}
 	    	}

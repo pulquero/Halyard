@@ -44,9 +44,11 @@ import com.msd.gin.halyard.util.MBeanManager;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -674,29 +676,84 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	
 	@Override
 	public void removeStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws SailException {
+		checkWritable();
 		removeStatements(null, subj, pred, obj, contexts);
 	}
 
-	private void removeStatements(UpdateContext op, Resource subj, IRI pred, Value obj, Resource... contexts) throws SailException {
-		checkWritable();
-		if (subj == null && pred == null && obj == null && (contexts == null || contexts.length == 0)) {
+	private long removeStatements(UpdateContext op, Resource subjPattern, IRI predPattern, Value objPattern, Resource... contexts) throws SailException {
+		if (subjPattern == null && predPattern == null && objPattern == null && (contexts == null || contexts.length == 0)) {
 			clearAllStatements();
+			return -1L;
 		} else {
-			long timestamp = getTimestamp(op, true);
-			try (CloseableIteration<? extends Statement, SailException> iter = getStatements(subj, pred, obj, true, contexts)) {
-				while (iter.hasNext()) {
-					Statement st = iter.next();
-					removeStatementInternal(st.getSubject(), st.getPredicate(), st.getObject(), new Resource[] { st.getContext() }, timestamp);
+			final long timestamp = getTimestamp(op, true);
+			long counter = 0L;
+
+			final class TripleSet {
+				final int bufferSize = 1000;
+				Set<Triple> triples;
+
+				void add(Triple t) throws IOException {
+					if (triples == null) {
+						triples = new HashSet<>(bufferSize + 1);
+					}
+					triples.add(t);
+					if (triples.size() > bufferSize) {
+						removeAll();
+					}
+				}
+
+				void removeAll() throws IOException {
+					if (triples != null) {
+						for (Triple triple : triples) {
+							removeTriple(triple, timestamp);
+						}
+						triples = null;
+					}
 				}
 			}
+
+			TripleSet triples = new TripleSet();
+			try (CloseableIteration<? extends Statement, SailException> iter = getStatements(subjPattern, predPattern, objPattern, true, contexts)) {
+				while (iter.hasNext()) {
+					Statement st = iter.next();
+					Resource subj = st.getSubject();
+					IRI pred = st.getPredicate();
+					Value obj = st.getObject();
+					deleteStatement(subj, pred, obj, st.getContext(), timestamp);
+					if (subj.isTriple()) {
+						triples.add((Triple) subj);
+					}
+					if (obj.isTriple()) {
+						triples.add((Triple) obj);
+					}
+					counter++;
+				}
+				triples.removeAll();
+			} catch (IOException e) {
+				throw new SailException(e);
+			}
+			return counter;
 		}
 	}
 
 	@Override
 	public void removeStatement(UpdateContext op, Resource subj, IRI pred, Value obj, Resource... contexts) throws SailException {
+		checkWritable();
 		if (subj != null && pred != null && obj != null && contexts != null && contexts.length > 0) {
 			long timestamp = getTimestamp(op, true);
-			removeStatementInternal(subj, pred, obj, contexts, timestamp);
+			try {
+				for (Resource ctx : contexts) {
+					deleteStatement(subj, pred, obj, ctx, timestamp);
+				}
+				if (subj.isTriple()) {
+					removeTriple((Triple) subj, timestamp);
+				}
+				if (obj.isTriple()) {
+					removeTriple((Triple) obj, timestamp);
+				}
+			} catch (IOException e) {
+				throw new SailException(e);
+			}
 		} else {
 			removeStatements(op, subj, pred, obj, contexts);
 		}
@@ -706,23 +763,6 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		checkWritable();
 		try {
 			deleteSystemStatement(subj, pred, obj, context, timestamp);
-		} catch (IOException e) {
-			throw new SailException(e);
-		}
-	}
-
-	private void removeStatementInternal(Resource subj, IRI pred, Value obj, Resource[] contexts, long timestamp) throws SailException {
-		checkWritable();
-		try {
-			for (Resource ctx : contexts) {
-				deleteStatement(subj, pred, obj, ctx, timestamp);
-			}
-			if (subj.isTriple()) {
-				removeTriple((Triple) subj, timestamp);
-			}
-			if (obj.isTriple()) {
-				removeTriple((Triple) obj, timestamp);
-			}
 		} catch (IOException e) {
 			throw new SailException(e);
 		}
@@ -787,6 +827,11 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     public void clear(Resource... contexts) throws SailException {
         removeStatements(null, null, null, contexts); //remove all statements in the contexts.
     }
+
+	public long clearGraph(UpdateContext op, Resource... contexts) throws SailException {
+		checkWritable();
+		return removeStatements(op, null, null, null, contexts);
+	}
 
 	private void clearAllStatements() throws SailException {
         try {
