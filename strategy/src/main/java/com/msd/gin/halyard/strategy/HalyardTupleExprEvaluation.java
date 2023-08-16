@@ -1298,28 +1298,6 @@ final class HalyardTupleExprEvaluation {
 									break;
 								}
 							}
-						} else {
-							QueryBindingSet result = new QueryBindingSet(bindings);
-							for (int i=0; i<opArgSteps.length; i++) {
-								GroupElem ge = elems.get(i);
-								Aggregator<?,?> agg = createAggregator(ge.getOperator(), opArgSteps[i], bindings, evalContext);
-								if (agg != null) {
-									try {
-										Value v = agg.getValue();
-										if (v != null) {
-											result.setBinding(ge.getName(), v);
-										}
-									} catch (ValueExprEvaluationException ignore) {
-										// There was a type error when calculating the value of the aggregate. We silently ignore the error,
-										// resulting in no result value being bound.
-									} finally {
-										agg.close();
-									}
-								}
-							}
-							if (result.size() > 0) {
-								parent.push(result);
-							}
 						}
 						parent.close();
 					}

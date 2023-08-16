@@ -231,6 +231,17 @@ public class HalyardStrategyExtendedTest {
     }
 
     @Test
+	public void testCountAggregateWithGroupEmptyResult() {
+		String q = "SELECT ?s (COUNT(?o) as ?oc) {\n" +
+				"   ?s ?p ?o .\n" +
+				" }\n" +
+				" GROUP BY ?s\n";
+		try (TupleQueryResult result = con.prepareTupleQuery(q).evaluate()) {
+			assertFalse(result.hasNext());
+		}
+	}
+
+    @Test
     public void testConstantAggregates() {
     	String q = "SELECT (MAX(-2) as ?maxx) (MIN(3) as ?minx) (AVG(1) as ?avgx) (SUM(7) as ?sumx) (COUNT('foo') as ?countx) (SAMPLE('bar') as ?samplex) (GROUP_CONCAT('foobar') as ?concatx) { }";
         try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
