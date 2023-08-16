@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>io.github.pulquero.halyard</groupId>
 		<artifactId>halyard</artifactId>
-		<version>4.7</version>
+		<version>4.8-SNAPSHOT</version>
 	</parent>
 	<dependencies>
 		<dependency>
