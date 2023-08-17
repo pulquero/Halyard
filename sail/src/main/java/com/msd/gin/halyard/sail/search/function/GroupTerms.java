@@ -22,16 +22,31 @@ public class GroupTerms implements Function {
 			throw new QueryEvaluationException("Missing arguments");
 		}
 
+		int start = 0;
+		String operator;
+		Value firstArg = args[0];
+		if (!firstArg.isLiteral()) {
+			throw new QueryEvaluationException("Invalid value");
+		}
+		String firstArgLabel = firstArg.stringValue();
+		if (firstArgLabel.equals("OR") || firstArgLabel.equals("||") || firstArgLabel.equals("AND") || firstArgLabel.equals("&&")) {
+			operator = " " + firstArgLabel + " ";
+			start++;
+		} else {
+			operator = " ";
+		}
+
 		StringBuilder buf = new StringBuilder();
 		buf.append("(");
 		String sep = "";
-		for (Value arg : args) {
+		for (int i = start; i < args.length; i++) {
+			Value arg = args[i];
 			if (!arg.isLiteral()) {
 				throw new QueryEvaluationException("Invalid value");
 			}
 			buf.append(sep);
 			buf.append(arg.stringValue());
-			sep = " ";
+			sep = operator;
 		}
 		buf.append(")");
 		return valueFactory.createLiteral(buf.toString());

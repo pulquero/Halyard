@@ -481,7 +481,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
 				writeNumericField(key, (Number) v);
 			} else if (o instanceof Object[]) {
 				writeArrayField(key, (Object[]) o);
-			} else {
+			} else if (o instanceof String) {
 				writeStringField(key, (String) o);
 			}
 		}

@@ -1,7 +1,5 @@
 package com.msd.gin.halyard.sail.search.function;
 
-import com.msd.gin.halyard.sail.search.function.GroupTerms;
-
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
@@ -16,5 +14,11 @@ public class GroupTermsTest {
 	public void test() {
 		Literal group = (Literal) new GroupTerms().evaluate(vf, vf.createLiteral("foo"), vf.createLiteral("bar"));
 		assertEquals("(foo bar)", group.stringValue());
+	}
+
+	@Test
+	public void testOperator() {
+		Literal group = (Literal) new GroupTerms().evaluate(vf, vf.createLiteral("AND"), vf.createLiteral("foo"), vf.createLiteral("bar"));
+		assertEquals("(foo AND bar)", group.stringValue());
 	}
 }

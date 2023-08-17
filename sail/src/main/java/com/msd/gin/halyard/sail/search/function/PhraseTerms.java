@@ -22,10 +22,24 @@ public class PhraseTerms implements Function {
 			throw new QueryEvaluationException("Missing arguments");
 		}
 
+		int end = args.length;
+		String slop;
+		Value lastArg = args[end - 1];
+		if (!lastArg.isLiteral()) {
+			throw new QueryEvaluationException("Invalid value");
+		}
+		String lastArgLabel = lastArg.stringValue();
+		if (lastArgLabel.startsWith("~")) {
+			slop = lastArgLabel;
+			end--;
+		} else {
+			slop = "";
+		}
 		StringBuilder buf = new StringBuilder();
 		buf.append("\"");
 		String sep = "";
-		for (Value arg : args) {
+		for (int i = 0; i < end; i++) {
+			Value arg = args[i];
 			if (!arg.isLiteral()) {
 				throw new QueryEvaluationException("Invalid value");
 			}
@@ -34,6 +48,7 @@ public class PhraseTerms implements Function {
 			sep = " ";
 		}
 		buf.append("\"");
+		buf.append(slop);
 		return valueFactory.createLiteral(buf.toString());
 	}
 
