@@ -27,9 +27,9 @@ import com.msd.gin.halyard.query.ValuePipeQueryValueEvaluationStep;
 import com.msd.gin.halyard.strategy.HalyardTupleExprEvaluation.QuadPattern;
 import com.msd.gin.halyard.vocab.HALYARD;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -75,7 +75,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	 * Used to allow queries across more than one Halyard datasets
 	 */
     private final FederatedServiceResolver serviceResolver;
-    private final Map<String,FederatedService> federatedServices = new HashMap<>();
+    private final Map<String,FederatedService> federatedServices = new ConcurrentHashMap<>();
     private final TripleSource tripleSource;
     private final Dataset dataset;
     private final HalyardEvaluationExecutor executor;
