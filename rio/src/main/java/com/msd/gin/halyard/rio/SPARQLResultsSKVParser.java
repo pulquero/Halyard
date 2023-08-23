@@ -5,20 +5,30 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
+import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.TupleQueryResultHandlerException;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 import org.eclipse.rdf4j.query.resultio.AbstractTupleQueryResultParser;
 import org.eclipse.rdf4j.query.resultio.QueryResultParseException;
 import org.eclipse.rdf4j.query.resultio.TupleQueryResultFormat;
 import org.eclipse.rdf4j.query.resultio.TupleQueryResultParser;
 import org.eclipse.rdf4j.query.resultio.TupleQueryResultParserFactory;
-import org.eclipse.rdf4j.query.resultio.text.tsv.SPARQLResultsTSVMappingStrategy;
+import org.eclipse.rdf4j.query.resultio.text.SPARQLResultsXSVMappingStrategy;
 
 import com.opencsv.CSVReader;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
+import com.opencsv.exceptions.CsvBeanIntrospectionException;
+import com.opencsv.exceptions.CsvChainedException;
+import com.opencsv.exceptions.CsvFieldAssignmentException;
+import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
 import com.opencsv.exceptions.CsvValidationException;
 
 public class SPARQLResultsSKVParser extends AbstractTupleQueryResultParser {
@@ -37,6 +47,14 @@ public class SPARQLResultsSKVParser extends AbstractTupleQueryResultParser {
         }
     }
 
+	public SPARQLResultsSKVParser() {
+		super();
+	}
+
+	public SPARQLResultsSKVParser(ValueFactory vf) {
+		super(vf);
+	}
+
 	@Override
 	public TupleQueryResultFormat getTupleQueryResultFormat() {
 		return FORMAT;
@@ -45,44 +63,53 @@ public class SPARQLResultsSKVParser extends AbstractTupleQueryResultParser {
 	@Override
 	public void parse(InputStream in) throws QueryResultParseException, TupleQueryResultHandlerException {
 		if (handler != null) {
-			// can re-use TSV code
-			SPARQLResultsTSVMappingStrategy strategy = new  SPARQLResultsTSVMappingStrategy(valueFactory);
+			MappingStrategy strategy = new MappingStrategy(valueFactory);
 
 			Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8);
 			CsvToBean<BindingSet> csvToBean = new CsvToBeanBuilder<BindingSet>(reader).withType(BindingSet.class)
 					.withMappingStrategy(strategy)
 					.withSeparator(';')
 					.build();
-			csvToBean.setCsvReader(new SPARQLResultsSKVReader(reader)); // We need our reader
-			List<BindingSet> bindingSets = csvToBean.parse();
+			Stream<BindingSet> bindingSets = csvToBean.stream();
 			List<String> bindingNames = strategy.getBindingNames();
 			handler.startQueryResult(bindingNames);
-			for (BindingSet bs : bindingSets) {
-				handler.handleSolution(bs);
-			}
+			bindingSets.forEach(handler::handleSolution);
 			handler.endQueryResult();
 		}
 	}
 
+	static final class MappingStrategy extends SPARQLResultsXSVMappingStrategy {
+		private static final Pattern numberPattern = Pattern.compile("^[-+]?\\d+(\\.\\d+)?([eE][-+]?\\d+)?");
 
-	private static class SPARQLResultsSKVReader extends CSVReader {
-		SPARQLResultsSKVReader(Reader reader) {
-			super(reader);
+		MappingStrategy(ValueFactory valueFactory) {
+			super(valueFactory);
 		}
 
 		@Override
-		public String[] readNext() throws IOException {
-			String line = getNextLine();
-			if (line == null) {
-				return null;
-			}
-			String[] fields = line.split(";", -1);
+		public void captureHeader(CSVReader reader) throws IOException, CsvRequiredFieldEmptyException {
 			try {
-				validateResult(fields, linesRead);
+				bindingNames = Arrays.asList(reader.readNext());
 			} catch (CsvValidationException ex) {
 				throw new IOException(ex);
 			}
-			return fields;
+		}
+
+		@Override
+		public BindingSet populateNewBean(String[] line) throws CsvBeanIntrospectionException, CsvFieldAssignmentException, CsvChainedException {
+			QueryBindingSet bindings = new QueryBindingSet(line.length+1);
+			for (int i=0; i<line.length; i++) {
+				String valueString = line[i];
+				if (!valueString.isEmpty()) {
+					Value v;
+					if (numberPattern.matcher(valueString).matches()) {
+						v = parseNumberPatternMatch(valueString);
+					} else {
+						v = valueFactory.createLiteral(valueString);
+					}
+					bindings.addBinding(bindingNames.get(i), v);
+				}
+			}
+			return bindings;
 		}
 	}
 }
