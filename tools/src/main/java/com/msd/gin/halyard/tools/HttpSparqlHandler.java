@@ -42,7 +42,9 @@ import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -93,7 +95,6 @@ import org.eclipse.rdf4j.query.TupleQueryResultHandlerException;
 import org.eclipse.rdf4j.query.algebra.Clear;
 import org.eclipse.rdf4j.query.algebra.Modify;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
-import org.eclipse.rdf4j.query.impl.SimpleDataset;
 import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
 import org.eclipse.rdf4j.query.parser.ParsedGraphQuery;
 import org.eclipse.rdf4j.query.parser.ParsedQuery;
@@ -377,7 +378,7 @@ public final class HttpSparqlHandler implements HttpHandler {
                 if (query == null || query.isEmpty()) {
                     throw new IllegalArgumentException("Missing parameter: query");
                 }
-            } else {
+            } else if (path == null || "/".equals(path)) {
             	// service description
             	sparqlQuery.setQuery(serviceDescriptionQuery);
             	ValueFactory vf = repository.getValueFactory();
@@ -576,14 +577,14 @@ public final class HttpSparqlHandler implements HttpHandler {
     			if (!(query instanceof TupleQuery)) {
     				throw new IllegalArgumentException("Only SELECT queries are supported for Elasticsearch export");
     			}
-    	        sparqlQuery.addBindingsTo(query);
+    	        addBindings(query, sparqlQuery.getBindings());
     	        Dataset dataset = sparqlQuery.getDataset();
     	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
     	            // This will include default graphs and named graphs from  the request parameters but default graphs and
     	            // named graphs contained in the string query will be ignored
     	            query.getParsedQuery().setDataset(dataset);
     	        }
-	            LOGGER.info("Indexing results from query: {}", query.getParsedQuery().getSourceString());
+	            logOperation(true, "Indexing results from query", sparqlQuery.getBindings(), query.getParsedQuery().getSourceString());
         		try (HalyardExport.ElasticsearchWriter writer = new HalyardExport.ElasticsearchWriter(new HalyardExport.StatusLog() {
 						public void tick() {}
 						public void logStatus(String msg) {
@@ -612,7 +613,7 @@ public final class HttpSparqlHandler implements HttpHandler {
             OutputStream response;
             try(SailRepositoryConnection connection = repository.getConnection()) {
     	        SailQuery query = connection.prepareQuery(QueryLanguage.SPARQL, sparqlQuery.getQuery(), null);
-    	        sparqlQuery.addBindingsTo(query);
+    	        addBindings(query, sparqlQuery.getBindings());
     	        Dataset dataset = sparqlQuery.getDataset();
     	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
     	            // This will include default graphs and named graphs from  the request parameters but default graphs and
@@ -638,7 +639,7 @@ public final class HttpSparqlHandler implements HttpHandler {
             return new QueryEvaluator<>(TupleQueryResultWriterRegistry.getInstance(), TupleQueryResultFormat.CSV) {
             	@Override
             	void evaluate(SailQuery query, OutputStream out) throws IOException {
-		            LOGGER.info("Evaluating tuple query: {}", query.getParsedQuery().getSourceString());
+		            logOperation(true, "Evaluating tuple query", sparqlQuery.getBindings(), query.getParsedQuery().getSourceString());
 	                TupleQueryResultWriter w = writerFactory.getWriter(out);
 	                w.setWriterConfig(writerConfig);
 	                ((TupleQuery) query).evaluate(w);
@@ -648,7 +649,7 @@ public final class HttpSparqlHandler implements HttpHandler {
             return new QueryEvaluator<>(RDFWriterRegistry.getInstance(), RDFFormat.TURTLE) {
             	@Override
             	void evaluate(SailQuery query, OutputStream out) throws IOException {
-		            LOGGER.info("Evaluating graph query: {}", query.getParsedQuery().getSourceString());
+		            logOperation(true, "Evaluating graph query", sparqlQuery.getBindings(), query.getParsedQuery().getSourceString());
 	                RDFWriter w = writerFactory.getWriter(out);
 	                w.setWriterConfig(writerConfig);
 	                ((GraphQuery) query).evaluate(w);
@@ -658,7 +659,7 @@ public final class HttpSparqlHandler implements HttpHandler {
             return new QueryEvaluator<>(BooleanQueryResultWriterRegistry.getInstance(), BooleanQueryResultFormat.JSON) {
             	@Override
             	void evaluate(SailQuery query, OutputStream out) throws IOException {
-		            LOGGER.info("Evaluating boolean query: {}", query.getParsedQuery().getSourceString());
+		            logOperation(true, "Evaluating boolean query", sparqlQuery.getBindings(), query.getParsedQuery().getSourceString());
 	                BooleanQueryResultWriter w = writerFactory.getWriter(out);
 	                w.setWriterConfig(writerConfig);
 	                w.handleBoolean(((BooleanQuery) query).evaluate());
@@ -692,7 +693,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     			throw new Exception("Map reduce failed");
     		}
         } else {
-        	List<JsonUpdateInfo> infos = executeUpdate(sparqlQuery, null);
+        	List<JsonUpdateInfo> infos = executeUpdate(sparqlQuery, null, true);
         	if (infos != null) {
 		        StringBuilderWriter buf = new StringBuilderWriter(128);
 	        	JsonGenerator json = new ObjectMapper().createGenerator(buf);
@@ -710,7 +711,7 @@ public final class HttpSparqlHandler implements HttpHandler {
        	LOGGER.info("Update successfully processed");
     }
 
-    private List<JsonUpdateInfo> executeUpdate(SparqlQuery sparqlQuery, BindingSet extraBindings) throws IOException {
+    private List<JsonUpdateInfo> executeUpdate(SparqlQuery sparqlQuery, BindingSet extraBindings, boolean logEnabled) throws IOException {
         String updateString = sparqlQuery.getUpdate();
         Dataset dataset = sparqlQuery.getDataset();
         ParsedUpdate parsedUpdate;
@@ -719,12 +720,13 @@ public final class HttpSparqlHandler implements HttpHandler {
     			((ResultTrackingSailConnection)connection.getSailConnection()).setTrackResultSize(sparqlQuery.trackResultSize);
     		}
 	        SailUpdate update = (SailUpdate) connection.prepareUpdate(QueryLanguage.SPARQL, updateString, null);
-	        sparqlQuery.addBindingsTo(update);
+	        Map<String,Value> allBindings = new HashMap<>(sparqlQuery.getBindings());
 	        if (extraBindings != null) {
 		        for (Binding binding : extraBindings) {
-		        	update.setBinding(binding.getName(), binding.getValue());
+		        	allBindings.put(binding.getName(), binding.getValue());
 		        }
 	        }
+	        addBindings(update, allBindings);
 	    	parsedUpdate = update.getParsedUpdate();
 	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
 	            // This will include default graphs and named graphs from  the request parameters
@@ -735,7 +737,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 	        		parsedUpdate.map(expr, dataset);
 	        	}
 	        }
-	        LOGGER.info("Executing update: {}", updateString);
+	        logOperation(logEnabled, "Executing update", allBindings, parsedUpdate.getSourceString());
 	        update.execute();
     	}
 
@@ -790,7 +792,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     		@Override
     		public void handleSolution(BindingSet bs) {
     			try {
-					List<JsonUpdateInfo> infos = executeUpdate(sparqlQuery, bs);
+					List<JsonUpdateInfo> infos = executeUpdate(sparqlQuery, bs, LOGGER.isDebugEnabled());
 					if (infos != null) {
 						if (total == null) {
 							total = new JsonUpdateInfo();
@@ -809,6 +811,9 @@ public final class HttpSparqlHandler implements HttpHandler {
     	TupleQueryResultParser parser = QueryResultIO.createTupleParser(sparqlQuery.getFlatFileFormat(), repository.getValueFactory());
     	UpdateTupleQueryResultHandler handler = new UpdateTupleQueryResultHandler();
     	parser.setQueryResultHandler(handler);
+		try (InputStream in = exchange.getRequestBody()) {
+	    	parser.parseQueryResult(in);
+		}
     	if (handler.total != null) {
 	        StringBuilderWriter buf = new StringBuilderWriter(128);
         	JsonGenerator json = new ObjectMapper().createGenerator(buf);
@@ -878,7 +883,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     	} else if (object instanceof TabularData) {
     		TabularData data = (TabularData) object;
     		JSONArray rows = new JSONArray();
-    		for (CompositeData row : (Collection<CompositeData>) data.values()) {
+    		for (CompositeData row : (Collection<? extends CompositeData>) data.values()) {
     			rows.put(toJson(row));
     		}
     		return rows;
@@ -972,6 +977,18 @@ public final class HttpSparqlHandler implements HttpHandler {
         return mimeTypes;
     }
 
+    private static void addBindings(Operation op, Map<String,Value> bindings) {
+        for (Map.Entry<String, Value> binding : bindings.entrySet()) {
+        	op.setBinding(binding.getKey(), binding.getValue());
+        }
+    }
+
+    private static void logOperation(boolean enabled, String msg, Map<String,Value> bindings, String sourceString) {
+    	if (enabled) {
+    		LOGGER.info("{}:\nBindings: {}\n{}", msg, bindings, sourceString);
+    	}
+    }
+
 
     /**
      * Help class for retrieving the whole SPARQL query, including optional parameters defaultGraphs and namedGraphs,
@@ -983,8 +1000,8 @@ public final class HttpSparqlHandler implements HttpHandler {
         // SPARQL query template parameters for substitution
         private final Map<String,String> parameters = new HashMap<>();
         private final Map<String,Value> bindings = new HashMap<>();
-        // Dataset containing default graphs and named graphs
-        private final SimpleDataset dataset = new SimpleDataset();
+        private final Set<IRI> defaultGraphs = new HashSet<>();
+        private final Set<IRI> namedGraphs = new HashSet<>();
         private boolean trackResultSize;
         private boolean mapReduce;
         private String target;
@@ -1033,11 +1050,11 @@ public final class HttpSparqlHandler implements HttpHandler {
         }
 
         public void addDefaultGraph(IRI defaultGraph) {
-            dataset.addDefaultGraph(defaultGraph);
+            defaultGraphs.add(defaultGraph);
         }
 
         public void addNamedGraph(IRI namedGraph) {
-            dataset.addNamedGraph(namedGraph);
+            namedGraphs.add(namedGraph);
         }
 
         public void addParameter(String name, String value) {
@@ -1048,15 +1065,32 @@ public final class HttpSparqlHandler implements HttpHandler {
         	bindings.put(name, value);
         }
 
-        public void addBindingsTo(Operation op) {
-           	LOGGER.info("Adding bindings: {}", bindings);
-	        for (Map.Entry<String, Value> binding : bindings.entrySet()) {
-	        	op.setBinding(binding.getKey(), binding.getValue());
-	        }
+        public Map<String,Value> getBindings() {
+        	return Collections.unmodifiableMap(bindings);
         }
 
         public Dataset getDataset() {
-            return dataset;
+        	return new Dataset() {
+				@Override
+				public IRI getDefaultInsertGraph() {
+					return null;
+				}
+
+				@Override
+				public Set<IRI> getDefaultRemoveGraphs() {
+					return Collections.emptySet();
+				}
+
+				@Override
+				public Set<IRI> getDefaultGraphs() {
+					return Collections.unmodifiableSet(defaultGraphs);
+				}
+
+				@Override
+				public Set<IRI> getNamedGraphs() {
+					return Collections.unmodifiableSet(namedGraphs);
+				}
+        	};
         }
 
         public void setGraphFormat(RDFFormat format) {

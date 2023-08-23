@@ -23,6 +23,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.cli.ParseException;
@@ -170,7 +171,11 @@ public class HalyardEndpointTest {
         Path path = Paths.get(ROOT + name.getMethodName());
         runEndpoint("-s", TABLE, "-q", queries.getPath(), script.getPath(), path.toString());
         assertTrue(Files.exists(path));
-        assertTrue(Files.lines(path).count() >= 20);
+        List<String> lines = Files.readAllLines(path);
+        // 42 instead of 22 as naively splitting on any newline instead of proper CSV parser handling of quoted newlines
+        assertEquals("Content was:\n" + String.join("\n", lines), 42, lines.size());
+        assertEquals("Content was:\n" + String.join("\n", lines), "s,p,o", lines.get(0));
+        assertEquals("Content was:\n" + String.join("\n", lines), "s,p,o", lines.get(21));
     }
 
     @Test(expected = RuntimeException.class)
