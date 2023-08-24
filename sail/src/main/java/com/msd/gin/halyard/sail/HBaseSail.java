@@ -238,8 +238,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private final Cache<String, HBaseSailConnection> connections = Caffeine.newBuilder().weakValues().removalListener((String id, HBaseSailConnection conn, RemovalCause cause) ->
 	{
 		if (cause.wasEvicted()) {
-			LOGGER.warn("Closing unreferenced connection {}", conn);
-			conn.close();
+			LOGGER.warn("Unreferenced connection {} never closed", id);
 		} else if (conn.isOpen()) {
 			LOGGER.warn("Closing active connection {}", conn);
 			conn.close();
