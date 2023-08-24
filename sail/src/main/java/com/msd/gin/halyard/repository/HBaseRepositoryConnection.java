@@ -1,5 +1,6 @@
 package com.msd.gin.halyard.repository;
 
+import com.msd.gin.halyard.algebra.ExtendedQueryRoot;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
 
@@ -15,9 +16,11 @@ import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.TupleQueryResultHandler;
 import org.eclipse.rdf4j.query.TupleQueryResultHandlerException;
 import org.eclipse.rdf4j.query.Update;
+import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.impl.AbstractParserQuery;
 import org.eclipse.rdf4j.query.impl.AbstractParserUpdate;
+import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 import org.eclipse.rdf4j.query.parser.ParsedUpdate;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
@@ -53,9 +56,18 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 		}
 	}
 
+	private void swapRoot(ParsedQuery q) {
+		TupleExpr root = q.getTupleExpr();
+		if (root.getClass() == QueryRoot.class) {
+			TupleExpr tree = ((QueryRoot) root).getArg();
+			q.setTupleExpr(new ExtendedQueryRoot(tree));
+		}
+	}
+
 	@Override
 	public SailQuery prepareQuery(QueryLanguage ql, String queryString, String baseURI) throws MalformedQueryException {
 		SailQuery query = super.prepareQuery(ql, queryString, baseURI);
+		swapRoot(query.getParsedQuery());
 		addImplicitBindings(query);
 		return query;
 	}
@@ -65,6 +77,7 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 		Optional<TupleExpr> sailTupleExpr = getSailConnection().prepareQuery(ql, Query.QueryType.TUPLE, queryString, baseURI);
 
 		ParsedTupleQuery parsedQuery = sailTupleExpr.map(expr -> new ParsedTupleQuery(queryString, expr)).orElse(QueryParserUtil.parseTupleQuery(ql, queryString, baseURI));
+		swapRoot(parsedQuery);
 		SailTupleQuery query = new SailTupleQuery(parsedQuery, this) {
 			@Override
 			public void evaluate(TupleQueryResultHandler handler) throws QueryEvaluationException, TupleQueryResultHandlerException {
@@ -86,6 +99,7 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 	@Override
 	public SailGraphQuery prepareGraphQuery(QueryLanguage ql, String queryString, String baseURI) throws MalformedQueryException {
 		SailGraphQuery query = super.prepareGraphQuery(ql, queryString, baseURI);
+		swapRoot(query.getParsedQuery());
 		addImplicitBindings(query);
 		return query;
 	}
@@ -93,6 +107,7 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 	@Override
 	public SailBooleanQuery prepareBooleanQuery(QueryLanguage ql, String queryString, String baseURI) throws MalformedQueryException {
 		SailBooleanQuery query = super.prepareBooleanQuery(ql, queryString, baseURI);
+		swapRoot(query.getParsedQuery());
 		addImplicitBindings(query);
 		return query;
 	}
