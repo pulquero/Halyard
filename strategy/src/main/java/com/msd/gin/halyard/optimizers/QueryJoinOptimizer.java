@@ -4,6 +4,7 @@ import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.NAryTupleOperator;
 import com.msd.gin.halyard.algebra.Parent;
+import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.algebra.StarJoin;
 
 import java.util.ArrayList;
@@ -140,7 +141,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
         	meet(joins);
         	// re-attach in new order
         	List<TupleExpr> orderedArgs = new ArrayList<>(sjArgs.size());
-    		parent.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {
+    		parent.visit(new SkipVarsQueryModelVisitor<RuntimeException>() {
     			@Override
     			public void meet(Join join) {
     				TupleExpr left = join.getLeftArg();
@@ -153,16 +154,6 @@ public class QueryJoinOptimizer implements QueryOptimizer {
    						orderedArgs.add(right);
    					}
    					right.visit(this);
-    			}
-
-    			@Override
-    			public void meet(StatementPattern node) {
-    				// skip children
-    			}
-
-    			@Override
-    			public void meet(TripleRef node) {
-    				// skip children
     			}
 			});
         	node.setArgs(orderedArgs);
@@ -248,7 +239,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 					}
 
 					// Build map of var frequences
-					Map<Var, Integer> varFreqMap = new HashMap<>((varsMap.size() + 1) * 2);
+					Map<String, Integer> varFreqMap = new HashMap<>((varsMap.size() + 1) * 2);
 					for (List<Var> varList : varsMap.values()) {
 						fillVarFreqMap(varList, varFreqMap);
 					}
@@ -327,13 +318,13 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			return new StatementPatternVarCollector(tupleExpr).getVars();
 		}
 
-		private <M extends Map<Var, Integer>> void fillVarFreqMap(List<Var> varList, M varFreqMap) {
+		private void fillVarFreqMap(List<Var> varList, Map<String, Integer> varFreqMap) {
 			if (varList.isEmpty()) {
 				return;
 			}
 
 			for (Var var : varList) {
-				varFreqMap.compute(var, (k, v) -> {
+				varFreqMap.compute(var.getName(), (k, v) -> {
 					if (v == null) {
 						return 1;
 					}
@@ -522,7 +513,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 		 * @return the next expression (original and new form) that should be evaluated
 		 */
 		private TupleExpr[] selectNextTupleExpr(List<TupleExpr> expressions,
-				Map<TupleExpr, List<Var>> varsMap, Map<Var, Integer> varFreqMap) {
+				Map<TupleExpr, List<Var>> varsMap, Map<String, Integer> varFreqMap) {
 			if (expressions.size() == 1) {
 				TupleExpr tupleExpr = expressions.get(0);
 				TupleExpr optimizedExpr = optimizeTupleExpr(tupleExpr);
@@ -581,7 +572,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 		}
 
 		private double getTupleExprCost(TupleExpr tupleExpr, TupleExpr optimizedExpr, Map<TupleExpr,Double> cardinalityMap,
-				Map<TupleExpr, List<Var>> varsMap, Map<Var, Integer> varFreqMap) {
+				Map<TupleExpr, List<Var>> varsMap, Map<String, Integer> varFreqMap) {
 
 			// BindingSetAssignment has a typical constant cost. This cost is not based on statistics so is much more
 			// reliable. If the BindingSetAssignment binds to any of the other variables in the other tuple expressions
@@ -590,10 +581,9 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			// argument.
 			if (optimizedExpr instanceof BindingSetAssignment) {
 
-				Set<Var> varsUsedInOtherExpressions = varFreqMap.keySet();
-
 				for (String assuredBindingName : optimizedExpr.getAssuredBindingNames()) {
-					if (varsUsedInOtherExpressions.contains(new Var(assuredBindingName))) {
+					// if used in other expression
+					if (varFreqMap.containsKey(assuredBindingName)) {
 						return 0.0;
 					}
 				}
@@ -676,16 +666,16 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			return ret != null ? ret : Collections.emptyList();
 		}
 
-		private int getForeignVarFreq(List<Var> ownUnboundVars, Map<Var, Integer> varFreqMap) {
+		private int getForeignVarFreq(List<Var> ownUnboundVars, Map<String, Integer> varFreqMap) {
 			if (ownUnboundVars.isEmpty()) {
 				return 0;
 			}
 			if (ownUnboundVars.size() == 1) {
-				return varFreqMap.get(ownUnboundVars.get(0)) - 1;
+				return varFreqMap.get(ownUnboundVars.get(0).getName()) - 1;
 			} else {
 				int result = -ownUnboundVars.size();
 				for (Var var : new HashSet<>(ownUnboundVars)) {
-					result += varFreqMap.get(var);
+					result += varFreqMap.get(var.getName());
 				}
 				return result;
 

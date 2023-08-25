@@ -77,7 +77,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
 			new ConstrainedValueOptimizer(),
 			(statistics instanceof HalyardEvaluationStatistics) ? new HalyardQueryJoinOptimizer((HalyardEvaluationStatistics) statistics) : new QueryJoinOptimizer(statistics),
-			StandardQueryOptimizerPipeline.ITERATIVE_EVALUATION_OPTIMIZER,
+			ExtendedQueryOptimizerPipeline.ITERATIVE_EVALUATION_OPTIMIZER,
 			ExtendedQueryOptimizerPipeline.FILTER_OPTIMIZER, // after join optimizer so we push down on the best statements
 			StandardQueryOptimizerPipeline.ORDER_LIMIT_OPTIMIZER,
 			joinAlgoOptimizer

@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algorithms;
+import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -16,8 +16,11 @@ import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class JoinAlgorithmOptimizer implements QueryOptimizer {
+	private static final Logger LOGGER = LoggerFactory.getLogger(JoinAlgorithmOptimizer.class);
 	private static double INDEX_SCAN_COST = 1.0;  // HBase scan cost
 	private static double HASH_LOOKUP_COST = 0.001;
 	private static double HASH_BUILD_COST = 0.005;
@@ -38,7 +41,7 @@ public class JoinAlgorithmOptimizer implements QueryOptimizer {
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-		tupleExpr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {
+		tupleExpr.visit(new SkipVarsQueryModelVisitor<RuntimeException>() {
 			@Override
 			public void meet(Join join) {
 				super.meet(join);
@@ -49,11 +52,6 @@ public class JoinAlgorithmOptimizer implements QueryOptimizer {
 			public void meet(LeftJoin leftJoin) {
 				super.meet(leftJoin);
 				selectJoinAlgorithm(leftJoin);
-			}
-
-			@Override
-			public void meet(StatementPattern node) {
-				// skip children
 			}
 		});
 	}
@@ -71,6 +69,7 @@ public class JoinAlgorithmOptimizer implements QueryOptimizer {
 			// hash join: evaluate right (scan), build hash, evaluate left, for each left bs, lookup right
 			double hashCost = INDEX_SCAN_COST + rightCard * HASH_BUILD_COST + leftCard * HASH_LOOKUP_COST;
 			boolean useHash = rightCard <= hashJoinLimit && costRatio*hashCost < nestedCost;
+			LOGGER.debug("Nested join cost {} vs hash join cost {} ({}, {})", nestedCost, hashCost, leftCard, rightCard);
 			if (useHash) {
 				join.setAlgorithm(Algorithms.HASH_JOIN);
 				join.setCostEstimate(hashCost);

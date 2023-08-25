@@ -18,10 +18,10 @@ package com.msd.gin.halyard.optimizers;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.BGPCollector;
 import com.msd.gin.halyard.algebra.Parent;
+import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.algebra.StarJoin;
 
 import java.util.ArrayList;
@@ -54,12 +54,7 @@ public class StarJoinOptimizer implements QueryOptimizer {
 		tupleExpr.visit(new StarJoinFinder());
 	}
 
-	final class StarJoinFinder extends AbstractExtendedQueryModelVisitor<RDF4JException> {
-
-		@Override
-		public void meet(StatementPattern node) {
-			// skip children
-		}
+	final class StarJoinFinder extends SkipVarsQueryModelVisitor<RDF4JException> {
 
 		@Override
 		public void meet(Join node) throws RDF4JException {

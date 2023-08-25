@@ -1,9 +1,9 @@
 package com.msd.gin.halyard.optimizers;
 
 import com.google.common.collect.Sets;
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
+import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
 
 import java.util.Set;
 
@@ -12,9 +12,7 @@ import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
-import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.SingletonSet;
-import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 
@@ -22,7 +20,7 @@ public class TupleFunctionCallOptimizer implements QueryOptimizer {
 
 	@Override
 	public void optimize(TupleExpr root, Dataset dataset, BindingSet bindings) {
-		root.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {
+		root.visit(new SkipVarsQueryModelVisitor<RuntimeException>() {
 			@Override
 			public void meet(ExtendedTupleFunctionCall tfc) {
 				if (tfc.getDependentExpression() == null) {
@@ -34,16 +32,11 @@ public class TupleFunctionCallOptimizer implements QueryOptimizer {
 					}
 				}
 			}
-
-			@Override
-			public void meet(StatementPattern node) {
-				// skip children
-			}
 		});
 	}
 
 
-	static final class DependencyCollector extends AbstractExtendedQueryModelVisitor<RuntimeException> {
+	static final class DependencyCollector extends SkipVarsQueryModelVisitor<RuntimeException> {
 		final ExtendedTupleFunctionCall tfc;
 		final Set<String> reqdBindings;
 		final Set<String> resultBindings;
@@ -81,11 +74,6 @@ public class TupleFunctionCallOptimizer implements QueryOptimizer {
 			if (!done) {
 				super.meetBinaryTupleOperator(node);
 			}
-		}
-
-		@Override
-		public void meet(StatementPattern node) {
-			// skip children
 		}
 
 		@Override

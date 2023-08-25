@@ -17,6 +17,7 @@
 package com.msd.gin.halyard.optimizers;
 
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.algebra.StarJoin;
 
 import java.util.ArrayList;
@@ -110,7 +111,7 @@ public final class HalyardFilterOptimizer implements QueryOptimizer {
 		}
 	}
 
-	private static class FilterMerger extends /*Halyard*/AbstractExtendedQueryModelVisitor<RuntimeException> {
+	private static class FilterMerger extends /*Halyard*/SkipVarsQueryModelVisitor<RuntimeException> {
 		@Override
 		public void meet(Filter filter) {
 			super.meet(filter);
@@ -124,37 +125,13 @@ public final class HalyardFilterOptimizer implements QueryOptimizer {
 				parent.replaceChildNode(filter, newFilter);
 			}
 		}
-
-		// Halyard
-		@Override
-		public void meet(StatementPattern node) {
-			// skip children
-		}
-
-		// Halyard
-		@Override
-		public void meet(TripleRef node) {
-			// skip children
-		}
 	}
 
-	private static class FilterOrganizer extends /*Halyard*/AbstractExtendedQueryModelVisitor<RuntimeException> {
+	private static class FilterOrganizer extends /*Halyard*/SkipVarsQueryModelVisitor<RuntimeException> {
 		@Override
 		public void meet(Filter filter) {
 			super.meet(filter);
 			FilterRelocator.optimize(filter);
-		}
-
-		// Halyard
-		@Override
-		public void meet(StatementPattern node) {
-			// skip children
-		}
-
-		// Halyard
-		@Override
-		public void meet(TripleRef node) {
-			// skip children
 		}
 	}
 

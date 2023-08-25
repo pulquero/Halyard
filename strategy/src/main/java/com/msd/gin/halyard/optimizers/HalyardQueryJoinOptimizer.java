@@ -16,7 +16,7 @@
  */
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.HashSet;
@@ -27,7 +27,6 @@ import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.IncompatibleOperationException;
 import org.eclipse.rdf4j.query.algebra.FunctionCall;
-import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
@@ -58,7 +57,7 @@ public final class HalyardQueryJoinOptimizer extends QueryJoinOptimizer {
 
 	private Set<String> getParallelSplitBindings(TupleExpr tupleExpr) {
         final Set<String> parallelSplitBindings = new HashSet<>();
-        tupleExpr.visit(new AbstractExtendedQueryModelVisitor<IncompatibleOperationException>() {
+        tupleExpr.visit(new SkipVarsQueryModelVisitor<IncompatibleOperationException>() {
             @Override
             public void meet(FunctionCall node) throws IncompatibleOperationException {
                 if (HALYARD.PARALLEL_SPLIT_FUNCTION.stringValue().equals(node.getURI())) {
@@ -70,11 +69,6 @@ public final class HalyardQueryJoinOptimizer extends QueryJoinOptimizer {
                 }
                 super.meet(node);
             }
-
-    		@Override
-    		public void meet(StatementPattern node) {
-    			// skip children
-    		}
         });
         return parallelSplitBindings;
 	}

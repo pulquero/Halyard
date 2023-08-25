@@ -18,7 +18,7 @@ package com.msd.gin.halyard.tools;
 
 import static com.msd.gin.halyard.vocab.HALYARD.*;
 
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,7 +27,6 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.algebra.FunctionCall;
-import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
 import org.eclipse.rdf4j.query.algebra.ValueConstant;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
@@ -86,7 +85,7 @@ public final class ParallelSplitFunction implements Function {
         return psfv.forks;
     }
 
-    private static final class ParallelSplitFunctionVisitor extends AbstractExtendedQueryModelVisitor<IllegalArgumentException> {
+    private static final class ParallelSplitFunctionVisitor extends SkipVarsQueryModelVisitor<IllegalArgumentException> {
 		int forks = 0;
         @Override
         public void meet(FunctionCall node) throws IllegalArgumentException {
@@ -111,10 +110,5 @@ public final class ParallelSplitFunction implements Function {
                 }
             }
         }
-
-		@Override
-		public void meet(StatementPattern node) {
-			// skip children
-		}
     }
 }

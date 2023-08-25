@@ -1,9 +1,9 @@
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.BGPCollector;
 import com.msd.gin.halyard.algebra.ConstrainedStatementPattern;
+import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.common.ValueType;
 
 import java.util.HashMap;
@@ -44,7 +44,7 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 		tupleExpr.visit(new ConstraintScanner(bindings));
 	}
 
-	static final class ConstraintScanner extends AbstractExtendedQueryModelVisitor<RuntimeException> {
+	static final class ConstraintScanner extends SkipVarsQueryModelVisitor<RuntimeException> {
 		final BindingSet bindings;
 
 		ConstraintScanner(BindingSet bindings) {
@@ -74,11 +74,6 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 					}
 				}
 			}
-		}
-
-		@Override
-		public void meet(StatementPattern node) {
-			// skip children
 		}
 
 		@Override

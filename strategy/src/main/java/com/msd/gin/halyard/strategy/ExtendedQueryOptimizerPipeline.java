@@ -3,6 +3,7 @@ package com.msd.gin.halyard.strategy;
 import com.msd.gin.halyard.optimizers.ConstrainedValueOptimizer;
 import com.msd.gin.halyard.optimizers.ExtendedEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.HalyardFilterOptimizer;
+import com.msd.gin.halyard.optimizers.HalyardIterativeEvaluationOptimizer;
 import com.msd.gin.halyard.optimizers.QueryJoinOptimizer;
 
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.StandardQueryOptimiz
 public class ExtendedQueryOptimizerPipeline implements QueryOptimizerPipeline {
 	private static boolean assertsEnabled = false;
 	static final HalyardFilterOptimizer FILTER_OPTIMIZER = new HalyardFilterOptimizer();
+	static final HalyardIterativeEvaluationOptimizer ITERATIVE_EVALUATION_OPTIMIZER = new HalyardIterativeEvaluationOptimizer();
 
 	static {
 		assert assertsEnabled = true;
@@ -52,7 +54,7 @@ public class ExtendedQueryOptimizerPipeline implements QueryOptimizerPipeline {
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
 			new ConstrainedValueOptimizer(),
 			new QueryJoinOptimizer(statistics),
-			StandardQueryOptimizerPipeline.ITERATIVE_EVALUATION_OPTIMIZER,
+			ITERATIVE_EVALUATION_OPTIMIZER,
 			FILTER_OPTIMIZER, // after join optimizer so we push down on the best statements
 			StandardQueryOptimizerPipeline.ORDER_LIMIT_OPTIMIZER
 		));
