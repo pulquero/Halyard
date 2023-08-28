@@ -8,6 +8,7 @@ import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.Union;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
+import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
 
 public final class HalyardIterativeEvaluationOptimizer implements QueryOptimizer {
 
@@ -27,17 +28,23 @@ public final class HalyardIterativeEvaluationOptimizer implements QueryOptimizer
 			if (leftArg instanceof Join && rightArg instanceof Join) {
 				Join leftJoinArg = (Join) leftArg;
 				Join rightJoin = (Join) rightArg;
+				TupleExpr leftSide = leftJoinArg.getRightArg();
+				TupleExpr rightSide = rightJoin.getRightArg();
 
-				if (leftJoinArg.getLeftArg().equals(rightJoin.getLeftArg())) {
+				if (leftJoinArg.getLeftArg().equals(rightJoin.getLeftArg()) && !(TupleExprs.isVariableScopeChange(leftSide) && TupleExprs.isVariableScopeChange(rightSide))) {
 					// factor out the left-most join argument
 					TupleExpr commonFactor = leftJoinArg.getLeftArg();
 					Join newJoin = new Join();
 					union.replaceWith(newJoin);
 					newJoin.setLeftArg(commonFactor);
 					newJoin.setRightArg(union);
-					union.setLeftArg(leftJoinArg.getRightArg());
-					union.setRightArg(rightJoin.getRightArg());
+					union.setLeftArg(leftSide);
+					union.setRightArg(rightSide);
 					// Halyard
+					if (union.isVariableScopeChange()) {
+						newJoin.setVariableScopeChange(true);
+						union.setVariableScopeChange(false);
+					}
 					// re-estimate
 					double commonEstimate = commonFactor.getResultSizeEstimate();
 					double unionEstimate = union.getResultSizeEstimate();
