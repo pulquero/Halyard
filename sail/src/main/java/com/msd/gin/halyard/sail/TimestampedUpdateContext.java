@@ -8,7 +8,7 @@ import org.eclipse.rdf4j.sail.UpdateContext;
 import com.msd.gin.halyard.common.Timestamped;
 
 public class TimestampedUpdateContext extends UpdateContext implements Timestamped {
-	private long ts = System.currentTimeMillis();
+	private long ts = NOT_SET;
 
 	public TimestampedUpdateContext(UpdateExpr updateExpr, Dataset dataset, BindingSet bindings,
 			boolean includeInferred)

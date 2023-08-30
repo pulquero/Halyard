@@ -571,6 +571,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     		Configuration conf = sail.getConfiguration();
             long exportedCount;
             try (SailRepositoryConnection connection = repository.getConnection()) {
+            	connection.begin();
     	        SailQuery query = connection.prepareQuery(QueryLanguage.SPARQL, sparqlQuery.getQuery(), null);
     			if (!(query instanceof TupleQuery)) {
     				throw new IllegalArgumentException("Only SELECT queries are supported for Elasticsearch export");
@@ -590,6 +591,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 						}
 					}, ElasticSettings.from(esIndexUrl, conf), sail.getRDFFactory(), repository.getValueFactory())) {
 	            	writer.writeTupleQueryResult(((TupleQuery)query).evaluate());
+	            	connection.commit();
 	            	exportedCount = writer.getExportedCount();
 	            } catch (GeneralSecurityException e) {
 	            	throw new IOException(e);
@@ -610,6 +612,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     		QueryEvaluator<?,?> evaluator = getQueryEvaluator(sparqlQuery, exchange);
             OutputStream response;
             try(SailRepositoryConnection connection = repository.getConnection()) {
+            	connection.begin();
     	        SailQuery query = connection.prepareQuery(QueryLanguage.SPARQL, sparqlQuery.getQuery(), null);
     	        addBindings(query, sparqlQuery.getBindings());
     	        Dataset dataset = sparqlQuery.getDataset();
@@ -623,6 +626,7 @@ public final class HttpSparqlHandler implements HttpHandler {
                 exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
                 response = new BufferedOutputStream(exchange.getResponseBody());
     	        evaluator.evaluate(query, response);
+    	        connection.commit();
         	}
             // commit the response *after* closing the connection
             response.close();
@@ -717,6 +721,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     		if (connection.getSailConnection() instanceof ResultTrackingSailConnection) {
     			((ResultTrackingSailConnection)connection.getSailConnection()).setTrackResultSize(sparqlQuery.trackResultSize);
     		}
+    		connection.begin();
 	        SailUpdate update = (SailUpdate) connection.prepareUpdate(QueryLanguage.SPARQL, updateString, null);
 	        addBindings(update, sparqlQuery.getBindings());
 	    	parsedUpdate = update.getParsedUpdate();
@@ -731,6 +736,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 	        }
 	        LOGGER.info("Executing update:\nBindings: {}\n{}", sparqlQuery.getBindings(), sparqlQuery.getUpdate());
 	        update.execute();
+	        connection.commit();
     	}
 
     	if (sparqlQuery.trackResultSize) {
@@ -747,9 +753,11 @@ public final class HttpSparqlHandler implements HttpHandler {
     private void loadData(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
        	LOGGER.info("Loading data");
     	try(SailRepositoryConnection connection = repository.getConnection()) {
+    		connection.begin();
     		try (InputStream in = exchange.getRequestBody()) {
     			connection.add(in, sparqlQuery.getGraphFormat());
     		}
+    		connection.commit();
     	}
        	LOGGER.info("Load successfully");
     	exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, -1);
@@ -762,6 +770,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     		if (conn.getSailConnection() instanceof ResultTrackingSailConnection) {
     			((ResultTrackingSailConnection)conn.getSailConnection()).setTrackResultSize(sparqlQuery.trackResultSize);
     		}
+    		conn.begin();
 	        SailUpdate update = (SailUpdate) conn.prepareUpdate(QueryLanguage.SPARQL, sparqlQuery.getUpdate(), null);
 	        addBindings(update, sparqlQuery.getBindings());
 	        ParsedUpdate parsedUpdate = update.getParsedUpdate();
@@ -784,6 +793,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 	    	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
 	    		infos.add(JsonUpdateInfo.from(expr));
 	    	}
+	    	conn.commit();
     	}
     	if (sparqlQuery.trackResultSize) {
 	        StringBuilderWriter buf = new StringBuilderWriter(128);

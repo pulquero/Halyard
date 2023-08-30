@@ -85,9 +85,12 @@ public class HBaseSailVersionTest {
         SailRepository rep = new SailRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
+			conn.begin();
 			conn.add(subj, pred, obj);
+			conn.commit();
 		}
 		try (RepositoryConnection conn = rep.getConnection()) {
+			conn.begin();
 			TupleQuery q = conn.prepareTupleQuery(QueryLanguage.SPARQL,
 					"prefix halyard: <http://merck.github.io/Halyard/ns#>\nselect ?s ?p ?t where {?s ?p \"whatever\". (?s ?p \"whatever\") halyard:timestamp ?t}");
 			try (TupleQueryResult res = q.evaluate()) {
@@ -97,6 +100,7 @@ public class HBaseSailVersionTest {
 				assertNotNull(t, "Missing binding");
 				assertTrue(t.calendarValue().compare(startDate.calendarValue()) > 0, String.format("Expected %s > %s", t, startDate));
 			}
+			conn.commit();
 		}
         rep.shutDown();
     }
@@ -112,9 +116,12 @@ public class HBaseSailVersionTest {
         SailRepository rep = new SailRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
+			conn.begin();
 			conn.add(subj, pred, obj);
+			conn.commit();
 		}
 		try (RepositoryConnection conn = rep.getConnection()) {
+			conn.begin();
 			TupleQuery q = conn.prepareTupleQuery(QueryLanguage.SPARQL,
 					"prefix halyard: <http://merck.github.io/Halyard/ns#>\nselect ?t where {(<http://whatever/subj/> <http://whatever/pred/> \"whatever\") halyard:timestamp ?t}");
 			try (TupleQueryResult res = q.evaluate()) {
@@ -122,6 +129,7 @@ public class HBaseSailVersionTest {
 				BindingSet bs = res.next();
 				assertTrue(((Literal) bs.getValue("t")).calendarValue().compare(startDate.calendarValue()) > 0);
 			}
+			conn.commit();
 		}
         rep.shutDown();
     }
@@ -136,6 +144,7 @@ public class HBaseSailVersionTest {
 		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
         try(SailRepositoryConnection con = rep.getConnection()) {
+			con.begin();
             // insert a stmt in the past
             update(con,
 					"prefix halyard: <http://merck.github.io/Halyard/ns#>\ninsert {<http://whatever> <http://whatever> <http://whatever>. (<http://whatever> <http://whatever> <http://whatever>) halyard:timestamp ?t} where {bind(\"2002-05-30T09:30:10.2\"^^<http://www.w3.org/2001/XMLSchema#dateTime> as ?t)}");
@@ -166,6 +175,7 @@ public class HBaseSailVersionTest {
             		"insert data {<http://whatever> <http://whatever> <http://whatever>}");
             assertNotEquals(-1L, selectLatest(con));
             assertEquals(2, selectAllVersions(con).size());
+			con.commit();
         }
         rep.shutDown();
     }
@@ -174,23 +184,23 @@ public class HBaseSailVersionTest {
 		return SimpleValueFactory.getInstance().createLiteral(datetime, XSD.DATETIME).calendarValue().toGregorianCalendar().getTimeInMillis();
     }
 
-    private void update(SailRepositoryConnection con, String update) {
+	private static void update(SailRepositoryConnection con, String update) {
         con.prepareUpdate(update).execute();
     }
 
-    private long selectLatest(SailRepositoryConnection con) {
+	private static long selectLatest(SailRepositoryConnection con) {
     	Set<Long> results = selectTimestamps(con,
     			"prefix halyard: <http://merck.github.io/Halyard/ns#>\nselect ?t where {<http://whatever> ?p ?o. (<http://whatever> ?p ?o) halyard:timestamp ?t}");
     	return results.size() == 1 ? results.iterator().next() : -1L;
     }
 
 
-    private Set<Long> selectAllVersions(SailRepositoryConnection con) {
+	private static Set<Long> selectAllVersions(SailRepositoryConnection con) {
     	return selectTimestamps(con,
                 "prefix halyard: <http://merck.github.io/Halyard/ns#>\nselect ?t where {service <http://merck.github.io/Halyard/ns#timestamptable?maxVersions=5> {<http://whatever> ?p ?o. (<http://whatever> ?p ?o) halyard:timestamp ?t}}");
     }
 
-    private Set<Long> selectTimestamps(SailRepositoryConnection con, String query) {
+	private static Set<Long> selectTimestamps(SailRepositoryConnection con, String query) {
         Set<Long> results = new HashSet<>();
         try(TupleQueryResult iter = con.prepareTupleQuery(QueryLanguage.SPARQL, query).evaluate()) {
                 while(iter.hasNext()) {
@@ -252,6 +262,7 @@ public class HBaseSailVersionTest {
         IRI insertGraph = vf.createIRI("http://whatever/insertGraph");
         IRI context = vf.createIRI("http://whatever/context");
 		try (RepositoryConnection conn = rep.getConnection()) {
+			conn.begin();
 			for (Change c : changes.values()) {
 				IRI chSubj = vf.createIRI("http://whatever/change#" + i);
 				IRI delGr = vf.createIRI("http://whatever/graph#" + i + "d");
@@ -268,10 +279,12 @@ public class HBaseSailVersionTest {
 				}
 				i++;
 			}
+			conn.commit();
 		}
 
         //execute the update queries
 		try (RepositoryConnection conn = rep.getConnection()) {
+			conn.begin();
 			conn.prepareUpdate(
 						"PREFIX : <http://whatever/> " +
                         "PREFIX halyard: <http://merck.github.io/Halyard/ns#> " +
@@ -311,17 +324,20 @@ public class HBaseSailVersionTest {
                         "    }" +
                         "  }" +
                         "}").execute();
+			conn.commit();
 		}
 
         //read transformed data into model
         LinkedHashModel resultModel = new LinkedHashModelFactory().createEmptyModel();
 		try (RepositoryConnection conn = rep.getConnection()) {
+			conn.begin();
 			try (CloseableIteration<? extends Statement, RepositoryException> iter = conn.getStatements(null, null, null, true, targetGraph)) {
 				while (iter.hasNext()) {
 					Statement stmt = iter.next();
 					resultModel.add(stmt);
 				}
 			}
+			conn.commit();
 		}
 
         rep.shutDown();

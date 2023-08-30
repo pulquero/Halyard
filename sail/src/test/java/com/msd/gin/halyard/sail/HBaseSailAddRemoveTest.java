@@ -89,6 +89,7 @@ public class HBaseSailAddRemoveTest {
     @Test
     public void testAddAndRemoveExplicitStatements() throws Exception {
 		try (SailConnection conn = sail.getConnection()) {
+			conn.begin();
 			conn.addStatement(SUBJ, PRED, OBJ);
 			conn.addStatement(SUBJ, PRED, OBJ, CONTEXT);
 			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
@@ -118,6 +119,7 @@ public class HBaseSailAddRemoveTest {
 			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
 				assertFalse(iter.hasNext());
 			}
+			conn.commit();
 		}
     }
 }

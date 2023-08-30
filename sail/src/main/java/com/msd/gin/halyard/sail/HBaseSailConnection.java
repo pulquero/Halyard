@@ -122,6 +122,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private int pendingUpdateCount;
 	private long lastTimestamp = Long.MIN_VALUE;
 	private boolean lastUpdateWasDelete;
+	private long beginTimestamp = Timestamped.NOT_SET;
 
 	public HBaseSailConnection(HBaseSail sail) throws IOException {
 		this(sail, null);
@@ -181,6 +182,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
     @Override
     public void close() throws SailException {
+		beginTimestamp = Timestamped.NOT_SET;
 		try {
 			flush();
 			if (!executorIsShared && executor != null) {
@@ -545,7 +547,8 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     }
 
     @Override
-    public void begin() throws SailException { //transactions are not supported
+	public void begin() throws SailException {
+		begin(null);
     }
 
     @Override
@@ -553,6 +556,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
         if (level != null && level != IsolationLevels.NONE) {
             throw new UnknownSailTransactionStateException("Isolation level " + level + " is not compatible with this HBaseSail");
         }
+		beginTimestamp = System.currentTimeMillis();
     }
 
     @Override
@@ -573,20 +577,29 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
     @Override
     public void commit() throws SailException {
+		beginTimestamp = Timestamped.NOT_SET;
     }
 
     @Override
     public void rollback() throws SailException {
+		beginTimestamp = Timestamped.NOT_SET;
     }
 
     @Override
     public boolean isActive() throws UnknownSailTransactionStateException {
-        return true;
+		return beginTimestamp != Timestamped.NOT_SET;
     }
 
 	protected long getTimestamp(UpdateContext op, boolean isDelete) {
-		return (op instanceof Timestamped) ? ((Timestamped) op).getTimestamp() : getDefaultTimestamp(isDelete);
-    }
+		long ts = Timestamped.NOT_SET;
+		if (op instanceof Timestamped) {
+			ts = ((Timestamped) op).getTimestamp();
+		}
+		if (ts == Timestamped.NOT_SET) {
+			ts = getDefaultTimestamp(isDelete);
+		}
+		return ts;
+	}
 
 	/**
 	 * Timestamp to use if none specified by the UpdateContext, e.g. via halyard:timestamp.
@@ -595,7 +608,10 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	 * @return millisecond timestamp
 	 */
 	protected long getDefaultTimestamp(boolean isDelete) {
-		long ts = System.currentTimeMillis();
+		long ts = beginTimestamp;
+		if (ts == Timestamped.NOT_SET) {
+			ts = System.currentTimeMillis();
+		}
 		if (ts > lastTimestamp) {
 			lastTimestamp = ts;
 		} else {
@@ -844,12 +860,11 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	void addNamespaces() throws SailException {
 		boolean nsExists = hasStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.NAMED_GRAPH_CLASS, false, HALYARD.SYSTEM_GRAPH_CONTEXT);
 		if (!nsExists) {
-			long timestamp = getDefaultTimestamp(true); // true as first doing a delete followed by insert
 			for (Namespace ns : sail.getRDFFactory().getWellKnownNamespaces()) {
-				setNamespace(ns.getPrefix(), ns.getName(), timestamp);
+				setNamespace(ns.getPrefix(), ns.getName());
 			}
 			try {
-				insertSystemStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.NAMED_GRAPH_CLASS, HALYARD.SYSTEM_GRAPH_CONTEXT, timestamp);
+				insertSystemStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.NAMED_GRAPH_CLASS, HALYARD.SYSTEM_GRAPH_CONTEXT, getDefaultTimestamp(false));
 			} catch (IOException ex) {
 				throw new SailException(ex);
 			}
@@ -885,18 +900,13 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
     @Override
     public void setNamespace(String prefix, String name) throws SailException {
-		long timestamp = getDefaultTimestamp(true); // true as first doing a delete followed by insert
-		setNamespace(prefix, name, timestamp);
-	}
-
-	private void setNamespace(String prefix, String name, long timestamp) throws SailException {
 		checkWritable();
         ValueFactory vf = sail.getValueFactory();
 		Literal prefixValue = vf.createLiteral(prefix);
 		IRI namespaceIri = vf.createIRI(name);
         try {
-			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
-			insertSystemStatement(namespaceIri, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, HALYARD.SYSTEM_GRAPH_CONTEXT, timestamp);
+			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, getDefaultTimestamp(true), new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
+			insertSystemStatement(namespaceIri, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, HALYARD.SYSTEM_GRAPH_CONTEXT, getDefaultTimestamp(false));
         } catch (IOException e) {
 			throw new SailException("Namespace prefix could not be presisted due to an exception", e);
         }

@@ -4,6 +4,7 @@ import com.google.common.base.Stopwatch;
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.evaluation.EmptyTripleSource;
+import com.msd.gin.halyard.common.Timestamped;
 import com.msd.gin.halyard.query.CloseableConsumer;
 import com.msd.gin.halyard.query.TimeLimitConsumer;
 import com.msd.gin.halyard.sail.HBaseSail;
@@ -593,6 +594,7 @@ public class HBaseUpdate extends SailUpdate {
 						return;
 					}
 				}
+				uc.setTimestamp(Timestamped.NOT_SET);
 			}
 		}
 

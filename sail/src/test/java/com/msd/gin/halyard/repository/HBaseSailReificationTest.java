@@ -57,6 +57,7 @@ public class HBaseSailReificationTest {
 		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
         try(SailRepositoryConnection con = rep.getConnection()) {
+			con.begin();
 			// insert a stmt
             update(con,
 					"prefix halyard: <http://merck.github.io/Halyard/ns#>\ninsert {<http://s> <http://p> <http://o>. ?t <:from> \"source 1\"} where {(<http://s> <http://p> <http://o>) halyard:identifier ?t. ?t halyard:value (<http://s> <http://p> <http://o>)}");
@@ -109,15 +110,16 @@ public class HBaseSailReificationTest {
 
 			result = select(con, "prefix halyard: <http://merck.github.io/Halyard/ns#>\nselect ?s {[halyard:value (<http://s> <http://p> <http://o>); <:from> ?s]}");
 			assertEquals(Collections.emptyList(), result);
+			con.commit();
         }
         rep.shutDown();
     }
 
-    private void update(SailRepositoryConnection con, String update) {
+	private static void update(SailRepositoryConnection con, String update) {
         con.prepareUpdate(update).execute();
     }
 
-	private List<BindingSet> select(SailRepositoryConnection con, String query) {
+	private static List<BindingSet> select(SailRepositoryConnection con, String query) {
 		QueryResultCollector results = new QueryResultCollector();
 		con.prepareTupleQuery(QueryLanguage.SPARQL, query).evaluate(results);
 		return results.getBindingSets();
