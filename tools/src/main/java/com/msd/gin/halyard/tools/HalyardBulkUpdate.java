@@ -382,7 +382,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
     		info.id = job.getJobID().getJtIdentifier();
     		info.trackingURL = job.getTrackingURL();
     		info.totalInserted = job.getCounters().findCounter(Counters.ADDED_STATEMENTS).getValue();
-    		info.totalDeleted = job.getCounters().findCounter(Counters.ADDED_STATEMENTS).getValue();
+    		info.totalDeleted = job.getCounters().findCounter(Counters.REMOVED_STATEMENTS).getValue();
     		return info;
     	}
     }
