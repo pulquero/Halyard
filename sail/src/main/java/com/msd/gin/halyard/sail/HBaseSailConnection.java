@@ -120,6 +120,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private boolean executorIsShared;
 	private BufferedMutator mutator;
 	private int pendingUpdateCount;
+	private boolean flushWritesBeforeReads = true;
 	private long lastTimestamp = Long.MIN_VALUE;
 	private boolean lastUpdateWasDelete;
 	private long beginTimestamp = Timestamped.NOT_SET;
@@ -150,6 +151,14 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 	public void setTrackBranchOperatorsOnly(boolean f) {
 		trackBranchOperatorsOnly = f;
+	}
+
+	public boolean isFlushWritesBeforeReadsEnabled() {
+		return flushWritesBeforeReads;
+	}
+
+	public void setFlushWritesBeforeReadsEnabled(boolean f) {
+		flushWritesBeforeReads = f;
 	}
 
 	private HalyardEvaluationExecutor getExecutor() {
@@ -364,7 +373,9 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	}
 
 	private <E> E evaluate(QueryEvaluator<E> evaluator, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
-		flush();
+		if (flushWritesBeforeReads) {
+			flush();
+		}
 
 		String sourceString = Literals.getLabel(bindings.getValue(SOURCE_STRING_BINDING), null);
 		int updatePart = Literals.getIntValue(bindings.getValue(UPDATE_PART_BINDING), NO_UPDATE_PARTS);
@@ -487,7 +498,9 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
     @Override
     public CloseableIteration<? extends Statement, SailException> getStatements(Resource subj, IRI pred, Value obj, boolean includeInferred, Resource... contexts) throws SailException {
-		flush();
+		if (flushWritesBeforeReads) {
+			flush();
+		}
 		TripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred);
 		return new ExceptionConvertingIteration<Statement, SailException>(tripleSource.getStatements(subj, pred, obj, contexts)) {
 			@Override
@@ -504,7 +517,9 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 				return false;
 			}
 		}
-		flush();
+		if (flushWritesBeforeReads) {
+			flush();
+		}
 		ExtendedTripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred);
 		return tripleSource.hasStatement(subj, pred, obj, contexts);
 	}
@@ -784,7 +799,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
 	}
 
-	protected void removeTriple(Triple t, Long timestamp) throws IOException {
+	private void removeTriple(Triple t, Long timestamp) throws IOException {
 		flush();
 		if (!sail.getStatementIndices().isTripleReferenced(keyspaceConn, t)) {
 			// orphaned so safe to remove
