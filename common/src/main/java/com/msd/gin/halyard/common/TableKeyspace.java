@@ -75,7 +75,9 @@ final class TableKeyspace implements Keyspace {
 	@Override
 	public void close() throws IOException {
 		if (isOwner && conn != null) {
-			conn.close();
+			if (!conn.isClosed()) {
+				conn.close();
+			}
 		}
 	}
 

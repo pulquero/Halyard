@@ -138,10 +138,10 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
             StatementIndex<?,?,?,?> index = stmtIndices.toIndex(rowKey.get()[rowKey.getOffset()]);
             for (Cell c : value.rawCells()) {
                 Statement st = stmtIndices.parseStatement(null, null, null, null, c, vf);
-                if ((ctxs == null || ctxs.contains(st.getContext())) && (subj == null || subj.equals(st.getSubject())) && (pred == null || pred.equals(st.getPredicate())) && (obj == null || obj.equals(st.getObject()))) {
-                    deleteCell(c, st, output);
-                } else if (HALYARD.TRIPLE_GRAPH_CONTEXT.equals(st.getContext())) {
+                if (HALYARD.TRIPLE_GRAPH_CONTEXT.equals(st.getContext())) {
                     cleanupTriple(c, st, output);
+                } else if ((ctxs == null || ctxs.contains(st.getContext())) && (subj == null || subj.equals(st.getSubject())) && (pred == null || pred.equals(st.getPredicate())) && (obj == null || obj.equals(st.getObject()))) {
+                    deleteCell(c, st, output);
                 } else {
                     output.progress();
                 }
@@ -304,6 +304,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 		                	// switch to reading from table
 		                	getConf().set(SOURCE, target);
 		                	getConf().unset(SNAPSHOT_PATH);
+		                	keyspace.close();
 		                	keyspace.destroy();
 		                	keyspace = getKeyspace(target, null);
 		                }
