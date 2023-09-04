@@ -6,9 +6,9 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -70,10 +70,12 @@ public class SPARQLResultsSKVParser extends AbstractTupleQueryResultParser {
 					.withMappingStrategy(strategy)
 					.withSeparator(';')
 					.build();
-			Stream<BindingSet> bindingSets = csvToBean.stream();
+			Iterator<BindingSet> bindings = csvToBean.iterator();
 			List<String> bindingNames = strategy.getBindingNames();
 			handler.startQueryResult(bindingNames);
-			bindingSets.forEach(handler::handleSolution);
+			while (bindings.hasNext()) {
+				handler.handleSolution(bindings.next());
+			}
 			handler.endQueryResult();
 		}
 	}
