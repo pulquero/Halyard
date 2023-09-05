@@ -179,12 +179,21 @@ public class HBaseUpdate extends SailUpdate {
 
 				if (con.isTrackResultSize()) {
 					if (deleteAction != null) {
-						deleteAction.getClause().setResultSizeActual(0);
+						deleteAction.resetResultSizeActual();
 					}
 					if (insertAction != null) {
-						insertAction.getClause().setResultSizeActual(0);
+						insertAction.resetResultSizeActual();
 					}
 				}
+				if (con.isTrackResultTime()) {
+					if (deleteAction != null) {
+						deleteAction.resetTotalTimeNanosActual();
+					}
+					if (insertAction != null) {
+						insertAction.resetTotalTimeNanosActual();
+					}
+				}
+
 				try (CloseableConsumer<BindingSet> callback = TimeLimitConsumer.apply(next -> {
 					if (deleteAction != null) {
 						deleteAction.deleteBoundTriples(next);
@@ -199,10 +208,19 @@ public class HBaseUpdate extends SailUpdate {
 				if (con.isTrackResultSize()) {
 					// copy final results back to original expressions
 					if (deleteAction != null) {
-						modify.getDeleteExpr().setResultSizeActual(deleteAction.getClause().getResultSizeActual());
+						deleteAction.copyResultSizeActualTo(modify.getDeleteExpr());
 					}
 					if (insertAction != null) {
-						modify.getInsertExpr().setResultSizeActual(insertAction.getClause().getResultSizeActual());
+						insertAction.copyResultSizeActualTo(modify.getInsertExpr());
+					}
+				}
+				if (con.isTrackResultTime()) {
+					// copy final results back to original expressions
+					if (deleteAction != null) {
+						deleteAction.copyTotalTimeNanosActualTo(modify.getDeleteExpr());
+					}
+					if (insertAction != null) {
+						insertAction.copyTotalTimeNanosActualTo(modify.getInsertExpr());
 					}
 				}
 			} catch (QueryEvaluationException e) {
@@ -286,7 +304,6 @@ public class HBaseUpdate extends SailUpdate {
 				int deleteCount = 0;
 				Stopwatch stopwatch;
 				if (con.isTrackResultTime()) {
-					clause.setTotalTimeNanosActual(Math.max(0, clause.getTotalTimeNanosActual()));
 					stopwatch = Stopwatch.createStarted();
 				} else {
 					stopwatch = null;
@@ -376,7 +393,6 @@ public class HBaseUpdate extends SailUpdate {
 				int insertCount = 0;
 				Stopwatch stopwatch;
 				if (con.isTrackResultTime()) {
-					clause.setTotalTimeNanosActual(Math.max(0, clause.getTotalTimeNanosActual()));
 					stopwatch = Stopwatch.createStarted();
 				} else {
 					stopwatch = null;
@@ -677,6 +693,22 @@ public class HBaseUpdate extends SailUpdate {
 
 		public final List<TupleFunctionCall> getTupleFunctionCalls() {
 			return tupleFunctionCalls;
+		}
+
+		public final void resetResultSizeActual() {
+			clause.setResultSizeActual(Math.max(0, clause.getResultSizeActual()));
+		}
+
+		public final void resetTotalTimeNanosActual() {
+			clause.setTotalTimeNanosActual(Math.max(0, clause.getTotalTimeNanosActual()));
+		}
+
+		public final void copyResultSizeActualTo(TupleExpr expr) {
+			expr.setResultSizeActual(Math.max(0, expr.getResultSizeActual()) + clause.getResultSizeActual());
+		}
+
+		public final void copyTotalTimeNanosActualTo(TupleExpr expr) {
+			expr.setTotalTimeNanosActual(Math.max(0, expr.getTotalTimeNanosActual()) + clause.getTotalTimeNanosActual());
 		}
 	}
 
