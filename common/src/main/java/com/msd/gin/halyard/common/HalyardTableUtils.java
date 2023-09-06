@@ -441,4 +441,8 @@ public final class HalyardTableUtils {
                 .setKeepDeletedCells(maxVersions > 1 ? KeepDeletedCells.TRUE : KeepDeletedCells.FALSE)
 				.build();
     }
+
+	public static byte[] getTableNameSuffixedWithFamily(byte[] tableName) {
+		return Bytes.add(tableName, Bytes.toBytes(";"), CF_NAME);
+	}
 }

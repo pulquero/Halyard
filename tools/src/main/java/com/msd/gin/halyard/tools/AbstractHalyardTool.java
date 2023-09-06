@@ -25,13 +25,17 @@ import com.msd.gin.halyard.common.StatementIndices;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
@@ -46,7 +50,10 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
+import org.apache.hadoop.hbase.regionserver.BloomType;
 import org.apache.hadoop.hbase.tool.BulkLoadHFiles;
+import org.apache.hadoop.hbase.util.BloomFilterUtil;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.util.Tool;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -259,9 +266,38 @@ public abstract class AbstractHalyardTool implements Tool {
     	if (isDryRun(conf)) {
     		LOG.info("Skipping bulk load - dry run");
     	} else {
-    		BulkLoadHFiles.create(conf).bulkLoad(tableName, workDir);
+			// reqd if HFiles need splitting (code from HFileOutputFormat2)
+    		byte[] tableAndFamily = HalyardTableUtils.getTableNameSuffixedWithFamily(tableName.toBytes());
+			Map<byte[], String> bloomTypeMap = createFamilyConfValueMap(conf, "hbase.hfileoutputformat.families.bloomtype");
+			Map<byte[], String> bloomParamMap = createFamilyConfValueMap(conf, "hbase.hfileoutputformat.families.bloomparam");
+			String bloomType = bloomTypeMap.get(tableAndFamily);
+			String bloomParam = bloomParamMap.get(tableAndFamily);
+			if (BloomType.ROWPREFIX_FIXED_LENGTH.toString().equals(bloomType)) {
+				conf.set(BloomFilterUtil.PREFIX_LENGTH_KEY, bloomParam);
+			}
+
+			BulkLoadHFiles.create(conf).bulkLoad(tableName, workDir);
     	}
     }
+
+    private static Map<byte[], String> createFamilyConfValueMap(Configuration conf, String confName) {
+        Map<byte[], String> confValMap = new TreeMap<>(Bytes.BYTES_COMPARATOR);
+        String confVal = conf.get(confName, "");
+        for (String familyConf : confVal.split("&")) {
+          String[] familySplit = familyConf.split("=");
+          if (familySplit.length != 2) {
+            continue;
+          }
+          try {
+            confValMap.put(Bytes.toBytes(URLDecoder.decode(familySplit[0], "UTF-8")),
+              URLDecoder.decode(familySplit[1], "UTF-8"));
+          } catch (UnsupportedEncodingException e) {
+            // will not happen with UTF-8 encoding
+            throw new AssertionError(e);
+          }
+        }
+        return confValMap;
+      }
 
 
     private static final class OrderedOption extends Option {
