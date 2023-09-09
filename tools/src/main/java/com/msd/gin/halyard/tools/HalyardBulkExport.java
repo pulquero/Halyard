@@ -296,9 +296,9 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         job.setSpeculativeExecution(false);
         job.setInputFormatClass(QueryInputFormat.class);
 		if (queryFiles != null) {
-			QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, false, 0);
+			QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, -1);
 		} else {
-            QueryInputFormat.addQuery(job.getConfiguration(), "query", query, false, 0);
+            QueryInputFormat.addQuery(job.getConfiguration(), "query", query, -1);
 		}
         if (isEsExport) {
         	job.setOutputFormatClass(EsOutputFormat.class);

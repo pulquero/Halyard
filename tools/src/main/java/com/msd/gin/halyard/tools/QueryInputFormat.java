@@ -51,40 +51,40 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
     public static final String QUERY_SUFFIX = ".query";
     public static final String REPEAT_SUFFIX = ".repeat";
 
-    public static void addQuery(Configuration conf, String name, String query, boolean sparqlUpdate, int stage) {
+    public static void addQuery(Configuration conf, String name, String query, int stage) {
         Collection<String> qNames = conf.getStringCollection(QUERIES);
         qNames.add(name);
         conf.set(PREFIX + name + QUERY_SUFFIX, query);
-		int repeatCount = Math.max(1, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, sparqlUpdate, stage));
+		int repeatCount = Math.max(1, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, stage));
         conf.setInt(PREFIX + name + REPEAT_SUFFIX, repeatCount);
         conf.setStrings(QUERIES, qNames.toArray(new String[qNames.size()]));
     }
 
-    public static void addQuery(Configuration conf, FileStatus fileStatus, boolean sparqlUpdate, int stage) throws IOException {
+    private static void addQuery(Configuration conf, FileStatus fileStatus, int stage) throws IOException {
         Path path = fileStatus.getPath();
         try (FSDataInputStream in = path.getFileSystem(conf).open(path)) {
             byte buffer[] = new byte[(int)fileStatus.getLen()];
             IOUtils.readFully(in, buffer);
             String name = path.getName();
             String query = Bytes.toString(buffer);
-            addQuery(conf, name, query, sparqlUpdate, stage);
+            addQuery(conf, name, query, stage);
         }
     }
 
-    public static void addQueryRecursively(Configuration conf, Path path, boolean sparqlUpdate, int stage)
+    private static void addQueryRecursively(Configuration conf, Path path, int stage)
         throws IOException {
         RemoteIterator<LocatedFileStatus> iter = path.getFileSystem(conf).listLocatedStatus(path);
         while (iter.hasNext()) {
             LocatedFileStatus stat = iter.next();
             if (stat.isDirectory()) {
-                addQueryRecursively(conf, stat.getPath(), sparqlUpdate, stage);
+                addQueryRecursively(conf, stat.getPath(), stage);
             } else {
-                addQuery(conf, stat, sparqlUpdate, stage);
+                addQuery(conf, stat, stage);
             }
         }
     }
 
-    public static void setQueriesFromDirRecursive(Configuration conf, String dirs, boolean sparqlUpdate, int stage) throws IOException {
+    public static void setQueriesFromDirRecursive(Configuration conf, String dirs, int stage) throws IOException {
         for (String dir : StringUtils.split(dirs)) {
             Path p = new Path(StringUtils.unEscapeString(dir));
             FileStatus[] matches = p.getFileSystem(conf).globStatus(p);
@@ -95,9 +95,9 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
             } else {
                 for (FileStatus globStat : matches) {
                     if (globStat.isDirectory()) {
-                        addQueryRecursively(conf, p, sparqlUpdate, stage);
+                        addQueryRecursively(conf, p, stage);
                     } else {
-                        addQuery(conf, globStat, sparqlUpdate, stage);
+                        addQuery(conf, globStat, stage);
                     }
                 }
             }

@@ -337,9 +337,9 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 				RegionLocator regionLocator = conn.getRegionLocator(hTable.getName());
 				HFileOutputFormat2.configureIncrementalLoad(job, hTable.getDescriptor(), regionLocator);
 				if (queryFiles != null) {
-					QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, true, stage);
+					QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, stage);
 				} else {
-		            QueryInputFormat.addQuery(job.getConfiguration(), "update-operation", query, true, stage);
+		            QueryInputFormat.addQuery(job.getConfiguration(), "update-operation", query, stage);
 				}
                 Path outPath = new Path(workdir, "stage"+stage);
                 FileOutputFormat.setOutputPath(job, outPath);

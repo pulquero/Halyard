@@ -72,9 +72,9 @@ public final class ParallelSplitFunction implements Function {
         }
     }
 
-    public static int getNumberOfForksFromFunctionArgument(String query, boolean sparqlUpdate, int stage) throws IllegalArgumentException{
+    public static int getNumberOfForksFromFunctionArgument(String query, int stage) throws IllegalArgumentException{
         ParallelSplitFunctionVisitor psfv = new ParallelSplitFunctionVisitor();
-        if (sparqlUpdate) {
+        if (stage >= 0) {
             List<UpdateExpr> exprs = QueryParserUtil.parseUpdate(QueryLanguage.SPARQL, query, null).getUpdateExprs();
             if (stage < exprs.size()) {
                 exprs.get(stage).visit(psfv);

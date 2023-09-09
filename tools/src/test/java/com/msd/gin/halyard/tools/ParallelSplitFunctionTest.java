@@ -78,42 +78,42 @@ public class ParallelSplitFunctionTest {
 
     @Test
     public void testGetNumberOfForksFromFunction() {
-        assertEquals(5, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(5, ?s)}", false, 0));
+        assertEquals(5, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(5, ?s)}", -1));
     }
 
     @Test
     public void testGetNumberOfForksFromSelectWithoutFunction() {
-        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o.}", false, 0));
+        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o.}", -1));
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testGetNumberOfForksNoArgs() {
-        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">()}", false, 0);
+        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">()}", -1);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testGetNumberOfForksNANArg() {
-        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(\"not a number\", ?s)}", false, 0);
+        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(\"not a number\", ?s)}", -1);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testGetNumberOfForksVarArg() {
-        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(?p, ?s)}", false, 0);
+        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(?p, ?s)}", -1);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testGetNumberOfForksNegativeArg() {
-        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(-1, ?s)}", false, 0);
+        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(-1, ?s)}", -1);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testGetNumberOfForksDoubleFunction() {
-        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(5, ?s) filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(3, ?s)}", false, 0);
+        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(5, ?s) filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(3, ?s)}", -1);
     }
 
     @Test
     public void testGetNumberOfForksDoubleMatchingFunction() {
-        assertEquals(5, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(5, ?s) filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(5, ?s) filter <http://whatever/function>()}", false, 0));
+        assertEquals(5, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(5, ?s) filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(5, ?s) filter <http://whatever/function>()}", -1));
     }
 
     @Test
@@ -121,10 +121,10 @@ public class ParallelSplitFunctionTest {
         String query = "insert {?s ?p ?o} where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(5, ?s)};"
             + "clear all;"
             + "delete {?s ?p ?o} where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(8, ?s)}";
-        assertEquals(5, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, true, 0));
-        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, true, 1));
-        assertEquals(8, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, true, 2));
-        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, true, 3));
+        assertEquals(5, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 0));
+        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 1));
+        assertEquals(8, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 2));
+        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 3));
     }
 
 }
