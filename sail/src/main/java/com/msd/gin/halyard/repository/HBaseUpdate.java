@@ -273,10 +273,16 @@ public class HBaseUpdate extends SailUpdate {
 						if (!uniqueBindings.isEmpty()) {
 							MapBindingSet mergedSet = new MapBindingSet(sourceBinding.size() + uniqueBindings.size());
 							for (String bindingName : sourceBinding.getBindingNames()) {
-								mergedSet.addBinding(sourceBinding.getBinding(bindingName));
+								Value v = sourceBinding.getValue(bindingName);
+								if (v != null) {
+									mergedSet.addBinding(bindingName, v);
+								}
 							}
 							for (String bindingName : uniqueBindings) {
-								mergedSet.addBinding(ucBinding.getBinding(bindingName));
+								Value v = ucBinding.getValue(bindingName);
+								if (v != null) {
+									mergedSet.addBinding(bindingName, v);
+								}
 							}
 							bs = mergedSet;
 						} else {
