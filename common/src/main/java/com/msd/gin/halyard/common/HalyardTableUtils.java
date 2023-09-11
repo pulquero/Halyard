@@ -101,14 +101,7 @@ public final class HalyardTableUtils {
         }
     }
 
-	public static void createTableIfNotExists(Connection conn, TableName htableName, int splitBits)
-			throws IOException {
-		if (!tableExists(conn, htableName)) {
-			createTable(conn, htableName, splitBits).close();
-		}
-	}
-
-	private static boolean tableExists(Connection conn, TableName htableName) throws IOException {
+	public static boolean tableExists(Connection conn, TableName htableName) throws IOException {
 		try (Admin admin = conn.getAdmin()) {
 			return admin.tableExists(htableName);
 		}

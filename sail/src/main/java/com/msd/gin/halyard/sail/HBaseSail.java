@@ -554,8 +554,12 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 					}
 					hConnection = HalyardTableUtils.getConnection(conf);
 				}
-				if (create) {
-					HalyardTableUtils.createTableIfNotExists(hConnection, tableName, splitBits);
+				if (!HalyardTableUtils.tableExists(hConnection, tableName)) {
+					if (create) {
+						HalyardTableUtils.createTable(hConnection, tableName, splitBits).close();
+					} else {
+						throw new SailException(String.format("Table does not exist: %s", tableName));
+					}
 				}
 			}
 
