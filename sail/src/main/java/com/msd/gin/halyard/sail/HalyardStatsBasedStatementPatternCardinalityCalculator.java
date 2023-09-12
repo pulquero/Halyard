@@ -20,7 +20,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.common.RDFFactory;
-import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
+import com.msd.gin.halyard.optimizers.SchemaBasedStatementPatternCardinalityCalculator;
 import com.msd.gin.halyard.vocab.HALYARD;
 import com.msd.gin.halyard.vocab.VOID_EXT;
 
@@ -49,7 +49,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author Adam Sotona (MSD)
  */
-public final class HalyardStatsBasedStatementPatternCardinalityCalculator extends SimpleStatementPatternCardinalityCalculator {
+public final class HalyardStatsBasedStatementPatternCardinalityCalculator extends SchemaBasedStatementPatternCardinalityCalculator {
 	private static final Logger LOG = LoggerFactory.getLogger(HalyardStatsBasedStatementPatternCardinalityCalculator.class);
 	private static final long AVERAGING_LIMIT = 100;
 	private static final Map<IRI, IRI> DISTINCT_PREDICATES = createDistinctPredicateMapping();
@@ -83,13 +83,13 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	}
 
 	public static abstract class PartitionIriTransformer {
-		public String apply(IRI graph, IRI partitionType, Value partitionId) {
+		public final String apply(IRI graph, IRI partitionType, Value partitionId) {
 			return graph.stringValue() + "_" + partitionType.getLocalName() + "_" + id(partitionId);
 		}
 
 		protected abstract String id(Value partitionId);
 
-		public String getGraph(Resource partitionIri) {
+		public final String getGraph(Resource partitionIri) {
 			String partitionString = partitionIri.stringValue();
 			int endSepPos = partitionString.lastIndexOf("_");
 			if (endSepPos != -1) {
@@ -115,7 +115,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	}
 
 	static Cache<Pair<IRI, IRI>, Long> newStatisticsCache() {
-		return Caffeine.newBuilder().maximumSize(100).expireAfterWrite(1L, TimeUnit.DAYS).build();
+		return Caffeine.newBuilder().maximumSize(1000).expireAfterWrite(1L, TimeUnit.DAYS).build();
 	}
 
 	private final CloseableTripleSource statsSource;
@@ -176,33 +176,39 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		boolean sv = hasValue(subjVar, boundVars);
 		boolean pv = hasValue(predVar, boundVars);
 		boolean ov = hasValue(objVar, boundVars);
+		Value subj = subjVar.getValue();
+		Value pred = predVar.getValue();
+		Value obj = objVar.getValue();
 		long defaultCardinality = Math.round(Math.sqrt(triples));
 		if (sv) {
 			if (pv) {
 				if (ov) {
 					card = 1.0;
 				} else {
-					card = subsetTriples(graphNode, VOID_EXT.SUBJECT, subjVar, VOID.PROPERTIES, VOID.PROPERTY, predVar, VOID.DISTINCT_OBJECTS, triples, defaultCardinality);
+					int schemaCardinality = (pred != null) ? getSchemaPredicateCardinality(pred) : -1;
+					if (schemaCardinality != -1) {
+						card = schemaCardinality;
+					} else {
+						card = subsetTriples(graphNode, VOID_EXT.SUBJECT, subj, VOID.PROPERTIES, VOID.PROPERTY, pred, VOID.DISTINCT_OBJECTS, triples, defaultCardinality);
+					}
 				}
 			} else if (ov) {
-				card = subsetTriples(graphNode, VOID_EXT.OBJECT, objVar, VOID.DISTINCT_SUBJECTS, VOID_EXT.SUBJECT, subjVar, VOID.PROPERTIES, triples, defaultCardinality);
+				card = subsetTriples(graphNode, VOID_EXT.OBJECT, obj, VOID.DISTINCT_SUBJECTS, VOID_EXT.SUBJECT, subj, VOID.PROPERTIES, triples, defaultCardinality);
 			} else {
-				card = subsetTriples(graphNode, VOID_EXT.SUBJECT, subjVar, triples, defaultCardinality);
+				card = subsetTriples(graphNode, VOID_EXT.SUBJECT, subj, triples, defaultCardinality);
 			}
 		} else if (pv) {
 			if (ov) {
-				Value pred = predVar.getValue();
-				Value obj = objVar.getValue();
 				if (RDF.TYPE.equals(pred) && obj != null) {
 					card = classPartitionEntities(graphNode, obj, defaultCardinality);
 				} else {
-					card = subsetTriples(graphNode, VOID.PROPERTY, predVar, VOID.DISTINCT_OBJECTS, VOID_EXT.OBJECT, objVar, VOID.DISTINCT_SUBJECTS, triples, defaultCardinality);
+					card = subsetTriples(graphNode, VOID.PROPERTY, pred, VOID.DISTINCT_OBJECTS, VOID_EXT.OBJECT, obj, VOID.DISTINCT_SUBJECTS, triples, defaultCardinality);
 				}
 			} else {
-				card = subsetTriples(graphNode, VOID.PROPERTY, predVar, triples, defaultCardinality);
+				card = subsetTriples(graphNode, VOID.PROPERTY, pred, triples, defaultCardinality);
 			}
 		} else if (ov) {
-			card = subsetTriples(graphNode, VOID_EXT.OBJECT, objVar, triples, defaultCardinality);
+			card = subsetTriples(graphNode, VOID_EXT.OBJECT, obj, triples, defaultCardinality);
 		} else {
 			card = triples;
 		}
@@ -250,16 +256,18 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	/**
 	 * Calculate a multiplier for the triple count for this sub-part of the graph.
 	 */
-	private double subsetTriples(IRI graph, IRI partitionType, Var partitionVar, long totalTriples, long defaultCardinality) {
-		Value partition = partitionVar.getValue();
+	private double subsetTriples(IRI graph, IRI partitionType, Value partition, long totalTriples, long defaultCardinality) {
 		if (partition != null) {
+			// total number of triples of type 'partitionType' with the value 'partition'
 			IRI partitionIri = statsSource.getValueFactory().createIRI(partitionIriTransformer.apply(graph, partitionType, partition));
 			return getTriplesCount(partitionIri, defaultCardinality);
 		} else {
+			// total number of distinct values
 			long distinctCount = getValue(graph, DISTINCT_PREDICATES.get(partitionType), -1L);
 			if (distinctCount != -1L) {
 				double estimate = 0.0;
 				if (distinctCount <= AVERAGING_LIMIT) {
+					// few enough distinct values that we can calculate a weighted average
 					// assume the bigger the partition, the more likely it is to be used
 					// sum x^2 / sum x
 					long sumxx = 0L;
@@ -276,7 +284,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 					estimate = (sumx > 0) ? (double) (sumxx + (totalTriples - sumx) * threshold) / (double) totalTriples : 0.0;
 				}
 				if (estimate == 0.0) {
-					// average cardinality for partitionType
+					// average cardinality for partitionType - assume the triples are evenly distributed over each possible value
 					estimate = (double) totalTriples / (double) distinctCount;
 				}
 				return estimate;
@@ -287,23 +295,24 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		}
 	}
 
-	private double subsetTriples(IRI graph, IRI partition1Type, Var partition1Var, IRI distinct1Type, IRI partition2Type, Var partition2Var, IRI distinct2Type, long totalTriples, long defaultCardinality) {
-		Value partition1 = partition1Var.getValue();
-		Value partition2 = partition2Var.getValue();
+	private double subsetTriples(IRI graph, IRI partition1Type, Value partition1, IRI distinct1Type, IRI partition2Type, Value partition2, IRI distinct2Type, long totalTriples, long defaultCardinality) {
 		if (partition1 != null && partition2 != null) {
-			double estimate12 = subsetTriples(graph, partition1Type, partition1Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
-			double estimate21 = subsetTriples(graph, partition2Type, partition2Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
+			double estimate12 = subsetTriples(graph, partition1Type, partition1, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
+			double estimate21 = subsetTriples(graph, partition2Type, partition2, totalTriples, defaultCardinality) * partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
 			// take the (geometric) mean of the two estimates
 			return Math.sqrt(estimate12 * estimate21);
 		} else if (partition1 != null && partition2 == null) {
-			return subsetTriples(graph, partition2Type, partition2Var, totalTriples, defaultCardinality) / partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
+			return subsetTriples(graph, partition2Type, partition2, totalTriples, defaultCardinality) / partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
 		} else if (partition1 == null && partition2 != null) {
-			return subsetTriples(graph, partition1Type, partition1Var, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
+			return subsetTriples(graph, partition1Type, partition1, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
 		} else {
-			return subsetTriples(graph, partition1Type, partition1Var, totalTriples, defaultCardinality) * subsetTriples(graph, partition2Type, partition2Var, totalTriples, defaultCardinality) / totalTriples;
+			return subsetTriples(graph, partition1Type, partition1, totalTriples, defaultCardinality) * subsetTriples(graph, partition2Type, partition2, totalTriples, defaultCardinality) / totalTriples;
 		}
 	}
 
+	/**
+	 * Estimates the ratio of distinct objects/properties, distinct subjects/object, distinct properties/subject.
+	 */
 	private double partitionRatio(IRI graph, IRI partitionType, Value partition, IRI ratioType, long totalTriples, long defaultCardinality) {
 		IRI partitionIri = statsSource.getValueFactory().createIRI(partitionIriTransformer.apply(graph, partitionType, partition));
 		long distinctCount = getValue(partitionIri, ratioType, -1L);
