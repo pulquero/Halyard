@@ -52,6 +52,7 @@ import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
+import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
 import org.apache.hadoop.hbase.io.compress.Compression;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.regionserver.BloomType;
@@ -359,12 +360,7 @@ public final class HalyardTableUtils {
 
 	static Scan scanFirst(Scan scanAll) {
 		scanAll.setCaching(1).setCacheBlocks(true).setOneRowLimit();
-		Filter filter = scanAll.getFilter();
-		if (filter != null) {
-			scanAll.setFilter(new FilterList(filter, new FirstKeyOnlyFilter()));
-		} else {
-			scanAll.setFilter(new FirstKeyOnlyFilter());
-		}
+		appendFilter(scanAll, new FirstKeyOnlyFilter());
 		return scanAll;
 	}
 
@@ -373,7 +369,8 @@ public final class HalyardTableUtils {
 	}
 
 	public static boolean exists(KeyspaceConnection kc, Scan scan) throws IOException {
-		try (ResultScanner scanner = kc.getScanner(scanFirst(scan))) {
+		Scan existsScan = appendFilter(scanFirst(scan), new KeyOnlyFilter());
+		try (ResultScanner scanner = kc.getScanner(existsScan)) {
 			for (Result result : scanner) {
 				if(!result.isEmpty()) {
 					return true;
@@ -381,6 +378,23 @@ public final class HalyardTableUtils {
 			}
 		}
 		return false;
+	}
+
+	private static Scan appendFilter(Scan scan, Filter newFilter) {
+		Filter existingFilter = scan.getFilter();
+		if (existingFilter != null) {
+			FilterList fl;
+			if (existingFilter instanceof FilterList) {
+				fl = (FilterList) existingFilter;
+				fl.addFilter(newFilter);
+			} else {
+				fl = new FilterList(existingFilter, newFilter);
+			}
+			scan.setFilter(fl);
+		} else {
+			scan.setFilter(newFilter);
+		}
+		return scan;
 	}
 
 	/**
