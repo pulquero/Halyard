@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.strategy;
 
 import com.msd.gin.halyard.common.TupleLiteral;
+import com.msd.gin.halyard.strategy.aggregators.HIndexAggregateFactory;
 import com.msd.gin.halyard.strategy.aggregators.MaxWithAggregateFactory;
 import com.msd.gin.halyard.strategy.aggregators.MinWithAggregateFactory;
 import com.msd.gin.halyard.strategy.aggregators.ModeAggregateFactory;
@@ -13,11 +14,13 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.util.Literals;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.MalformedQueryException;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
@@ -602,6 +605,60 @@ public class HalyardCustomAggregateFunctionEvaluationTest {
 				assertThat(r2.objectValue()[2].stringValue()).isEqualTo("http://example/book1");
 				assertThat(result.hasNext()).isFalse();
 			}
+		}
+	}
+
+	@Test
+	public void testCustomFunction_HIndex() throws IOException {
+		String countQuery = "select (count(distinct ?t) as ?count) {[] <x:name> ?t}";
+		String testQuery = "prefix halyard: <"+HALYARD.NAMESPACE+"> \n"
+				+ "select ?t (<" + new HIndexAggregateFactory().getIri() + ">(?c) as ?h) (sample(?e) as ?expected)"
+				+ " where { \n"
+				+ "\t [<x:cite> ?c; <x:expected> ?e; <x:name> ?t] }"
+				+ " GROUP BY ?t";
+		IRI graph = rep.getValueFactory().createIRI("<x:TestGraph>");
+		try (RepositoryConnection conn = rep.getConnection()) {
+			conn.add(new StringReader(""
+				+ "[<x:cite> 9; <x:expected> 3; <x:name> 'test1'] ."
+				+ "[<x:cite> 7; <x:expected> 3; <x:name> 'test1'] ."
+				+ "[<x:cite> 6; <x:expected> 3; <x:name> 'test1'] ."
+				+ "[<x:cite> 2; <x:expected> 3; <x:name> 'test1'] ."
+				+ "[<x:cite> 1; <x:expected> 3; <x:name> 'test1'] ."
+				+ "[<x:cite> 10; <x:expected> 4; <x:name> 'test2'] ."
+				+ "[<x:cite> 8; <x:expected> 4; <x:name> 'test2'] ."
+				+ "[<x:cite> 5; <x:expected> 4; <x:name> 'test2'] ."
+				+ "[<x:cite> 4; <x:expected> 4; <x:name> 'test2'] ."
+				+ "[<x:cite> 3; <x:expected> 4; <x:name> 'test2'] ."
+				+ "[<x:cite> 25; <x:expected> 3; <x:name> 'test3'] ."
+				+ "[<x:cite> 8; <x:expected> 3; <x:name> 'test3'] ."
+				+ "[<x:cite> 5; <x:expected> 3; <x:name> 'test3'] ."
+				+ "[<x:cite> 3; <x:expected> 3; <x:name> 'test3'] ."
+				+ "[<x:cite> 3; <x:expected> 3; <x:name> 'test3'] ."
+				+ "[<x:cite> 33; <x:expected> 6; <x:name> 'test4'] ."
+				+ "[<x:cite> 30; <x:expected> 6; <x:name> 'test4'] ."
+				+ "[<x:cite> 20; <x:expected> 6; <x:name> 'test4'] ."
+				+ "[<x:cite> 15; <x:expected> 6; <x:name> 'test4'] ."
+				+ "[<x:cite> 7; <x:expected> 6; <x:name> 'test4'] ."
+				+ "[<x:cite> 6; <x:expected> 6; <x:name> 'test4'] ."
+				+ "[<x:cite> 5; <x:expected> 6; <x:name> 'test4'] ."
+				+ "[<x:cite> 4; <x:expected> 6; <x:name> 'test4'] ."
+				+ ""), "", RDFFormat.TURTLE, graph);
+			int numTests;
+			try (TupleQueryResult result = conn.prepareTupleQuery(countQuery).evaluate()) {
+				var bs = result.next();
+				numTests = Literals.getIntValue(bs.getValue("count"), 0);
+				assertThat(numTests).isEqualTo(4);
+			}
+			try (TupleQueryResult result = conn.prepareTupleQuery(testQuery).evaluate()) {
+				for (int i=0; i<numTests; i++) {
+					var bs = result.next();
+					Literal test = (Literal) bs.getValue("t");
+					Literal h = (Literal) bs.getValue("h");
+					Literal expected = (Literal) bs.getValue("expected");
+					assertThat(h).isEqualTo(expected).as(test.getLabel());
+				}
+			}
+			conn.clear(graph);
 		}
 	}
 }
