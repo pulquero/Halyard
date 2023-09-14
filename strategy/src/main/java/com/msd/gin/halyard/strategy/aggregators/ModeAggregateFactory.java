@@ -2,6 +2,7 @@ package com.msd.gin.halyard.strategy.aggregators;
 
 import com.msd.gin.halyard.vocab.HALYARD;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -56,13 +57,14 @@ public final class ModeAggregateFactory implements AggregateFunctionFactory {
 
 		@Override
 		public Value getFinalValue() {
-			return freqTable.reduceEntries(50000, (e1, e2) -> {
+			Map.Entry<Value,AtomicLong> entry = freqTable.reduceEntries(50000, (e1, e2) -> {
 				if (Long.compare(e1.getValue().get(), e2.getValue().get()) >= 0) {
 					return e1;
 				} else {
 					return e2;
 				}
-			}).getKey();
+			});
+			return (entry != null) ? entry.getKey() : null;
 		}
 	}
 }
