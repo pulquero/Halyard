@@ -86,6 +86,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteratorIteration;
 import org.eclipse.rdf4j.common.iteration.ConvertingIteration;
@@ -1956,48 +1957,10 @@ final class HalyardTupleExprEvaluation {
         ValuePipeQueryValueEvaluationStep conditionStep = leftJoin.hasCondition() ? parentStrategy.precompile(leftJoin.getCondition(), evalContext) : null;
     	return (parentPipe, bindings) -> {
 	        parentPipe = parentStrategy.track(parentPipe, leftJoin);
-	    	// Check whether optional join is "well designed" as defined in section
-	        // 4.2 of "Semantics and Complexity of SPARQL", 2006, Jorge Pérez et al.
-	        VarNameCollector optionalVarCollector = new VarNameCollector();
-	        leftJoin.getRightArg().visit(optionalVarCollector);
-	        if (leftJoin.hasCondition()) {
-	            leftJoin.getCondition().visit(optionalVarCollector);
-	        }
-	        final Set<String> problemVars = new HashSet<>(optionalVarCollector.getVarNames());
-	        problemVars.removeAll(leftJoin.getLeftArg().getBindingNames());
-	        problemVars.retainAll(bindings.getBindingNames());
+	        Pair<BindingSetPipe, BindingSet> wellDesignedData = wellDesignedLeftJoin(parentPipe, leftJoin, bindings);
+	        parentPipe = wellDesignedData.getLeft();
+	        bindings = wellDesignedData.getRight();
 	        final Set<String> scopeBindingNames = leftJoin.getBindingNames();
-	        if (!problemVars.isEmpty()) {
-	        	parentPipe = new BindingSetPipe(parentPipe) {
-		            //Handle badly designed left join
-		            @Override
-		            protected boolean next(BindingSet bs) {
-		            	if (QueryResults.bindingSetsCompatible(bindings, bs)) {
-		                    // Make sure the provided problemVars are part of the returned results
-		                    // (necessary in case of e.g. LeftJoin and Union arguments)
-		                    QueryBindingSet extendedResult = null;
-		                    for (String problemVar : problemVars) {
-		                        if (!bs.hasBinding(problemVar)) {
-		                            if (extendedResult == null) {
-		                                extendedResult = new QueryBindingSet(bs);
-		                            }
-		                            extendedResult.addBinding(problemVar, bindings.getValue(problemVar));
-		                        }
-		                    }
-		                    if (extendedResult != null) {
-		                        bs = extendedResult;
-		                    }
-		                    return parent.push(bs);
-		            	} else {
-		            		return true;
-		            	}
-		            }
-		            @Override
-		            public String toString() {
-		            	return "LeftJoinBindingSetPipe(top)";
-		            }
-		        };
-	        }
 	        leftStep.evaluate(new PipeJoin(parentPipe) {
 	        	@Override
 	            protected boolean next(final BindingSet leftBindings) {
@@ -2045,10 +2008,57 @@ final class HalyardTupleExprEvaluation {
 	            public String toString() {
 	            	return "LeftJoinBindingSetPipe(left)";
 	            }
-	        }, problemVars.isEmpty() ? bindings : getFilteredBindings(bindings, problemVars));
+	        }, bindings);
     	};
     }
 
+    private Pair<BindingSetPipe,BindingSet> wellDesignedLeftJoin(BindingSetPipe parentPipe, LeftJoin leftJoin, BindingSet bindings) {
+    	// Check whether optional join is "well designed" as defined in section
+        // 4.2 of "Semantics and Complexity of SPARQL", 2006, Jorge Pérez et al.
+        VarNameCollector optionalVarCollector = new VarNameCollector();
+        leftJoin.getRightArg().visit(optionalVarCollector);
+        if (leftJoin.hasCondition()) {
+            leftJoin.getCondition().visit(optionalVarCollector);
+        }
+        final Set<String> problemVars = new HashSet<>(optionalVarCollector.getVarNames());
+        problemVars.removeAll(leftJoin.getLeftArg().getBindingNames());
+        problemVars.retainAll(bindings.getBindingNames());
+        if (!problemVars.isEmpty()) {
+        	BindingSetPipe wellDesignedPipe = new BindingSetPipe(parentPipe) {
+	            //Handle badly designed left join
+	            @Override
+	            protected boolean next(BindingSet bs) {
+	            	if (QueryResults.bindingSetsCompatible(bindings, bs)) {
+	                    // Make sure the provided problemVars are part of the returned results
+	                    // (necessary in case of e.g. LeftJoin and Union arguments)
+	                    QueryBindingSet extendedResult = null;
+	                    for (String problemVar : problemVars) {
+	                        if (!bs.hasBinding(problemVar)) {
+	                            if (extendedResult == null) {
+	                                extendedResult = new QueryBindingSet(bs);
+	                            }
+	                            extendedResult.addBinding(problemVar, bindings.getValue(problemVar));
+	                        }
+	                    }
+	                    if (extendedResult != null) {
+	                        bs = extendedResult;
+	                    }
+	                    return parent.push(bs);
+	            	} else {
+	            		return true;
+	            	}
+	            }
+	            @Override
+	            public String toString() {
+	            	return "LeftJoinBindingSetPipe(top)";
+	            }
+	        };
+	        BindingSet wellDesignedBindings = getFilteredBindings(bindings, problemVars);
+	        return Pair.of(wellDesignedPipe, wellDesignedBindings);
+        } else {
+        	return Pair.of(parentPipe, bindings);
+        }
+    }
 
 	private static boolean isSameConstant(Var v1, Var v2) {
 		return v1.isConstant() && v2.isConstant() && v1.getValue().equals(v2.getValue());
@@ -2192,8 +2202,15 @@ final class HalyardTupleExprEvaluation {
 	        	 */
 	        	private void startJoin(HashJoinTable hashTablePartition, boolean isLast) {
 	        		if (hashTablePartition.entryCount() == 0) {
-	        			if (isLast) {
-	        				parent.close();
+	        			BindingSetPipe noJoinPipe = createNoJoinPipe(this);
+	        			if (noJoinPipe != null) {
+		        			startSecondaryPipe(isLast);
+		        			// NB: this part may execute asynchronously
+		                	probeStep.evaluate(noJoinPipe, bindings);
+	        			} else {
+		        			if (isLast) {
+		        				parent.close();
+		        			}
 	        			}
 	        		} else {
 	        			startSecondaryPipe(isLast);
@@ -2208,7 +2225,9 @@ final class HalyardTupleExprEvaluation {
 	    	}, bindings);
 	    }
 
-    	protected abstract BindingSetPipe createPipe(PipeJoin primary, HashJoinTable hashTablePartition);
+		protected abstract BindingSetPipe createNoJoinPipe(PipeJoin primary);
+
+		protected abstract BindingSetPipe createPipe(PipeJoin primary, HashJoinTable hashTablePartition);
 
     	abstract class AbstractHashJoinBindingSetPipe extends BindingSetPipe {
     		private final PipeJoin primary;
@@ -2297,14 +2316,28 @@ final class HalyardTupleExprEvaluation {
 		}
 
 		@Override
+		protected BindingSetPipe createNoJoinPipe(PipeJoin primary) {
+			return null;
+		}
+
+		@Override
 		protected BindingSetPipe createPipe(PipeJoin primary, HashJoinTable hashTablePartition) {
 			return new HashJoinBindingSetPipe(primary, hashTablePartition);
 		}
 	}
 
 	final class LeftHashJoinEvaluationStep extends AbstractHashJoinEvaluationStep {
+		private final LeftJoin leftJoin;
+
 		LeftHashJoinEvaluationStep(LeftJoin join, QueryEvaluationContext evalContext) {
 			super(join, Integer.MAX_VALUE, evalContext);
+			this.leftJoin = join;
+		}
+
+		@Override
+		public void evaluate(BindingSetPipe parent, BindingSet bindings) {
+	        Pair<BindingSetPipe, BindingSet> wellDesignedData = wellDesignedLeftJoin(parent, leftJoin, bindings);
+	        super.evaluate(wellDesignedData.getLeft(), wellDesignedData.getRight());
 		}
 
 		final class LeftHashJoinBindingSetPipe extends AbstractHashJoinBindingSetPipe {
@@ -2363,6 +2396,24 @@ final class HalyardTupleExprEvaluation {
 		    public String toString() {
 		    	return "LeftHashJoinBindingSetPipe";
 		    }
+		}
+
+		@Override
+		protected BindingSetPipe createNoJoinPipe(PipeJoin primary) {
+			return new BindingSetPipe(primary.getParent()) {
+				@Override
+				protected boolean next(BindingSet probeBs) {
+					if (!probeBs.isEmpty()) {
+						return primary.pushToParent(probeBs);
+					} else {
+						return true;
+					}
+				}
+				@Override
+				protected void doClose() {
+					primary.endSecondaryPipe();
+				}
+			};
 		}
 
 		@Override

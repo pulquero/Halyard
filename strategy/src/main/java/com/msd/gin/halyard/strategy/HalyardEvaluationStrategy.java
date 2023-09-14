@@ -473,7 +473,9 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		}
 
 		private void updateResultSize() {
-			queryModelNode.setResultSizeActual(queryModelNode.getResultSizeActual() + counter);
+			synchronized (queryModelNode) {
+				queryModelNode.setResultSizeActual(queryModelNode.getResultSizeActual() + counter);
+			}
 			counter = 0;
 		}
 	}
@@ -525,8 +527,10 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		}
 
 		private void updateResultTime() {
-			queryModelNode.setTotalTimeNanosActual(
-				queryModelNode.getTotalTimeNanosActual() + elapsed);
+			synchronized (queryModelNode) {
+				queryModelNode.setTotalTimeNanosActual(
+					queryModelNode.getTotalTimeNanosActual() + elapsed);
+			}
 			elapsed = 0L;
 		}
 	}

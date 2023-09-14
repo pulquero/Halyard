@@ -200,6 +200,12 @@ public class HalyardStrategyJoinTest {
         joinTest(q, "/test-cases/left-join-results-empty-0.srx", 1, expectedAlgo());
     }
 
+    @Test
+    public void testLeftJoin_not_exists() throws Exception {
+        String q = "prefix : <http://example/> select * where {?x :p ?y. optional {?x :notexists []} }";
+        joinTest(q, "/test-cases/left-join-results-empty-0.srx", 1, expectedAlgo());
+    }
+
 	@Test
 	public void testLefJoin_unbound_value() throws Exception {
 		String q = "prefix : <http://example/> "
@@ -291,7 +297,7 @@ public class HalyardStrategyJoinTest {
 	        	TupleExpr join = joins.get(i);
 	        	assertEquals(expr.toString(), expectedAlgos[i], getJoinAlgorithm(join));
 	        }
-	        assertEquals(expectedResults.size(), joins.get(0).getResultSizeActual());
+	        assertEquals(expr.toString(), expectedResults.size(), joins.get(0).getResultSizeActual());
         }
     }
 
