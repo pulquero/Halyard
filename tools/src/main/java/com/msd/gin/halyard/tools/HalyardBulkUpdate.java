@@ -19,6 +19,7 @@ package com.msd.gin.halyard.tools;
 import static com.msd.gin.halyard.tools.HalyardBulkLoad.*;
 
 import com.msd.gin.halyard.common.HalyardTableUtils;
+import com.msd.gin.halyard.common.Hashes;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.repository.HBaseUpdate;
 import com.msd.gin.halyard.sail.ElasticSettings;
@@ -26,15 +27,18 @@ import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.MissingOptionException;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -301,7 +305,24 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
     	for (Map.Entry<String,Value> binding : bindings.entrySet()) {
     		jobConf.set(BINDING_PROPERTY_PREFIX+binding.getKey(), NTriplesUtil.toNTriplesString(binding.getValue(), true));
     	}
-    	String workdir = "work/" + TOOL_NAME + "-" + UUID.randomUUID();
+    	String workdir = "work/" + TOOL_NAME + "-";
+
+    	String queryName = null;
+    	int endLinePos = query.indexOf('\n');
+    	if (query.charAt(0) == '#' && endLinePos != -1) {
+    		String comment = query.substring(1, endLinePos).trim();
+    		if (!StringUtils.containsWhitespace(comment)) {
+    			queryName = comment;
+    		}
+    	}
+    	if (queryName != null) {
+    		byte[] uniquePart = new byte[4];
+    		new Random().nextBytes(uniquePart);
+    		workdir += queryName + "-" + Hashes.encode(ByteBuffer.wrap(uniquePart));
+    	} else {
+        	workdir += UUID.randomUUID();
+    	}
+
     	try {
     		return run(jobConf, null, query, workdir);
     	} finally {
