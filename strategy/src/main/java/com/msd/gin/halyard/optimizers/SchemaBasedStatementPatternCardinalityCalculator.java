@@ -1,5 +1,6 @@
 package com.msd.gin.halyard.optimizers;
 
+import com.msd.gin.halyard.vocab.GEONAMES;
 import com.msd.gin.halyard.vocab.VOID_EXT;
 
 import java.util.Collection;
@@ -18,6 +19,8 @@ public class SchemaBasedStatementPatternCardinalityCalculator extends SimpleStat
 	private static final Map<IRI, Integer> SCHEMA_CARDINALITIES = createSchemaCardinalities();
 
 	private static Map<IRI, Integer> createSchemaCardinalities() {
+		// max cardinality values
+		// we could support obtaining these from owl:cardinality/owl:maxCardinality
 		Map<IRI, Integer> cards = new HashMap<>(32);
 		cards.put(SD.DEFAULT_DATASET, 1);
 		cards.put(SD.DEFAULT_GRAPH, 1);
@@ -36,6 +39,12 @@ public class SchemaBasedStatementPatternCardinalityCalculator extends SimpleStat
 		cards.put(WGS84.LONG, 1);
 		cards.put(WGS84.LAT_LONG, 1);
 		cards.put(WGS84.ALT, 1);
+		cards.put(GEONAMES.NAME, 1);
+		cards.put(GEONAMES.PARENT_ADM1, 1);
+		cards.put(GEONAMES.PARENT_ADM2, 1);
+		cards.put(GEONAMES.PARENT_ADM3, 1);
+		cards.put(GEONAMES.PARENT_ADM4, 1);
+		cards.put(GEONAMES.POPULATION, 1);
 		return Collections.unmodifiableMap(cards);
 	}
 
