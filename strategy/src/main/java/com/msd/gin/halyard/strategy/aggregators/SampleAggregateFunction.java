@@ -17,21 +17,31 @@ public class SampleAggregateFunction extends ThreadSafeAggregateFunction<SampleC
 
 	@Override
 	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, SampleCollector col) {
-		// we flip a coin to determine if we keep the current value or set a
-		// new value to report.
-		Optional<Value> newValue = null;
+		Optional<Value> nextValue;
 		if (!col.hasSample()) {
-			newValue = Optional.ofNullable(evaluate(bs));
-			if (newValue.isPresent() && col.setInitial(newValue.get())) {
+			Value v = evaluate(bs);
+			if (v != null) {
+				// try setting the first value
+				if (col.setInitial(v)) {
+					return;
+				} else {
+					// we were beaten to it by another thread
+					nextValue = Optional.ofNullable(v);
+				}
+			} else {
 				return;
 			}
+		} else {
+			nextValue = null;
 		}
 
-		if (ThreadLocalRandom.current().nextFloat() < 0.5f) {
-			if (newValue == null) {
-				newValue = Optional.ofNullable(evaluate(bs));
+		// we flip a coin to determine if we keep the current value or set a
+		// new value to report.
+		if (ThreadLocalRandom.current().nextBoolean()) {
+			if (nextValue == null) {
+				nextValue = Optional.ofNullable(evaluate(bs));
 			}
-			newValue.ifPresent(col::setSample);
+			nextValue.ifPresent(col::setSample);
 		}
 	}
 }

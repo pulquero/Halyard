@@ -208,6 +208,7 @@ final class HalyardTupleExprEvaluation {
 	private static final int MAX_INITIAL_HASH_JOIN_TABLE_SIZE = 5000;
 	private static final Resource[] ALL_CONTEXTS = new Resource[0];
 	private static final Set<IRI> VIRTUAL_CONTEXTS = Sets.newHashSet(HALYARD.FUNCTION_GRAPH_CONTEXT);
+	private static final int GROUP_BY_CONCURRENCY = 1024;
 
     private final HalyardEvaluationStrategy parentStrategy;
 	private final TripleSource tripleSource;
@@ -1278,7 +1279,7 @@ final class HalyardTupleExprEvaluation {
     	} else {
     		return (parent, bindings) -> {
 	    		step.evaluate(new BindingSetPipe(parentStrategy.track(parent, group)) {
-	    			final Map<BindingSetValues,GroupValue> groupByMap = new ConcurrentHashMap<>();
+	    			final Map<BindingSetValues,GroupValue> groupByMap = new ConcurrentHashMap<>(GROUP_BY_CONCURRENCY);
 	    			final String[] groupNames = toStringArray(group.getGroupBindingNames());
 					@Override
 					protected boolean next(BindingSet bs) {
