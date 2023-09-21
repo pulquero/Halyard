@@ -41,6 +41,11 @@ public abstract class NAryTupleOperator extends AbstractQueryModelNode implement
 	}
 
 	@Override
+	public <X extends Exception> void visit(QueryModelVisitor<X> visitor) throws X {
+		visitor.meetOther(this);
+	}
+
+	@Override
 	public <X extends Exception> void visitChildren(final QueryModelVisitor<X> visitor) throws X {
 		for (TupleExpr arg : args) {
 			arg.visit(visitor);

@@ -17,6 +17,7 @@
 package com.msd.gin.halyard.optimizers;
 
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.algebra.NAryUnion;
 import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.algebra.StarJoin;
 
@@ -215,6 +216,27 @@ public final class HalyardFilterOptimizer implements QueryOptimizer {
 
 			FilterRelocator.optimize(filter);
 			FilterRelocator.optimize(clone);
+		}
+
+		// Halyard
+		@Override
+		public void meet(NAryUnion union) {
+			int n = union.getArgCount();
+			Filter[] clones = new Filter[n];
+			clones[0] = filter;
+			for (int i=1; i<n; i++) {
+				Filter clone = new Filter();
+				clone.setCondition(filter.getCondition().clone());
+				clones[i] = clone;
+			}
+
+			for (int i=0; i<n; i++) {
+				relocate(clones[i], union.getArg(i));
+			}
+
+			for (int i=0; i<n; i++) {
+				FilterRelocator.optimize(clones[i]);
+			}
 		}
 
 		@Override

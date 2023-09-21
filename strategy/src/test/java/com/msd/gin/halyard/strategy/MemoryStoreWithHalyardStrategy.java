@@ -64,9 +64,10 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
 	private final int evalHashJoinLimit;
 	private final float cardinalityRatio;
 	private final int minJoins;
+	private final int minUnions;
 
 	MemoryStoreWithHalyardStrategy() {
-		this(0, 0, Float.MAX_VALUE, 1);
+		this(0, 0, Float.MAX_VALUE, 1, 1);
 		SPARQLServiceResolver fsr = new SPARQLServiceResolver();
 		fsr.registerService("repository:memory", new SailFederatedService(new MemoryStore()));
 		fsr.registerService("repository:pushOnly", new SailFederatedService(new PushOnlyMemoryStore()));
@@ -94,11 +95,12 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
 		setFederatedServiceResolver(fsr);
 	}
 
-	MemoryStoreWithHalyardStrategy(int optHashJoinLimit, int evalHashJoinLimit, float cardinalityRatio, int starJoinMin) {
+	MemoryStoreWithHalyardStrategy(int optHashJoinLimit, int evalHashJoinLimit, float cardinalityRatio, int starJoinMin, int naryUnionMin) {
 		this.optHashJoinLimit = optHashJoinLimit;
 		this.evalHashJoinLimit = evalHashJoinLimit;
 		this.cardinalityRatio = cardinalityRatio;
 		this.minJoins = starJoinMin;
+		this.minUnions = naryUnionMin;
 	}
 
 	LinkedList<TupleExpr> getQueryHistory() {
@@ -122,6 +124,7 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
         	conf.setInt(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_LIMIT, optHashJoinLimit);
         	conf.setFloat(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_COST_RATIO, cardinalityRatio);
         	conf.setInt(StrategyConfig.HALYARD_EVALUATION_STAR_JOIN_MIN_JOINS, minJoins);
+        	conf.setInt(StrategyConfig.HALYARD_EVALUATION_NARY_UNION_MIN_UNIONS, minUnions);
         	HalyardEvaluationStrategy evalStrat = new HalyardEvaluationStrategy(conf, new MockTripleSource(tripleSource), dataset, getFederatedServiceResolver(), stats) {
         		@Override
         		public BindingSetPipeQueryEvaluationStep precompile(TupleExpr expr, QueryEvaluationContext evalContext) {

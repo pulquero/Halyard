@@ -26,9 +26,9 @@ import javax.annotation.Nullable;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryModelVisitor;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
+import org.eclipse.rdf4j.query.algebra.StatementPattern.Scope;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
-import org.eclipse.rdf4j.query.algebra.StatementPattern.Scope;
 import org.eclipse.rdf4j.query.algebra.helpers.collectors.StatementPatternCollector;
 
 /**
@@ -91,11 +91,6 @@ public class StarJoin extends NAryTupleOperator {
 			sp.getVars(varCollection);
 		}
 		return varCollection;
-	}
-
-	@Override
-	public <X extends Exception> void visit(QueryModelVisitor<X> visitor) throws X {
-		visitor.meetOther(this);
 	}
 
 	@Override

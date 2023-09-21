@@ -22,6 +22,7 @@ import com.msd.gin.halyard.optimizers.HalyardConstantOptimizer;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.HalyardQueryJoinOptimizer;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
+import com.msd.gin.halyard.optimizers.NAryUnionOptimizer;
 import com.msd.gin.halyard.optimizers.QueryJoinOptimizer;
 import com.msd.gin.halyard.optimizers.StarJoinOptimizer;
 
@@ -43,6 +44,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 	private final EvaluationStrategy strategy;
 	private final ValueFactory valueFactory;
 	private final StarJoinOptimizer starJoinOptimizer;
+	private final NAryUnionOptimizer naryUnionOptimizer;
 	private final JoinAlgorithmOptimizer joinAlgoOptimizer;
 
 	public HalyardQueryOptimizerPipeline(HalyardEvaluationStrategy strategy, ValueFactory valueFactory, ExtendedEvaluationStatistics statistics) {
@@ -51,6 +53,8 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 		this.statistics = statistics;
 		int minJoins = strategy.getConfig().starJoinMinJoins;
 		this.starJoinOptimizer = new StarJoinOptimizer(minJoins);
+		int minUnions = strategy.getConfig().naryUnionMinUnions;
+		this.naryUnionOptimizer = new NAryUnionOptimizer(minUnions);
 		int hashJoinLimit = strategy.getConfig().hashJoinLimit;
 		float costRatio = strategy.getConfig().hashJoinCostRatio;
 		this.joinAlgoOptimizer = new JoinAlgorithmOptimizer(statistics, hashJoinLimit, costRatio);
@@ -77,6 +81,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 			new ConstrainedValueOptimizer(),
 			starJoinOptimizer,
 			(statistics instanceof HalyardEvaluationStatistics) ? new HalyardQueryJoinOptimizer((HalyardEvaluationStatistics) statistics) : new QueryJoinOptimizer(statistics),
+			naryUnionOptimizer,
 			ExtendedQueryOptimizerPipeline.ITERATIVE_EVALUATION_OPTIMIZER,
 			ExtendedQueryOptimizerPipeline.FILTER_OPTIMIZER, // after join optimizer so we push down on the best statements
 			StandardQueryOptimizerPipeline.ORDER_LIMIT_OPTIMIZER,

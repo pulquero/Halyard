@@ -12,6 +12,8 @@ public abstract class AbstractExtendedQueryModelVisitor<X extends Exception> ext
 			meet((ExtendedTupleFunctionCall)node);
 		} else if (node instanceof StarJoin) {
 			meet((StarJoin)node);
+		} else if (node instanceof NAryUnion) {
+			meet((NAryUnion) node);
 		} else {
 			super.meetOther(node);
 		}
@@ -26,6 +28,10 @@ public abstract class AbstractExtendedQueryModelVisitor<X extends Exception> ext
 	}
 
 	public void meet(StarJoin node) throws X {
+		meetNAryTupleOperator(node);
+	}
+
+	public void meet(NAryUnion node) throws X {
 		meetNAryTupleOperator(node);
 	}
 

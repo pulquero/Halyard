@@ -22,6 +22,7 @@ import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.Algorithms;
 import com.msd.gin.halyard.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
+import com.msd.gin.halyard.algebra.NAryUnion;
 import com.msd.gin.halyard.algebra.StarJoin;
 import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
@@ -84,6 +85,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -284,6 +286,8 @@ final class HalyardTupleExprEvaluation {
         	return precompileBinaryTupleOperator((BinaryTupleOperator) expr, evalContext);
         } else if (expr instanceof StarJoin) {
         	return precompileStarJoin((StarJoin) expr, evalContext);
+        } else if (expr instanceof NAryUnion) {
+        	return precompileNAryUnion((NAryUnion) expr, evalContext);
         } else if (expr instanceof SingletonSet) {
         	return precompileSingletonSet((SingletonSet) expr);
         } else if (expr instanceof EmptySet) {
@@ -2486,7 +2490,7 @@ final class HalyardTupleExprEvaluation {
         };
     }
 
-    final class UnionBindingSetPipe extends BindingSetPipe {
+    static final class UnionBindingSetPipe extends BindingSetPipe {
         private final AtomicInteger args;
 
         UnionBindingSetPipe(BindingSetPipe parent, AtomicInteger args) {
@@ -2749,6 +2753,22 @@ final class HalyardTupleExprEvaluation {
         return step;
     }
 
+    private BindingSetPipeEvaluationStep precompileNAryUnion(NAryUnion naryUnion, QueryEvaluationContext evalContext) {
+        final int n = naryUnion.getArgCount();
+        BindingSetPipeEvaluationStep[] steps = new BindingSetPipeEvaluationStep[n];
+        for (int i=0; i<n; i++) {
+            steps[i] = precompileTupleExpr(naryUnion.getArg(i), evalContext);
+        }
+        return (parent, bindings) -> {
+            parent = parentStrategy.track(parent, naryUnion);
+            final AtomicInteger args = new AtomicInteger(n);
+            // A pipe can only be closed once, so need separate instances
+            for (int i=0; i<n; i++) {
+                steps[i].evaluate(new UnionBindingSetPipe(parent, args), bindings);
+            }
+        };
+    }
+
     private static List<BindingSet> join(List<BindingSet> left, List<BindingSet> right) {
     	if (left == null || right == null) {
     		return null;
@@ -2907,7 +2927,17 @@ final class HalyardTupleExprEvaluation {
 	        final long minLength = alp.getMinLength();
 	        //temporary solution using copy of the original iterator
 	        //re-writing this to push model is a bit more complex task
-            EvaluationStrategy alpStrategy = new DefaultEvaluationStrategy(tripleSource, dataset, null);
+            EvaluationStrategy alpStrategy = new DefaultEvaluationStrategy(tripleSource, dataset, null) {
+            	public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(TupleExpr expr, BindingSet bindings)
+            			throws QueryEvaluationException {
+            		if (expr instanceof NAryUnion) {
+            			NAryUnion nunion = (NAryUnion) expr;
+            			return new UnionIteration<>(nunion.getArgs().stream().map(te -> evaluate(te, bindings)).collect(Collectors.toList()));
+            		} else {
+            			return super.evaluate(expr, bindings);
+            		}
+            	}
+            };
 //            // Currently causes too many blocked threads
 //            EvaluationStrategy alpStrategy = new StrictEvaluationStrategy(null, null) {
 //                @Override
