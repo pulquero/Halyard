@@ -71,11 +71,11 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 			StandardQueryOptimizerPipeline.CONJUNCTIVE_CONSTRAINT_SPLITTER,
 			StandardQueryOptimizerPipeline.DISJUNCTIVE_CONSTRAINT_OPTIMIZER,
 			StandardQueryOptimizerPipeline.SAME_TERM_FILTER_OPTIMIZER,
-			starJoinOptimizer,
 			StandardQueryOptimizerPipeline.UNION_SCOPE_CHANGE_OPTIMIZER,
 			StandardQueryOptimizerPipeline.QUERY_MODEL_NORMALIZER,
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
 			new ConstrainedValueOptimizer(),
+			starJoinOptimizer,
 			(statistics instanceof HalyardEvaluationStatistics) ? new HalyardQueryJoinOptimizer((HalyardEvaluationStatistics) statistics) : new QueryJoinOptimizer(statistics),
 			ExtendedQueryOptimizerPipeline.ITERATIVE_EVALUATION_OPTIMIZER,
 			ExtendedQueryOptimizerPipeline.FILTER_OPTIMIZER, // after join optimizer so we push down on the best statements

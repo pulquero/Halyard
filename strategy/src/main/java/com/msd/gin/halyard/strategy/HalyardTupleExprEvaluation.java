@@ -2662,11 +2662,16 @@ final class HalyardTupleExprEvaluation {
 		    		IRI[] preds = new IRI[sps.length];
 		        	for (int i=0; i<sps.length; i++) {
 		       			StatementPattern sp = sps[i];
-		        		IRI pred = (IRI) Algebra.getVarValue(sp.getPredicateVar(), bindings);
+		        		Value pred = Algebra.getVarValue(sp.getPredicateVar(), bindings);
 		        		if (pred == null) {
 		        			getFullSubject = true;
+		        			break;
+		        		} else if (!pred.isIRI()) {
+		        			parent.close();
+		        			return;
+		        		} else {
+		        			preds[i] = (IRI) pred;
 		        		}
-		        		preds[i] = pred;
 		        	}
 		        	getFullSubject = true; // TODO currently only support getFullSubject mode
 		        	if (getFullSubject || !(tripleSource instanceof ExtendedTripleSource)) {
