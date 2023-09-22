@@ -11,6 +11,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 
@@ -19,7 +20,7 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.util.Literals;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.util.Models;
 import org.eclipse.rdf4j.model.vocabulary.CONFIG;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
@@ -117,9 +118,11 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 					// check for stored authentication info
 					try (RepositoryConnection conn = systemRepo.getConnection()) {
 						IRI urlIri = systemRepo.getValueFactory().createIRI(serviceUrl);
-						String user = Literals.getLabel(Models.object(conn.getStatements(urlIri, CONFIG.Http.username, null, HALYARD.ENDPOINTS_GRAPH_CONTEXT)), null);
+						Optional<Value> userValue = Models.object(conn.getStatements(urlIri, CONFIG.Http.username, null, HALYARD.ENDPOINTS_GRAPH_CONTEXT));
+						String user = userValue.filter(Value::isLiteral).map(Value::stringValue).orElse(null);
 						if (user != null) {
-							String pass = Literals.getLabel(Models.object(conn.getStatements(urlIri, CONFIG.Http.password, null, HALYARD.ENDPOINTS_GRAPH_CONTEXT)), null);
+							Optional<Value> passValue = Models.object(conn.getStatements(urlIri, CONFIG.Http.password, null, HALYARD.ENDPOINTS_GRAPH_CONTEXT));
+							String pass = passValue.filter(Value::isLiteral).map(Value::stringValue).orElse(null);
 							sparqlRepo.setUsernameAndPassword(user, pass);
 						}
 					}
