@@ -33,7 +33,7 @@ import org.eclipse.rdf4j.sail.SailConnection;
 
 public class SailFederatedService implements BindingSetConsumerFederatedService, BindingSetPipeFederatedService {
 	private final Sail sail;
-	private final AtomicBoolean initialized = new AtomicBoolean();
+	private volatile boolean isInit;
 
 	public SailFederatedService(Sail sail) {
 		this.sail = sail;
@@ -45,20 +45,30 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 
 	@Override
 	public void initialize() throws QueryEvaluationException {
-		if (initialized.compareAndSet(false, true)) {
-			sail.init();
+		if (!isInit) {
+			synchronized (this) {
+				if (!isInit) {
+					sail.init();
+					isInit = true;
+				}
+			}
 		}
 	}
 
 	@Override
 	public boolean isInitialized() {
-		return initialized.get();
+		return isInit;
 	}
 
 	@Override
 	public void shutdown() throws QueryEvaluationException {
-		if (initialized.compareAndSet(true, false)) {
-			sail.shutDown();
+		if (isInit) {
+			synchronized (this) {
+				if (isInit) {
+					sail.shutDown();
+					isInit = false;
+				}
+			}
 		}
 	}
 
