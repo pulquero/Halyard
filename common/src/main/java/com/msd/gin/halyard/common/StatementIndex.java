@@ -369,7 +369,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	public Scan scan() {
 		return scanWithConstraint(null);
 	}
-	public Scan scanWithConstraint(ValueConstraint constraint) {
+	public Scan scanWithConstraint(@Nullable ValueConstraint constraint1) {
 		int cardinality = cardinality1*cardinality2*cardinality3*cardinality4;
 		Scan scan = scan(
 			role1.startKey(), role2.startKey(), role3.startKey(), role4.startKey(),
@@ -377,13 +377,13 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			cardinality,
 			true
 		);
-		if (constraint != null) {
+		if (constraint1 != null) {
 			List<Filter> filters = new ArrayList<>();
-			appendLiteralFilters(ByteSequence.EMPTY, null,
+			appendValueFilters(ByteSequence.EMPTY, null,
 				role1.startKey(), role1.stopKey(),
 				concat3(role2.startKey(), role3.startKey(), role4.startKey()),
 				concat3(role2.stopKey(),  role3.stopKey(),  role4.stopKey()),
-				constraint, filters);
+				constraint1, filters);
 			scan.setFilter(new FilterList(filters));
 		}
 		return scan;
@@ -391,7 +391,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	public Scan scan(RDFIdentifier<T1> k) {
 		return scanWithConstraint(k, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier<T1> k1, ValueConstraint constraint) {
+	public Scan scanWithConstraint(RDFIdentifier<T1> k1, @Nullable ValueConstraint constraint2) {
 		ByteSequence kb = new ByteArray(role1.keyHash(k1.getId(), idFormat));
 		int cardinality = cardinality1*cardinality2*cardinality3;
 		Scan scan = scan(
@@ -401,14 +401,14 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			false
 		);
 		Filter qf = new ColumnPrefixFilter(qualifier(k1, null, null, null));
-		if (constraint != null) {
+		if (constraint2 != null) {
 			List<Filter> filters = new ArrayList<>();
 			filters.add(qf);
-			appendLiteralFilters(kb, null,
+			appendValueFilters(kb, null,
 				role2.startKey(), role2.stopKey(),
 				concat2(role3.startKey(), role4.startKey()),
 				concat2(role3.stopKey(),  role4.stopKey()),
-				constraint, filters);
+				constraint2, filters);
 			scan.setFilter(new FilterList(filters));
 		} else {
 			scan.setFilter(qf);
@@ -418,7 +418,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	public Scan scan(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2) {
 		return scanWithConstraint(k1, k2, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, ValueConstraint constraint) {
+	public Scan scanWithConstraint(RDFIdentifier<T1> k1, @Nullable RDFIdentifier<T2> k2, @Nullable ValueConstraint constraint3) {
 		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId(), idFormat));
 		ByteSequence k2b, stop2;
 		int cardinality;
@@ -438,13 +438,13 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			false
 		);
 		Filter qf = new ColumnPrefixFilter(qualifier(k1, k2, null, null));
-		if (constraint != null) {
+		if (constraint3 != null) {
 			List<Filter> filters = new ArrayList<>();
 			filters.add(qf);
-			appendLiteralFilters(concat2(k1b, k2b), k2 == null ? concat2(k1b, stop2) : null,
+			appendValueFilters(concat2(k1b, k2b), k2 == null ? concat2(k1b, stop2) : null,
 				role3.startKey(), role3.stopKey(),
 				role4.startKey(), role4.stopKey(),
-				constraint, filters);
+				constraint3, filters);
 			scan.setFilter(new FilterList(filters));
 		} else {
 			scan.setFilter(qf);
@@ -454,7 +454,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	public Scan scan(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, RDFIdentifier<T3> k3) {
 		return scanWithConstraint(k1, k2, k3, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, RDFIdentifier<T3> k3, ValueConstraint constraint) {
+	public Scan scanWithConstraint(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, @Nullable RDFIdentifier<T3> k3, @Nullable ValueConstraint constraint4) {
 		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId(), idFormat));
 		ByteSequence k2b = new ByteArray(role2.keyHash(k2.getId(), idFormat));
 		ByteSequence k3b, stop3;
@@ -475,14 +475,14 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			false
 		);
 		Filter qf = new ColumnPrefixFilter(qualifier(k1, k2, k3, null));
-		if (constraint != null) {
+		if (constraint4 != null) {
 			List<Filter> filters = new ArrayList<>();
 			filters.add(qf);
-			appendLiteralFilters(concat3(k1b, k2b, k3b), k3 == null ? concat3(k1b, k2b, stop3) : null,
+			appendValueFilters(concat3(k1b, k2b, k3b), k3 == null ? concat3(k1b, k2b, stop3) : null,
 				role4.startKey(), role4.stopKey(),
 				ByteSequence.EMPTY,
 				ByteSequence.EMPTY,
-				constraint, filters);
+				constraint4, filters);
 			scan.setFilter(new FilterList(filters));
 		} else {
 			scan.setFilter(qf);
@@ -503,7 +503,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		).setFilter(new ColumnPrefixFilter(qualifier(k1, k2, k3, k4)));
 	}
 
-	private void appendLiteralFilters(ByteSequence prefix, ByteSequence stopPrefix, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys, ValueConstraint constraint, List<Filter> filters) {
+	private void appendValueFilters(ByteSequence prefix, @Nullable ByteSequence stopPrefix, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys, ValueConstraint constraint, List<Filter> filters) {
 		ValueType type = constraint.getValueType();
 		IRI dt = null;
 		if ((constraint instanceof LiteralConstraint)) {
