@@ -614,40 +614,45 @@ public class HalyardCustomAggregateFunctionEvaluationTest {
 		String testQuery = "prefix halyard: <"+HALYARD.NAMESPACE+"> \n"
 				+ "select ?t (<" + new HIndexAggregateFactory().getIri() + ">(?c) as ?h) (sample(?e) as ?expected)"
 				+ " where { \n"
-				+ "\t [<x:cite> ?c; <x:expected> ?e; <x:name> ?t] }"
+				+ "\t [<x:cites> ?c; <x:expected> ?e; <x:name> ?t] }"
 				+ " GROUP BY ?t";
 		IRI graph = rep.getValueFactory().createIRI("<x:TestGraph>");
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.add(new StringReader(""
-				+ "[<x:cite> 9; <x:expected> 3; <x:name> 'test1'] ."
-				+ "[<x:cite> 7; <x:expected> 3; <x:name> 'test1'] ."
-				+ "[<x:cite> 6; <x:expected> 3; <x:name> 'test1'] ."
-				+ "[<x:cite> 2; <x:expected> 3; <x:name> 'test1'] ."
-				+ "[<x:cite> 1; <x:expected> 3; <x:name> 'test1'] ."
-				+ "[<x:cite> 10; <x:expected> 4; <x:name> 'test2'] ."
-				+ "[<x:cite> 8; <x:expected> 4; <x:name> 'test2'] ."
-				+ "[<x:cite> 5; <x:expected> 4; <x:name> 'test2'] ."
-				+ "[<x:cite> 4; <x:expected> 4; <x:name> 'test2'] ."
-				+ "[<x:cite> 3; <x:expected> 4; <x:name> 'test2'] ."
-				+ "[<x:cite> 25; <x:expected> 3; <x:name> 'test3'] ."
-				+ "[<x:cite> 8; <x:expected> 3; <x:name> 'test3'] ."
-				+ "[<x:cite> 5; <x:expected> 3; <x:name> 'test3'] ."
-				+ "[<x:cite> 3; <x:expected> 3; <x:name> 'test3'] ."
-				+ "[<x:cite> 3; <x:expected> 3; <x:name> 'test3'] ."
-				+ "[<x:cite> 33; <x:expected> 6; <x:name> 'test4'] ."
-				+ "[<x:cite> 30; <x:expected> 6; <x:name> 'test4'] ."
-				+ "[<x:cite> 20; <x:expected> 6; <x:name> 'test4'] ."
-				+ "[<x:cite> 15; <x:expected> 6; <x:name> 'test4'] ."
-				+ "[<x:cite> 7; <x:expected> 6; <x:name> 'test4'] ."
-				+ "[<x:cite> 6; <x:expected> 6; <x:name> 'test4'] ."
-				+ "[<x:cite> 5; <x:expected> 6; <x:name> 'test4'] ."
-				+ "[<x:cite> 4; <x:expected> 6; <x:name> 'test4'] ."
+				+ "[<x:cites> 1; <x:expected> 1; <x:name> 'test1'] ."
+				+ "[<x:cites> 1; <x:expected> 1; <x:name> 'test2'] ."
+				+ "[<x:cites> 1; <x:expected> 1; <x:name> 'test2'] ."
+				+ "[<x:cites> 1; <x:expected> 1; <x:name> 'test2'] ."
+				+ "[<x:cites> 9; <x:expected> 3; <x:name> 'test3'] ."
+				+ "[<x:cites> 7; <x:expected> 3; <x:name> 'test3'] ."
+				+ "[<x:cites> 6; <x:expected> 3; <x:name> 'test3'] ."
+				+ "[<x:cites> 2; <x:expected> 3; <x:name> 'test3'] ."
+				+ "[<x:cites> 1; <x:expected> 3; <x:name> 'test3'] ."
+				+ "[<x:cites> 10; <x:expected> 4; <x:name> 'test4'] ."
+				+ "[<x:cites> 8; <x:expected> 4; <x:name> 'test4'] ."
+				+ "[<x:cites> 5; <x:expected> 4; <x:name> 'test4'] ."
+				+ "[<x:cites> 4; <x:expected> 4; <x:name> 'test4'] ."
+				+ "[<x:cites> 3; <x:expected> 4; <x:name> 'test4'] ."
+				+ "[<x:cites> 25; <x:expected> 3; <x:name> 'test5'] ."
+				+ "[<x:cites> 8; <x:expected> 3; <x:name> 'test5'] ."
+				+ "[<x:cites> 5; <x:expected> 3; <x:name> 'test5'] ."
+				+ "[<x:cites> 3; <x:expected> 3; <x:name> 'test5'] ."
+				+ "[<x:cites> 3; <x:expected> 3; <x:name> 'test5'] ."
+				+ "[<x:cites> 33; <x:expected> 6; <x:name> 'test6'] ."
+				+ "[<x:cites> 30; <x:expected> 6; <x:name> 'test6'] ."
+				+ "[<x:cites> 20; <x:expected> 6; <x:name> 'test6'] ."
+				+ "[<x:cites> 15; <x:expected> 6; <x:name> 'test6'] ."
+				+ "[<x:cites> 7; <x:expected> 6; <x:name> 'test6'] ."
+				+ "[<x:cites> 6; <x:expected> 6; <x:name> 'test6'] ."
+				+ "[<x:cites> 5; <x:expected> 6; <x:name> 'test6'] ."
+				+ "[<x:cites> 4; <x:expected> 6; <x:name> 'test6'] ."
 				+ ""), "", RDFFormat.TURTLE, graph);
+			int expectedNumTests = 6;
 			int numTests;
 			try (TupleQueryResult result = conn.prepareTupleQuery(countQuery).evaluate()) {
 				var bs = result.next();
 				numTests = Literals.getIntValue(bs.getValue("count"), 0);
-				assertThat(numTests).isEqualTo(4);
+				assertThat(numTests).isEqualTo(expectedNumTests);
 			}
 			try (TupleQueryResult result = conn.prepareTupleQuery(testQuery).evaluate()) {
 				for (int i=0; i<numTests; i++) {
@@ -655,7 +660,7 @@ public class HalyardCustomAggregateFunctionEvaluationTest {
 					Literal test = (Literal) bs.getValue("t");
 					Literal h = (Literal) bs.getValue("h");
 					Literal expected = (Literal) bs.getValue("expected");
-					assertThat(h).isEqualTo(expected).as(test.getLabel());
+					assertThat(h).as(test.getLabel()).isEqualTo(expected);
 				}
 			}
 			conn.clear(graph);

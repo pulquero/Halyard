@@ -36,22 +36,26 @@ public class HIndexAggregateFactory implements AggregateFunctionFactory {
 			// NB: values.size() is expensive
 			Value[] arr = values.toArray(new Value[0]);
 			Arrays.sort(arr, new ValueComparator());
+			int hindex = 0;
 			for (int i=arr.length-1; i>=0; i--) {
 				Value cites = arr[i];
 				if (!cites.isLiteral()) {
 					throw new ValueExprEvaluationException("not a number: " + cites);
 				}
-				Literal lit = (Literal) cites;
-				CoreDatatype coreDatatype = lit.getCoreDatatype();
+				Literal citesLit = (Literal) cites;
+				CoreDatatype coreDatatype = citesLit.getCoreDatatype();
 				if (!coreDatatype.isXSDDatatype() || !((CoreDatatype.XSD) coreDatatype).isNumericDatatype()) {
 					throw new ValueExprEvaluationException("not a number: " + cites);
 				}
+				int c = Literals.getIntValue(citesLit, 0);
 				int pos = arr.length - i;
-				if (Literals.getIntValue(lit, 0) < pos) {
-					return new IntLiteral(pos - 1, CoreDatatype.XSD.INTEGER);
+				if (c >= pos) {
+					hindex++;
+				} else {
+					break;
 				}
 			}
-			return NumberCollector.ZERO;
+			return (hindex > 0) ? new IntLiteral(hindex, CoreDatatype.XSD.INTEGER) : NumberCollector.ZERO;
 		});
 	}
 }
