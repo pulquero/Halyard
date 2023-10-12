@@ -18,6 +18,7 @@ package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.common.StatementIndex.Name;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
@@ -69,8 +70,8 @@ import org.eclipse.rdf4j.model.IRI;
 public final class HalyardTableUtils {
 
     static final byte[] CF_NAME = Bytes.toBytes("e");
-    static final byte[] CONFIG_ROW_KEY = new byte[] {(byte) 0xff};
-    static final byte[] CONFIG_COL = Bytes.toBytes("config");
+    private static final byte[] CONFIG_ROW_KEY = new byte[] {(byte) 0xff};
+    private static final byte[] CONFIG_COL = Bytes.toBytes("config");
 
 	static final int DEFAULT_MAX_VERSIONS = 1;
 	static final int READ_VERSIONS = 1;
@@ -145,6 +146,24 @@ public final class HalyardTableUtils {
 		Put configPut = new Put(CONFIG_ROW_KEY)
 			.addColumn(CF_NAME, CONFIG_COL, bout.toByteArray());
 		table.put(configPut);
+	}
+
+	public static Configuration readConfig(KeyspaceConnection conn) throws IOException {
+		Get getConfig = new Get(CONFIG_ROW_KEY)
+				.addColumn(CF_NAME, CONFIG_COL);
+		Result res = conn.get(getConfig);
+		if (res == null) {
+			throw new IOException("No config found");
+		}
+		Cell[] cells = res.rawCells();
+		if (cells == null || cells.length == 0) {
+			throw new IOException("No config found");
+		}
+		Cell cell = cells[0];
+		Configuration halyardConf = new Configuration(false);
+		ByteArrayInputStream bin = new ByteArrayInputStream(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
+		halyardConf.addResource(bin, "Table config");
+		return halyardConf;
 	}
 
 	public static Connection getConnection(Configuration config) throws IOException {

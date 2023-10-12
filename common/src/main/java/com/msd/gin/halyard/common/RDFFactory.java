@@ -3,7 +3,6 @@ package com.msd.gin.halyard.common;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -14,9 +13,7 @@ import java.util.Map;
 import javax.annotation.concurrent.ThreadSafe;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.Cell;
-import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.Table;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.Resource;
@@ -78,20 +75,7 @@ public final class RDFFactory {
 	}
 
 	public static RDFFactory create(KeyspaceConnection conn) throws IOException {
-		Get getConfig = new Get(HalyardTableUtils.CONFIG_ROW_KEY)
-				.addColumn(HalyardTableUtils.CF_NAME, HalyardTableUtils.CONFIG_COL);
-		Result res = conn.get(getConfig);
-		if (res == null) {
-			throw new IOException("No config found");
-		}
-		Cell[] cells = res.rawCells();
-		if (cells == null || cells.length == 0) {
-			throw new IOException("No config found");
-		}
-		Cell cell = cells[0];
-		Configuration halyardConf = new Configuration(false);
-		ByteArrayInputStream bin = new ByteArrayInputStream(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
-		halyardConf.addResource(bin);
+		Configuration halyardConf = HalyardTableUtils.readConfig(conn);
 
 		HalyardTableConfiguration config;
 		// migrate old config
@@ -102,7 +86,9 @@ public final class RDFFactory {
 			}
 			halyardConf.setInt(TableConfig.TABLE_VERSION, TableConfig.CURRENT_VERSION);
 			config = new HalyardTableConfiguration(halyardConf);
-			HalyardTableUtils.writeConfig(((TableKeyspace.TableKeyspaceConnection)conn).getTable(), config);
+			try (Table table = ((TableKeyspace.TableKeyspaceConnection)conn).getTable()) {
+				HalyardTableUtils.writeConfig(table, config);
+			}
 		} else {
 			config = new HalyardTableConfiguration(halyardConf);
 		}

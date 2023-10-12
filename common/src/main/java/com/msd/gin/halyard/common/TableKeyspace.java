@@ -35,16 +35,16 @@ final class TableKeyspace implements Keyspace {
 	}
 
 	// Keyspace methods should be thread-safe
-	private synchronized Table getTable() throws IOException {
-		if (conn == null && conf != null) {
+	private synchronized Connection getHBaseConnection() throws IOException {
+		if (conn == null) {
 			conn = HalyardTableUtils.getConnection(conf);
 		}
-		return conn.getTable(tableName);
+		return conn;
 	}
 
 	@Override
 	public KeyspaceConnection getConnection() throws IOException {
-		return new TableKeyspaceConnection(getTable());
+		return new TableKeyspaceConnection(getHBaseConnection().getTable(tableName));
 	}
 
 	@Override
@@ -74,10 +74,8 @@ final class TableKeyspace implements Keyspace {
 
 	@Override
 	public void close() throws IOException {
-		if (isOwner && conn != null) {
-			if (!conn.isClosed()) {
-				conn.close();
-			}
+		if (isOwner && conn != null && !conn.isClosed()) {
+			conn.close();
 		}
 	}
 

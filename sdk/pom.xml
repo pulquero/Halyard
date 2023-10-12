@@ -43,6 +43,13 @@
             </exclusion>
         </exclusions>
     </dependency>
+		<dependency>
+			<!-- for spark -->
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-reload4j</artifactId>
+			<version>${slf4j.version}</version>
+			<scope>provided</scope>
+		</dependency>
 	</dependencies>
 	<build>
 		<plugins>
@@ -90,6 +97,30 @@
 										<include name="hbase-${hbase.version}/lib/hbase-*-${hbase.version}.jar"/>
 									</patternset>
 									<mapper type="flatten"/>
+								</untar>
+							</target>
+						</configuration>
+						<goals>
+							<goal>run</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>hbase-connectors</id>
+						<phase>process-classes</phase>
+						<configuration>
+							<target>
+								<get
+									src="https://github.com/pulquero/hbase-connectors/releases/download/rel%2F${hbase.version}%2B${hadoop.version}/hbase-connectors-${hbase-connectors.version}-bin.tar.gz"
+									dest="${project.build.directory}/hbase-connectors.tar.gz"
+									skipexisting="true" />
+								<untar src="${project.build.directory}/hbase-connectors.tar.gz"
+									dest="${project.build.directory}/hbase-connectors-libs"
+									compression="gzip">
+									<patternset>
+										<include
+											name="hbase-connectors-${hbase-connectors.version}/lib/hbase-*-${hbase-connectors.version}.jar" />
+									</patternset>
+									<mapper type="flatten" />
 								</untar>
 							</target>
 						</configuration>

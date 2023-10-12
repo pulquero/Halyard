@@ -54,6 +54,35 @@
                 <include>hbase-zookeeper-${hbase.version}.jar</include>
             </includes>
         </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/hbase-libs</directory>
+            <outputDirectory>spark-lib</outputDirectory>
+            <includes>
+                <include>hbase-asyncfs-${hbase.version}.jar</include>
+                <include>hbase-client-${hbase.version}.jar</include>
+                <include>hbase-common-${hbase.version}.jar</include>
+                <include>hbase-hadoop2-compat-${hbase.version}.jar</include>
+                <include>hbase-hadoop-compat-${hbase.version}.jar</include>
+                <include>hbase-http-${hbase.version}.jar</include>
+                <include>hbase-logging-${hbase.version}.jar</include>
+                <include>hbase-mapreduce-${hbase.version}.jar</include>
+                <include>hbase-metrics-${hbase.version}.jar</include>
+                <include>hbase-metrics-api-${hbase.version}.jar</include>
+                <include>hbase-server-${hbase.version}.jar</include>
+                <include>hbase-procedure-${hbase.version}.jar</include>
+                <include>hbase-protocol-${hbase.version}.jar</include>
+                <include>hbase-protocol-shaded-${hbase.version}.jar</include>
+                <include>hbase-replication-${hbase.version}.jar</include>
+                <include>hbase-zookeeper-${hbase.version}.jar</include>
+            </includes>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/hbase-connectors-libs</directory>
+            <outputDirectory>spark-lib</outputDirectory>
+            <includes>
+                <include>hbase-spark-*</include>
+            </includes>
+        </fileSet>
     </fileSets>
     <dependencySets>
         <dependencySet>
@@ -66,6 +95,28 @@
                 <exclude>*:sources</exclude>
                 <exclude>*:javadoc</exclude>
             </excludes>
+        </dependencySet>
+        <dependencySet>
+            <outputDirectory>spark-lib</outputDirectory>
+            <includes>
+              <include>*:jar:*</include>
+            </includes>
+            <excludes>
+                <exclude>org.apache.hbase:*:jar::${hbase.version}</exclude> <!-- exclude hbase-hadoop2 jars -->
+                <exclude>org.eclipse.rdf4j:rdf4j-sail-*:jar::</exclude>
+                <exclude>org.eclipse.rdf4j:rdf4j-console:jar::</exclude>
+                <exclude>org.lwjgl:*:jar::</exclude>
+                <exclude>org.eclipse.jetty:*:jar::</exclude>
+                <exclude>*:sources</exclude>
+                <exclude>*:javadoc</exclude>
+            </excludes>
+        </dependencySet>
+        <dependencySet>
+            <outputDirectory>spark-lib</outputDirectory>
+            <includes>
+              <include>org.slf4j:slf4j-reload4j:jar::</include>
+            </includes>
+            <scope>provided</scope>
         </dependencySet>
     </dependencySets>
 </assembly>

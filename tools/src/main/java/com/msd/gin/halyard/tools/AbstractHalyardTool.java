@@ -67,7 +67,6 @@ import org.slf4j.LoggerFactory;
  * @author Adam Sotona (MSD)
  */
 public abstract class AbstractHalyardTool implements Tool {
-
     static final Logger LOG = LoggerFactory.getLogger(AbstractHalyardTool.class);
 
     protected static String confProperty(String tool, String key) {
@@ -267,17 +266,20 @@ public abstract class AbstractHalyardTool implements Tool {
     		LOG.info("Skipping bulk load - dry run");
     	} else {
 			// reqd if HFiles need splitting (code from HFileOutputFormat2)
-    		byte[] tableAndFamily = HalyardTableUtils.getTableNameSuffixedWithFamily(tableName.toBytes());
-			Map<byte[], String> bloomTypeMap = createFamilyConfValueMap(conf, "hbase.hfileoutputformat.families.bloomtype");
-			Map<byte[], String> bloomParamMap = createFamilyConfValueMap(conf, "hbase.hfileoutputformat.families.bloomparam");
-			String bloomType = bloomTypeMap.get(tableAndFamily);
-			String bloomParam = bloomParamMap.get(tableAndFamily);
-			if (BloomType.ROWPREFIX_FIXED_LENGTH.toString().equals(bloomType)) {
-				conf.set(BloomFilterUtil.PREFIX_LENGTH_KEY, bloomParam);
-			}
-
+    		addBloomFilterConfig(conf, tableName);
 			BulkLoadHFiles.create(conf).bulkLoad(tableName, workDir);
     	}
+    }
+
+    protected static final void addBloomFilterConfig(Configuration conf, TableName tableName) {
+		byte[] tableAndFamily = HalyardTableUtils.getTableNameSuffixedWithFamily(tableName.toBytes());
+		Map<byte[], String> bloomTypeMap = createFamilyConfValueMap(conf, "hbase.hfileoutputformat.families.bloomtype");
+		String bloomType = bloomTypeMap.get(tableAndFamily);
+		if (BloomType.ROWPREFIX_FIXED_LENGTH.toString().equals(bloomType)) {
+			Map<byte[], String> bloomParamMap = createFamilyConfValueMap(conf, "hbase.hfileoutputformat.families.bloomparam");
+			String bloomParam = bloomParamMap.get(tableAndFamily);
+			conf.set(BloomFilterUtil.PREFIX_LENGTH_KEY, bloomParam);
+		}
     }
 
     private static Map<byte[], String> createFamilyConfValueMap(Configuration conf, String confName) {

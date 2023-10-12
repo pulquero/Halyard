@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.MissingOptionException;
@@ -54,6 +55,7 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.RegionLocator;
 import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.HFileOutputFormat2;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
@@ -97,7 +99,7 @@ import org.eclipse.rdf4j.rio.turtle.TurtleParser;
  * Apache Hadoop MapReduce Tool for bulk loading RDF into HBase
  * @author Adam Sotona (MSD)
  */
-public final class HalyardBulkLoad extends AbstractHalyardTool {
+public class HalyardBulkLoad extends AbstractHalyardTool {
 	private static final String TOOL_NAME = "bulkload";
 
     public static final String TARGET_TABLE_PROPERTY = confProperty(TOOL_NAME, "table.name");
@@ -229,13 +231,10 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
     /**
      * Mapper class transforming each parsed Statement into set of HBase KeyValues
      */
-    public static final class RDFMapper extends Mapper<LongWritable, Statement, ImmutableBytesWritable, KeyValue> {
+    public static final class RDFMapper extends Mapper<LongWritable, Statement, ImmutableBytesWritable, KeyValue> implements Function<Statement,List<? extends KeyValue>> {
 
         private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
         private Set<Statement> stmtDedup;
-        private Keyspace keyspace;
-        private KeyspaceConnection keyspaceConn;
-        private RDFFactory rdfFactory;
         private StatementIndices stmtIndices;
         private boolean hiddenGraph;
         private long timestamp;
@@ -246,10 +245,12 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
+            init(conf);
+        }
+
+        void init(Configuration conf) throws IOException {
             stmtDedup = Collections.newSetFromMap(new LRUCache<>(conf.getInt(STATEMENT_DEDUP_CACHE_SIZE_PROPERTY, DEFAULT_STATEMENT_DEDUP_CACHE_SIZE)));
-            keyspace = HalyardTableUtils.getKeyspace(conf, conf.get(TARGET_TABLE_PROPERTY), null);
-            keyspaceConn = keyspace.getConnection();
-            rdfFactory = RDFFactory.create(keyspaceConn);
+            RDFFactory rdfFactory = RDFFactory.create(conf);
             stmtIndices = new StatementIndices(conf, rdfFactory);
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
             hiddenGraph = conf.getBoolean(HIDDEN_CONTEXT_PROPERTY, false);
@@ -257,14 +258,8 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
 
         @Override
         protected void map(LongWritable key, Statement stmt, final Context output) throws IOException, InterruptedException {
-        	// best effort statement deduplication
-        	if (stmtDedup.add(stmt)) {
-        		List<? extends KeyValue> kvs;
-        		if (HALYARD.SYSTEM_GRAPH_CONTEXT.equals(stmt.getContext()) || hiddenGraph) {
-        			kvs = stmtIndices.insertNonDefaultKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
-        		} else {
-        			kvs = stmtIndices.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
-        		}
+    		List<? extends KeyValue> kvs = apply(stmt);
+        	if (kvs != null) {
 	            for (KeyValue keyValue: kvs) {
 	                rowKey.set(keyValue.getRowArray(), keyValue.getRowOffset(), keyValue.getRowLength());
 	                output.write(rowKey, keyValue);
@@ -276,15 +271,23 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         }
 
         @Override
+        public List<? extends KeyValue> apply(Statement stmt) {
+        	// best effort statement deduplication
+        	if (!stmtDedup.add(stmt)) {
+        		return null;
+        	}
+
+        	List<? extends KeyValue> kvs;
+    		if (HALYARD.SYSTEM_GRAPH_CONTEXT.equals(stmt.getContext()) || hiddenGraph) {
+    			kvs = stmtIndices.insertNonDefaultKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
+    		} else {
+    			kvs = stmtIndices.insertKeyValues(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
+    		}
+    		return kvs;
+        }
+
+        @Override
         protected void cleanup(Context output) throws IOException {
-            if (keyspaceConn != null) {
-            	keyspaceConn.close();
-            	keyspaceConn = null;
-            }
-            if (keyspace != null) {
-                keyspace.close();
-                keyspace = null;
-            }
         	output.getCounter(Counters.ADDED_KVS).increment(addedKvs);
         	output.getCounter(Counters.ADDED_STATEMENTS).increment(addedStmts);
         	output.getCounter(Counters.TOTAL_STATEMENTS_READ).increment(totalStmtsRead);
@@ -443,27 +446,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
             this.size = split.getLength();
             Configuration conf = context.getConfiguration();
             this.queue = new LinkedBlockingQueue<>(conf.getInt(PARSER_QUEUE_SIZE_PROPERTY, DEFAULT_PARSER_QUEUE_SIZE));
-            RDFFactory rdfFactory;
-            String target = conf.get(TARGET_TABLE_PROPERTY);
-            if (target != null) {
-            	// load - table exists
-	            Keyspace keyspace = HalyardTableUtils.getKeyspace(conf, target, null);
-	            try {
-	            	try (KeyspaceConnection ksConn = keyspace.getConnection()) {
-	            		rdfFactory = RDFFactory.create(ksConn);
-	            	}
-	            } finally {
-	            	try {
-	            		keyspace.close();
-	            	} finally {
-	            		keyspace.destroy();
-	            	}
-	            }
-            } else {
-            	// presplit - table not yet created
-            	rdfFactory = RDFFactory.create(conf);
-            }
-            this.idValueFactory = new IdValueFactory(rdfFactory);
+            this.idValueFactory = new IdValueFactory(RDFFactory.create(conf));
             this.valueFactory = new CachingValueFactory(idValueFactory, conf.getInt(VALUE_CACHE_SIZE_PROPERTY, DEFAULT_VALUE_CACHE_SIZE));
             this.allowInvalidIris = conf.getBoolean(ALLOW_INVALID_IRIS_PROPERTY, false);
             this.skipInvalidLines = conf.getBoolean(SKIP_INVALID_LINES_PROPERTY, false);
@@ -628,7 +611,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         }
     }
 
-    private static String listRDFFormats() {
+    static String listRDFFormats() {
         StringBuilder sb = new StringBuilder();
         for (RDFFormat fmt : RDFParserRegistry.getInstance().getKeys()) {
             sb.append("* ").append(fmt.getName()).append(" (");
@@ -647,7 +630,7 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
     }
 
     public HalyardBulkLoad() {
-        super(
+        this(
             TOOL_NAME,
             "Halyard Bulk Load is a MapReduce application designed to efficiently load RDF data from Hadoop Filesystem (HDFS) into HBase in the form of a Halyard dataset.",
             "Halyard Bulk Load consumes RDF files in various formats supported by RDF4J RIO, including:\n"
@@ -659,6 +642,10 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
                 + "* Snappy (.snappy)\n"
                 + "Example: halyard bulkload -s hdfs://my_RDF_files -w hdfs:///my_tmp_workdir -t mydataset [-g 'http://whatever/graph']"
         );
+    }
+
+    protected HalyardBulkLoad(String toolName, String header, String footer) {
+        super(toolName, header, footer);
         addOption("s", "source", "source_paths", SOURCE_PATHS_PROPERTY, "Source path(s) with RDF files, more paths can be delimited by comma, the paths are recursively searched for the supported files", true, true);
         addOption("w", "work-dir", "shared_folder", "Unique non-existent folder within shared filesystem to server as a working directory for the temporary HBase files,  the files are moved to their final HBase locations during the last stage of the load process", true, true);
         addOption("t", "target", "dataset_table", TARGET_TABLE_PROPERTY, "Target HBase table with Halyard RDF store, target table is created if it does not exist, however optional HBase namespace of the target table must already exist", true, true);
@@ -696,13 +683,9 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         }
         String sourcePaths = getConf().get(SOURCE_PATHS_PROPERTY);
         String target = getConf().get(TARGET_TABLE_PROPERTY);
-        TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
-            NTriplesUtil.class,
-            Rio.class,
-            AbstractRDFHandler.class,
-            RDFFormat.class,
-            RDFParser.class);
+
         HBaseConfiguration.addHbaseResources(getConf());
+
         Job job = Job.getInstance(getConf(), "HalyardBulkLoad -> " + workdir + " -> " + target);
         job.setJarByClass(HalyardBulkLoad.class);
         job.setMapperClass(RDFMapper.class);
@@ -710,28 +693,50 @@ public final class HalyardBulkLoad extends AbstractHalyardTool {
         job.setMapOutputValueClass(KeyValue.class);
         job.setInputFormatClass(RioFileInputFormat.class);
         job.setSpeculativeExecution(false);
-		Connection conn = HalyardTableUtils.getConnection(getConf());
-		try (Table hTable = HalyardTableUtils.getTable(conn, target, true, getConf().getInt(SPLIT_BITS_PROPERTY, DEFAULT_SPLIT_BITS))) {
-			TableName tableName = hTable.getName();
-			RegionLocator regionLocator = conn.getRegionLocator(tableName);
-			HFileOutputFormat2.configureIncrementalLoad(job, hTable.getDescriptor(), regionLocator);
-            FileInputFormat.setInputDirRecursive(job, true);
-            FileInputFormat.setInputPaths(job, sourcePaths);
-            Path outPath = new Path(workdir);
-            FileOutputFormat.setOutputPath(job, outPath);
-            TableMapReduceUtil.addDependencyJars(job);
-            TableMapReduceUtil.initCredentials(job);
-            if (job.waitForCompletion(true)) {
-                if (getConf().getBoolean(TRUNCATE_PROPERTY, false)) {
-					HalyardTableUtils.clearStatements(conn, tableName);
-                }
-				bulkLoad(tableName, outPath);
-                LOG.info("Bulk Load completed.");
-                return 0;
-            } else {
-        		LOG.error("Bulk Load failed to complete.");
-                return -1;
+        FileInputFormat.setInputDirRecursive(job, true);
+        FileInputFormat.setInputPaths(job, sourcePaths);
+        Path outPath = new Path(workdir);
+        FileOutputFormat.setOutputPath(job, outPath);
+        TableMapReduceUtil.initCredentials(job);
+        TableMapReduceUtil.addDependencyJars(job);
+        TableMapReduceUtil.addDependencyJarsForClasses(job.getConfiguration(),
+                NTriplesUtil.class,
+                Rio.class,
+                AbstractRDFHandler.class,
+                RDFFormat.class,
+                RDFParser.class);
+
+        TableDescriptor tableDesc;
+		try (Connection conn = HalyardTableUtils.getConnection(getConf())) {
+            try (Table hTable = HalyardTableUtils.getTable(conn, target, true, getConf().getInt(SPLIT_BITS_PROPERTY, DEFAULT_SPLIT_BITS))) {
+				tableDesc = hTable.getDescriptor();
+				RegionLocator regionLocator = conn.getRegionLocator(tableDesc.getTableName());
+				HFileOutputFormat2.configureIncrementalLoad(job, tableDesc, regionLocator);
+	        }
+            try (Keyspace keyspace = HalyardTableUtils.getKeyspace(getConf(), conn, tableDesc.getTableName(), null, null)) {
+            	try (KeyspaceConnection ksConn = keyspace.getConnection()) {
+            		RDFFactory.create(ksConn);  // migrate and validate config early before submitting the job
+            		HBaseConfiguration.merge(job.getConfiguration(), HalyardTableUtils.readConfig(ksConn));
+            	}
             }
+		}
+        int rc = run(job, tableDesc);
+        if (rc == 0) {
+        	TableName tableName = tableDesc.getTableName();
+            if (getConf().getBoolean(TRUNCATE_PROPERTY, false)) {
+        		try (Connection conn = HalyardTableUtils.getConnection(getConf())) {
+        			HalyardTableUtils.clearStatements(conn, tableName);
+        		}
+            }
+    		bulkLoad(tableName, outPath);
+            LOG.info("Bulk Load completed.");
+        } else {
+    		LOG.error("Bulk Load failed to complete.");
         }
+        return rc;
+    }
+
+    protected int run(Job job, TableDescriptor tableDesc) throws Exception {
+        return job.waitForCompletion(true) ? 0 : 1;
     }
 }

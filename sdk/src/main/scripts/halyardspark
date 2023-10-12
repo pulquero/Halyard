@@ -1,0 +1,7 @@
+#!/bin/bash
+halyard_home="$(dirname "${0}")"
+libjars="$(echo "$halyard_home"/spark-lib/*.jar | tr ' ' ',')"
+halyard_tools_jar="$halyard_home/spark-lib/halyard-tools-*.jar"
+export HADOOP_CONF_DIR=`hadoop envvars | sed -n 's/HADOOP_CONF_DIR=//p' | xargs`
+. hbase-config.sh
+spark-submit --class com.msd.gin.halyard.tools.HalyardSparkMain --master yarn --deploy-mode client --driver-class-path $HBASE_CONF_DIR --jars $libjars $halyard_tools_jar "$1" -conf /etc/hbase/conf/hbase-site.xml -conf $halyard_home/halyard-defaults.xml "${@:2}"
