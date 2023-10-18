@@ -106,8 +106,11 @@ import org.slf4j.LoggerFactory;
 public class HBaseSailConnection extends AbstractSailConnection implements BindingSetConsumerSailConnection, BindingSetPipeSailConnection {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HBaseSailConnection.class);
 
-	public static final String SOURCE_STRING_BINDING = "__source__";
-	public static final String UPDATE_PART_BINDING = "__update_part__";
+	private static final String INTERNAL_BINDING_PREFIX = "__halyard_";
+	private static final String INTERNAL_BINDING_SUFFIX = "__";
+
+	public static final String SOURCE_STRING_BINDING = internalBinding("source");
+	public static final String UPDATE_PART_BINDING = internalBinding("update_part");
 	private static final int NO_UPDATE_PARTS = -1;
 	private static final String CONNECTION_ID_ATTRIBUTE = "connectionId";
 
@@ -394,7 +397,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private BindingSet removeImplicitBindings(BindingSet bs) {
 		QueryBindingSet cleaned = new QueryBindingSet();
 		for (Binding b : bs) {
-			if (!(b.getName().startsWith("__") && b.getName().endsWith("__"))) {
+			if (!isInternalBinding(b.getName())) {
 				cleaned.addBinding(b);
 			}
 		}
@@ -972,5 +975,13 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	@FunctionalInterface
 	private static interface QueryEvaluator<E> {
 		E evaluate(TupleExpr optimizedTree, QueryEvaluationStep step, HBaseSail.QueryInfo queryInfo);
+	}
+
+	private static String internalBinding(String name) {
+		return INTERNAL_BINDING_PREFIX + name + INTERNAL_BINDING_SUFFIX;
+	}
+
+	private static boolean isInternalBinding(String name) {
+		return name.startsWith(INTERNAL_BINDING_PREFIX) && name.endsWith(INTERNAL_BINDING_SUFFIX);
 	}
 }
