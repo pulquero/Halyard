@@ -34,9 +34,10 @@ import org.eclipse.rdf4j.model.vocabulary.SESAME;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.GraphQueryResult;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.QueryResult;
+import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
+import org.eclipse.rdf4j.query.Update;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
@@ -71,7 +72,7 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testService() {
         String sparql = "SELECT * WHERE {SERVICE <repository:memory> { VALUES ?s {1} }}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(sparql).evaluate()) {
             res.hasNext();
 	        assertEquals(1, ((Literal) res.next().getValue("s")).intValue());
         }
@@ -80,7 +81,7 @@ public class HalyardStrategyExtendedTest {
     @Test(expected = QueryEvaluationException.class)
     public void testServiceNotReachable() throws Exception {
         String sparql = "SELECT * WHERE {SERVICE <http://whatever/> { ?s ?p ?o . }}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(sparql).evaluate()) {
             res.hasNext();
         }
     }
@@ -88,7 +89,7 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testServiceSilent() throws Exception {
         String sparql = "SELECT * WHERE {SERVICE SILENT <http://whatever/> { ?s ?p ?o . }}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(sparql).evaluate()) {
             res.hasNext();
         }
     }
@@ -96,7 +97,7 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testServicePushOnly() {
         String sparql = "SELECT * WHERE {SERVICE <repository:pushOnly> { VALUES ?s {1} }}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(sparql).evaluate()) {
             res.hasNext();
 	        assertEquals(1, ((Literal) res.next().getValue("s")).intValue());
         }
@@ -106,7 +107,7 @@ public class HalyardStrategyExtendedTest {
     public void testAskSailFederatedService() {
     	// SERVICE query with all bound variables should be evaluated as an ASK query
         String sparql = "SELECT * WHERE {VALUES (?s ?p ?o) {(<http://whatever> <http://whatever> <http://whatever>)} SERVICE <repository:askOnly> { ?s ?p ?o }}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(sparql).evaluate()) {
             res.hasNext();
         }
     }
@@ -114,7 +115,7 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testReduced() throws Exception {
         String sparql = "SELECT REDUCED ?a WHERE {VALUES ?a {0 0 1 1 0 0 1 1}}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(sparql).evaluate()) {
 	        assertTrue(res.hasNext());
 	        assertEquals(0, ((Literal) res.next().getValue("a")).intValue());
 	        assertTrue(res.hasNext());
@@ -135,14 +136,14 @@ public class HalyardStrategyExtendedTest {
             con.add(vf.createIRI("http://example.com/" + c), RDF.TYPE, person);
         }
         String sparql = "PREFIX : <http://example.com/>\n" + "PREFIX schema: <http://schema.org/>\n" + "\n" + "SELECT (COUNT(*) AS ?count)\n" + "WHERE {\n" + "  {\n" + "    SELECT ?person\n" + "    WHERE {\n" + "      ?person a schema:Person .\n" + "    }\n" + "    LIMIT 5\n" + "  }\n" + "  OPTIONAL {\n" + "    [] :nonexistent [] .\n" + "  }\n" + "}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(sparql).evaluate()) {
         	assertEquals(5, ((Literal) res.next().getBinding("count").getValue()).intValue());
         }
     }
 
     @Test (expected = QueryEvaluationException.class)
     public void testInvalidFunction() {
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, "PREFIX fn: <http://example.com/>\nSELECT ?whatever\nWHERE {\nBIND (fn:whatever(\"foo\") AS ?whatever)\n}").evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery("PREFIX fn: <http://example.com/>\nSELECT ?whatever\nWHERE {\nBIND (fn:whatever(\"foo\") AS ?whatever)\n}").evaluate()) {
         	res.hasNext();
         }
     }
@@ -153,7 +154,7 @@ public class HalyardStrategyExtendedTest {
         con.add(vf.createIRI("http://a"), vf.createIRI("http://b"), vf.createIRI("http://c"));
         con.add(vf.createIRI("http://a"), vf.createIRI("http://d"), vf.createIRI("http://e"), vf.createIRI("http://f"));
         String sparql = "PREFIX sesame: <" + SESAME.NAMESPACE + ">\nSELECT (COUNT(*) AS ?count)\n" + "FROM sesame:nil WHERE {?s ?p ?o}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, sparql).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(sparql).evaluate()) {
         	assertEquals(1, ((Literal) res.next().getBinding("count").getValue()).intValue());
         }
     }
@@ -163,7 +164,7 @@ public class HalyardStrategyExtendedTest {
         SimpleValueFactory vf = SimpleValueFactory.getInstance();
         con.add(vf.createIRI("http://a"), vf.createIRI("http://b"), vf.createIRI("http://c"));
         con.add(vf.createIRI("http://a"), vf.createIRI("http://d"), vf.createIRI("http://e"), vf.createIRI("http://f"));
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, "PREFIX rdf4j: <" + RDF4J.NAMESPACE + ">\nSELECT (COUNT(*) AS ?count)\n" + "FROM rdf4j:nil WHERE {?s ?p ?o}").evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery("PREFIX rdf4j: <" + RDF4J.NAMESPACE + ">\nSELECT (COUNT(*) AS ?count)\n" + "FROM rdf4j:nil WHERE {?s ?p ?o}").evaluate()) {
         	assertEquals(1, ((Literal) res.next().getBinding("count").getValue()).intValue());
         }
     }
@@ -173,7 +174,7 @@ public class HalyardStrategyExtendedTest {
         String q = "SELECT * WHERE {" +
             "  OPTIONAL {<https://nonexisting> <https://nonexisting> <https://nonexisting> .}" +
             "}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
         	assertTrue(res.hasNext());
         }
     }
@@ -183,7 +184,7 @@ public class HalyardStrategyExtendedTest {
         String q = "SELECT * WHERE {" +
             "  OPTIONAL { SELECT * WHERE {<https://nonexisting> <https://nonexisting> <https://nonexisting> .}}" +
             "}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
         	assertFalse(res.hasNext());
         }
     }
@@ -191,7 +192,7 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testAggregates() {
     	String q = "SELECT (MAX(?x) as ?maxx) (MIN(?x) as ?minx) (AVG(?x) as ?avgx) (SUM(?x) as ?sumx) (COUNT(?x) as ?countx) (SAMPLE(?x) as ?samplex) (GROUP_CONCAT(?x) as ?concatx) { VALUES ?x {1 2 2 3} }";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
 	        assertTrue(res.hasNext());
 	        BindingSet bs = res.next();
 	        assertEquals(3, ((Literal) bs.getValue("maxx")).intValue());
@@ -207,7 +208,7 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testDistinctAggregates() {
     	String q = "SELECT (MAX(distinct ?x) as ?maxx) (MIN(distinct ?x) as ?minx) (AVG(distinct ?x) as ?avgx) (SUM(distinct ?x) as ?sumx) (COUNT(distinct ?x) as ?countx) (SAMPLE(distinct ?x) as ?samplex) (GROUP_CONCAT(distinct ?x) as ?concatx) { VALUES ?x {1 2 2 3} }";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
 	        assertTrue(res.hasNext());
 	        BindingSet bs = res.next();
 	        assertEquals(3, ((Literal) bs.getValue("maxx")).intValue());
@@ -223,7 +224,7 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testEmptyAggregate() {
     	String q = "SELECT (MAX(?x) as ?maxx) {}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
 	        assertTrue(res.hasNext());
 	        BindingSet bs = res.next();
 	        assertEquals(0, bs.size());
@@ -244,7 +245,7 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testConstantAggregates() {
     	String q = "SELECT (MAX(-2) as ?maxx) (MIN(3) as ?minx) (AVG(1) as ?avgx) (SUM(7) as ?sumx) (COUNT('foo') as ?countx) (SAMPLE('bar') as ?samplex) (GROUP_CONCAT('foobar') as ?concatx) { }";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
 	        assertTrue(res.hasNext());
 	        BindingSet bs = res.next();
 	        assertEquals(-2, ((Literal) bs.getValue("maxx")).intValue());
@@ -263,7 +264,7 @@ public class HalyardStrategyExtendedTest {
         con.add(vf.createIRI("http://whatever/a"), vf.createIRI("http://whatever/val"), vf.createLiteral(1));
         con.add(vf.createIRI("http://whatever/a"), vf.createIRI("http://whatever/val"), vf.createLiteral(1), vf.createIRI("http://whatever/graph"));
     	String q = "SELECT (count(*) as ?c) { ?s ?p ?o }";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
 	        assertTrue(res.hasNext());
 	        BindingSet bs = res.next();
 	        assertEquals(2, ((Literal)bs.getValue("c")).intValue());
@@ -273,7 +274,7 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testTripleValue() {
     	String q = "SELECT (<< <http://whatever/a> <http://whatever/val> 1 >> as ?t) {}";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
 	        assertTrue(res.hasNext());
 	        BindingSet bs = res.next();
 	        assertTrue(bs.getValue("t").isTriple());
@@ -285,7 +286,7 @@ public class HalyardStrategyExtendedTest {
         ValueFactory vf = con.getValueFactory();
         con.add(vf.createIRI("http://whatever/a"), vf.createIRI("http://whatever/val"), vf.createTriple(vf.createIRI("http://whatever/a"), vf.createIRI("http://whatever/val"), vf.createLiteral(1)));
     	String q = "SELECT ?o { <http://whatever/a> <http://whatever/val> << ?s ?p ?o >> }";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
 	        assertTrue(res.hasNext());
 	        BindingSet bs = res.next();
 	        assertEquals(1, ((Literal)bs.getValue("o")).intValue());
@@ -297,7 +298,7 @@ public class HalyardStrategyExtendedTest {
         ValueFactory vf = con.getValueFactory();
         con.add(vf.createIRI("http://whatever/a"), vf.createIRI("http://whatever/val"), vf.createTriple(vf.createIRI("http://whatever/a"), vf.createIRI("http://whatever/val"), vf.createLiteral(1)));
     	String q = "SELECT ?o { ?s ?p << <http://whatever/a> <http://whatever/val> ?o >> }";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
 	        assertTrue(res.hasNext());
 	        BindingSet bs = res.next();
 	        assertEquals(1, ((Literal)bs.getValue("o")).intValue());
@@ -307,20 +308,20 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testNonConstantPatternRegex() {
     	String q = "ASK { VALUES (?t ?p) {('abc' 'a.c')} FILTER(regex(?t, ?p)) }";
-        assertTrue(con.prepareBooleanQuery(QueryLanguage.SPARQL, q).evaluate());
+        assertTrue(con.prepareBooleanQuery(q).evaluate());
     }
 
     @Test
     public void testConstantIn() {
     	String q = "ASK { FILTER('b' in ('a', 'b', 'c')) }";
-        assertTrue(con.prepareBooleanQuery(QueryLanguage.SPARQL, q).evaluate());
+        assertTrue(con.prepareBooleanQuery(q).evaluate());
     }
 
     @Test
     public void testJoinEarlyTermination() throws Exception {
         con.add(getClass().getResource("/testdata-query/dataset-query.trig"));
     	String q = "PREFIX ex: <http://example.org/> SELECT * { ?s ex:name ?n; ex:hasParent ?p } LIMIT 4";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
 	        assertEquals(4, countSlowly(res));
         }
     }
@@ -329,7 +330,7 @@ public class HalyardStrategyExtendedTest {
     public void testUnionEarlyTermination() throws Exception {
         con.add(getClass().getResource("/testdata-query/dataset-query.trig"));
     	String q = "PREFIX ex: <http://example.org/> SELECT ?s { {?s ex:name ?n} UNION {?s ex:hasParent ?p} } LIMIT 4";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
 	        assertEquals(4, countSlowly(res));
         }
     }
@@ -338,7 +339,7 @@ public class HalyardStrategyExtendedTest {
     public void testConstruct() throws Exception {
         con.add(getClass().getResource("/testdata-query/dataset-query.trig"));
     	String q = "PREFIX ex: <http://example.org/> PREFIX foaf: <http://xmlns.com/foaf/0.1/> CONSTRUCT {ex:Person rdfs:subClassOf ex:Thing. ?p a ex:Person} WHERE { [] foaf:knows+ ?p }";
-        try (GraphQueryResult res = con.prepareGraphQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (GraphQueryResult res = con.prepareGraphQuery(q).evaluate()) {
 	        assertEquals(4, countDistinct(res));
         }
     }
@@ -346,9 +347,35 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testFunctionGraph() throws Exception {
     	String q = "SELECT (COUNT(?s) as ?c) FROM <" + HALYARD.FUNCTION_GRAPH_CONTEXT + "> WHERE { ?s a <http://spinrdf.org/spin#Function> }";
-        try (TupleQueryResult res = con.prepareTupleQuery(QueryLanguage.SPARQL, q).evaluate()) {
+        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
 	        assertEquals(162, ((Literal)res.next().getValue("c")).intValue());
         }
+    }
+
+    @Test
+    public void testDeleteGraphUsingBindings() throws Exception {
+        ValueFactory vf = con.getValueFactory();
+        con.add(getClass().getResource("/testdata-query/dataset-query.trig"));
+        int total;
+        try (TupleQueryResult res = con.prepareTupleQuery("SELECT (COUNT(?s) as ?c) {?s ?p ?o}").evaluate()) {
+	        total = ((Literal)res.next().getValue("c")).intValue();
+        }
+        assertEquals(47, total);
+        int graphSize;
+        TupleQuery gcQuery = con.prepareTupleQuery("SELECT (COUNT(?s) as ?c) {GRAPH $g {?s ?p ?o}}");
+        gcQuery.setBinding("g", vf.createIRI("http://example.org/graph3"));
+        try (TupleQueryResult res = gcQuery.evaluate()) {
+	        graphSize = ((Literal)res.next().getValue("c")).intValue();
+        }
+        assertEquals(2, graphSize);
+        Update update = con.prepareUpdate("DELETE WHERE {GRAPH $g {?s ?p ?o}}");
+        update.setBinding("g", vf.createIRI("http://example.org/graph3"));
+        update.execute();
+        int totalAfterDelete;
+        try (TupleQueryResult res = con.prepareTupleQuery("SELECT (COUNT(?s) as ?c) {?s ?p ?o}").evaluate()) {
+	        totalAfterDelete = ((Literal)res.next().getValue("c")).intValue();
+        }
+        assertEquals(total-graphSize, totalAfterDelete);
     }
 
     private static int countDistinct(QueryResult<?> res) throws InterruptedException {
