@@ -9,11 +9,11 @@ public final class EvaluationConfig {
 	public static final String QUERY_CACHE_MAX_SIZE = "hayard.evaluation.maxQueryCacheSize";
 	public static final String QUERY_HISTORY_MAX_SIZE = "hayard.evaluation.maxQueryHistorySize";
 
-	final int queryCacheSize;
-	final boolean trackResultSize;
-	final boolean trackResultTime;
-	final boolean trackBranchOperatorsOnly;
-	final int maxQueryHistorySize;
+	public final int queryCacheSize;
+	public final boolean trackResultSize;
+	public final boolean trackResultTime;
+	public final boolean trackBranchOperatorsOnly;
+	public final int maxQueryHistorySize;
 
 	EvaluationConfig(Configuration config) {
 		queryCacheSize = config.getInt(EvaluationConfig.QUERY_CACHE_MAX_SIZE, 100);

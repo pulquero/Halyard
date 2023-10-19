@@ -229,7 +229,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		EvaluationStrategy strategy;
 		HalyardEvaluationStatistics stats = sail.getStatistics();
 		if (usePush) {
-			strategy = new HalyardEvaluationStrategy(sail.strategyConfig, source, sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), sail.getAggregateFunctionRegistry(), dataset, sail.getFederatedServiceResolver(), stats,
+			strategy = new HalyardEvaluationStrategy(sail.getStrategyConfig(), source, sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), sail.getAggregateFunctionRegistry(), dataset, sail.getFederatedServiceResolver(), stats,
 					getExecutor());
 		} else {
 			strategy = new ExtendedEvaluationStrategy(source, dataset, sail.getFederatedServiceResolver(), sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), 0L, stats);

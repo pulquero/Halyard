@@ -225,7 +225,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private final ScanSettings scanSettings = new ScanSettings();
 	final SailConnectionFactory connFactory;
 	private EvaluationConfig evaluationConfig;
-	StrategyConfig strategyConfig;
+	private StrategyConfig strategyConfig;
 	Connection hConnection;
 	final boolean hConnectionIsShared; //whether a Connection is provided or we need to create our own
 	Keyspace keyspace;
@@ -381,6 +381,14 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	@Override
 	public int getEvaluationTimeout() {
 		return evaluationTimeoutSecs;
+	}
+
+	public EvaluationConfig getEvaluationConfig() {
+		return evaluationConfig;
+	}
+
+	public StrategyConfig getStrategyConfig() {
+		return strategyConfig;
 	}
 
 	@Override

@@ -122,4 +122,43 @@ public final class Algebra {
 	    return v;
 	}
 
+	public static void _initResultSizeActual(QueryModelNode queryModelNode) {
+		queryModelNode.setResultSizeActual(Math.max(0, queryModelNode.getResultSizeActual()));
+	}
+
+	public static void _incrementResultSizeActual(QueryModelNode queryModelNode, long delta) {
+		queryModelNode.setResultSizeActual(queryModelNode.getResultSizeActual() + delta);
+	}
+
+	public static void _initTotalTimeNanosActual(QueryModelNode queryModelNode) {
+		queryModelNode.setTotalTimeNanosActual(Math.max(0, queryModelNode.getTotalTimeNanosActual()));
+	}
+
+	public static void _incrementTotalTimeNanosActual(QueryModelNode queryModelNode, long delta) {
+		queryModelNode.setTotalTimeNanosActual(queryModelNode.getTotalTimeNanosActual() + delta);
+	}
+
+	public static void initResultSizeActual(QueryModelNode queryModelNode) {
+		synchronized (queryModelNode) {
+			_initResultSizeActual(queryModelNode);
+		}
+	}
+
+	public static void incrementResultSizeActual(QueryModelNode queryModelNode, long delta) {
+		synchronized (queryModelNode) {
+			_incrementResultSizeActual(queryModelNode, delta);
+		}
+	}
+
+	public static void initTotalTimeNanosActual(QueryModelNode queryModelNode) {
+		synchronized (queryModelNode) {
+			_initTotalTimeNanosActual(queryModelNode);
+		}
+	}
+
+	public static void incrementTotalTimeNanosActual(QueryModelNode queryModelNode, long delta) {
+		synchronized (queryModelNode) {
+			_incrementTotalTimeNanosActual(queryModelNode, delta);
+		}
+	}
 }

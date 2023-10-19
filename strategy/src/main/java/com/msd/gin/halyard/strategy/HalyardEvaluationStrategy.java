@@ -359,10 +359,8 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		private ResultSizeCountingBindingSetPipe(BindingSetPipe parent, TupleExpr expr) {
 			super(parent);
 			this.queryNode = expr;
-			synchronized (queryNode) {
-				// set resultsSizeActual to at least be 0 so we can track iterations that don't produce anything
-				queryNode.setResultSizeActual(Math.max(0, queryNode.getResultSizeActual()));
-			}
+			// set resultsSizeActual to at least be 0 so we can track iterations that don't produce anything
+			Algebra.initResultSizeActual(queryNode);
 		}
 
 		@Override
@@ -386,12 +384,10 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			parent.close();
 		}
 
-		private void updateResultSize() {
-			synchronized (queryNode) {
-				long count = counter.get();
-				queryNode.setResultSizeActual(queryNode.getResultSizeActual() + count - lastCount);
-				lastCount = count;
-			}
+		private synchronized void updateResultSize() {
+			long count = counter.get();
+			Algebra.incrementResultSizeActual(queryNode, count - lastCount);
+			lastCount = count;
 		}
 	}
 
@@ -403,6 +399,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		private TimedBindingSetPipe(BindingSetPipe parent, TupleExpr expr) {
 			super(parent);
 			this.queryNode = expr;
+			Algebra.initTotalTimeNanosActual(queryNode);
 		}
 
 		@Override
@@ -429,12 +426,10 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			parent.close();
 		}
 
-		private void updateResultTime() {
-			synchronized (queryNode) {
-				long nanos = elapsed.get();
-				queryNode.setTotalTimeNanosActual(queryNode.getTotalTimeNanosActual() + nanos - lastNanos);
-				lastNanos = nanos;
-			}
+		private synchronized void updateResultTime() {
+			long nanos = elapsed.get();
+			Algebra.incrementTotalTimeNanosActual(queryNode, nanos - lastNanos);
+			lastNanos = nanos;
 		}
 	}
 
@@ -454,7 +449,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			this.iterator = iterator;
 			this.queryModelNode = queryModelNode;
 			// set resultsSizeActual to at least be 0 so we can track iterations that don't produce anything
-			queryModelNode.setResultSizeActual(Math.max(0, queryModelNode.getResultSizeActual()));
+			Algebra.initResultSizeActual(queryModelNode);
 		}
 
 		@Override
@@ -473,10 +468,8 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		}
 
 		private void updateResultSize() {
-			synchronized (queryModelNode) {
-				queryModelNode.setResultSizeActual(queryModelNode.getResultSizeActual() + counter);
-			}
-			counter = 0;
+			Algebra.incrementResultSizeActual(queryModelNode, counter);
+			counter = 0L;
 		}
 	}
 
@@ -494,6 +487,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			super(iterator);
 			this.iterator = iterator;
 			this.queryModelNode = queryModelNode;
+			Algebra.initTotalTimeNanosActual(queryModelNode);
 		}
 
 		@Override
@@ -527,10 +521,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		}
 
 		private void updateResultTime() {
-			synchronized (queryModelNode) {
-				queryModelNode.setTotalTimeNanosActual(
-					queryModelNode.getTotalTimeNanosActual() + elapsed);
-			}
+			Algebra.incrementTotalTimeNanosActual(queryModelNode, elapsed);
 			elapsed = 0L;
 		}
 	}

@@ -12,6 +12,7 @@ import com.msd.gin.halyard.sail.HBaseSailConnection;
 import com.msd.gin.halyard.sail.TimestampedUpdateContext;
 import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
 import com.msd.gin.halyard.spin.SpinParser;
+import com.msd.gin.halyard.strategy.StrategyConfig;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
@@ -160,7 +161,7 @@ public class HBaseUpdate extends SailUpdate {
 					insertClause = optimize(insertClause, uc.getDataset(), uc.getBindingSet(), false);
 					InsertCollector insertCollector = new InsertCollector();
 					insertClause.visit(insertCollector);
-					insertAction = new InsertAction(tsUc, insertClause, insertCollector.getStatementPatterns(), insertCollector.getTupleFunctionCalls());
+					insertAction = new InsertAction(sail, con, vf, tsUc, insertClause, insertCollector.getStatementPatterns(), insertCollector.getTupleFunctionCalls());
 				} else {
 					insertAction = null;
 				}
@@ -172,26 +173,16 @@ public class HBaseUpdate extends SailUpdate {
 				if (deleteClause != null) {
 					// for deletes, TupleFunctions are expected in the where clause
 					whereClause = optimize(whereClause, uc.getDataset(), uc.getBindingSet(), true);
-					deleteAction = new DeleteAction(tsUc, deleteClause, StatementPatternCollector.process(deleteClause), WhereCollector.process(whereClause));
+					deleteAction = new DeleteAction(sail, con, vf, tsUc, deleteClause, StatementPatternCollector.process(deleteClause), WhereCollector.process(whereClause));
 				} else {
 					deleteAction = null;
 				}
 
-				if (con.isTrackResultSize()) {
-					if (deleteAction != null) {
-						deleteAction.resetResultSizeActual();
-					}
-					if (insertAction != null) {
-						insertAction.resetResultSizeActual();
-					}
+				if (deleteAction != null) {
+					deleteAction.resetResults();
 				}
-				if (con.isTrackResultTime()) {
-					if (deleteAction != null) {
-						deleteAction.resetTotalTimeNanosActual();
-					}
-					if (insertAction != null) {
-						insertAction.resetTotalTimeNanosActual();
-					}
+				if (insertAction != null) {
+					insertAction.resetResults();
 				}
 
 				try (CloseableConsumer<BindingSet> callback = TimeLimitConsumer.apply(next -> {
@@ -205,42 +196,18 @@ public class HBaseUpdate extends SailUpdate {
 					evaluateWhereClause(callback, whereClause, uc);
 				}
 
-				if (con.isTrackResultSize()) {
-					// copy final results back to original expressions
-					if (deleteAction != null) {
-						deleteAction.copyResultSizeActualTo(modify.getDeleteExpr());
-					}
-					if (insertAction != null) {
-						insertAction.copyResultSizeActualTo(modify.getInsertExpr());
-					}
+				// copy final results back to original expressions
+				if (deleteAction != null) {
+					deleteAction.updateResults(true);
+					deleteAction.copyResults(modify.getDeleteExpr());
 				}
-				if (con.isTrackResultTime()) {
-					// copy final results back to original expressions
-					if (deleteAction != null) {
-						deleteAction.copyTotalTimeNanosActualTo(modify.getDeleteExpr());
-					}
-					if (insertAction != null) {
-						insertAction.copyTotalTimeNanosActualTo(modify.getInsertExpr());
-					}
+				if (insertAction != null) {
+					insertAction.updateResults(true);
+					insertAction.copyResults(modify.getInsertExpr());
 				}
 			} catch (QueryEvaluationException e) {
 				throw new SailException(e);
 			}
-		}
-
-		private IRI[] getDefaultRemoveGraphs(Dataset dataset) {
-			if (dataset == null) {
-				return new IRI[0];
-			}
-			Set<IRI> set = new HashSet<>(dataset.getDefaultRemoveGraphs());
-			if (set.isEmpty()) {
-				return new IRI[0];
-			}
-			if (set.remove(RDF4J.NIL) | set.remove(SESAME.NIL)) {
-				set.add(null);
-			}
-
-			return set.toArray(new IRI[set.size()]);
 		}
 
 		private TupleExpr optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeMatchingTriples) {
@@ -295,331 +262,6 @@ public class HBaseUpdate extends SailUpdate {
 			con.evaluate(ucHandler, whereClause, uc.getDataset(), uc.getBindingSet(), uc.isIncludeInferred());
 		}
 
-		final class DeleteAction extends ModifyInfo {
-			List<StatementDeleter> spDeleters;
-
-			DeleteAction(TimestampedUpdateContext uc, TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls) {
-				super(clause, stPatterns, tupleFunctionCalls);
-				spDeleters = new ArrayList<>(stPatterns.size());
-				for (StatementPattern sp : stPatterns) {
-					spDeleters.add(new StatementDeleter(uc, sp, this));
-				}
-			}
-
-			void deleteBoundTriples(BindingSet whereBinding) throws SailException {
-				int deleteCount = 0;
-				Stopwatch stopwatch;
-				if (con.isTrackResultTime()) {
-					stopwatch = Stopwatch.createStarted();
-				} else {
-					stopwatch = null;
-				}
-
-				for (StatementDeleter spDelete : spDeleters) {
-					if (spDelete.delete(whereBinding)) {
-						deleteCount++;
-					}
-				}
-				if (con.isTrackResultTime()) {
-					stopwatch.stop();
-					clause.setTotalTimeNanosActual(clause.getTotalTimeNanosActual() + stopwatch.elapsed(TimeUnit.NANOSECONDS));
-				}
-				if (con.isTrackResultSize()) {
-					clause.setResultSizeActual(clause.getResultSizeActual() + deleteCount);
-				}
-			}
-		}
-
-		final class StatementDeleter extends StatementModifier {
-			final StatementPattern deletePattern;
-
-			StatementDeleter(TimestampedUpdateContext uc, StatementPattern deletePattern, ModifyInfo deleteInfo) {
-				super(uc, deleteInfo);
-				this.deletePattern = deletePattern;
-			}
-
-			boolean delete(BindingSet whereBinding) {
-				Value patternValue = Algebra.getVarValue(deletePattern.getSubjectVar(), whereBinding);
-				Resource subject = patternValue instanceof Resource ? (Resource) patternValue : null;
-
-				patternValue = Algebra.getVarValue(deletePattern.getPredicateVar(), whereBinding);
-				IRI predicate = patternValue instanceof IRI ? (IRI) patternValue : null;
-
-				Value object = Algebra.getVarValue(deletePattern.getObjectVar(), whereBinding);
-
-				Resource context = null;
-				if (deletePattern.getContextVar() != null) {
-					patternValue = Algebra.getVarValue(deletePattern.getContextVar(), whereBinding);
-					context = patternValue instanceof Resource ? (Resource) patternValue : null;
-				}
-
-				if (subject == null || predicate == null || object == null) {
-					/*
-					 * skip removal of triple if any variable is unbound (may happen with optional patterns or if triple pattern forms illegal triple). See SES-1047 and #610.
-					 */
-					return false;
-				}
-
-				Statement toBeDeleted = (context != null) ? vf.createStatement(subject, predicate, object, context) : vf.createStatement(subject, predicate, object);
-				updateTimestamp(toBeDeleted, whereBinding);
-
-				if (context != null) {
-					if (RDF4J.NIL.equals(context) || SESAME.NIL.equals(context)) {
-						return deleteStatement(subject, predicate, object, (Resource) null);
-					} else {
-						return deleteStatement(subject, predicate, object, context);
-					}
-				} else {
-					IRI[] removeCtxs = getDefaultRemoveGraphs(uc.getDataset());
-					return deleteStatement(subject, predicate, object, removeCtxs);
-				}
-			}
-
-			private boolean deleteStatement(Resource s, IRI p, Value o, Resource... ctxs) {
-				boolean isNew = isNew(s, p, o, ctxs);
-				if (isNew) {
-					con.removeStatement(uc, s, p, o, ctxs);
-				}
-				return isNew;
-			}
-		}
-
-		final class InsertAction extends ModifyInfo {
-			List<StatementInserter> spInserters;
-
-			InsertAction(TimestampedUpdateContext uc, TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls) {
-				super(clause, stPatterns, tupleFunctionCalls);
-				spInserters = new ArrayList<>(stPatterns.size());
-				for (StatementPattern sp : stPatterns) {
-					spInserters.add(new StatementInserter(uc, sp, this));
-				}
-			}
-
-			void insertBoundTriples(BindingSet whereBinding) throws SailException {
-				int insertCount = 0;
-				Stopwatch stopwatch;
-				if (con.isTrackResultTime()) {
-					stopwatch = Stopwatch.createStarted();
-				} else {
-					stopwatch = null;
-				}
-				// bnodes in the insert pattern are locally scoped for each
-				// individual source binding.
-				MapBindingSet bnodeMapping = new MapBindingSet();
-				for (StatementInserter spInsert : spInserters) {
-					if (spInsert.insert(whereBinding, bnodeMapping)) {
-						insertCount++;
-					}
-				}
-				if (con.isTrackResultTime()) {
-					stopwatch.stop();
-					clause.setTotalTimeNanosActual(clause.getTotalTimeNanosActual() + stopwatch.elapsed(TimeUnit.NANOSECONDS));
-				}
-				if (con.isTrackResultSize()) {
-					clause.setResultSizeActual(clause.getResultSizeActual() + insertCount);
-				}
-			}
-		}
-
-		final class StatementInserter extends StatementModifier {
-			final StatementPattern insertPattern;
-
-			StatementInserter(TimestampedUpdateContext uc, StatementPattern insertPattern, ModifyInfo insertInfo) {
-				super(uc, insertInfo);
-				this.insertPattern = insertPattern;
-			}
-
-			boolean insert(BindingSet whereBinding, MapBindingSet bnodeMapping) {
-				Statement toBeInserted = createStatementFromPattern(insertPattern, whereBinding, bnodeMapping);
-
-				if (toBeInserted != null) {
-					updateTimestamp(toBeInserted, whereBinding);
-
-					IRI with = uc.getDataset().getDefaultInsertGraph();
-					if (with == null && toBeInserted.getContext() == null) {
-						return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject());
-					} else if (toBeInserted.getContext() == null) {
-						return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), with);
-					} else {
-						return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), toBeInserted.getContext());
-					}
-				}
-				return false;
-			}
-
-			private boolean insertStatement(Resource s, IRI p, Value o, Resource... ctxs) {
-				boolean isNew = isNew(s, p, o, ctxs);
-				if (isNew) {
-					con.addStatement(uc, s, p, o, ctxs);
-				}
-				return isNew;
-			}
-
-			private Statement createStatementFromPattern(StatementPattern pattern, BindingSet sourceBinding, MapBindingSet bnodeMapping) throws SailException {
-				Resource subject = null;
-				IRI predicate = null;
-				Value object = null;
-				Resource context = null;
-
-				Value patternValue;
-				if (pattern.getSubjectVar().hasValue()) {
-					patternValue = pattern.getSubjectVar().getValue();
-					if (patternValue instanceof Resource) {
-						subject = (Resource) patternValue;
-					}
-				} else {
-					patternValue = sourceBinding.getValue(pattern.getSubjectVar().getName());
-					if (patternValue instanceof Resource) {
-						subject = (Resource) patternValue;
-					}
-
-					if (subject == null && pattern.getSubjectVar().isAnonymous()) {
-						Binding mappedSubject = bnodeMapping.getBinding(pattern.getSubjectVar().getName());
-
-						if (mappedSubject != null) {
-							patternValue = mappedSubject.getValue();
-							if (patternValue instanceof Resource) {
-								subject = (Resource) patternValue;
-							}
-						} else {
-							subject = vf.createBNode();
-							bnodeMapping.addBinding(pattern.getSubjectVar().getName(), subject);
-						}
-					}
-				}
-
-				if (subject == null) {
-					return null;
-				}
-
-				if (pattern.getPredicateVar().hasValue()) {
-					patternValue = pattern.getPredicateVar().getValue();
-					if (patternValue instanceof IRI) {
-						predicate = (IRI) patternValue;
-					}
-				} else {
-					patternValue = sourceBinding.getValue(pattern.getPredicateVar().getName());
-					if (patternValue instanceof IRI) {
-						predicate = (IRI) patternValue;
-					}
-				}
-
-				if (predicate == null) {
-					return null;
-				}
-
-				if (pattern.getObjectVar().hasValue()) {
-					object = pattern.getObjectVar().getValue();
-				} else {
-					object = sourceBinding.getValue(pattern.getObjectVar().getName());
-
-					if (object == null && pattern.getObjectVar().isAnonymous()) {
-						Binding mappedObject = bnodeMapping.getBinding(pattern.getObjectVar().getName());
-
-						if (mappedObject != null) {
-							patternValue = mappedObject.getValue();
-							if (patternValue instanceof Resource) {
-								object = (Resource) patternValue;
-							}
-						} else {
-							object = vf.createBNode();
-							bnodeMapping.addBinding(pattern.getObjectVar().getName(), object);
-						}
-					}
-				}
-
-				if (object == null) {
-					return null;
-				}
-
-				if (pattern.getContextVar() != null) {
-					if (pattern.getContextVar().hasValue()) {
-						patternValue = pattern.getContextVar().getValue();
-						if (patternValue instanceof Resource) {
-							context = (Resource) patternValue;
-						}
-					} else {
-						patternValue = sourceBinding.getValue(pattern.getContextVar().getName());
-						if (patternValue instanceof Resource) {
-							context = (Resource) patternValue;
-						}
-					}
-				}
-
-				Statement st;
-				if (context != null) {
-					st = vf.createStatement(subject, predicate, object, context);
-				} else {
-					st = vf.createStatement(subject, predicate, object);
-				}
-				return st;
-			}
-		}
-
-		abstract class StatementModifier {
-			final TimestampedUpdateContext uc;
-			final ModifyInfo modifyInfo;
-			final List<TupleFunctionCall> timestampTfcs;
-			Resource prevSubj;
-			IRI prevPred;
-			Value prevObj;
-			Resource[] prevCtxs;
-			long prevTimestamp;
-
-			StatementModifier(TimestampedUpdateContext uc, ModifyInfo modifyInfo) {
-				this.uc = uc;
-				this.modifyInfo = modifyInfo;
-				List<TupleFunctionCall> tfcs = modifyInfo.getTupleFunctionCalls();
-				timestampTfcs = new ArrayList<>(tfcs.size());
-				for (TupleFunctionCall tfc : tfcs) {
-					if (HALYARD.TIMESTAMP_PROPERTY.stringValue().equals(tfc.getURI())) {
-						timestampTfcs.add(tfc);
-					}
-				}
-			}
-
-			final boolean isNew(Resource s, IRI p, Value o, Resource... ctxs) {
-				long ts = uc.getTimestamp();
-				if (s.equals(prevSubj) && p.equals(prevPred) && o.equals(prevObj) && Arrays.equals(ctxs, prevCtxs) && ts == prevTimestamp) {
-					return false;
-				}
-				prevSubj = s;
-				prevPred = p;
-				prevObj = o;
-				prevCtxs = ctxs;
-				prevTimestamp = ts;
-				return true;
-			}
-
-			final void updateTimestamp(Statement stmt, BindingSet bindings) {
-				for (TupleFunctionCall tfc : timestampTfcs) {
-					List<ValueExpr> args = tfc.getArgs();
-					Resource tsSubj = (Resource) Algebra.getVarValue((Var) args.get(0), bindings);
-					IRI tsPred = (IRI) Algebra.getVarValue((Var) args.get(1), bindings);
-					Value tsObj = Algebra.getVarValue((Var) args.get(2), bindings);
-					Statement tsStmt;
-					if (args.size() == 3) {
-						tsStmt = vf.createStatement(tsSubj, tsPred, tsObj);
-					} else if (args.size() == 4) {
-						Resource tsCtx = (Resource) Algebra.getVarValue((Var) args.get(3), bindings);
-						tsStmt = vf.createStatement(tsSubj, tsPred, tsObj, tsCtx);
-					} else {
-						tsStmt = null;
-					}
-					if (stmt.equals(tsStmt)) {
-						Literal ts = (Literal) Algebra.getVarValue(tfc.getResultVars().get(0), bindings);
-						if (XSD.DATETIME.equals(ts.getDatatype())) {
-							uc.setTimestamp(ts.calendarValue().toGregorianCalendar().getTimeInMillis());
-						} else {
-							uc.setTimestamp(ts.longValue());
-						}
-						return;
-					}
-				}
-				uc.setTimestamp(Timestamped.NOT_SET);
-			}
-		}
-
 		@Override
 		protected void executeClear(Clear clearExpr, UpdateContext uc, int maxExecutionTime) throws SailException {
 			try {
@@ -627,8 +269,11 @@ public class HBaseUpdate extends SailUpdate {
 
 				long deletedCount;
 				Stopwatch stopwatch;
+				if (con.isTrackResultSize()) {
+					Algebra._initResultSizeActual(clearExpr);
+				}
 				if (con.isTrackResultTime()) {
-					clearExpr.setTotalTimeNanosActual(Math.max(0, clearExpr.getTotalTimeNanosActual()));
+					Algebra._initTotalTimeNanosActual(clearExpr);
 					stopwatch = Stopwatch.createStarted();
 				} else {
 					stopwatch = null;
@@ -665,10 +310,10 @@ public class HBaseUpdate extends SailUpdate {
 				}
 				if (con.isTrackResultTime()) {
 					stopwatch.stop();
-					clearExpr.setTotalTimeNanosActual(clearExpr.getTotalTimeNanosActual() + stopwatch.elapsed(TimeUnit.NANOSECONDS));
+					Algebra._incrementTotalTimeNanosActual(clearExpr, stopwatch.elapsed(TimeUnit.NANOSECONDS));
 				}
 				if (con.isTrackResultSize()) {
-					clearExpr.setResultSizeActual(deletedCount);
+					Algebra._incrementResultSizeActual(clearExpr, deletedCount);
 				}
 			} catch (SailException e) {
 				if (!clearExpr.isSilent()) {
@@ -678,12 +323,18 @@ public class HBaseUpdate extends SailUpdate {
 		}
 	}
 
-	static abstract class ModifyInfo {
+	static abstract class ModifyAction {
+		private final StrategyConfig config;
+		protected final HBaseSailConnection conn;
 		protected final TupleExpr clause;
 		private final List<StatementPattern> stPatterns;
 		private final List<TupleFunctionCall> tupleFunctionCalls;
+		protected long resultCounter;
+		protected Stopwatch stopwatch;
 
-		ModifyInfo(TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls) {
+		ModifyAction(HBaseSail sail, HBaseSailConnection conn, TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls) {
+			this.config = sail.getStrategyConfig();
+			this.conn = conn;
 			this.clause = clause;
 			this.stPatterns = stPatterns;
 			this.tupleFunctionCalls = tupleFunctionCalls;
@@ -701,20 +352,370 @@ public class HBaseUpdate extends SailUpdate {
 			return tupleFunctionCalls;
 		}
 
-		public final void resetResultSizeActual() {
-			clause.setResultSizeActual(Math.max(0, clause.getResultSizeActual()));
+		public final void resetResults() {
+			if (conn.isTrackResultTime()) {
+				Algebra._initTotalTimeNanosActual(clause);
+				stopwatch = Stopwatch.createUnstarted();
+			}
+			if (conn.isTrackResultSize()) {
+				Algebra._initResultSizeActual(clause);
+				resultCounter = 0;
+			}
 		}
 
-		public final void resetTotalTimeNanosActual() {
-			clause.setTotalTimeNanosActual(Math.max(0, clause.getTotalTimeNanosActual()));
+		public final void copyResults(TupleExpr expr) {
+			if (conn.isTrackResultTime()) {
+				expr.setTotalTimeNanosActual(Math.max(0, expr.getTotalTimeNanosActual()) + clause.getTotalTimeNanosActual());
+			}
+			if (conn.isTrackResultSize()) {
+				expr.setResultSizeActual(Math.max(0, expr.getResultSizeActual()) + clause.getResultSizeActual());
+			}
 		}
 
-		public final void copyResultSizeActualTo(TupleExpr expr) {
-			expr.setResultSizeActual(Math.max(0, expr.getResultSizeActual()) + clause.getResultSizeActual());
+		protected final void updateResults(boolean force) {
+			if (conn.isTrackResultTime()) {
+				long elapsed = stopwatch.elapsed(TimeUnit.NANOSECONDS);
+				if (force || elapsed > config.trackResultTimeUpdateInterval) {
+					Algebra._incrementTotalTimeNanosActual(clause, elapsed);
+					stopwatch.reset();
+				}
+			}
+			if (conn.isTrackResultSize()) {
+				if (force || resultCounter > config.trackResultSizeUpdateInterval) {
+					Algebra._incrementResultSizeActual(clause, resultCounter);
+					resultCounter = 0;
+				}
+			}
+		}
+	}
+
+	static final class DeleteAction extends ModifyAction {
+		List<StatementDeleter> spDeleters;
+
+		DeleteAction(HBaseSail sail, HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls) {
+			super(sail, conn, clause, stPatterns, tupleFunctionCalls);
+			spDeleters = new ArrayList<>(stPatterns.size());
+			for (StatementPattern sp : stPatterns) {
+				spDeleters.add(new StatementDeleter(conn, vf, uc, sp, this));
+			}
 		}
 
-		public final void copyTotalTimeNanosActualTo(TupleExpr expr) {
-			expr.setTotalTimeNanosActual(Math.max(0, expr.getTotalTimeNanosActual()) + clause.getTotalTimeNanosActual());
+		void deleteBoundTriples(BindingSet whereBinding) throws SailException {
+			if (stopwatch != null) {
+				stopwatch.start();
+			}
+
+			for (StatementDeleter spDelete : spDeleters) {
+				if (spDelete.delete(whereBinding)) {
+					resultCounter++;
+				}
+			}
+
+			if (stopwatch != null) {
+				stopwatch.stop();
+			}
+			updateResults(false);
+		}
+	}
+
+	static final class StatementDeleter extends StatementModifier {
+		final StatementPattern deletePattern;
+
+		StatementDeleter(HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, StatementPattern deletePattern, ModifyAction deleteInfo) {
+			super(conn, vf, uc, deleteInfo.getTupleFunctionCalls());
+			this.deletePattern = deletePattern;
+		}
+
+		boolean delete(BindingSet whereBinding) {
+			Value patternValue = Algebra.getVarValue(deletePattern.getSubjectVar(), whereBinding);
+			Resource subject = patternValue instanceof Resource ? (Resource) patternValue : null;
+
+			patternValue = Algebra.getVarValue(deletePattern.getPredicateVar(), whereBinding);
+			IRI predicate = patternValue instanceof IRI ? (IRI) patternValue : null;
+
+			Value object = Algebra.getVarValue(deletePattern.getObjectVar(), whereBinding);
+
+			Resource context = null;
+			if (deletePattern.getContextVar() != null) {
+				patternValue = Algebra.getVarValue(deletePattern.getContextVar(), whereBinding);
+				context = patternValue instanceof Resource ? (Resource) patternValue : null;
+			}
+
+			if (subject == null || predicate == null || object == null) {
+				/*
+				 * skip removal of triple if any variable is unbound (may happen with optional patterns or if triple pattern forms illegal triple). See SES-1047 and #610.
+				 */
+				return false;
+			}
+
+			Statement toBeDeleted = (context != null) ? vf.createStatement(subject, predicate, object, context) : vf.createStatement(subject, predicate, object);
+			updateTimestamp(toBeDeleted, whereBinding);
+
+			if (context != null) {
+				if (RDF4J.NIL.equals(context) || SESAME.NIL.equals(context)) {
+					return deleteStatement(subject, predicate, object, (Resource) null);
+				} else {
+					return deleteStatement(subject, predicate, object, context);
+				}
+			} else {
+				IRI[] removeCtxs = getDefaultRemoveGraphs(uc.getDataset());
+				return deleteStatement(subject, predicate, object, removeCtxs);
+			}
+		}
+
+		private IRI[] getDefaultRemoveGraphs(Dataset dataset) {
+			if (dataset == null) {
+				return new IRI[0];
+			}
+			Set<IRI> set = new HashSet<>(dataset.getDefaultRemoveGraphs());
+			if (set.isEmpty()) {
+				return new IRI[0];
+			}
+			if (set.remove(RDF4J.NIL) | set.remove(SESAME.NIL)) {
+				set.add(null);
+			}
+
+			return set.toArray(new IRI[set.size()]);
+		}
+
+		private boolean deleteStatement(Resource s, IRI p, Value o, Resource... ctxs) {
+			boolean isNew = isNew(s, p, o, ctxs);
+			if (isNew) {
+				conn.removeStatement(uc, s, p, o, ctxs);
+			}
+			return isNew;
+		}
+	}
+
+	static final class InsertAction extends ModifyAction {
+		List<StatementInserter> spInserters;
+
+		InsertAction(HBaseSail sail, HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls) {
+			super(sail, conn, clause, stPatterns, tupleFunctionCalls);
+			spInserters = new ArrayList<>(stPatterns.size());
+			for (StatementPattern sp : stPatterns) {
+				spInserters.add(new StatementInserter(conn, vf, uc, sp, this));
+			}
+		}
+
+		void insertBoundTriples(BindingSet whereBinding) throws SailException {
+			if (stopwatch != null) {
+				stopwatch.start();
+			}
+
+			// bnodes in the insert pattern are locally scoped for each
+			// individual source binding.
+			MapBindingSet bnodeMapping = new MapBindingSet();
+			for (StatementInserter spInsert : spInserters) {
+				if (spInsert.insert(whereBinding, bnodeMapping)) {
+					resultCounter++;
+				}
+			}
+
+			if (stopwatch != null) {
+				stopwatch.stop();
+			}
+			updateResults(false);
+		}
+	}
+
+	static final class StatementInserter extends StatementModifier {
+		final StatementPattern insertPattern;
+
+		StatementInserter(HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, StatementPattern insertPattern, ModifyAction insertInfo) {
+			super(conn, vf, uc, insertInfo.getTupleFunctionCalls());
+			this.insertPattern = insertPattern;
+		}
+
+		boolean insert(BindingSet whereBinding, MapBindingSet bnodeMapping) {
+			Statement toBeInserted = createStatementFromPattern(insertPattern, whereBinding, bnodeMapping);
+
+			if (toBeInserted != null) {
+				updateTimestamp(toBeInserted, whereBinding);
+
+				IRI with = uc.getDataset().getDefaultInsertGraph();
+				if (with == null && toBeInserted.getContext() == null) {
+					return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject());
+				} else if (toBeInserted.getContext() == null) {
+					return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), with);
+				} else {
+					return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), toBeInserted.getContext());
+				}
+			}
+			return false;
+		}
+
+		private boolean insertStatement(Resource s, IRI p, Value o, Resource... ctxs) {
+			boolean isNew = isNew(s, p, o, ctxs);
+			if (isNew) {
+				conn.addStatement(uc, s, p, o, ctxs);
+			}
+			return isNew;
+		}
+
+		private Statement createStatementFromPattern(StatementPattern pattern, BindingSet sourceBinding, MapBindingSet bnodeMapping) throws SailException {
+			Resource subject = null;
+			IRI predicate = null;
+			Value object = null;
+			Resource context = null;
+
+			Value patternValue;
+			if (pattern.getSubjectVar().hasValue()) {
+				patternValue = pattern.getSubjectVar().getValue();
+				if (patternValue instanceof Resource) {
+					subject = (Resource) patternValue;
+				}
+			} else {
+				patternValue = sourceBinding.getValue(pattern.getSubjectVar().getName());
+				if (patternValue instanceof Resource) {
+					subject = (Resource) patternValue;
+				}
+
+				if (subject == null && pattern.getSubjectVar().isAnonymous()) {
+					Binding mappedSubject = bnodeMapping.getBinding(pattern.getSubjectVar().getName());
+
+					if (mappedSubject != null) {
+						patternValue = mappedSubject.getValue();
+						if (patternValue instanceof Resource) {
+							subject = (Resource) patternValue;
+						}
+					} else {
+						subject = vf.createBNode();
+						bnodeMapping.addBinding(pattern.getSubjectVar().getName(), subject);
+					}
+				}
+			}
+
+			if (subject == null) {
+				return null;
+			}
+
+			if (pattern.getPredicateVar().hasValue()) {
+				patternValue = pattern.getPredicateVar().getValue();
+				if (patternValue instanceof IRI) {
+					predicate = (IRI) patternValue;
+				}
+			} else {
+				patternValue = sourceBinding.getValue(pattern.getPredicateVar().getName());
+				if (patternValue instanceof IRI) {
+					predicate = (IRI) patternValue;
+				}
+			}
+
+			if (predicate == null) {
+				return null;
+			}
+
+			if (pattern.getObjectVar().hasValue()) {
+				object = pattern.getObjectVar().getValue();
+			} else {
+				object = sourceBinding.getValue(pattern.getObjectVar().getName());
+
+				if (object == null && pattern.getObjectVar().isAnonymous()) {
+					Binding mappedObject = bnodeMapping.getBinding(pattern.getObjectVar().getName());
+
+					if (mappedObject != null) {
+						patternValue = mappedObject.getValue();
+						if (patternValue instanceof Resource) {
+							object = (Resource) patternValue;
+						}
+					} else {
+						object = vf.createBNode();
+						bnodeMapping.addBinding(pattern.getObjectVar().getName(), object);
+					}
+				}
+			}
+
+			if (object == null) {
+				return null;
+			}
+
+			if (pattern.getContextVar() != null) {
+				if (pattern.getContextVar().hasValue()) {
+					patternValue = pattern.getContextVar().getValue();
+					if (patternValue instanceof Resource) {
+						context = (Resource) patternValue;
+					}
+				} else {
+					patternValue = sourceBinding.getValue(pattern.getContextVar().getName());
+					if (patternValue instanceof Resource) {
+						context = (Resource) patternValue;
+					}
+				}
+			}
+
+			Statement st;
+			if (context != null) {
+				st = vf.createStatement(subject, predicate, object, context);
+			} else {
+				st = vf.createStatement(subject, predicate, object);
+			}
+			return st;
+		}
+	}
+
+	static abstract class StatementModifier {
+		final HBaseSailConnection conn;
+		final ValueFactory vf;
+		final TimestampedUpdateContext uc;
+		final List<TupleFunctionCall> timestampTfcs;
+		Resource prevSubj;
+		IRI prevPred;
+		Value prevObj;
+		Resource[] prevCtxs;
+		long prevTimestamp;
+
+		StatementModifier(HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, List<TupleFunctionCall> tfcs) {
+			this.conn = conn;
+			this.vf = vf;
+			this.uc = uc;
+			timestampTfcs = new ArrayList<>(tfcs.size());
+			for (TupleFunctionCall tfc : tfcs) {
+				if (HALYARD.TIMESTAMP_PROPERTY.stringValue().equals(tfc.getURI())) {
+					timestampTfcs.add(tfc);
+				}
+			}
+		}
+
+		final boolean isNew(Resource s, IRI p, Value o, Resource... ctxs) {
+			long ts = uc.getTimestamp();
+			if (s.equals(prevSubj) && p.equals(prevPred) && o.equals(prevObj) && Arrays.equals(ctxs, prevCtxs) && ts == prevTimestamp) {
+				return false;
+			}
+			prevSubj = s;
+			prevPred = p;
+			prevObj = o;
+			prevCtxs = ctxs;
+			prevTimestamp = ts;
+			return true;
+		}
+
+		final void updateTimestamp(Statement stmt, BindingSet bindings) {
+			for (TupleFunctionCall tfc : timestampTfcs) {
+				List<ValueExpr> args = tfc.getArgs();
+				Resource tsSubj = (Resource) Algebra.getVarValue((Var) args.get(0), bindings);
+				IRI tsPred = (IRI) Algebra.getVarValue((Var) args.get(1), bindings);
+				Value tsObj = Algebra.getVarValue((Var) args.get(2), bindings);
+				Statement tsStmt;
+				if (args.size() == 3) {
+					tsStmt = vf.createStatement(tsSubj, tsPred, tsObj);
+				} else if (args.size() == 4) {
+					Resource tsCtx = (Resource) Algebra.getVarValue((Var) args.get(3), bindings);
+					tsStmt = vf.createStatement(tsSubj, tsPred, tsObj, tsCtx);
+				} else {
+					tsStmt = null;
+				}
+				if (stmt.equals(tsStmt)) {
+					Literal ts = (Literal) Algebra.getVarValue(tfc.getResultVars().get(0), bindings);
+					if (XSD.DATETIME.equals(ts.getDatatype())) {
+						uc.setTimestamp(ts.calendarValue().toGregorianCalendar().getTimeInMillis());
+					} else {
+						uc.setTimestamp(ts.longValue());
+					}
+					return;
+				}
+			}
+			uc.setTimestamp(Timestamped.NOT_SET);
 		}
 	}
 

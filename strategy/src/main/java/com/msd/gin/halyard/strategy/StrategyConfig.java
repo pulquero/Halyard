@@ -28,14 +28,14 @@ public final class StrategyConfig {
 	static final int DEFAULT_THREADS = 25;
 	public static final String JMX_DOMAIN = "com.msd.gin.halyard";
 
-	final long trackResultSizeUpdateInterval;
-	final long trackResultTimeUpdateInterval;
-	final int starJoinMinJoins;
-	final int naryUnionMinUnions;
-	final int hashJoinLimit;
-	final float hashJoinCostRatio;
-	final int collectionMemoryThreshold;
-	final int valueCacheSize;
+	public final long trackResultSizeUpdateInterval;
+	public final long trackResultTimeUpdateInterval;
+	public final int starJoinMinJoins;
+	public final int naryUnionMinUnions;
+	public final int hashJoinLimit;
+	public final float hashJoinCostRatio;
+	public final int collectionMemoryThreshold;
+	public final int valueCacheSize;
 
 	public StrategyConfig(Configuration conf) {
 		this.trackResultSizeUpdateInterval = conf.getLong(HALYARD_EVALUATION_TRACK_RESULT_SIZE_UPDATE_INTERVAL, Long.MAX_VALUE);

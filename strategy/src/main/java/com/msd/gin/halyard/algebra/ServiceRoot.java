@@ -35,6 +35,20 @@ public final class ServiceRoot extends ExtendedQueryRoot {
 	}
 
 	@Override
+	public long getTotalTimeNanosActual() {
+		synchronized (service) {
+			return service.getTotalTimeNanosActual();
+		}
+	}
+
+	@Override
+	public void setTotalTimeNanosActual(long totalTimeNanosActual) {
+		synchronized (service) {
+			service.setTotalTimeNanosActual(totalTimeNanosActual);
+		}
+	}
+
+	@Override
 	public boolean equals(Object other) {
 		if (this == other) {
 			return true;
