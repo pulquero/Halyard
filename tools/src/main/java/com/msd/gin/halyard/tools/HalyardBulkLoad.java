@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -156,7 +157,7 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
     private static final long MAX_SINGLE_FILE_MULTIPLIER = 10;
     private static final int DEFAULT_SPLIT_BITS = 3;
     private static final long DEFAULT_SPLIT_MAXSIZE = 200000000l;
-    private static final int DEFAULT_PARSER_QUEUE_SIZE = 5000;
+    private static final int DEFAULT_PARSER_QUEUE_SIZE = 50000;
     static final int DEFAULT_STATEMENT_DEDUP_CACHE_SIZE = 2000;
     private static final int DEFAULT_VALUE_CACHE_SIZE = 2000;
 
@@ -414,8 +415,10 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
     private static final class ParserPump extends AbstractRDFHandler implements Closeable, Runnable, ParseErrorListener {
 
     	enum Counters {
-    		PARSE_QUEUE_EMPTY,
-    		PARSE_QUEUE_FULL,
+    		PARSE_QUEUE_EMPTY_COUNT,
+    		PARSE_QUEUE_EMPTY_ELAPSED_TIME,
+    		PARSE_QUEUE_FULL_COUNT,
+    		PARSE_QUEUE_FULL_ELAPSED_TIME,
     		PARSE_ERRORS
     	}
 
@@ -460,8 +463,11 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
             // remove from queue even on error to empty it
             Statement s = queue.poll();
             if (s == null) {
-            	context.getCounter(Counters.PARSE_QUEUE_EMPTY).increment(1);
+            	context.getCounter(Counters.PARSE_QUEUE_EMPTY_COUNT).increment(1);
+        		long startBlocking = System.nanoTime();
             	s = queue.take();
+        		long endBlocking = System.nanoTime();
+                context.getCounter(Counters.PARSE_QUEUE_EMPTY_ELAPSED_TIME).increment(TimeUnit.NANOSECONDS.toMillis(endBlocking-startBlocking));
             }
             if (ex != null) {
         		throw new IOException("Exception while parsing: " + baseUri, ex);
@@ -564,9 +570,12 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
         public void handleStatement(Statement st) {
             if (count == 1 || Math.floorMod(st.hashCode(), count) == offset) {
             	if (!queue.offer(st)) {
-            		context.getCounter(Counters.PARSE_QUEUE_FULL).increment(1);
+            		context.getCounter(Counters.PARSE_QUEUE_FULL_COUNT).increment(1);
 	            	try {
+	            		long startBlocking = System.nanoTime();
 		                queue.put(st);
+		                long endBlocking = System.nanoTime();
+		                context.getCounter(Counters.PARSE_QUEUE_FULL_ELAPSED_TIME).increment(TimeUnit.NANOSECONDS.toMillis(endBlocking-startBlocking));
 		            } catch (InterruptedException e) {
 		                throw new RDFHandlerException(e);
 		            }
