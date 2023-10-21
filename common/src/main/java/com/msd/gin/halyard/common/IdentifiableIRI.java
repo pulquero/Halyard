@@ -33,4 +33,8 @@ public final class IdentifiableIRI extends IdentifiableValue implements IRI {
 	public String getLocalName() {
 		return getIRI().getLocalName();
 	}
+
+	public boolean isWellKnown() {
+		return getEncodingType() == ValueIO.IRI_HASH_TYPE;
+	}
 }

@@ -133,6 +133,11 @@ public class RDFFactoryTest {
 		assertEquals(expectedValue, actual);
 		assertEquals(actual, expectedValue);
 		assertEquals(expectedValue.hashCode(), actual.hashCode());
+		if (actual instanceof IdentifiableValue) {
+			// ensure serialized form is internally cached
+			((IdentifiableValue)actual).getSerializedForm(rdfFactory);
+			assertEquals(expectedEncodingType, ((IdentifiableValue)actual).getEncodingType());
+		}
 
 		// check readValue() works on a subsequence
 		int beforeLen = 3;

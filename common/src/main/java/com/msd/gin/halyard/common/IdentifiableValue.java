@@ -124,6 +124,11 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 		return materialize(cachedIV);
 	}
 
+	protected final int getEncodingType() {
+		ByteArray ser = cachedIV.ser;
+		return (ser != null) ? ser.get(0) : ValueIO.RESERVED_TYPE;
+	}
+
 	private IdSer createIdSer(ValueIdentifier id, boolean makeId, ByteArray ser, @Nonnull RDFFactory rdfFactory) {
 		byte[] serBytes;
 		if (ser == null) {

@@ -162,7 +162,7 @@ public final class HalyardTableUtils {
 		Cell cell = cells[0];
 		Configuration halyardConf = new Configuration(false);
 		ByteArrayInputStream bin = new ByteArrayInputStream(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
-		halyardConf.addResource(bin, "Table config");
+		halyardConf.addResource(bin, "from table/snapshot");
 		return halyardConf;
 	}
 

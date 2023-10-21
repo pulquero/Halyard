@@ -3,11 +3,18 @@ package com.msd.gin.halyard.common;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+/**
+ * Immutable byte array.
+ */
 public final class ByteArray extends ByteSequence {
 	private final byte[] arr;
 
 	public ByteArray(byte[] arr) {
 		this.arr = arr;
+	}
+
+	public int get(int index) {
+		return arr[index];
 	}
 
 	@Override

@@ -196,7 +196,15 @@ public final class RDFFactory {
 	}
 
 	boolean isWellKnownIRI(Value v) {
-		return v.isIRI() && wellKnownIriIds.containsValue(v);
+		if (v.isIRI()) {
+			if (v instanceof IdentifiableIRI) {
+				return ((IdentifiableIRI)v).isWellKnown();
+			} else {
+				return wellKnownIriIds.containsValue(v);
+			}
+		} else {
+			return false;
+		}
 	}
 
 	public int getIdSize() {

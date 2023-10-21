@@ -88,6 +88,8 @@ public class ValueIO {
 		return cal;
 	}
 
+	// reserved for method return values
+	static final byte RESERVED_TYPE = 0;
 	static final byte IRI_TYPE = '<';
 	static final byte COMPRESSED_IRI_TYPE = 'w';
 	static final byte IRI_HASH_TYPE = '#';
@@ -627,7 +629,7 @@ public class ValueIO {
 				b.mark();
 				short langHash = b.getShort(); // 16-bit hash
 				String label = readString(b);
-				String lang = config.getLanguageTag(langHash);
+				String lang = config.getWellKnownLanguageTag(langHash);
 				if (lang == null) {
 					b.limit(b.position()).reset();
 					throw new IllegalStateException(String.format("Unknown language tag hash: %s (%d) (label %s)", Hashes.encode(b), langHash, label));
@@ -812,7 +814,7 @@ public class ValueIO {
 	}
 
 	private ByteBuffer writeLanguagePrefix(String langTag, ByteBuffer b) {
-		Short hash = config.getLanguageTagHash(langTag);
+		Short hash = config.getWellKnownLanguageTagHash(langTag);
 		if (hash != null) {
 			b = ensureCapacity(b, 1+LANG_HASH_SIZE);
 			b.put(LANGUAGE_HASH_LITERAL_TYPE);
@@ -933,7 +935,7 @@ public class ValueIO {
 		}
 
 		private ByteBuffer writeIRI(IRI iri, ByteBuffer b) {
-			Integer irihash = config.getIRIHash(iri);
+			Integer irihash = config.getWellKnownIRIHash(iri);
 			if (irihash != null) {
 				b = ensureCapacity(b, 1 + IRI_HASH_SIZE);
 				b.put(IRI_HASH_TYPE);
@@ -943,7 +945,7 @@ public class ValueIO {
 				String ns = iri.getNamespace();
 				String localName = iri.getLocalName();
 				boolean endSlashEncodable = false;
-				Short nshash = config.getNamespaceHash(ns);
+				Short nshash = config.getWellKnownNamespaceHash(ns);
 				if (nshash == null) {
 					// is it end-slash encodable?
 					String s = iri.stringValue();
@@ -954,7 +956,7 @@ public class ValueIO {
 						if (sepPos > 0) {
 							ns = s.substring(0, sepPos+1);
 							localName = s.substring(sepPos+1, iriLen-1);
-							nshash = config.getNamespaceHash(ns);
+							nshash = config.getWellKnownNamespaceHash(ns);
 							endSlashEncodable = true;
 						}
 					}
@@ -1151,7 +1153,7 @@ public class ValueIO {
 					{
 						b.mark();
 						int irihash = b.getInt(); // 32-bit hash
-						IRI iri = config.getIRI(irihash);
+						IRI iri = config.getWellKnownIRI(irihash);
 						if (iri == null) {
 							b.limit(b.position()).reset();
 							throw new IllegalStateException(String.format("Unknown IRI hash: %s (%d)", Hashes.encode(b), irihash));
@@ -1162,7 +1164,7 @@ public class ValueIO {
 					{
 						b.mark();
 						short nshash = b.getShort(); // 16-bit hash
-						String namespace = config.getNamespace(nshash);
+						String namespace = config.getWellKnownNamespace(nshash);
 						String localName = readUncompressedString(b);
 						if (namespace == null) {
 							b.limit(b.position()).reset();

@@ -8,6 +8,7 @@ public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFId
 	final V val;
 	private final RDFFactory rdfFactory;
 	private ByteArray ser;
+	private Boolean isWellKnown;
 
 	public static <V extends Value, T extends SPOC<V>> boolean matches(V value, RDFValue<V, T> pattern) {
 		return pattern == null || pattern.val.equals(value);
@@ -21,7 +22,10 @@ public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFId
 	}
 
 	boolean isWellKnownIRI() {
-		return rdfFactory.isWellKnownIRI(val);
+		if (isWellKnown == null) {
+			isWellKnown = rdfFactory.isWellKnownIRI(val);
+		}
+		return isWellKnown;
 	}
 
 	public final ByteArray getSerializedForm() {
