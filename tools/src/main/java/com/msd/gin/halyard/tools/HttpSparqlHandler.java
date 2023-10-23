@@ -306,6 +306,8 @@ public final class HttpSparqlHandler implements HttpHandler {
         	} else if (STOP_ENDPOINT.equals(path) && exchange.getLocalAddress().getAddress().isLoopbackAddress()) {
                 exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
                 doStop = true;
+        	} else if ("DELETE".equalsIgnoreCase(exchange.getRequestMethod())) {
+        		clearData(exchange);
         	} else {
 	            SparqlQuery sparqlQuery = retrieveQuery(exchange);
 	            if (sparqlQuery.getFlatFileFormat() != null) {
@@ -766,7 +768,16 @@ public final class HttpSparqlHandler implements HttpHandler {
     		}
     		connection.commit();
     	}
-       	LOGGER.info("Load successfully");
+       	LOGGER.info("Load successful");
+    	exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, -1);
+    }
+
+    private void clearData(HttpExchange exchange) throws Exception {
+       	LOGGER.info("Clearing data");
+		try (SailRepositoryConnection conn = repository.getConnection()) {
+			conn.clear();
+		}
+       	LOGGER.info("Clear successful");
     	exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, -1);
     }
 
