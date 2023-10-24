@@ -123,6 +123,7 @@ import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailUpdate;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFHandler;
+import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.RDFParserRegistry;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.RDFWriterFactory;
@@ -324,7 +325,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         			evaluateUpdate(sparqlQuery, exchange);
         		}
         	}
-        } catch (IllegalArgumentException | MalformedObjectNameException | MalformedQueryException e) {
+        } catch (IllegalArgumentException | MalformedObjectNameException | MalformedQueryException | RDFParseException e) {
             LOGGER.debug("Bad request", e);
             sendErrorResponse(exchange, HttpURLConnection.HTTP_BAD_REQUEST, e);
         } catch (Exception e) {
