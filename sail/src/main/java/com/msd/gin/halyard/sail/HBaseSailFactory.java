@@ -22,6 +22,7 @@ import com.msd.gin.halyard.common.SSLSettings;
 import java.io.IOException;
 import java.net.URL;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Connection;
 import org.eclipse.rdf4j.sail.Sail;
@@ -86,9 +87,6 @@ public final class HBaseSailFactory implements SailFactory {
         if (config instanceof HBaseSailConfig) {
             HBaseSailConfig hconfig = (HBaseSailConfig) config;
 			HBaseSail sail;
-			if (hasValue(hconfig.getTableName()) && (hasValue(hconfig.getSnapshotName()) || hasValue(hconfig.getSnapshotRestorePath()))) {
-				throw new SailConfigException("Invalid sail configuration: cannot specify both table and snapshot");
-			}
 			ElasticSettings elasticSettings = ElasticSettings.from(hconfig.getElasticIndexURL());
 			if (elasticSettings != null) {
 				elasticSettings.username = hconfig.getElasticUsername();
@@ -111,9 +109,9 @@ public final class HBaseSailFactory implements SailFactory {
 			} catch (IOException ioe) {
 				throw new SailConfigException(ioe);
 			}
-			if (hasValue(hconfig.getTableName())) {
+			if (StringUtils.isNotEmpty(hconfig.getTableName())) {
 				sail = new HBaseSail(hconn, hconfig.getTableName(), hconfig.isCreate(), hconfig.getSplitBits(), hconfig.isPush(), hconfig.getEvaluationTimeout(), elasticSettings, null);
-			} else if (hasValue(hconfig.getSnapshotName()) && hasValue(hconfig.getSnapshotRestorePath())) {
+			} else if (StringUtils.isNotEmpty(hconfig.getSnapshotName()) && StringUtils.isNotEmpty(hconfig.getSnapshotRestorePath())) {
 				sail = new HBaseSail(hconn.getConfiguration(), hconfig.getSnapshotName(), hconfig.getSnapshotRestorePath(), hconfig.isPush(), hconfig.getEvaluationTimeout(), elasticSettings);
 			} else {
 				throw new SailConfigException("Invalid sail configuration: missing table name or snapshot");
@@ -125,9 +123,5 @@ public final class HBaseSailFactory implements SailFactory {
         } else {
             throw new SailConfigException("Invalid configuration: " + config);
         }
-    }
-
-    private boolean hasValue(String s) {
-        return s != null && !s.isEmpty();
     }
 }

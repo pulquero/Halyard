@@ -23,6 +23,8 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
@@ -76,6 +78,9 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
      * @param tableName String HBase table name
      */
     public void setTableName(String tableName) {
+		if (StringUtils.isNotEmpty(tableName) && (StringUtils.isNotEmpty(snapshotName) || StringUtils.isNotEmpty(snapshotRestorePath))) {
+			throw new SailConfigException("Invalid sail configuration: cannot specify both table and snapshot");
+		}
         this.tableName = tableName;
     }
 
@@ -124,6 +129,9 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 	}
 
 	public void setSnapshotName(String snapshotName) {
+		if (StringUtils.isNotEmpty(tableName) && StringUtils.isNotEmpty(snapshotName)) {
+			throw new SailConfigException("Invalid sail configuration: cannot specify both table and snapshot");
+		}
 		this.snapshotName = snapshotName;
 	}
 
@@ -132,6 +140,9 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 	}
 
 	public void setSnapshotRestorePath(String snapshotRestorePath) {
+		if (StringUtils.isNotEmpty(tableName) && StringUtils.isNotEmpty(snapshotRestorePath)) {
+			throw new SailConfigException("Invalid sail configuration: cannot specify both table and snapshot");
+		}
 		this.snapshotRestorePath = snapshotRestorePath;
 	}
 

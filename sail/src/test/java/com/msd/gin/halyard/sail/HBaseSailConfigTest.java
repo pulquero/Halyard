@@ -43,6 +43,9 @@ public class HBaseSailConfigTest {
         HBaseSailConfig cfg = new HBaseSailConfig();
         cfg.setTableName("whatevertable");
 		assertEquals("whatevertable", cfg.getTableName());
+		// check validation
+		cfg.setSnapshotName(null);
+		cfg.setSnapshotName("");
     }
 
     @Test
@@ -66,6 +69,9 @@ public class HBaseSailConfigTest {
 		HBaseSailConfig cfg = new HBaseSailConfig();
 		cfg.setSnapshotName("whateversnapshot");
 		assertEquals("whateversnapshot", cfg.getSnapshotName());
+		// check validation
+		cfg.setTableName(null);
+		cfg.setTableName("");
 	}
 
 	@Test
@@ -73,6 +79,9 @@ public class HBaseSailConfigTest {
 		HBaseSailConfig cfg = new HBaseSailConfig();
 		cfg.setSnapshotRestorePath("/path");
 		assertEquals("/path", cfg.getSnapshotRestorePath());
+		// check validation
+		cfg.setTableName(null);
+		cfg.setTableName("");
 	}
 
 	@Test
