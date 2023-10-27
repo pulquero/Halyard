@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.optimizers;
 
 import com.google.common.collect.Iterables;
+import com.msd.gin.halyard.algebra.NAryUnion;
 import com.msd.gin.halyard.algebra.StarJoin;
 
 import java.io.IOException;
@@ -308,10 +309,23 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
     			meet((TupleFunctionCall)node);
     		} else if (node instanceof StarJoin) {
     			meet((StarJoin)node);
+    		} else if (node instanceof NAryUnion) {
+    			meet((NAryUnion)node);
     		} else {
     			super.meetOther(node);
     		}
     	}
+
+        public void meet(NAryUnion node) {
+        	double card = 0.0;
+        	for (TupleExpr expr : node.getArgs()) {
+	            expr.visit(this);
+	            updateMap(expr);
+	            card += this.cardinality;
+        	}
+        	cardinality = card;
+            updateMap(node);
+        }
 
         public void meet(StarJoin node) {
         	TupleExpr sp = node.getArg(0);

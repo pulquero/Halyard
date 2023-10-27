@@ -20,11 +20,11 @@ import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
 public class NAryUnionOptimizer implements QueryOptimizer {
 	private final int minUnions;
 
-	public NAryUnionOptimizer(int minJoins) {
-		if (minJoins < 1) {
+	public NAryUnionOptimizer(int minUnions) {
+		if (minUnions < 1) {
 			throw new IllegalArgumentException("Minimum unions must be greater than or equal to one");
 		}
-		this.minUnions = minJoins;
+		this.minUnions = minUnions;
 	}
 
 	@Override
@@ -76,19 +76,15 @@ public class NAryUnionOptimizer implements QueryOptimizer {
 		public void meet(Union node) throws X {
 			TupleExpr left = node.getLeftArg();
 			TupleExpr right = node.getRightArg();
-			if (!TupleExprs.isVariableScopeChange(left)) {
-				if (left instanceof Union) {
-					left.visit(this);
-				} else {
-					addExpression(left);
-				}
+			if (left instanceof Union) {
+				left.visit(this);
+			} else {
+				addExpression(left);
 			}
-			if (!TupleExprs.isVariableScopeChange(right)) {
-				if (right instanceof Union) {
-					right.visit(this);
-				} else {
-					addExpression(right);
-				}
+			if (right instanceof Union) {
+				right.visit(this);
+			} else {
+				addExpression(right);
 			}
 		}
 	}
