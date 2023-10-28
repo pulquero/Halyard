@@ -88,7 +88,8 @@ public class RDFFactoryTest {
 			new Object[] {vf.createIRI(HALYARD.VALUE_ID_NS.getName(), "eRg5UlsxjZuh-4meqlYQe3-J8X8"), ValueIO.ENCODED_IRI_TYPE},
 			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE, "400f9abd3fd761c62af23dbe8f8432158a6ce272"), ValueIO.ENCODED_IRI_TYPE},
 			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE, "invalid"), ValueIO.NAMESPACE_HASH_TYPE},
-			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE+"400f9abd3fd761c62af23dbe8f8432158a6ce272/"), ValueIO.END_SLASH_ENCODED_IRI_TYPE}
+			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE+"400f9abd3fd761c62af23dbe8f8432158a6ce272/"), ValueIO.END_SLASH_ENCODED_IRI_TYPE},
+			new Object[] {vf.createIRI("urn:uuid:8104c873-b648-44de-aaee-cb65f1dcafbb"), ValueIO.ENCODED_IRI_TYPE}
 		);
 	}
 

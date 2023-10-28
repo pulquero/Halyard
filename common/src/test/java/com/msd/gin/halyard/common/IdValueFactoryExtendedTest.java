@@ -79,7 +79,8 @@ public class IdValueFactoryExtendedTest {
 			vf.createIRI(HALYARD.VALUE_ID_NS.getName(), "eRg5UlsxjZuh-4meqlYQe3-J8X8"),
 			vf.createIRI(WIKIDATA.WDV_NAMESPACE, "400f9abd3fd761c62af23dbe8f8432158a6ce272"),
 			vf.createIRI(WIKIDATA.WDV_NAMESPACE, "invalid"),
-			vf.createIRI(WIKIDATA.WDV_NAMESPACE+"400f9abd3fd761c62af23dbe8f8432158a6ce272/")
+			vf.createIRI(WIKIDATA.WDV_NAMESPACE+"400f9abd3fd761c62af23dbe8f8432158a6ce272/"),
+			vf.createIRI("urn:uuid:8104c873-b648-44de-aaee-cb65f1dcafbb")
 		);
 	}
 
