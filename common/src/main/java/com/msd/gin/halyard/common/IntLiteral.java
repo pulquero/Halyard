@@ -8,7 +8,6 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.AbstractLiteral;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
-import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 
 public final class IntLiteral extends AbstractLiteral {
 	private static final long serialVersionUID = 4017662080461402992L;
@@ -18,7 +17,7 @@ public final class IntLiteral extends AbstractLiteral {
 	private final CoreDatatype coreDatatype;
 
 	public IntLiteral(int v, CoreDatatype coreDatatype) {
-		this.label = XMLDatatypeUtil.toString(v);
+		this.label = Integer.toString(v);
 		this.number = v;
 		this.coreDatatype = coreDatatype;
 	}

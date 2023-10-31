@@ -575,6 +575,13 @@ public class ValueIO {
 				}
 			}
 		});
+		addByteReader(LONG_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
+			@Override
+			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+				long v = b.getLong();
+				return vf.createLiteral(BigInteger.valueOf(v));
+			}
+		});
 
 		addByteWriter(XSD.DECIMAL, new ByteWriter() {
 			@Override
