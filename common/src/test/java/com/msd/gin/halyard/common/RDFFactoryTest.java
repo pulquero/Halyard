@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.vocab.SEMOPENALEX;
 import com.msd.gin.halyard.vocab.WIKIDATA;
 
 import java.math.BigDecimal;
@@ -89,6 +90,7 @@ public class RDFFactoryTest {
 			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE, "400f9abd3fd761c62af23dbe8f8432158a6ce272"), ValueIO.ENCODED_IRI_TYPE},
 			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE, "invalid"), ValueIO.NAMESPACE_HASH_TYPE},
 			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE+"400f9abd3fd761c62af23dbe8f8432158a6ce272/"), ValueIO.END_SLASH_ENCODED_IRI_TYPE},
+			new Object[] {vf.createIRI(SEMOPENALEX.AUTHOR_POSITION_NAMESPACE+"W10986400A2001695"), ValueIO.ENCODED_IRI_TYPE},
 			new Object[] {vf.createIRI("urn:uuid:8104c873-b648-44de-aaee-cb65f1dcafbb"), ValueIO.ENCODED_IRI_TYPE}
 		);
 	}
