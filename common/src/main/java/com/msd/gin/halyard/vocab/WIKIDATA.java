@@ -374,13 +374,19 @@ public final class WIKIDATA implements Vocabulary {
 
 		@Override
 		public ByteBuffer writeBytes(String localName, ByteBuffer b) {
-			if (localName.length() != 19) {
+			String numWithChecksum;
+			if (localName.length() == 19) {
+				numWithChecksum = localName.replace("-", "");
+			} else {
+				numWithChecksum = localName;
+			}
+			if (numWithChecksum.length() != 16) {
 				throw new IllegalArgumentException(String.format("Invalid length for ORCID: %s", localName));
 			}
-			int checksumPos = localName.length()-1;
-			char checksum = localName.charAt(checksumPos);
+			int checksumPos = numWithChecksum.length()-1;
+			char checksum = numWithChecksum.charAt(checksumPos);
 			// prefix with 1 to maintain leading zeros
-			BigInteger id = new BigInteger("1"+localName.substring(0, checksumPos).replace("-", ""));
+			BigInteger id = new BigInteger("1"+numWithChecksum.substring(0, checksumPos));
 			byte[] bytes = id.toByteArray();
 			b = ValueIO.ensureCapacity(b, 1+bytes.length+1);
 			return b.put((byte) bytes.length).put(bytes).put((byte)checksum);
