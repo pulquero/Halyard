@@ -349,7 +349,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         int replicas = 1;
         try (Connection conn = ConnectionFactory.createConnection(getConf())) {
             try (Admin admin = conn.getAdmin()) {
-                shards = 2 * admin.getRegionServers().size(); // 2 shards per node to allow for growth
+                shards = admin.getRegionServers().size();
             }
         }
         HttpURLConnection http = open(indexUrl);

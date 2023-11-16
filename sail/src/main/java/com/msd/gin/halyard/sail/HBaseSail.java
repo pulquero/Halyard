@@ -59,6 +59,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -89,7 +90,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.transport.ElasticsearchTransport;
 
 /**
  * HBaseSail is the RDF Storage And Inference Layer (SAIL) implementation on top of Apache HBase.
@@ -208,7 +208,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private volatile boolean readOnly = true;
 	private volatile long readOnlyTimestamp = 0L;
 	final ElasticSettings esSettings;
-	Optional<ElasticsearchTransport> esTransport;
+	Optional<RestClientTransportWithSniffer> esTransport;
 	boolean includeNamespaces = false;
 	private boolean trackResultSize;
 	private boolean trackResultTime;
@@ -246,12 +246,6 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	}).build();
 	private final AtomicInteger queryHistorySize = new AtomicInteger();
 	private final Queue<QueryInfo> queryHistory = new ConcurrentLinkedQueue<>();
-
-	/**
-	 * Property defining optional ElasticSearch index URL
-	 */
-	public static final String ELASTIC_INDEX_URL = "halyard.elastic.index.url";
-
 
 	public HBaseSail(Configuration config, String tableName, boolean create, int splitBits, boolean pushStrategy, int evaluationTimeout, ElasticSettings elasticSettings) {
 		this(null, config, tableName, create, splitBits, pushStrategy, evaluationTimeout, elasticSettings, null, HBaseSailConnection.Factory.INSTANCE);
@@ -392,7 +386,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	}
 
 	@Override
-	public ElasticSettings getElasticSettings() {
+	public ElasticSettings getSearchSettings() {
 		return esSettings;
 	}
 
@@ -480,6 +474,16 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	@Override
 	public void clearStatisticsCache() {
 		statisticsCache.invalidateAll();
+	}
+
+	@Override
+	public List<String> getSearchNodes() {
+		return esTransport.map(t -> t.restClient().getNodes().stream().map(n -> n.getHost().toString()).collect(Collectors.toList())).orElse(null);
+	}
+
+	@Override
+	public org.apache.http.pool.PoolStats getSearchConnectionPoolStats() {
+		return esTransport.map(t -> t.connectionManager().getTotalStats()).orElse(null);
 	}
 
 	public HalyardEvaluationStatistics getStatistics() {

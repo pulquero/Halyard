@@ -68,7 +68,7 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
                 "p", "port", "http_server_port", "HTTP server port number. If no port number is specified, system " +
                         "will automatically select a new port number", false, true);
         addOption("s", "source-dataset", "dataset_table", "Source HBase table with Halyard RDF store", true, true);
-        addOption("i", "elastic-index", "elastic_index_url", HBaseSail.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
+        addOption("i", "elastic-index", "elastic_index_url", ElasticSettings.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
         addOption("t", "timeout", "evaluation_timeout", "Timeout in seconds for each query evaluation (default is " +
                 "unlimited timeout)", false, true);
         addOption("q", "stored-queries", "property_file", "Optional property file with pre-defined stored queries. " +

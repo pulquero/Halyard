@@ -3,11 +3,13 @@ package com.msd.gin.halyard.sail;
 import com.msd.gin.halyard.sail.HBaseSail.QueryInfo;
 import com.msd.gin.halyard.sail.HBaseSail.ScanSettings;
 
+import java.util.List;
+
 public interface HBaseSailMXBean {
 	String getTableName();
 	boolean isPushStrategyEnabled();
 	int getEvaluationTimeout();
-	ElasticSettings getElasticSettings();
+	ElasticSettings getSearchSettings();
 	int getValueIdentifierSize();
 	String getValueIdentifierAlgorithm();
 	ScanSettings getScanSettings();
@@ -31,4 +33,8 @@ public interface HBaseSailMXBean {
 	void clearQueryCache();
 
 	void clearStatisticsCache();
+
+	List<String> getSearchNodes();
+
+	org.apache.http.pool.PoolStats getSearchConnectionPoolStats();
 }

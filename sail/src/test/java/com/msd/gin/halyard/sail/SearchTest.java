@@ -18,8 +18,6 @@ package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.vocab.HALYARD;
 
-import java.net.ServerSocket;
-
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Statement;
@@ -48,7 +46,7 @@ public class SearchTest extends AbstractSearchTest {
 		Literal val2 = vf.createLiteral("Whatever Text", "en");
 		Literal val3 = vf.createLiteral("Que sea", "es");
 		String expectedRequest = "{\"_source\":{\"includes\":[\"id\",\"iri\",\"label\",\"lang\",\"datatype\"]},\"min_score\":0.0,\"query\":{\"query_string\":{\"default_field\":\"label\",\"fuzziness\":\"1\",\"phrase_slop\":0.0,\"query\":\"what\"}},\"size\":10000}";
-		try (ServerSocket server = startElasticsearch(expectedRequest, val1, val2)) {
+		try (MockElasticServer server = startElasticsearch(expectedRequest, val1, val2)) {
 			IRI whatever = vf.createIRI("http://whatever");
 			Repository hbaseRepo = createRepo("testSimpleLiteralSearch", server);
 			try (RepositoryConnection conn = hbaseRepo.getConnection()) {
@@ -75,7 +73,7 @@ public class SearchTest extends AbstractSearchTest {
 		Literal val2 = vf.createLiteral("Whatever Text", "en");
 		Literal val3 = vf.createLiteral("Que sea", "es");
 		String expectedRequest = "{\"_source\":{\"includes\":[\"id\",\"iri\",\"label\",\"lang\",\"datatype\"]},\"min_score\":0.0,\"query\":{\"query_string\":{\"default_field\":\"label\",\"fuzziness\":\"1\",\"phrase_slop\":0.0,\"query\":\"what\"}},\"size\":5}";
-		try (ServerSocket server = startElasticsearch(expectedRequest, val1, val2)) {
+		try (MockElasticServer server = startElasticsearch(expectedRequest, val1, val2)) {
 			IRI whatever = vf.createIRI("http://whatever");
 			Repository hbaseRepo = createRepo("testAdvancedLiteralSearch", server);
 			try (RepositoryConnection conn = hbaseRepo.getConnection()) {
@@ -88,11 +86,11 @@ public class SearchTest extends AbstractSearchTest {
 					assertTrue(iter.hasNext());
 					BindingSet bs = iter.next();
 					assertEquals(2.0, ((Literal) bs.getValue("score")).doubleValue(), 0.0);
-					assertEquals(INDEX, ((Literal) bs.getValue("index")).stringValue());
+					assertEquals(INDEX_NAME, ((Literal) bs.getValue("index")).stringValue());
 					assertTrue(iter.hasNext());
 					bs = iter.next();
 					assertEquals(1.0, ((Literal) bs.getValue("score")).doubleValue(), 0.0);
-					assertEquals(INDEX, ((Literal) bs.getValue("index")).stringValue());
+					assertEquals(INDEX_NAME, ((Literal) bs.getValue("index")).stringValue());
 					assertFalse(iter.hasNext());
 				}
 			}

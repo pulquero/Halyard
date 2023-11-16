@@ -218,7 +218,7 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         addOption("p", "jdbc-property", "property=value", "JDBC connection property", false, false);
         addOption("l", "jdbc-driver-classpath", "driver_classpath", "JDBC driver classpath delimited by ':'", false, true);
         addOption("c", "jdbc-driver-class", "driver_class", "JDBC driver class name", false, true);
-        addOption("i", "elastic-index", "elastic_index_url", HBaseSail.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
+        addOption("i", "elastic-index", "elastic_index_url", ElasticSettings.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
     }
 
     @Override

@@ -693,7 +693,7 @@ public final class HalyardExport extends AbstractHalyardTool {
         addOption("l", "jdbc-driver-classpath", "driver_classpath", "JDBC driver classpath delimited by ':'", false, true);
         addOption("c", "jdbc-driver-class", "driver_class", "JDBC driver class name, mandatory for JDBC export", false, true);
         addOption("r", "trim", null, "Trim target table before export (apply for JDBC only)", false, false);
-        addOption("i", "elastic-index", "elastic_index_url", HBaseSail.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
+        addOption("i", "elastic-index", "elastic_index_url", ElasticSettings.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
     }
 
     @Override

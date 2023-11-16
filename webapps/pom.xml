@@ -159,6 +159,11 @@
 									<version>${elasticsearch.version}</version>
 								</artifactItem>
 								<artifactItem>
+									<groupId>org.elasticsearch.client</groupId>
+									<artifactId>elasticsearch-rest-client-sniffer</artifactId>
+									<version>${elasticsearch.version}</version>
+								</artifactItem>
+								<artifactItem>
 									<groupId>org.apache.httpcomponents</groupId>
 									<artifactId>httpasyncclient</artifactId>
 									<version>4.1.4</version>

@@ -39,7 +39,7 @@ public final class HalyardUpdate extends AbstractHalyardTool {
         );
         addOption("s", "source-dataset", "dataset_table", "Source HBase table with Halyard RDF store", true, true);
         addOption("q", "update-operation", "sparql_update_operation", "SPARQL update operation to be executed", true, true);
-        addOption("i", "elastic-index", "elastic_index_url", HBaseSail.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
+        addOption("i", "elastic-index", "elastic_index_url", ElasticSettings.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
     }
 
 
