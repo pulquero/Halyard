@@ -939,6 +939,13 @@ public final class HttpSparqlHandler implements HttpHandler {
 
     private void sendManagementData(HttpExchange exchange) throws IOException, MalformedObjectNameException {
         String path = exchange.getRequestURI().getPath();
+        int indent = 0;
+        for (NameValuePair queryParam : getQueryParams(exchange)) {
+        	if ("pretty".equals(queryParam.getName())) {
+        		indent = 2;
+        	}
+        }
+
         String domain = path.substring(JMX_ENDPOINT.length());
         if (domain.isEmpty()) {
         	domain = "*";
@@ -970,7 +977,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     		}
     	}
     	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
-    	sendResponse(exchange, HttpURLConnection.HTTP_OK, json.toString());
+    	sendResponse(exchange, HttpURLConnection.HTTP_OK, json.toString(indent));
     }
 
     private static Object toJson(Object object) {
