@@ -34,7 +34,7 @@ public class TimestampTupleFunction extends AbstractSpinFunction implements Exte
 	@Override
 	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
 		ValueFactory vf = tripleSource.getValueFactory();
-		if (args.length == 1 && args[0] instanceof Triple) {
+		if (args.length == 1 && args[0].isTriple()) {
 			Triple t = (Triple) args[0];
 			args = new Value[] { t.getSubject(), t.getPredicate(), t.getObject() };
 		}
@@ -43,13 +43,13 @@ public class TimestampTupleFunction extends AbstractSpinFunction implements Exte
 			throw new ValueExprEvaluationException(String.format("%s requires 3 or 4 arguments, got %d", getURI(), args.length));
 		}
 
-		if (!(args[0] instanceof Resource)) {
+		if (!args[0].isResource()) {
 			throw new ValueExprEvaluationException("First argument must be a subject");
 		}
-		if (!(args[1] instanceof IRI)) {
+		if (!args[1].isIRI()) {
 			throw new ValueExprEvaluationException("Second argument must be a predicate");
 		}
-		if (args.length == 4 && !(args[3] instanceof Resource)) {
+		if (args.length == 4 && !args[3].isResource()) {
 			throw new ValueExprEvaluationException("Fourth argument must be a context");
 		}
 

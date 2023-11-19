@@ -21,4 +21,10 @@ public class GroupTermsTest {
 		Literal group = (Literal) new GroupTerms().evaluate(vf, vf.createLiteral("AND"), vf.createLiteral("foo"), vf.createLiteral("bar"));
 		assertEquals("(foo AND bar)", group.stringValue());
 	}
+
+	@Test
+	public void testEmpty() {
+		Literal group = (Literal) new GroupTerms().evaluate(vf, vf.createLiteral("AND"), vf.createLiteral(""), vf.createLiteral("bar"), vf.createLiteral(""));
+		assertEquals("(bar)", group.stringValue());
+	}
 }

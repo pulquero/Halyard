@@ -44,9 +44,12 @@ public class GroupTerms implements Function {
 			if (!arg.isLiteral()) {
 				throw new QueryEvaluationException("Invalid value");
 			}
-			buf.append(sep);
-			buf.append(arg.stringValue());
-			sep = operator;
+			String v = arg.stringValue();
+			if (!v.isEmpty()) {
+				buf.append(sep);
+				buf.append(v);
+				sep = operator;
+			}
 		}
 		buf.append(")");
 		return valueFactory.createLiteral(buf.toString());
