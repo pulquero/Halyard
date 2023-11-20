@@ -26,7 +26,6 @@ import com.msd.gin.halyard.algebra.NAryUnion;
 import com.msd.gin.halyard.algebra.StarJoin;
 import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
-import com.msd.gin.halyard.algebra.evaluation.ModelTripleSource;
 import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
@@ -63,11 +62,8 @@ import com.msd.gin.halyard.vocab.HALYARD;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.Serializable;
-import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -87,7 +83,6 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteratorIteration;
@@ -99,19 +94,14 @@ import org.eclipse.rdf4j.common.iteration.SingletonIteration;
 import org.eclipse.rdf4j.common.iteration.UnionIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
-import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
-import org.eclipse.rdf4j.model.impl.LinkedHashModel;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDF4J;
-import org.eclipse.rdf4j.model.vocabulary.RDFS;
-import org.eclipse.rdf4j.model.vocabulary.SD;
 import org.eclipse.rdf4j.model.vocabulary.SESAME;
 import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -190,11 +180,6 @@ import org.eclipse.rdf4j.query.impl.MapBindingSet;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateCollector;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunction;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunctionFactory;
-import org.eclipse.rdf4j.rio.RDFHandler;
-import org.eclipse.rdf4j.rio.RDFHandlerException;
-import org.eclipse.rdf4j.rio.RDFParser;
-import org.eclipse.rdf4j.rio.Rio;
-import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -619,57 +604,12 @@ final class HalyardTupleExprEvaluation {
 			synchronized (this) {
 				localRef = functionGraph;
 				if (localRef == null) {
-					localRef = loadFunctionGraph();
+					localRef = parentStrategy.loadFunctionGraph();
 					functionGraph = localRef;
 				}
 			}
 		}
 		return localRef;
-    }
-
-    private TripleSource loadFunctionGraph() {
-    	// just use SimpleValueFactory for the model
-    	ValueFactory vf = SimpleValueFactory.getInstance();
-    	// read-only LinkedHashModel doesn't need synchronising
-    	Model model = new LinkedHashModel();
-    	IRI builtinFunctions = vf.createIRI("builtin:Functions");
-    	for (org.eclipse.rdf4j.query.algebra.evaluation.function.Function func : parentStrategy.functionRegistry.getAll()) {
-    		String funcIri = func.getURI();
-    		boolean isBuiltin = (funcIri.indexOf(':') == -1);
-    		if (isBuiltin) {
-    			funcIri = "builtin:" + funcIri;
-    		}
-    		IRI subj = vf.createIRI(funcIri);
-    		model.add(subj, RDF.TYPE, SD.FUNCTION);
-    		model.add(subj, RDFS.SUBCLASSOF, builtinFunctions);
-    	}
-    	for (AggregateFunctionFactory func : parentStrategy.aggregateFunctionRegistry.getAll()) {
-    		String funcIri = func.getIri();
-    		IRI subj = vf.createIRI(funcIri);
-    		model.add(subj, RDF.TYPE, SD.AGGREGATE);
-    	}
-		RDFHandler modelInserter = new AbstractRDFHandler() {
-			@Override
-			public void handleStatement(Statement st) throws RDFHandlerException {
-				model.add(st);
-			}
-		};
-    	getClass().getClassLoader().resources("schema/functions").forEach(url -> {
-    		try {
-	    		try (InputStream infIn = url.openStream()) {
-	    			for(String fileName : IOUtils.readLines(infIn, StandardCharsets.UTF_8)) {
-	    				RDFParser parser = Rio.createParser(Rio.getParserFormatForFileName(fileName).orElseThrow(Rio.unsupportedFormat(fileName)), vf);
-	    				parser.setRDFHandler(modelInserter);
-	    				try (InputStream rdfIn = getClass().getClassLoader().getResourceAsStream(fileName)) {
-	    					parser.parse(rdfIn);
-	    				}
-	    			}
-	    		}
-    		} catch (IOException ioe) {
-    			throw new UncheckedIOException(ioe);
-    		}
-    	});
-    	return new ModelTripleSource(model, vf);
     }
 
     private QueryEvaluationStep evaluateStatementPattern(StatementPattern sp, QuadPattern nq, TripleSource tripleSource) {

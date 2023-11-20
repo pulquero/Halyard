@@ -11,408 +11,408 @@
 @prefix fn: <http://www.w3.org/2005/xpath-functions#> .
 
 spin:eval a spin:Function;
-  spin:constaint _:5ff4f01d10bf533b;
+  spin:constraint _:4c8e6b576618d612;
   rdfs:comment "Evaluates a given SPIN expression or SELECT or ASK query, and returns its result. The first argument must be the expression in SPIN RDF syntax. All other arguments must come in pairs: first a property name, and then a value. These name/value pairs will be pre-bound variables for the execution of the expression.";
   rdfs:label "eval";
   rdfs:subClassOf spin:Functions .
 
-_:5ff4f01d10bf533b a spl:Argument;
+_:4c8e6b576618d612 a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The expression to evaluate. Should be a sp:Select, sp:Ask, a sp:Variable or an instance of a SPARQL function class, but may also be a simple RDF value." .
 
 spin:violatesConstraints a spin:Function;
-  spin:constaint _:5ff4f01d10bf533c, _:5ff4f01d10bf533d;
+  spin:constraint _:4c8e6b576618d611, _:4c8e6b576618d610;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks whether a given instance (?arg1) violates any of the constraints defined for a given class (?arg2).";
   rdfs:label "violates constraints";
   rdfs:subClassOf spin:Functions .
 
-_:5ff4f01d10bf533c a spl:Argument;
+_:4c8e6b576618d611 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The instance to check." .
 
-_:5ff4f01d10bf533d a spl:Argument;
+_:4c8e6b576618d610 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Class;
   rdfs:comment "The class to get the constraints of." .
 
 sp:abs a spin:Function;
-  spin:constaint _:5ff4f01d10bf52df;
+  spin:constraint _:4c8e6b576618d66e;
   spin:symbol "abs";
   rdfs:comment "Returns the absolute value of arg. An error is raised if arg is not a numeric value.";
   rdfs:label "abs";
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-abs>;
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf52df a spl:Argument;
+_:4c8e6b576618d66e a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The input value." .
 
 sp:add a spin:Function;
-  spin:constaint _:5ff4f01d10bf52e0, _:5ff4f01d10bf52e1;
+  spin:constraint _:4c8e6b576618d66d, _:4c8e6b576618d66c;
   spin:symbol "+";
   rdfs:comment "Returns the arithmetic sum of its operands.";
   rdfs:label "add";
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf52e0 a spl:Argument;
+_:4c8e6b576618d66d a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "the first number" .
 
-_:5ff4f01d10bf52e1 a spl:Argument;
+_:4c8e6b576618d66c a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Resource;
   rdfs:comment "the second number" .
 
 sp:and a spin:Function;
-  spin:constaint _:5ff4f01d10bf52e2, _:5ff4f01d10bf52e3;
+  spin:constraint _:4c8e6b576618d66b, _:4c8e6b576618d66a;
   spin:returnType xsd:boolean;
   spin:symbol "&&";
   rdfs:comment "Return the logical AND between two (boolean) operands.";
   rdfs:label "and";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf52e2 a spl:Argument;
+_:4c8e6b576618d66b a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:boolean;
   rdfs:comment "the first operand of the intersection" .
 
-_:5ff4f01d10bf52e3 a spl:Argument;
+_:4c8e6b576618d66a a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:boolean;
   rdfs:comment "the second operand of the intersection" .
 
 sp:bnode a spin:Function;
-  spin:constaint _:5ff4f01d10bf52e4;
+  spin:constraint _:4c8e6b576618d669;
   spin:symbol "BNODE";
   rdfs:comment "Constructs a blank node that is distinct from all blank nodes in the dataset being queried and distinct from all blank nodes created by calls to this constructor for other query solutions. If the no argument form is used, every call results in a distinct blank node. If the form with a simple literal is used, every call results in distinct blank nodes for different simple literals, and the same blank node for calls with the same simple literal within expressions for one solution mapping. This functionality is compatible with the treatment of blank nodes in SPARQL CONSTRUCT templates.";
   rdfs:label "bnode";
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-bnode>;
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf52e4 a spl:Argument;
+_:4c8e6b576618d669 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg1;
   rdfs:comment "A literal input node." .
 
 sp:bound a spin:Function;
-  spin:constaint _:5ff4f01d10bf52e5;
+  spin:constraint _:4c8e6b576618d668;
   spin:returnType xsd:boolean;
   spin:symbol "bound";
   rdfs:comment "Returns true if ?arg1 is bound to a value. Returns false otherwise. Variables with the value NaN or INF are considered bound.";
   rdfs:label "bound";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf52e5 a spl:Argument;
+_:4c8e6b576618d668 a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "the variable or expression that is checked" .
 
 sp:ceil a spin:Function;
-  spin:constaint _:5ff4f01d10bf52e6;
+  spin:constraint _:4c8e6b576618d667;
   spin:symbol "ceil";
   rdfs:comment "Returns the smallest (closest to negative infinity) number with no fractional part that is not less than the value of arg. An error is raised if ?arg1 is not a numeric value.";
   rdfs:label "ceil";
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-ceil>;
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf52e6 a spl:Argument;
+_:4c8e6b576618d667 a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The number to get the ceiling of." .
 
 sp:contains a spin:Function;
-  spin:constaint _:5ff4f01d10bf52e7, _:5ff4f01d10bf52e8;
+  spin:constraint _:4c8e6b576618d666, _:4c8e6b576618d665;
   spin:symbol "CONTAINS";
   rdfs:comment "Returns an xsd:boolean indicating whether or not the value of ?arg1 contains (at the beginning, at the end, or anywhere within) at least one sequence of collation units that provides a minimal match to the collation units in the value of ?arg2, according to the collation that is used.";
   rdfs:label "contains";
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-contains>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf52e7 a spl:Argument;
+_:4c8e6b576618d666 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string." .
 
-_:5ff4f01d10bf52e8 a spl:Argument;
+_:4c8e6b576618d665 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The sub-string to search for in the input string." .
 
 sp:datatype a spin:Function;
-  spin:constaint _:5ff4f01d10bf52e9;
+  spin:constraint _:4c8e6b576618d664;
   spin:returnType rdfs:Class;
   spin:symbol "datatype";
   rdfs:comment "Returns the datatype IRI of argument ?arg1; returns xsd:string if the parameter is a simple literal.";
   rdfs:label "datatype";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf52e9 a spl:Argument;
+_:4c8e6b576618d664 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the literal to get the datatype of" .
 
 sp:day a spin:Function;
-  spin:constaint _:5ff4f01d10bf52ea;
+  spin:constraint _:4c8e6b576618d663;
   spin:returnType xsd:integer;
   spin:symbol "day";
   rdfs:comment "Extracts the day from a date/time literal.";
   rdfs:label "day";
   rdfs:subClassOf spl:DateFunctions .
 
-_:5ff4f01d10bf52ea a spl:Argument;
+_:4c8e6b576618d663 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "The date or dateTime argument." .
 
 sp:divide a spin:Function;
-  spin:constaint _:5ff4f01d10bf52eb, _:5ff4f01d10bf52ec;
+  spin:constraint _:4c8e6b576618d662, _:4c8e6b576618d661;
   spin:returnType rdfs:Literal;
   spin:symbol "/";
   rdfs:comment "Returns the arithmetic quotient of its operands.";
   rdfs:label "divide";
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf52eb a spl:Argument;
+_:4c8e6b576618d662 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the first operand" .
 
-_:5ff4f01d10bf52ec a spl:Argument;
+_:4c8e6b576618d661 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Literal;
   rdfs:comment "the second operand" .
 
 sp:encode_for_uri a spin:Function;
-  spin:constaint _:5ff4f01d10bf52ed;
+  spin:constraint _:4c8e6b576618d660;
   spin:returnType xsd:string;
   spin:symbol "ENCODE_FOR_URI";
   rdfs:label "encode_for_uri";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf52ed a spl:Argument;
+_:4c8e6b576618d660 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The string to convert." .
 
 sp:eq a spin:Function;
-  spin:constaint _:5ff4f01d10bf52ee, _:5ff4f01d10bf52ef;
+  spin:constraint _:4c8e6b576618d65f, _:4c8e6b576618d65e;
   spin:returnType xsd:boolean;
   spin:symbol "=";
   rdfs:comment "Returns true if both arguments are equal.";
   rdfs:label "eq";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf52ee a spl:Argument;
+_:4c8e6b576618d65f a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:boolean;
   rdfs:comment "the first value to compare" .
 
-_:5ff4f01d10bf52ef a spl:Argument;
+_:4c8e6b576618d65e a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:boolean;
   rdfs:comment "the second value to compare" .
 
 sp:floor a spin:Function;
-  spin:constaint _:5ff4f01d10bf52f0;
+  spin:constraint _:4c8e6b576618d65d;
   spin:symbol "floor";
   rdfs:comment "Returns the largest (closest to positive infinity) number with no fractional part that is not greater than the value of ?arg1. An error is raised if ?arg1 is not a numeric value.";
   rdfs:label "floor";
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-floor>;
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf52f0 a spl:Argument;
+_:4c8e6b576618d65d a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The value to get the floor of." .
 
 sp:ge a spin:Function;
-  spin:constaint _:5ff4f01d10bf52f1, _:5ff4f01d10bf52f2;
+  spin:constraint _:4c8e6b576618d65c, _:4c8e6b576618d65b;
   spin:returnType xsd:boolean;
   spin:symbol ">=";
   rdfs:comment "Returns true if ?arg1 >= ?arg2.";
   rdfs:label "ge";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf52f1 a spl:Argument;
+_:4c8e6b576618d65c a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the first operand" .
 
-_:5ff4f01d10bf52f2 a spl:Argument;
+_:4c8e6b576618d65b a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Literal;
   rdfs:comment "the second operand" .
 
 sp:gt a spin:Function;
-  spin:constaint _:5ff4f01d10bf52f3, _:5ff4f01d10bf52f4;
+  spin:constraint _:4c8e6b576618d65a, _:4c8e6b576618d659;
   spin:returnType xsd:boolean;
   spin:symbol ">";
   rdfs:comment "Returns true if ?arg1 > arg2.";
   rdfs:label "gt";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf52f3 a spl:Argument;
+_:4c8e6b576618d65a a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the first operand" .
 
-_:5ff4f01d10bf52f4 a spl:Argument;
+_:4c8e6b576618d659 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Literal;
   rdfs:comment "the second operand" .
 
 sp:hours a spin:Function;
-  spin:constaint _:5ff4f01d10bf52f5;
+  spin:constraint _:4c8e6b576618d658;
   spin:returnType xsd:integer;
   spin:symbol "hours";
   rdfs:comment "Extracts the hours from a date/time literal.";
   rdfs:label "hours";
   rdfs:subClassOf spl:DateFunctions .
 
-_:5ff4f01d10bf52f5 a spl:Argument;
+_:4c8e6b576618d658 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "The dateTime or time argument." .
 
 sp:if a spin:Function;
-  spin:constaint _:5ff4f01d10bf52f6, _:5ff4f01d10bf52f7, _:5ff4f01d10bf52f8;
+  spin:constraint _:4c8e6b576618d657, _:4c8e6b576618d656, _:4c8e6b576618d655;
   spin:symbol "IF";
   rdfs:comment "The SPARQL 1.1 built-in function IF.";
   rdfs:label "IF";
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf52f6 a spl:Argument;
+_:4c8e6b576618d657 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:boolean;
   rdfs:comment "A condition to evaluate - if true then the ?arg2 will be returned, otherwise ?arg3." .
 
-_:5ff4f01d10bf52f7 a spl:Argument;
+_:4c8e6b576618d656 a spl:Argument;
   spl:predicate sp:arg2;
   rdfs:comment "The function result if ?arg1 is true." .
 
-_:5ff4f01d10bf52f8 a spl:Argument;
+_:4c8e6b576618d655 a spl:Argument;
   spl:predicate sp:arg3;
   rdfs:comment "The function result if ?arg1 is false." .
 
 sp:in a spin:Function;
-  spin:constaint _:5ff4f01d10bf52f9;
+  spin:constraint _:4c8e6b576618d654;
   spin:returnType xsd:boolean;
   spin:symbol "IN";
   rdfs:comment "Checks whether the value on the left (?arg1) is one of the values on the right (?arg2, ?arg3 ...).";
   rdfs:label "IN";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf52f9 a spl:Argument;
+_:4c8e6b576618d654 a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The value to find." .
 
 sp:iri a spin:Function;
-  spin:constaint _:5ff4f01d10bf52fa;
+  spin:constraint _:4c8e6b576618d653;
   spin:returnType rdfs:Resource;
   spin:symbol "IRI";
   rdfs:comment "Creates a IRI resource (node) from a given IRI string (?arg1).";
   rdfs:label "IRI";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf52fa a spl:Argument;
+_:4c8e6b576618d653 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The IRI string to convert to a resource." .
 
 sp:isBlank a spin:Function;
-  spin:constaint _:5ff4f01d10bf52fb;
+  spin:constraint _:4c8e6b576618d652;
   spin:returnType xsd:boolean;
   spin:symbol "isBlank";
   rdfs:comment "Checks whether a given node is a blank node.";
   rdfs:label "isBlank";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf52fb a spl:Argument;
+_:4c8e6b576618d652 a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "the node being checked" .
 
 sp:isIRI a spin:Function;
-  spin:constaint _:5ff4f01d10bf52fc;
+  spin:constraint _:4c8e6b576618d651;
   spin:returnType xsd:boolean;
   spin:symbol "isIRI";
   rdfs:comment "Checks whether a given node is a IRI node.";
   rdfs:label "isIRI";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf52fc a spl:Argument;
+_:4c8e6b576618d651 a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "the node being tested" .
 
 sp:isLiteral a spin:Function;
-  spin:constaint _:5ff4f01d10bf52fd;
+  spin:constraint _:4c8e6b576618d650;
   spin:returnType xsd:boolean;
   spin:symbol "isLiteral";
   rdfs:comment "Checks whether a given node is a literal.";
   rdfs:label "isLiteral";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf52fd a spl:Argument;
+_:4c8e6b576618d650 a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "the node being tested" .
 
 sp:isNumeric a spin:Function;
-  spin:constaint _:5ff4f01d10bf52fe;
+  spin:constraint _:4c8e6b576618d64f;
   spin:symbol "isNumeric";
   rdfs:comment "Returns true if arg1 is a numeric value. Returns false otherwise. term is numeric if it has an appropriate datatype (see the section Operand Data Types) and has a valid lexical form, making it a valid argument to functions and operators taking numeric arguments.";
   rdfs:label "is numeric";
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-isNumeric>;
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf52fe a spl:Argument;
+_:4c8e6b576618d64f a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment """The node to check whether it's numeric.
 """ .
 
 sp:isURI a spin:Function;
-  spin:constaint _:5ff4f01d10bf52ff;
+  spin:constraint _:4c8e6b576618d64e;
   spin:returnType xsd:boolean;
   spin:symbol "isURI";
   rdfs:comment "Checks whether a node is a URI.";
   rdfs:label "isURI";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf52ff a spl:Argument;
+_:4c8e6b576618d64e a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "the node to check" .
 
 sp:lang a spin:Function;
-  spin:constaint _:5ff4f01d10bf5300;
+  spin:constraint _:4c8e6b576618d64d;
   spin:returnType xsd:string;
   spin:symbol "lang";
   rdfs:comment "Returns the language tag of ?arg1, if it has one. It returns \"\" if the literal has no language tag. Node that the RDF data model does not include literals with an empty language tag.";
   rdfs:label "lang";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5300 a spl:Argument;
+_:4c8e6b576618d64d a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the literal to get the language of" .
 
 sp:langMatches a spin:Function;
-  spin:constaint _:5ff4f01d10bf5301, _:5ff4f01d10bf5302;
+  spin:constraint _:4c8e6b576618d64c, _:4c8e6b576618d64b;
   spin:returnType xsd:boolean;
   spin:symbol "langMatches";
   rdfs:comment "Returns true if language-tag (first argument) matches language-range (second argument) per the basic filtering scheme defined in [RFC4647] section 3.3.1.";
   rdfs:label "langMatches";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5301 a spl:Argument;
+_:4c8e6b576618d64c a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the literal that is expected to have ?arg2 as language tag" .
 
-_:5ff4f01d10bf5302 a spl:Argument;
+_:4c8e6b576618d64b a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "the language tag that ?arg1 must have" .
 
 sp:lcase a spin:Function;
-  spin:constaint _:5ff4f01d10bf5303;
+  spin:constraint _:4c8e6b576618d64a;
   spin:returnType xsd:string;
   spin:symbol "LCASE";
   rdfs:comment "Converts a string to lower case characters.";
@@ -420,49 +420,49 @@ sp:lcase a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-lcase>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5303 a spl:Argument;
+_:4c8e6b576618d64a a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string." .
 
 sp:le a spin:Function;
-  spin:constaint _:5ff4f01d10bf5304, _:5ff4f01d10bf5305;
+  spin:constraint _:4c8e6b576618d649, _:4c8e6b576618d648;
   spin:returnType xsd:boolean;
   spin:symbol "<=";
   rdfs:comment "Returns true if ?arg1 <= ?arg2.";
   rdfs:label "le";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf5304 a spl:Argument;
+_:4c8e6b576618d649 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the first operand" .
 
-_:5ff4f01d10bf5305 a spl:Argument;
+_:4c8e6b576618d648 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Literal;
   rdfs:comment "the second operand" .
 
 sp:lt a spin:Function;
-  spin:constaint _:5ff4f01d10bf5306, _:5ff4f01d10bf5307;
+  spin:constraint _:4c8e6b576618d647, _:4c8e6b576618d646;
   spin:returnType xsd:boolean;
   spin:symbol "<";
   rdfs:comment "Returns true if ?arg1 < ?arg2.";
   rdfs:label "lt";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf5306 a spl:Argument;
+_:4c8e6b576618d647 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the first operand" .
 
-_:5ff4f01d10bf5307 a spl:Argument;
+_:4c8e6b576618d646 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Literal;
   rdfs:comment "the second operand" .
 
 sp:md5 a spin:Function;
-  spin:constaint _:5ff4f01d10bf5308;
+  spin:constraint _:4c8e6b576618d645;
   spin:returnType xsd:string;
   spin:symbol "MD5";
   rdfs:comment "Returns the MD5 checksum, as a hex digit string, calculated on the UTF-8 representation of the simple literal or lexical form of the xsd:string. Hex digits SHOULD be in lower case.";
@@ -470,114 +470,114 @@ sp:md5 a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-md5>;
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf5308 a spl:Argument;
+_:4c8e6b576618d645 a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The input literal." .
 
 sp:minutes a spin:Function;
-  spin:constaint _:5ff4f01d10bf5309;
+  spin:constraint _:4c8e6b576618d644;
   spin:returnType xsd:integer;
   spin:symbol "minutes";
   rdfs:comment "Extracts the minutes from a date/time literal.";
   rdfs:label "minutes";
   rdfs:subClassOf spl:DateFunctions .
 
-_:5ff4f01d10bf5309 a spl:Argument;
+_:4c8e6b576618d644 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "The dateTime or time argument." .
 
 sp:month a spin:Function;
-  spin:constaint _:5ff4f01d10bf530a;
+  spin:constraint _:4c8e6b576618d643;
   spin:returnType xsd:integer;
   spin:symbol "month";
   rdfs:comment "Extracts the month from a date/time literal.";
   rdfs:label "month";
   rdfs:subClassOf spl:DateFunctions .
 
-_:5ff4f01d10bf530a a spl:Argument;
+_:4c8e6b576618d643 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "The date or dateTime argument." .
 
 sp:mul a spin:Function;
-  spin:constaint _:5ff4f01d10bf530b, _:5ff4f01d10bf530c;
+  spin:constraint _:4c8e6b576618d642, _:4c8e6b576618d641;
   spin:symbol "*";
   rdfs:comment "Returns the arithmetic product of its operands.";
   rdfs:label "mul";
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf530b a spl:Argument;
+_:4c8e6b576618d642 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the first operand" .
 
-_:5ff4f01d10bf530c a spl:Argument;
+_:4c8e6b576618d641 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Literal;
   rdfs:comment "the second operand" .
 
 sp:ne a spin:Function;
-  spin:constaint _:5ff4f01d10bf530d, _:5ff4f01d10bf530e;
+  spin:constraint _:4c8e6b576618d640, _:4c8e6b576618d63f;
   spin:returnType xsd:boolean;
   spin:symbol "!=";
   rdfs:comment "Returns true if ?arg1 != ?arg2.";
   rdfs:label "ne";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf530d a spl:Argument;
+_:4c8e6b576618d640 a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "the first operand" .
 
-_:5ff4f01d10bf530e a spl:Argument;
+_:4c8e6b576618d63f a spl:Argument;
   spl:predicate sp:arg2;
   rdfs:comment "the second operand" .
 
 sp:not a spin:Function;
-  spin:constaint _:5ff4f01d10bf530f;
+  spin:constraint _:4c8e6b576618d63e;
   spin:returnType xsd:boolean;
   spin:symbol "!";
   rdfs:comment "Returns the boolean negation of the argument.";
   rdfs:label "not";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf530f a spl:Argument;
+_:4c8e6b576618d63e a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:boolean;
   rdfs:comment "the operand to negate" .
 
 sp:notIn a spin:Function;
-  spin:constaint _:5ff4f01d10bf5310;
+  spin:constraint _:4c8e6b576618d63d;
   spin:returnType xsd:boolean;
   spin:symbol "NOT IN";
   rdfs:comment "Checks whether the value on the left (?arg1) is none of the values on the right (?arg2, ?arg3 ...).";
   rdfs:label "NOT IN";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf5310 a spl:Argument;
+_:4c8e6b576618d63d a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The value to find." .
 
 sp:or a spin:Function;
-  spin:constaint _:5ff4f01d10bf5311, _:5ff4f01d10bf5312;
+  spin:constraint _:4c8e6b576618d63c, _:4c8e6b576618d63b;
   spin:returnType xsd:boolean;
   spin:symbol "||";
   rdfs:comment "Returns the logical OR between two (boolean) operands.";
   rdfs:label "or";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf5311 a spl:Argument;
+_:4c8e6b576618d63c a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:boolean;
   rdfs:comment "the first operand" .
 
-_:5ff4f01d10bf5312 a spl:Argument;
+_:4c8e6b576618d63b a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:boolean;
   rdfs:comment "the second operand" .
 
 sp:regex a spin:Function;
-  spin:constaint _:5ff4f01d10bf5313, _:5ff4f01d10bf5314, _:5ff4f01d10bf5315;
+  spin:constraint _:4c8e6b576618d63a, _:4c8e6b576618d639, _:4c8e6b576618d638;
   spin:returnType xsd:boolean;
   spin:symbol "regex";
   rdfs:comment "Returns true if a string (?arg1) matches the regular expression supplied as a pattern (?arg2) as influenced by the value of flags (?arg3), otherwise returns false.";
@@ -585,24 +585,24 @@ sp:regex a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-regex>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5313 a spl:Argument;
+_:4c8e6b576618d63a a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg3;
   spl:valueType xsd:string;
   rdfs:comment "the flags" .
 
-_:5ff4f01d10bf5314 a spl:Argument;
+_:4c8e6b576618d639 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the input string" .
 
-_:5ff4f01d10bf5315 a spl:Argument;
+_:4c8e6b576618d638 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "the match pattern" .
 
 sp:replace a spin:Function;
-  spin:constaint _:5ff4f01d10bf5316, _:5ff4f01d10bf5317, _:5ff4f01d10bf5318, _:5ff4f01d10bf5319;
+  spin:constraint _:4c8e6b576618d637, _:4c8e6b576618d636, _:4c8e6b576618d635, _:4c8e6b576618d634;
   spin:returnType xsd:string;
   spin:symbol "REPLACE";
   rdfs:comment "Replaces each non-overlapping occurrence of a regular expression pattern with a replacement string. Regular expession matching may involve modifier flags.";
@@ -610,42 +610,42 @@ sp:replace a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-replace>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5316 a spl:Argument;
+_:4c8e6b576618d637 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg4;
   spl:valueType xsd:string;
   rdfs:comment "Additional flags for the replacement." .
 
-_:5ff4f01d10bf5317 a spl:Argument;
+_:4c8e6b576618d636 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string." .
 
-_:5ff4f01d10bf5318 a spl:Argument;
+_:4c8e6b576618d635 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment """The pattern to replace.
 """ .
 
-_:5ff4f01d10bf5319 a spl:Argument;
+_:4c8e6b576618d634 a spl:Argument;
   spl:predicate sp:arg3;
   spl:valueType xsd:string;
   rdfs:comment "The replacement string." .
 
 sp:round a spin:Function;
-  spin:constaint _:5ff4f01d10bf531a;
+  spin:constraint _:4c8e6b576618d633;
   spin:symbol "round";
   rdfs:comment "Returns the number with no fractional part that is closest to the argument. If there are two such numbers, then the one that is closest to positive infinity is returned. An error is raised if ?arg1 is not a numeric value.";
   rdfs:label "round";
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-round>;
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf531a a spl:Argument;
+_:4c8e6b576618d633 a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The number to round." .
 
 sp:sameTerm a spin:Function;
-  spin:constaint _:5ff4f01d10bf531b, _:5ff4f01d10bf531c;
+  spin:constraint _:4c8e6b576618d632, _:4c8e6b576618d631;
   spin:returnType xsd:boolean;
   spin:symbol "sameTerm";
   rdfs:comment "Returns TRUE if ?arg1 and ?arg2 are the same RDF term as defined in Resource Description Framework (RDF): Concepts and Abstract Syntax; returns FALSE otherwise.";
@@ -653,29 +653,29 @@ sp:sameTerm a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-sameTerm>;
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf531b a spl:Argument;
+_:4c8e6b576618d632 a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "the first argument" .
 
-_:5ff4f01d10bf531c a spl:Argument;
+_:4c8e6b576618d631 a spl:Argument;
   spl:predicate sp:arg2;
   rdfs:comment "the second argument" .
 
 sp:seconds a spin:Function;
-  spin:constaint _:5ff4f01d10bf531d;
+  spin:constraint _:4c8e6b576618d630;
   spin:returnType xsd:integer;
   spin:symbol "seconds";
   rdfs:comment "Extracts the seconds from a date/time literal.";
   rdfs:label "seconds";
   rdfs:subClassOf spl:DateFunctions .
 
-_:5ff4f01d10bf531d a spl:Argument;
+_:4c8e6b576618d630 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "The dateTime or time argument." .
 
 sp:sha1 a spin:Function;
-  spin:constaint _:5ff4f01d10bf531e;
+  spin:constraint _:4c8e6b576618d62f;
   spin:returnType xsd:string;
   spin:symbol "SHA1";
   rdfs:comment "Returns the SHA1 checksum, as a hex digit string, calculated on the UTF-8 representation of the simple literal or lexical form of the xsd:string. Hex digits SHOULD be in lower case.";
@@ -683,12 +683,12 @@ sp:sha1 a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-sha1>;
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf531e a spl:Argument;
+_:4c8e6b576618d62f a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The input literal." .
 
 sp:sha256 a spin:Function;
-  spin:constaint _:5ff4f01d10bf531f;
+  spin:constraint _:4c8e6b576618d62e;
   spin:returnType xsd:string;
   spin:symbol "SHA256";
   rdfs:comment "Returns the SHA256 checksum, as a hex digit string, calculated on the UTF-8 representation of the simple literal or lexical form of the xsd:string. Hex digits SHOULD be in lower case.";
@@ -696,12 +696,12 @@ sp:sha256 a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-sha256>;
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf531f a spl:Argument;
+_:4c8e6b576618d62e a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The input literal." .
 
 sp:sha384 a spin:Function;
-  spin:constaint _:5ff4f01d10bf5320;
+  spin:constraint _:4c8e6b576618d62d;
   spin:returnType xsd:string;
   spin:symbol "SHA384";
   rdfs:comment "Returns the SHA384 checksum, as a hex digit string, calculated on the UTF-8 representation of the simple literal or lexical form of the xsd:string. Hex digits SHOULD be in lower case.";
@@ -709,12 +709,12 @@ sp:sha384 a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-sha384>;
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf5320 a spl:Argument;
+_:4c8e6b576618d62d a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The input literal." .
 
 sp:sha512 a spin:Function;
-  spin:constaint _:5ff4f01d10bf5321;
+  spin:constraint _:4c8e6b576618d62c;
   spin:returnType xsd:string;
   spin:symbol "SHA512";
   rdfs:comment "Returns the SHA512 checksum, as a hex digit string, calculated on the UTF-8 representation of the simple literal or lexical form of the xsd:string. Hex digits SHOULD be in lower case.";
@@ -722,24 +722,24 @@ sp:sha512 a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-sha512>;
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf5321 a spl:Argument;
+_:4c8e6b576618d62c a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "The input literal." .
 
 sp:str a spin:Function;
-  spin:constaint _:5ff4f01d10bf5322;
+  spin:constraint _:4c8e6b576618d62b;
   spin:returnType xsd:string;
   spin:symbol "str";
   rdfs:comment "Returns the lexical form of ?arg1 (a literal); returns the codepoint representation of ?arg1 (an IRI). This is useful for examining parts of an IRI, for instance, the host-name.";
   rdfs:label "str";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5322 a spl:Argument;
+_:4c8e6b576618d62b a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "the node to convert to string" .
 
 sp:strafter a spin:Function;
-  spin:constaint _:5ff4f01d10bf5323, _:5ff4f01d10bf5324;
+  spin:constraint _:4c8e6b576618d62a, _:4c8e6b576618d629;
   spin:returnType xsd:string;
   spin:symbol "STRAFTER";
   rdfs:comment "Returns a literal of the same kind (simple literal, plain literal same language tag, xsd:string) as the first argument arg1. The lexical form of the result is the substring of the value of arg1 that proceeds in arg1 the first occurrence of the lexical form of arg2; otherwise the lexical form of the result is the empty string. If the lexical form of arg2 is the empty string, the lexical form of the result is the emprty string.";
@@ -747,18 +747,18 @@ sp:strafter a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-strafter>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5323 a spl:Argument;
+_:4c8e6b576618d62a a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string." .
 
-_:5ff4f01d10bf5324 a spl:Argument;
+_:4c8e6b576618d629 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The pattern to find within the input string." .
 
 sp:strbefore a spin:Function;
-  spin:constaint _:5ff4f01d10bf5325, _:5ff4f01d10bf5326;
+  spin:constraint _:4c8e6b576618d628, _:4c8e6b576618d627;
   spin:returnType xsd:string;
   spin:symbol "STRBEFORE";
   rdfs:comment "Returns a literal of the same kind (simple literal, plain literal same language tag, xsd:string) as the first argument arg1. The lexical form of the result is the substring of the value of arg1 that precedes in arg1 the first occurrence of the lexical form of arg2; otherwise the lexical form of the result is the empty string. If the lexical form of arg2 is the empty string, the lexical form of the result is the emprty string.";
@@ -766,36 +766,36 @@ sp:strbefore a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-strbefore>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5325 a spl:Argument;
+_:4c8e6b576618d628 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string." .
 
-_:5ff4f01d10bf5326 a spl:Argument;
+_:4c8e6b576618d627 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The pattern to find within the input string." .
 
 sp:strdt a spin:Function;
-  spin:constaint _:5ff4f01d10bf5327, _:5ff4f01d10bf5328;
+  spin:constraint _:4c8e6b576618d626, _:4c8e6b576618d625;
   spin:symbol "STRDT";
   rdfs:comment "Constructs a literal with lexical form and type as specified by the arguments.";
   rdfs:label "strdt";
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-strdt>;
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf5327 a spl:Argument;
+_:4c8e6b576618d626 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The lexical form of the new literal." .
 
-_:5ff4f01d10bf5328 a spl:Argument;
+_:4c8e6b576618d625 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Datatype;
   rdfs:comment "The datatype of the new literal." .
 
 sp:strends a spin:Function;
-  spin:constaint _:5ff4f01d10bf5329, _:5ff4f01d10bf532a;
+  spin:constraint _:4c8e6b576618d624, _:4c8e6b576618d623;
   spin:returnType xsd:boolean;
   spin:symbol "STRENDS";
   rdfs:comment "Returns true if the lexical form of ?arg1 ends with the lexical form of ?arg2, otherwise it returns false.";
@@ -803,18 +803,18 @@ sp:strends a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-ends>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5329 a spl:Argument;
+_:4c8e6b576618d624 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string." .
 
-_:5ff4f01d10bf532a a spl:Argument;
+_:4c8e6b576618d623 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The sub-string that the input string is supposed to end with." .
 
 sp:strlang a spin:Function;
-  spin:constaint _:5ff4f01d10bf532b, _:5ff4f01d10bf532c;
+  spin:constraint _:4c8e6b576618d622, _:4c8e6b576618d621;
   spin:returnType rdf:PlainLiteral;
   spin:symbol "STRLANG";
   rdfs:comment "Takes a string (?arg1) and a language (?arg2) and constructs a literal with a corresponding language tag.";
@@ -822,18 +822,18 @@ sp:strlang a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-strlang>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf532b a spl:Argument;
+_:4c8e6b576618d622 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The string value." .
 
-_:5ff4f01d10bf532c a spl:Argument;
+_:4c8e6b576618d621 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The language tag, e.g. \"en-AU\"." .
 
 sp:strlen a spin:Function;
-  spin:constaint _:5ff4f01d10bf532d;
+  spin:constraint _:4c8e6b576618d620;
   spin:returnType xsd:integer;
   spin:symbol "STRLEN";
   rdfs:comment "Computes the length of a given input string.";
@@ -841,13 +841,13 @@ sp:strlen a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-strlen>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf532d a spl:Argument;
+_:4c8e6b576618d620 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string." .
 
 sp:strstarts a spin:Function;
-  spin:constaint _:5ff4f01d10bf532e, _:5ff4f01d10bf532f;
+  spin:constraint _:4c8e6b576618d61f, _:4c8e6b576618d61e;
   spin:returnType xsd:boolean;
   spin:symbol "STRSTARTS";
   rdfs:comment "Returns true if the lexical form of ?arg1 begins with the lexical form of ?arg2, otherwise it returns false.";
@@ -855,35 +855,35 @@ sp:strstarts a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-starts>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf532e a spl:Argument;
+_:4c8e6b576618d61f a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string." .
 
-_:5ff4f01d10bf532f a spl:Argument;
+_:4c8e6b576618d61e a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The sub-string that the input string is supposed to begin with." .
 
 sp:sub a spin:Function;
-  spin:constaint _:5ff4f01d10bf5330, _:5ff4f01d10bf5331;
+  spin:constraint _:4c8e6b576618d61d, _:4c8e6b576618d61c;
   spin:symbol "-";
   rdfs:comment "Returns the arithmetic difference of its operands.";
   rdfs:label "sub";
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf5330 a spl:Argument;
+_:4c8e6b576618d61d a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the first operand" .
 
-_:5ff4f01d10bf5331 a spl:Argument;
+_:4c8e6b576618d61c a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Literal;
   rdfs:comment "the second operand" .
 
 sp:substr a spin:Function;
-  spin:constaint _:5ff4f01d10bf5332, _:5ff4f01d10bf5333, _:5ff4f01d10bf5334;
+  spin:constraint _:4c8e6b576618d61b, _:4c8e6b576618d61a, _:4c8e6b576618d619;
   spin:returnType xsd:string;
   spin:symbol "SUBSTR";
   rdfs:comment "Gets the sub-string of a given string. The index of the first character is 1.";
@@ -891,24 +891,24 @@ sp:substr a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-substr>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5332 a spl:Argument;
+_:4c8e6b576618d61b a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg3;
   spl:valueType xsd:integer;
   rdfs:comment "The end index." .
 
-_:5ff4f01d10bf5333 a spl:Argument;
+_:4c8e6b576618d61a a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string." .
 
-_:5ff4f01d10bf5334 a spl:Argument;
+_:4c8e6b576618d619 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:integer;
   rdfs:comment "The start index." .
 
 sp:timezone a spin:Function;
-  spin:constaint _:5ff4f01d10bf5335;
+  spin:constraint _:4c8e6b576618d618;
   spin:returnType xsd:duration;
   spin:symbol "TIMEZONE";
   rdfs:comment "Returns the timezone part of ?arg1 as an xsd:dayTimeDuration. Raises an error if there is no timezone.";
@@ -916,13 +916,13 @@ sp:timezone a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-timezone>;
   rdfs:subClassOf spl:DateFunctions .
 
-_:5ff4f01d10bf5335 a spl:Argument;
+_:4c8e6b576618d618 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:dateTime;
   rdfs:comment "The input time." .
 
 sp:ucase a spin:Function;
-  spin:constaint _:5ff4f01d10bf5336;
+  spin:constraint _:4c8e6b576618d617;
   spin:returnType xsd:string;
   spin:symbol "UCASE";
   rdfs:comment "Converts a string to upper case characters.";
@@ -930,130 +930,130 @@ sp:ucase a spin:Function;
   rdfs:seeAlso <http://www.w3.org/TR/sparql11-query/#func-ucase>;
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5336 a spl:Argument;
+_:4c8e6b576618d617 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string." .
 
 sp:unaryMinus a spin:Function;
-  spin:constaint _:5ff4f01d10bf5337;
+  spin:constraint _:4c8e6b576618d616;
   spin:symbol "-";
   rdfs:comment "Returns the operand ?arg1 with the sign reversed. If ?arg1 is positive, its negative is returned; if it is negative, its positive is returned.";
   rdfs:label "unary minus";
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf5337 a spl:Argument;
+_:4c8e6b576618d616 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the operand" .
 
 sp:unaryPlus a spin:Function;
-  spin:constaint _:5ff4f01d10bf5338;
+  spin:constraint _:4c8e6b576618d615;
   spin:symbol "+";
   rdfs:comment "Returns the operand ?arg1 with the sign unchanged. Semantically, this operation performs no operation.";
   rdfs:label "unary plus";
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf5338 a spl:Argument;
+_:4c8e6b576618d615 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the operand" .
 
 sp:uri a spin:Function;
-  spin:constaint _:5ff4f01d10bf5339;
+  spin:constraint _:4c8e6b576618d614;
   spin:returnType rdfs:Resource;
   spin:symbol "URI";
   rdfs:comment "Equivalent to IRI.";
   rdfs:label "URI";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf5339 a spl:Argument;
+_:4c8e6b576618d614 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The IRI string to convert to a resource." .
 
 sp:year a spin:Function;
-  spin:constaint _:5ff4f01d10bf533a;
+  spin:constraint _:4c8e6b576618d613;
   spin:returnType xsd:integer;
   spin:symbol "year";
   rdfs:comment "Extracts the year from a date/time literal.";
   rdfs:label "year";
   rdfs:subClassOf spl:DateFunctions .
 
-_:5ff4f01d10bf533a a spl:Argument;
+_:4c8e6b576618d613 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "The date or dateTime argument." .
 
 spl:hasArgument a spin:Function;
-  spin:constaint _:5ff4f01d10bf55a1;
+  spin:constraint _:4c8e6b576618d3ac;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks if a given module class (?module) has at least one declared spl:Argument.";
   rdfs:label "has argument";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf55a1 a spl:Argument;
+_:4c8e6b576618d3ac a spl:Argument;
   spl:predicate spl:class;
   spl:valueType spin:Module;
   rdfs:comment "The module class to check." .
 
 spl:hasPrimaryKey a spin:Function;
-  spin:constaint _:5ff4f01d10bf55ac;
+  spin:constraint _:4c8e6b576618d3a1;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks if a given class has a declared primary key, using spl:PrimaryKeyPropertyConstraint.";
   rdfs:label "has primary key";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf55ac a spl:Argument;
+_:4c8e6b576618d3a1 a spl:Argument;
   spl:predicate <http://spinrdf.org/arg#class>;
   spl:valueType rdfs:Class;
   rdfs:comment "The class to get the primary key of." .
 
 spl:hasValue a spin:Function;
-  spin:constaint _:5ff4f01d10bf55b5, _:5ff4f01d10bf55b6, _:5ff4f01d10bf55b7;
+  spin:constraint _:4c8e6b576618d398, _:4c8e6b576618d397, _:4c8e6b576618d396;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks whether a given resource (?arg1) has a given value (?arg3) for a given property (?arg2) or one of the sub-properties of it.";
   rdfs:label "hasValue";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf55b5 a spl:Argument;
+_:4c8e6b576618d398 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "the subject that is expected to have the value" .
 
-_:5ff4f01d10bf55b6 a spl:Argument;
+_:4c8e6b576618d397 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "the property that is expected to hold the value" .
 
-_:5ff4f01d10bf55b7 a spl:Argument;
+_:4c8e6b576618d396 a spl:Argument;
   spl:predicate sp:arg3;
   rdfs:comment "the expected value" .
 
 spl:hasValueOfType a spin:Function;
-  spin:constaint _:5ff4f01d10bf55c5, _:5ff4f01d10bf55c6, _:5ff4f01d10bf55c7;
+  spin:constraint _:4c8e6b576618d388, _:4c8e6b576618d387, _:4c8e6b576618d386;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks whether a given subject (?arg1) has at least one value of a given type (?arg3) for a given property (?arg2) or one of its sub-properties.";
   rdfs:label "hasValueOfType";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf55c5 a spl:Argument;
+_:4c8e6b576618d388 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "the subject that is expected to have the value" .
 
-_:5ff4f01d10bf55c6 a spl:Argument;
+_:4c8e6b576618d387 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "the expected property" .
 
-_:5ff4f01d10bf55c7 a spl:Argument;
+_:4c8e6b576618d386 a spl:Argument;
   spl:predicate sp:arg3;
   spl:valueType rdfs:Class;
   rdfs:comment "the type to match against" .
 
 spl:instanceOf a spin:Function;
-  spin:constaint _:5ff4f01d10bf55f1, _:5ff4f01d10bf55f2;
+  spin:constraint _:4c8e6b576618d35c, _:4c8e6b576618d35b;
   spin:labelTemplate "{?arg1} instance of {?arg2}";
   spin:returnType xsd:boolean;
   rdfs:comment "Checks whether a given resource (?arg1) has a given type (?arg2). In order to fulfill this condition, there must either be a triple ?arg1 rdf:type ?arg2, or ?instance rdf:type ?subClass where ?subClass is a subclass of ?arg2. If the first argument is a literal, then the second argument must be the matching XSD datatype.";
@@ -1061,105 +1061,105 @@ spl:instanceOf a spin:Function;
   rdfs:subClassOf spl:BooleanFunctions;
   owl:versionInfo "Note that in TopBraid this function has been implemented in native Java code, for performance reasons." .
 
-_:5ff4f01d10bf55f1 a spl:Argument;
+_:4c8e6b576618d35c a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "the instance being tested" .
 
-_:5ff4f01d10bf55f2 a spl:Argument;
+_:4c8e6b576618d35b a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Class;
   rdfs:comment "the type that the instance must have" .
 
 spl:isPrimaryKeyPropertyOfInstance a spin:Function;
-  spin:constaint _:5ff4f01d10bf5602, _:5ff4f01d10bf5603;
+  spin:constraint _:4c8e6b576618d34b, _:4c8e6b576618d34a;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks if a given property is the primary key of a given instance.";
   rdfs:label "is primary key property of instance";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf5602 a spl:Argument;
+_:4c8e6b576618d34b a spl:Argument;
   spl:predicate <http://spinrdf.org/arg#instance>;
   spl:valueType rdfs:Resource;
   rdfs:comment "The instance to check." .
 
-_:5ff4f01d10bf5603 a spl:Argument;
+_:4c8e6b576618d34a a spl:Argument;
   spl:predicate <http://spinrdf.org/arg#property>;
   spl:valueType rdf:Property;
   rdfs:comment "The property that may or may not be the primary key." .
 
 spl:isUntypedLiteral a spin:Function;
-  spin:constaint _:5ff4f01d10bf560c;
+  spin:constraint _:4c8e6b576618d341;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks whether a given literal is untyped. This function was introduced because the built-in datatype operand in SPARQL casts untyped literals to xsd:string, making it impossible to check it this way. This function here uses a work-around using sameTerm instead.";
   rdfs:label "isUntypedLiteral";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf560c a spl:Argument;
+_:4c8e6b576618d341 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "The literal to test." .
 
 spl:max a spin:Function;
-  spin:constaint _:5ff4f01d10bf5615, _:5ff4f01d10bf5616;
+  spin:constraint _:4c8e6b576618d338, _:4c8e6b576618d337;
   spin:returnType rdfs:Literal;
   rdfs:comment "Takes two arguments and returns the larger one of them.";
   rdfs:label "max";
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf5615 a spl:Argument;
+_:4c8e6b576618d338 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "The first argument." .
 
-_:5ff4f01d10bf5616 a spl:Argument;
+_:4c8e6b576618d337 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Literal;
   rdfs:comment "The second argument." .
 
 spl:min a spin:Function;
-  spin:constaint _:5ff4f01d10bf561f, _:5ff4f01d10bf5620;
+  spin:constraint _:4c8e6b576618d32e, _:4c8e6b576618d32d;
   spin:returnType rdfs:Literal;
   rdfs:comment "Takes two arguments and returns the smaller one of them.";
   rdfs:label "min";
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf561f a spl:Argument;
+_:4c8e6b576618d32e a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "The first argument." .
 
-_:5ff4f01d10bf5620 a spl:Argument;
+_:4c8e6b576618d32d a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Literal;
   rdfs:comment "The second argument." .
 
 spl:object a spin:Function;
-  spin:constaint _:5ff4f01d10bf5627, _:5ff4f01d10bf5628;
+  spin:constraint _:4c8e6b576618d326, _:4c8e6b576618d325;
   rdfs:comment "Gets the object of a given subject (?arg1) / predicate (?arg2) combination. Note that if multiple values are present then the result might be unpredictably random.";
   rdfs:label "object";
   rdfs:subClassOf spl:OntologyFunctions;
   owl:versionInfo "Note that in TopBraid this function has been implemented in native Java code, for performance reasons." .
 
-_:5ff4f01d10bf5627 a spl:Argument;
+_:4c8e6b576618d326 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The subject to get the object from." .
 
-_:5ff4f01d10bf5628 a spl:Argument;
+_:4c8e6b576618d325 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "The predicate to get the object of." .
 
 spl:objectCount a spin:Function;
-  spin:constaint _:5ff4f01d10bf5631, _:5ff4f01d10bf5632 .
+  spin:constraint _:4c8e6b576618d31c, _:4c8e6b576618d31b .
 
-_:5ff4f01d10bf5631 a spl:Argument;
+_:4c8e6b576618d31c a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "the subject to get the number of objects of" .
 
-_:5ff4f01d10bf5632 a spl:Argument;
+_:4c8e6b576618d31b a spl:Argument;
   spl:predicate sp:arg2;
   a spl:Argument;
   spl:valueType rdf:Property;
@@ -1167,203 +1167,203 @@ _:5ff4f01d10bf5632 a spl:Argument;
   spl:predicate sp:arg2 .
 
 spl:objectCount spin:returnType xsd:integer;
-  spin:constaint _:5ff4f01d10bf5631, _:5ff4f01d10bf5632;
+  spin:constraint _:4c8e6b576618d31c, _:4c8e6b576618d31b;
   rdfs:comment "Gets the number of values of a given property (?arg2) at a given subject (?arg1). The result is the number of matches of (?arg1, ?arg2, ?object).";
   rdfs:label "objectCount";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf5631 a spl:Argument;
+_:4c8e6b576618d31c a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "the subject to get the number of objects of" .
 
 spl:objectInGraph a spin:Function;
-  spin:constaint _:5ff4f01d10bf563b, _:5ff4f01d10bf563c, _:5ff4f01d10bf563d;
+  spin:constraint _:4c8e6b576618d312, _:4c8e6b576618d311, _:4c8e6b576618d310;
   rdfs:comment "Gets the object of a given subject (?arg1) / predicate (?arg2) combination in a given graph ?arg3. Note that if multiple values are present then the result might be unpredictably random.";
   rdfs:label "object in graph";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf563b a spl:Argument;
+_:4c8e6b576618d312 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The subject to get the object from." .
 
-_:5ff4f01d10bf563c a spl:Argument;
+_:4c8e6b576618d311 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "The predicate to get the object of." .
 
-_:5ff4f01d10bf563d a spl:Argument;
+_:4c8e6b576618d310 a spl:Argument;
   spl:predicate sp:arg3;
   spl:valueType rdfs:Resource;
   rdfs:comment "The graph to query in." .
 
 spl:objectSubProp a spin:Function;
-  spin:constaint _:5ff4f01d10bf5649, _:5ff4f01d10bf564a;
+  spin:constraint _:4c8e6b576618d304, _:4c8e6b576618d303;
   rdfs:comment "Gets the object of a given subject (?arg1) / predicate (?arg2) combination, also taking the sub-properties of ?arg2 into account. Note that if multiple values are present then the result might be unpredictably random.";
   rdfs:label "object sub prop";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf5649 a spl:Argument;
+_:4c8e6b576618d304 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The subject to get the object from." .
 
-_:5ff4f01d10bf564a a spl:Argument;
+_:4c8e6b576618d303 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "The predicate to get the object of (including sub-properties of it)." .
 
 spl:primaryKeyProperty a spin:Function;
-  spin:constaint _:5ff4f01d10bf565e;
+  spin:constraint _:4c8e6b576618d2ef;
   spin:returnType rdf:Property;
   rdfs:comment "Gets the primary key property declared for a given class, using spl:PrimaryKeyPropertyConstraint.";
   rdfs:label "primary key property";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf565e a spl:Argument;
+_:4c8e6b576618d2ef a spl:Argument;
   spl:predicate <http://spinrdf.org/arg#class>;
   spl:valueType rdfs:Class;
   rdfs:comment "The class to get the primary key of." .
 
 spl:primaryKeyURIStart a spin:Function;
-  spin:constaint _:5ff4f01d10bf5672;
+  spin:constraint _:4c8e6b576618d2db;
   spin:returnType rdf:Property;
   rdfs:comment "Gets the URI start declared as part of a primary key declaration for a given class, using spl:PrimaryKeyPropertyConstraint.";
   rdfs:label "primary key URI start";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf5672 a spl:Argument;
+_:4c8e6b576618d2db a spl:Argument;
   spl:predicate <http://spinrdf.org/arg#class>;
   spl:valueType rdfs:Class;
   rdfs:comment "The class to get the primary key of." .
 
 spl:subClassOf a spin:Function;
-  spin:constaint _:5ff4f01d10bf56ac, _:5ff4f01d10bf56ad;
+  spin:constraint _:4c8e6b576618d2a1, _:4c8e6b576618d2a0;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks whether a given class (?arg1) is a (transitive) sub-class of another class (?arg2).";
   rdfs:label "sub class of";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf56ac a spl:Argument;
+_:4c8e6b576618d2a1 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Class;
   rdfs:comment "The potential sub-class." .
 
-_:5ff4f01d10bf56ad a spl:Argument;
+_:4c8e6b576618d2a0 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Class;
   rdfs:comment "The potential super-class." .
 
 spl:subPropertyOf a spin:Function;
-  spin:constaint _:5ff4f01d10bf56b2, _:5ff4f01d10bf56b3;
+  spin:constraint _:4c8e6b576618d29b, _:4c8e6b576618d29a;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks whether a given property (?arg1) is a (transitive) sub-property of another property (?arg2).";
   rdfs:label "sub property of";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf56b2 a spl:Argument;
+_:4c8e6b576618d29b a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdf:Property;
   rdfs:comment "The potential sub-property." .
 
-_:5ff4f01d10bf56b3 a spl:Argument;
+_:4c8e6b576618d29a a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "The potential super-property." .
 
 spl:subject a spin:Function;
-  spin:constaint _:5ff4f01d10bf56ba, _:5ff4f01d10bf56bb;
+  spin:constraint _:4c8e6b576618d293, _:4c8e6b576618d292;
   rdfs:comment "Gets the \"first\" subject of a given predicate (?arg1)/object (?arg2) combination. Note that if multiple values are present then the result might be unpredictably random.";
   rdfs:label "subject";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf56ba a spl:Argument;
+_:4c8e6b576618d293 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdf:Property;
   rdfs:comment "The predicate." .
 
-_:5ff4f01d10bf56bb a spl:Argument;
+_:4c8e6b576618d292 a spl:Argument;
   spl:predicate sp:arg2;
   rdfs:comment "The object." .
 
 spl:subjectCount a spin:Function;
-  spin:constaint _:5ff4f01d10bf56c4, _:5ff4f01d10bf56c5;
+  spin:constraint _:4c8e6b576618d289, _:4c8e6b576618d288;
   spin:returnType xsd:integer;
   rdfs:comment "Gets the number of values of a given property (?arg1) at a given object (?arg2). The result is the number of matches of (?subject, ?arg1, ?arg2).";
   rdfs:label "subjectCount";
   rdfs:subClassOf spl:OntologyFunctions .
 
-_:5ff4f01d10bf56c4 a spl:Argument;
+_:4c8e6b576618d289 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdf:Property;
   rdfs:comment "the predicate to get the number of subjects of" .
 
-_:5ff4f01d10bf56c5 a spl:Argument;
+_:4c8e6b576618d288 a spl:Argument;
   spl:predicate sp:arg2;
   rdfs:comment "the object to get the number of subjects of" .
 
 spif:buildString a spin:Function;
-  spin:constaint _:5ff4f01d10bf56dd;
+  spin:constraint _:4c8e6b576618d270;
   spin:returnType xsd:string;
   rdfs:comment "Constructs a new string by inserting the existing variable bindings into a template. The template can mention variable names in curly braces, such as \"Hello {?index}\" would create \"Hello 42\" is ?index has the value 42. As an alternative to variable names, the function can take additional arguments after the template, the variables of which can be accessed using {?1}, {?2} etc. For example: smf:buildString(\"Hello-{?1}-{?2}\", ?day, ?month) would insert day and month at places {?1} and {?2}.";
   rdfs:label "build string";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf56dd a spl:Argument;
+_:4c8e6b576618d270 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the template string" .
 
 spif:buildStringFromRDFList a spin:Function;
-  spin:constaint _:5ff4f01d10bf56de, _:5ff4f01d10bf56df, _:5ff4f01d10bf56e0;
+  spin:constraint _:4c8e6b576618d26f, _:4c8e6b576618d26e, _:4c8e6b576618d26d;
   spin:returnType xsd:string;
   rdfs:comment "Builds a string from the members of a given rdf:List (?arg1). The function iterates over all members of the list (which must be well-formed according to the RDF syntax rules). For each member, a string template (?arg2) is applied where the expression {?member} will be substituted with the current member. Optionally, a separator (?arg3) can be inserted between the list members in the result string, e.g. to insert a comma.";
   rdfs:label "build string from RDF list";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf56de a spl:Argument;
+_:4c8e6b576618d26f a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg3;
   spl:valueType xsd:string;
   rdfs:comment "the separator to insert between each string" .
 
-_:5ff4f01d10bf56df a spl:Argument;
+_:4c8e6b576618d26e a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdf:List;
   rdfs:comment "the head of the rdf:List to convert to string" .
 
-_:5ff4f01d10bf56e0 a spl:Argument;
+_:4c8e6b576618d26d a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "the template string" .
 
 spif:buildURI a spin:Function;
-  spin:constaint _:5ff4f01d10bf56e1;
+  spin:constraint _:4c8e6b576618d26c;
   spin:returnType rdfs:Resource;
   rdfs:comment "Constructs a new URI resource by inserting the existing variable bindings into a template. The template can mention variable names in curly braces, such as \"my:Instance-{?index}\" would create \"my:Instance-42\" is ?index has the value 42. As an alternative to variable names, the function can take additional arguments after the template, the variables of which can be accessed using {?1}, {?2} etc. For example: smf:buildURI(\"my:Instance-{?1}-{?2}\", ?day, ?month) would insert day and month at places {?1} and {?2}.";
   rdfs:label "build URI";
   rdfs:subClassOf spl:URIFunctions .
 
-_:5ff4f01d10bf56e1 a spl:Argument;
+_:4c8e6b576618d26c a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The URI template such as \"<http://my.com/Instance-{?index}>\". If the template contains a full URI, then it must be wrapped by <...>, otherwise the system will treat it as a qname." .
 
 spif:buildUniqueURI a spin:Function;
-  spin:constaint _:5ff4f01d10bf56e2;
+  spin:constraint _:4c8e6b576618d26b;
   spin:returnType rdfs:Resource;
   rdfs:comment "A variation of smf:buildURI that also makes sure that the created URI is unique in the current graph (that is, no triple contains the URI as either subject, predicate or object). This function is particularly useful for ontology mapping from a legacy data source into an RDF model.";
   rdfs:label "build unique URI";
   rdfs:subClassOf spl:URIFunctions .
 
-_:5ff4f01d10bf56e2 a spl:Argument;
+_:4c8e6b576618d26b a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The URI template such as \"<http://my.com/Instance-{?index}>\". If the template contains a full URI, then it must be wrapped by <...>, otherwise the system will treat it as a qname." .
 
 spif:camelCase a spin:Function;
-  spin:constaint _:5ff4f01d10bf56e3, _:5ff4f01d10bf56e4;
+  spin:constraint _:4c8e6b576618d26a, _:4c8e6b576618d269;
   spin:returnType xsd:string;
   rdfs:comment """Converts an input string into camel case. 
 For example, \"semantic web\" becomes \"SemanticWeb\".
@@ -1371,70 +1371,70 @@ An optional matching expression can be given to only convert the matched charact
   rdfs:label "camel case";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf56e3 a spl:Argument;
+_:4c8e6b576618d26a a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The match expression" .
 
-_:5ff4f01d10bf56e4 a spl:Argument;
+_:4c8e6b576618d269 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the input string" .
 
 spif:canInvoke a spin:Function;
-  spin:constaint _:5ff4f01d10bf56e5, _:5ff4f01d10bf56e6, _:5ff4f01d10bf56e7, _:5ff4f01d10bf56e8,
-    _:5ff4f01d10bf56e9;
+  spin:constraint _:4c8e6b576618d268, _:4c8e6b576618d267, _:4c8e6b576618d266, _:4c8e6b576618d265,
+    _:4c8e6b576618d264;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks whether a given SPIN function (?arg1) can be invoked with a given list of argument (?arg2, ?arg3, ...) without violating any of its declared SPIN constraints. In addition to the usual argument declarations, the SPIN function may declare ASK and CONSTRUCT queries to check additional pre-conditions.";
   rdfs:label "can invoke";
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf56e5 a spl:Argument;
+_:4c8e6b576618d268 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg2;
   rdfs:comment "The first argument of the function call." .
 
-_:5ff4f01d10bf56e6 a spl:Argument;
+_:4c8e6b576618d267 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg3;
   rdfs:comment "The second argument of the function call." .
 
-_:5ff4f01d10bf56e7 a spl:Argument;
+_:4c8e6b576618d266 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg4;
   rdfs:comment "The third argument of the function call." .
 
-_:5ff4f01d10bf56e8 a spl:Argument;
+_:4c8e6b576618d265 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg5;
   rdfs:comment "The forth argument of the function call." .
 
-_:5ff4f01d10bf56e9 a spl:Argument;
+_:4c8e6b576618d264 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType spin:Function;
   rdfs:comment "The function to check." .
 
 spif:cast a spin:Function;
-  spin:constaint _:5ff4f01d10bf56ea, _:5ff4f01d10bf56eb;
+  spin:constraint _:4c8e6b576618d263, _:4c8e6b576618d262;
   spin:returnType rdfs:Literal;
   rdfs:comment "Creates a new literal from an existing literal, but with a different datatype. This can, for example, be used to convert between floating point values and int values.";
   rdfs:label "cast";
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf56ea a spl:Argument;
+_:4c8e6b576618d263 a spl:Argument;
   spl:optional true;
   spl:predicate <http://spinrdf.org/arg#datatype>;
   spl:valueType rdfs:Datatype;
   rdfs:comment "The target datatype, e.g. xsd:integer. Leave blank for untyped literals." .
 
-_:5ff4f01d10bf56eb a spl:Argument;
+_:4c8e6b576618d262 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Literal;
   rdfs:comment "the \"old\" literal that shall be converted" .
 
 spif:convertSPINRDFToString a spin:Function;
-  spin:constaint _:5ff4f01d10bf56ec, _:5ff4f01d10bf56ed;
+  spin:constraint _:4c8e6b576618d261, _:4c8e6b576618d260;
   spin:returnType xsd:string;
   rdfs:comment """Converts a SPARQL query encoded in SPIN RDF format to a SPARQL string in textual form. The SPIN query must be well-formed in the context graph at execution time, and the provided argument must be the root of the expression (e.g., an instance of sp:Select).
 
@@ -1442,19 +1442,19 @@ This function is available as part of the TopBraid SPIN Libraries.""";
   rdfs:label "convert SPIN RDF to string";
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf56ec a spl:Argument;
+_:4c8e6b576618d261 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg2;
   spl:valueType xsd:boolean;
   rdfs:comment "true to embed HTML markup into the output" .
 
-_:5ff4f01d10bf56ed a spl:Argument;
+_:4c8e6b576618d260 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType sp:Query;
   rdfs:comment "the root of the SPIN RDF query" .
 
 spif:countMatches a spin:Function;
-  spin:constaint _:5ff4f01d10bf56ee, _:5ff4f01d10bf56ef, _:5ff4f01d10bf56f0;
+  spin:constraint _:4c8e6b576618d25f, _:4c8e6b576618d25e, _:4c8e6b576618d25d;
   spin:returnType xsd:integer;
   rdfs:comment """Counts all occurrences of a triple pattern based on subject (?arg1), predicate (?arg2) and object (?arg3) input. Any of those can be unbound variables.
 
@@ -1462,22 +1462,22 @@ This function is available as part of the TopBraid SPIN Libraries.""";
   rdfs:label "count matches";
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf56ee a spl:Argument;
+_:4c8e6b576618d25f a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "the subject in the match triple, or an unbound variable for a wildcard" .
 
-_:5ff4f01d10bf56ef a spl:Argument;
+_:4c8e6b576618d25e a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "the predicate in the match triple, or an unbound variable for a wildcard" .
 
-_:5ff4f01d10bf56f0 a spl:Argument;
+_:4c8e6b576618d25d a spl:Argument;
   spl:predicate sp:arg3;
   rdfs:comment "the object in the match triple, or an unbound variable for a wildcard" .
 
 spif:countTransitiveSubjects a spin:Function;
-  spin:constaint _:5ff4f01d10bf56f1, _:5ff4f01d10bf56f2;
+  spin:constraint _:4c8e6b576618d25c, _:4c8e6b576618d25b;
   spin:returnType xsd:integer;
   rdfs:comment """Given a predicate and an object, this function computes the number of matches using
 
@@ -1489,248 +1489,248 @@ WHERE {
 The main purpose of this function is to optimize performance - this direction of * traversal is currently very slow in Jena. The function can be used to compute the number of subclasses of a given class.""";
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf56f1 a spl:Argument;
+_:4c8e6b576618d25c a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdf:Property;
   rdfs:comment "The predicate to walk." .
 
-_:5ff4f01d10bf56f2 a spl:Argument;
+_:4c8e6b576618d25b a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Resource;
   rdfs:comment "The object to start traversal at." .
 
 spif:dateFormat a spin:Function;
-  spin:constaint _:5ff4f01d10bf56f3, _:5ff4f01d10bf56f4;
+  spin:constraint _:4c8e6b576618d25a, _:4c8e6b576618d259;
   spin:returnType xsd:string;
   rdfs:comment "Takes a date/time literal and a pattern and renders the date according to the pattern. This is a reverse of spif:parseDate and uses the same format.";
   rdfs:label "date format";
   rdfs:subClassOf spl:DateFunctions .
 
-_:5ff4f01d10bf56f3 a spl:Argument;
+_:4c8e6b576618d25a a spl:Argument;
   spl:predicate <http://spinrdf.org/arg#date>;
   rdfs:comment "An xsd:date, xsd:dateTime or xsd:time literal containing the date and time to render." .
 
-_:5ff4f01d10bf56f4 a spl:Argument;
+_:4c8e6b576618d259 a spl:Argument;
   spl:predicate <http://spinrdf.org/arg#pattern>;
   spl:valueType xsd:string;
   rdfs:comment "The output pattern." .
 
 spif:decimalFormat a spin:Function;
-  spin:constaint _:5ff4f01d10bf56f5, _:5ff4f01d10bf56f6;
+  spin:constraint _:4c8e6b576618d258, _:4c8e6b576618d257;
   spin:returnType xsd:string;
   rdfs:comment "Takes a number as its first argument and applies a given formatting string to it, for example, to convert a floating point into a number that has exactly two decimal places after the dot. For example, spif:decimalFormat(12.3456, \"#.##\") returns \"12.35\". The resulting string can then by cast back to a number, e.g. using xsd:double(?str).";
   rdfs:label "decimal format";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf56f5 a spl:Argument;
+_:4c8e6b576618d258 a spl:Argument;
   spl:predicate <http://spinrdf.org/arg#number>;
   spl:valueType xsd:decimal;
   rdfs:comment "The number to format." .
 
-_:5ff4f01d10bf56f6 a spl:Argument;
+_:4c8e6b576618d257 a spl:Argument;
   spl:predicate <http://spinrdf.org/arg#pattern>;
   spl:valueType xsd:string;
   rdfs:comment "The pattern, following the syntax defined for the Java DecimalFormat class (see: http://download.oracle.com/javase/6/docs/api/java/text/DecimalFormat.html)." .
 
 spif:decodeURL a spin:Function;
-  spin:constaint _:5ff4f01d10bf56f7, _:5ff4f01d10bf56f8;
+  spin:constraint _:4c8e6b576618d256, _:4c8e6b576618d255;
   spin:returnType xsd:string;
   rdfs:comment "Decodes a URL string - this is the inverse operation of spif:encodeURL.";
   rdfs:label "decode URL";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf56f7 a spl:Argument;
+_:4c8e6b576618d256 a spl:Argument;
   spl:defaultValue "UTF-8";
   spl:optional true;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The (optional) encoding. Defaults to UTF-8." .
 
-_:5ff4f01d10bf56f8 a spl:Argument;
+_:4c8e6b576618d255 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The URL to decode." .
 
 spif:encodeURL a spin:Function;
-  spin:constaint _:5ff4f01d10bf56f9, _:5ff4f01d10bf56fa;
+  spin:constraint _:4c8e6b576618d254, _:4c8e6b576618d253;
   spin:returnType xsd:string;
   rdfs:comment "Encodes a URL string, for example so that it can be passed as an argument to REST services.";
   rdfs:label "encode URL";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf56f9 a spl:Argument;
+_:4c8e6b576618d254 a spl:Argument;
   spl:defaultValue "UTF-8";
   spl:optional true;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The (optional) encoding. Defaults to UTF-8." .
 
-_:5ff4f01d10bf56fa a spl:Argument;
+_:4c8e6b576618d253 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The URL to encode." .
 
 spif:generateLabel a spin:Function;
-  spin:constaint _:5ff4f01d10bf5709;
+  spin:constraint _:4c8e6b576618d244;
   spin:returnType xsd:string;
   rdfs:comment "Constructs a human-readable label for a URI resource by taking everything after the last '/' or the last '#' as starting point.";
   rdfs:label "generate label";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5709 a spl:Argument;
+_:4c8e6b576618d244 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The resource to generate a label for." .
 
 spif:hasAllObjects a spin:Function;
-  spin:constaint _:5ff4f01d10bf570a, _:5ff4f01d10bf570b, _:5ff4f01d10bf570c;
+  spin:constraint _:4c8e6b576618d243, _:4c8e6b576618d242, _:4c8e6b576618d241;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks whether a given subject/predicate combination has all values enumerated from a given rdf:List. In other words, for each member ?object of the rdf:List, the triple (?arg1, ?arg2, ?object) must be in the model to return true. If the list is empty, true will also be returned.";
   rdfs:label "has all objects";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf570a a spl:Argument;
+_:4c8e6b576618d243 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "the match subject" .
 
-_:5ff4f01d10bf570b a spl:Argument;
+_:4c8e6b576618d242 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "the match predicate" .
 
-_:5ff4f01d10bf570c a spl:Argument;
+_:4c8e6b576618d241 a spl:Argument;
   spl:predicate sp:arg3;
   spl:valueType rdf:List;
   rdfs:comment "an rdf:List containing the match objects" .
 
 spif:indexOf a spin:Function;
-  spin:constaint _:5ff4f01d10bf570d, _:5ff4f01d10bf570e, _:5ff4f01d10bf570f;
+  spin:constraint _:4c8e6b576618d240, _:4c8e6b576618d23f, _:4c8e6b576618d23e;
   spin:returnType xsd:integer;
   rdfs:comment "Gets the index of the first occurrence of a certain substring in a given search string. Returns an error if the substring is not found.";
   rdfs:label "index of";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf570d a spl:Argument;
+_:4c8e6b576618d240 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg3;
   spl:valueType xsd:integer;
   rdfs:comment "The optional index to start with." .
 
-_:5ff4f01d10bf570e a spl:Argument;
+_:4c8e6b576618d23f a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the string to search in" .
 
-_:5ff4f01d10bf570f a spl:Argument;
+_:4c8e6b576618d23e a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "the sub string to search for" .
 
 spif:invoke a spin:Function;
-  spin:constaint _:5ff4f01d10bf5710, _:5ff4f01d10bf5711, _:5ff4f01d10bf5712, _:5ff4f01d10bf5713,
-    _:5ff4f01d10bf5714;
+  spin:constraint _:4c8e6b576618d23d, _:4c8e6b576618d23c, _:4c8e6b576618d23b, _:4c8e6b576618d23a,
+    _:4c8e6b576618d239;
   rdfs:comment """Calls another SPARQL function specified by a URI resource (?arg1), with additional arguments passed into from ?arg2 onwards. This can be used to dynamically call functions, the URI of which is now known statically. The result of the function call will be passed on as result of the invoke call.
 
 The function can also be a binary built-in SPARQL function using the SPIN function identifiers from the SPL ontology. For example, sp:gt will be executed as ?left > ?right.""";
   rdfs:label "invoke";
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf5710 a spl:Argument;
+_:4c8e6b576618d23d a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg2;
   rdfs:comment "The first argument of the function call." .
 
-_:5ff4f01d10bf5711 a spl:Argument;
+_:4c8e6b576618d23c a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg3;
   rdfs:comment "The second argument of the function call." .
 
-_:5ff4f01d10bf5712 a spl:Argument;
+_:4c8e6b576618d23b a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg4;
   rdfs:comment "The third argument of the function call." .
 
-_:5ff4f01d10bf5713 a spl:Argument;
+_:4c8e6b576618d23a a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg5;
   rdfs:comment "The forth argument of the function call." .
 
-_:5ff4f01d10bf5714 a spl:Argument;
+_:4c8e6b576618d239 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType spin:Function;
   rdfs:comment "The URI resource defining the function to call." .
 
 spif:isReadOnlyTriple a spin:Function;
-  spin:constaint _:5ff4f01d10bf5715, _:5ff4f01d10bf5716, _:5ff4f01d10bf5717;
+  spin:constraint _:4c8e6b576618d238, _:4c8e6b576618d237, _:4c8e6b576618d236;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks whether a given triple is read-only, that is, cannot be deleted. Triples that are in the system ontology are generally not deletable. TopBraid also enforces that triples from a read-only file or back-end are read-only. Other platforms may have different privilege rules for this function.";
   rdfs:label "is read only triple";
   rdfs:subClassOf spl:BooleanFunctions .
 
-_:5ff4f01d10bf5715 a spl:Argument;
+_:4c8e6b576618d238 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The subject of the triple to delete." .
 
-_:5ff4f01d10bf5716 a spl:Argument;
+_:4c8e6b576618d237 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "The predicate of the triple to delete." .
 
-_:5ff4f01d10bf5717 a spl:Argument;
+_:4c8e6b576618d236 a spl:Argument;
   spl:predicate sp:arg3;
   rdfs:comment "The object of the triple to delete." .
 
 spif:isValidURI a spin:Function;
-  spin:constaint _:5ff4f01d10bf5718;
+  spin:constraint _:4c8e6b576618d235;
   spin:returnType xsd:boolean;
   rdfs:comment "Checks whether a given input string is a well-formed absolute URI. This can be used to validate user input before it is turned into a URI resource.";
   rdfs:label "is valid URI";
   rdfs:subClassOf spl:URIFunctions .
 
-_:5ff4f01d10bf5718 a spl:Argument;
+_:4c8e6b576618d235 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The string to validate." .
 
 spif:lastIndexOf a spin:Function;
-  spin:constaint _:5ff4f01d10bf571a, _:5ff4f01d10bf571b, _:5ff4f01d10bf571c;
+  spin:constraint _:4c8e6b576618d233, _:4c8e6b576618d232, _:4c8e6b576618d231;
   spin:returnType xsd:integer;
   rdfs:comment "Gets the index of the last occurrence of a certain substring in a given search string. Returns an error if the substring is not found.";
   rdfs:label "last index of";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf571a a spl:Argument;
+_:4c8e6b576618d233 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg3;
   spl:valueType xsd:integer;
   rdfs:comment "The optional index to start with." .
 
-_:5ff4f01d10bf571b a spl:Argument;
+_:4c8e6b576618d232 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the string to search in" .
 
-_:5ff4f01d10bf571c a spl:Argument;
+_:4c8e6b576618d231 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "the sub string to search for" .
 
 spif:localName a spin:Function;
-  spin:constaint _:5ff4f01d10bf5745;
+  spin:constraint _:4c8e6b576618d208;
   spin:returnType xsd:string;
   rdfs:comment "Gets a \"local name\" from a URI resource. This takes everything after the last '/' or '#' character of the URI. This function is a more intuitive alternative to afn:localname, which strictly follows the W3C namespace splitting algorithm that often leads to surprising results.";
   rdfs:label "local name";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5745 a spl:Argument;
+_:4c8e6b576618d208 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The URI resource to get the local name of." .
 
 spif:lowerCamelCase a spin:Function;
-  spin:constaint _:5ff4f01d10bf5746, _:5ff4f01d10bf5747;
+  spin:constraint _:4c8e6b576618d207, _:4c8e6b576618d206;
   spin:returnType xsd:string;
   rdfs:comment """Converts an input string into lower camel case.
 For example, \"semantic web\" becomes \"semanticWeb\".
@@ -1738,19 +1738,19 @@ An optional matching expression can be given to only convert the matched charact
   rdfs:label "lower camel case";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5746 a spl:Argument;
+_:4c8e6b576618d207 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The match expression" .
 
-_:5ff4f01d10bf5747 a spl:Argument;
+_:4c8e6b576618d206 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the input string" .
 
 spif:lowerCase a spin:Function;
-  spin:constaint _:5ff4f01d10bf5748, _:5ff4f01d10bf5749;
+  spin:constraint _:4c8e6b576618d205, _:4c8e6b576618d204;
   spin:returnType xsd:string;
   rdfs:comment """Converts an input string into lower case. 
 For example, \"SEMANTIC Web\" becomes \"semantic web\".
@@ -1758,19 +1758,19 @@ An optional matching expression can be given to only convert the matched charact
   rdfs:label "lower case";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5748 a spl:Argument;
+_:4c8e6b576618d205 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The match expression" .
 
-_:5ff4f01d10bf5749 a spl:Argument;
+_:4c8e6b576618d204 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the input string" .
 
 spif:lowerTitleCase a spin:Function;
-  spin:constaint _:5ff4f01d10bf574a, _:5ff4f01d10bf574b;
+  spin:constraint _:4c8e6b576618d203, _:4c8e6b576618d202;
   spin:returnType xsd:string;
   rdfs:comment """Converts an input string into lower title case. 
 For example, \"semantic web\" becomes \"semantic Web\".
@@ -1778,70 +1778,70 @@ An optional matching expression can be given to only convert the matched charact
   rdfs:label "lower title case";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf574a a spl:Argument;
+_:4c8e6b576618d203 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The match expression" .
 
-_:5ff4f01d10bf574b a spl:Argument;
+_:4c8e6b576618d202 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the input string" .
 
 spif:mod a spin:Function;
-  spin:constaint _:5ff4f01d10bf574c, _:5ff4f01d10bf574d;
+  spin:constraint _:4c8e6b576618d201, _:4c8e6b576618d200;
   spin:returnType xsd:integer;
   rdfs:comment "The mathematical modulo operator, aka % in Java.";
   rdfs:label "mod";
   rdfs:subClassOf spl:MathematicalFunctions .
 
-_:5ff4f01d10bf574c a spl:Argument;
+_:4c8e6b576618d201 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:integer;
   rdfs:comment "The first operand." .
 
-_:5ff4f01d10bf574d a spl:Argument;
+_:4c8e6b576618d200 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:integer;
   rdfs:comment "The second argument." .
 
 spif:name a spin:Function;
-  spin:constaint _:5ff4f01d10bf574e;
+  spin:constraint _:4c8e6b576618d1ff;
   spin:returnType xsd:string;
   rdfs:comment "Gets a human-readable string representation from an RDF node. If it's a literal, the function will return the literal's lexical text. If it's a resource the system will use the rdfs:label (if exists) or otherwise use the qname. For an unbound input, the function will return no value.";
   rdfs:label "name";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf574e a spl:Argument;
+_:4c8e6b576618d1ff a spl:Argument;
   spl:predicate sp:arg1;
   rdfs:comment "the node (literal or resource) that shall be rendered into a string" .
 
 spif:parseDate a spin:Function;
-  spin:constaint _:5ff4f01d10bf574f, _:5ff4f01d10bf5750, _:5ff4f01d10bf5751;
+  spin:constraint _:4c8e6b576618d1fe, _:4c8e6b576618d1fd, _:4c8e6b576618d1fc;
   spin:returnType rdfs:Literal;
   rdfs:comment "Converts a string in a semi-structured format into a xsd:date, xsd:dateTime or xsd:time literal. The input string must be in a given template format, e.g. \"yyyy.MM.dd G 'at' HH:mm:ss z\" for strings such as 2001.07.04 AD at 12:08:56 PDT.";
   rdfs:label "parse date";
   rdfs:subClassOf spl:DateFunctions .
 
-_:5ff4f01d10bf574f a spl:Argument;
+_:4c8e6b576618d1fe a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg3;
   spl:valueType xsd:string;
   rdfs:comment "The code of the language (e.g. \"de\" for German) to use for parsing." .
 
-_:5ff4f01d10bf5750 a spl:Argument;
+_:4c8e6b576618d1fd a spl:Argument;
   spl:predicate <http://spinrdf.org/arg#pattern>;
   spl:valueType xsd:string;
   rdfs:comment "The template of the input string. This must conform to the pattern language implemented by the Java SimpleDateFormat class (http://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html)." .
 
-_:5ff4f01d10bf5751 a spl:Argument;
+_:4c8e6b576618d1fc a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the input text" .
 
 spif:regex a spin:Function;
-  spin:constaint _:5ff4f01d10bf5753, _:5ff4f01d10bf5754, _:5ff4f01d10bf5755, _:5ff4f01d10bf5756;
+  spin:constraint _:4c8e6b576618d1fa, _:4c8e6b576618d1f9, _:4c8e6b576618d1f8, _:4c8e6b576618d1f7;
   spin:returnType xsd:string;
   rdfs:comment """An input string is converted into a result string by applying a match and replacement expressions.
 For example, the input string \"semantic web\" with the match expression \"([A-z]+) ([A-z]+)\" and the replacement expression \"The $1 life\" returns the string \"The semantic life\".
@@ -1849,109 +1849,109 @@ An optional input string is returned, if no match occurs. If this string is empt
   rdfs:label "regex";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5753 a spl:Argument;
+_:4c8e6b576618d1fa a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg4;
   spl:valueType xsd:string;
   rdfs:comment "The optional string returned as result string if no match occurs. If this string is empty and no match occurs, then the result string is unbound." .
 
-_:5ff4f01d10bf5754 a spl:Argument;
+_:4c8e6b576618d1f9 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the input string" .
 
-_:5ff4f01d10bf5755 a spl:Argument;
+_:4c8e6b576618d1f8 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The match expression" .
 
-_:5ff4f01d10bf5756 a spl:Argument;
+_:4c8e6b576618d1f7 a spl:Argument;
   spl:predicate sp:arg3;
   spl:valueType xsd:string;
   rdfs:comment "The replacement expression" .
 
 spif:replaceAll a spin:Function;
-  spin:constaint _:5ff4f01d10bf5757, _:5ff4f01d10bf5758, _:5ff4f01d10bf5759;
+  spin:constraint _:4c8e6b576618d1f6, _:4c8e6b576618d1f5, _:4c8e6b576618d1f4;
   spin:returnType xsd:string;
   rdfs:comment "Does a string replacement based on the Java function String.replaceAll().";
   rdfs:label "replace all";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5757 a spl:Argument;
+_:4c8e6b576618d1f6 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The string to operate on." .
 
-_:5ff4f01d10bf5758 a spl:Argument;
+_:4c8e6b576618d1f5 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The regular expression to search for." .
 
-_:5ff4f01d10bf5759 a spl:Argument;
+_:4c8e6b576618d1f4 a spl:Argument;
   spl:predicate sp:arg3;
   spl:valueType xsd:string;
   rdfs:comment "The replacement string." .
 
 spif:shortestObjectsPath a spin:Function;
-  spin:constaint _:5ff4f01d10bf575a, _:5ff4f01d10bf575b, _:5ff4f01d10bf575c;
+  spin:constraint _:4c8e6b576618d1f3, _:4c8e6b576618d1f2, _:4c8e6b576618d1f1;
   spin:returnType xsd:string;
   rdfs:comment "Finds the shortest path from a given subject walking up a given predicate (for example, rdfs:subClassOf) and returns the path as a string of URIs separated with a space. This can be used to find the shortest path from a resource in a tree structure to the root resource.";
   rdfs:label "shortest objects path";
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf575a a spl:Argument;
+_:4c8e6b576618d1f3 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg3;
   spl:valueType rdfs:Resource;
   rdfs:comment "The optional target resource (root of the tree). If not specified, then the first node that has no further objects will be used." .
 
-_:5ff4f01d10bf575b a spl:Argument;
+_:4c8e6b576618d1f2 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The subject to start with." .
 
-_:5ff4f01d10bf575c a spl:Argument;
+_:4c8e6b576618d1f1 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "The predicate to walk, e.g. rdfs:subClassOf or skos:broader." .
 
 spif:shortestSubjectsPath a spin:Function;
-  spin:constaint _:5ff4f01d10bf575d, _:5ff4f01d10bf575e, _:5ff4f01d10bf575f;
+  spin:constraint _:4c8e6b576618d1f0, _:4c8e6b576618d1ef, _:4c8e6b576618d1ee;
   spin:returnType xsd:string;
   rdfs:comment "Finds the shortest path from a given object walking up a given predicate (for example, schema:child) and returns the path as a string of URIs separated with a space. This can be used to find the shortest path from a resource in a tree structure to the root resource.";
   rdfs:label "shortest subjects path";
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf575d a spl:Argument;
+_:4c8e6b576618d1f0 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg3;
   spl:valueType rdfs:Resource;
   rdfs:comment "The optional target resource (root of the tree). If not specified, then the first node that has no further subjects will be used." .
 
-_:5ff4f01d10bf575e a spl:Argument;
+_:4c8e6b576618d1ef a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The object to start with." .
 
-_:5ff4f01d10bf575f a spl:Argument;
+_:4c8e6b576618d1ee a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "The predicate to walk, e.g. schema:child." .
 
 spif:timeMillis a spin:Function;
-  spin:constaint _:5ff4f01d10bf5760;
+  spin:constraint _:4c8e6b576618d1ed;
   spin:returnType xsd:long;
   rdfs:comment "Returns the time of a given xsd:dateTime value in milliseconds.";
   rdfs:label "time millis";
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf5760 a spl:Argument;
+_:4c8e6b576618d1ed a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:dateTime;
   rdfs:comment "The xsd:dateTime to convert." .
 
 spif:titleCase a spin:Function;
-  spin:constaint _:5ff4f01d10bf5761, _:5ff4f01d10bf5762;
+  spin:constraint _:4c8e6b576618d1ec, _:4c8e6b576618d1eb;
   spin:returnType xsd:string;
   rdfs:comment """Converts an input string to title case.
 For example, \"germany\" becomes \"Germany\".
@@ -1959,55 +1959,55 @@ An optional matching expression can be given to only convert the matched charact
   rdfs:label "title case";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5761 a spl:Argument;
+_:4c8e6b576618d1ec a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The match expression" .
 
-_:5ff4f01d10bf5762 a spl:Argument;
+_:4c8e6b576618d1eb a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string" .
 
 spif:toJavaIdentifier a spin:Function;
-  spin:constaint _:5ff4f01d10bf5763;
+  spin:constraint _:4c8e6b576618d1ea;
   spin:returnType xsd:string;
   rdfs:comment "Produces a valid Java identifier based on a given input string, dropping any characters that would not be valid Java identifiers. Produces the empty string if no character can be reused from the given string. Note that this function is even stricter than the normal Java identifier algorithm, as it only allows ASCII characters or digits.";
   rdfs:label "to Java identifier";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5763 a spl:Argument;
+_:4c8e6b576618d1ea a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string." .
 
 spif:trim a spin:Function;
-  spin:constaint _:5ff4f01d10bf5764;
+  spin:constraint _:4c8e6b576618d1e9;
   spin:returnType xsd:string;
   rdfs:comment "Creates a new string value by trimming an input string. Leading and trailing whitespaces are deleted.";
   rdfs:label "trim";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5764 a spl:Argument;
+_:4c8e6b576618d1e9 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the text to trim" .
 
 spif:unCamelCase a spin:Function;
-  spin:constaint _:5ff4f01d10bf5765;
+  spin:constraint _:4c8e6b576618d1e8;
   spin:returnType xsd:string;
   rdfs:comment "Converts an input string into a reverse camel case.";
   rdfs:label "un-camel case";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5765 a spl:Argument;
+_:4c8e6b576618d1e8 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "the input string" .
 
 spif:upperCase a spin:Function;
-  spin:constaint _:5ff4f01d10bf5766, _:5ff4f01d10bf5767;
+  spin:constraint _:4c8e6b576618d1e7, _:4c8e6b576618d1e6;
   spin:returnType xsd:string;
   rdfs:comment """Converts an input string into upper case. 
 For example, \"semantic web\" becomes \"SEMANTIC WEB\".
@@ -2015,42 +2015,42 @@ An optional matching expression can be given to only convert the matched charact
   rdfs:label "upper case";
   rdfs:subClassOf spl:StringFunctions .
 
-_:5ff4f01d10bf5766 a spl:Argument;
+_:4c8e6b576618d1e7 a spl:Argument;
   spl:optional true;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The match expression" .
 
-_:5ff4f01d10bf5767 a spl:Argument;
+_:4c8e6b576618d1e6 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The input string" .
 
 spif:walkObjects a spin:Function;
-  spin:constaint _:5ff4f01d10bf5768, _:5ff4f01d10bf5769, _:5ff4f01d10bf576a;
+  spin:constraint _:4c8e6b576618d1e5, _:4c8e6b576618d1e4, _:4c8e6b576618d1e3;
   rdfs:comment """Performs a depth-first tree traversal starting at a given node (?arg1) and then following the objects using a given predicate (?arg2). For each node it applies a given function (?arg3) that must take the current node as its first argument. All other arguments of the walkObjects function call will be passed into that function. The traversal stops on the first non-null result of the nested function calls.
 
 As use case of this function is to walk up superclasses, e.g. to find the \"nearest\" owl:Restriction of a certain kind.""";
   rdfs:label "walk objects";
   rdfs:subClassOf spl:MiscFunctions .
 
-_:5ff4f01d10bf5768 a spl:Argument;
+_:4c8e6b576618d1e5 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The start node of the traversal." .
 
-_:5ff4f01d10bf5769 a spl:Argument;
+_:4c8e6b576618d1e4 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdf:Property;
   rdfs:comment "The property to walk up." .
 
-_:5ff4f01d10bf576a a spl:Argument;
+_:4c8e6b576618d1e3 a spl:Argument;
   spl:predicate sp:arg3;
   spl:valueType spin:Function;
   rdfs:comment "The SPIN/SPARQL function to execute for each node." .
 
 spin:constructViolations a spin:MagicProperty;
-  spin:constaint _:5ff4f01d10bf52dd, _:5ff4f01d10bf52de;
+  spin:constraint _:4c8e6b576618d670, _:4c8e6b576618d66f;
   rdfs:comment """Takes an instance (?arg1) and a class definition (?arg2) and returns all constraint violations for that instance as triples. This magic property basically runs its own constraint checker for defining meta-constraints, and can also be used to classify instances.
 
 Example:
@@ -2064,18 +2064,18 @@ Example:
   rdfs:label "construct violations";
   rdfs:subClassOf spin:MagicProperties .
 
-_:5ff4f01d10bf52dd a spl:Argument;
+_:4c8e6b576618d670 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The instance to check." .
 
-_:5ff4f01d10bf52de a spl:Argument;
+_:4c8e6b576618d66f a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType rdfs:Class;
   rdfs:comment "The class that this type is validated against." .
 
 spl:relevantPropertyAtClass a spin:MagicProperty;
-  spin:constaint _:5ff4f01d10bf56a7;
+  spin:constraint _:4c8e6b576618d2a6;
   spin:returnType rdfs:Class;
   rdfs:comment """A magic property that establishes a relationship between properties (left) and classes (right) to determine which properties are \"relevant\" for the class. Relevant means that they have the class in their domain and/or restrictions, including superclasses and sub-properties (unless they define their own domain). Domains consisting of an owl:unionOf are also handled.
 
@@ -2083,46 +2083,46 @@ Note that the performance of the body of this magic property has been optimized 
   rdfs:label "relevant property at class";
   rdfs:subClassOf spin:MagicProperties .
 
-_:5ff4f01d10bf56a7 a spl:Argument;
+_:4c8e6b576618d2a6 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdf:Property;
   rdfs:comment "The property." .
 
 spif:evalPath a spin:MagicProperty;
-  spin:constaint _:5ff4f01d10bf56fb, _:5ff4f01d10bf56fc;
+  spin:constraint _:4c8e6b576618d252, _:4c8e6b576618d251;
   rdfs:comment "Takes a starting node (?arg1) and a SPARQL path expression (?arg2) and binds all matching results of the path evaluation.";
   rdfs:label "eval path";
   rdfs:subClassOf spin:MagicProperties .
 
-_:5ff4f01d10bf56fb a spl:Argument;
+_:4c8e6b576618d252 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType rdfs:Resource;
   rdfs:comment "The start node." .
 
-_:5ff4f01d10bf56fc a spl:Argument;
+_:4c8e6b576618d251 a spl:Argument;
   spl:predicate sp:arg2;
   spl:valueType xsd:string;
   rdfs:comment "The path expression, as a parsable string." .
 
 spif:labelTemplateSegment a spin:MagicProperty;
-  spin:constaint _:5ff4f01d10bf5719;
+  spin:constraint _:4c8e6b576618d234;
   rdfs:comment "Takes a Template and splits its spin:labelTemplate into an iteration over string constants or properties. The properties align with the spl:predicates of the declared spl:Arguments of the template. Among others, this magic property can be used to render template calls into user interface components.";
   rdfs:label "label template segment";
   rdfs:subClassOf spin:MagicProperties .
 
-_:5ff4f01d10bf5719 a spl:Argument;
+_:4c8e6b576618d234 a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType spin:Template;
   rdfs:comment "The template to get the label segments of." .
 
 spif:prefix a spin:MagicProperty;
-  spin:constaint _:5ff4f01d10bf5752;
+  spin:constraint _:4c8e6b576618d1fb;
   spin:returnType xsd:string;
   rdfs:comment "Can be used to get namespaces and their prefixes. This magic property takes the namespace (string) or a variable on the left and a prefix or a variable on the right. If both are unbound variables, then it will iterate over all namespaces and their prefixes. Otherwise it will bind the namespace or prefix. If both are bound, the system checks whether the given prefix is for the given namespace.";
   rdfs:label "prefix";
   rdfs:subClassOf spin:MagicProperties .
 
-_:5ff4f01d10bf5752 a spl:Argument;
+_:4c8e6b576618d1fb a spl:Argument;
   spl:predicate sp:arg1;
   spl:valueType xsd:string;
   rdfs:comment "The namespace (string) or an unbound variable." .

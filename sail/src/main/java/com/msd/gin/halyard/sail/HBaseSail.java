@@ -195,6 +195,18 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		}
 	}
 
+	public static FunctionRegistry getDefaultFunctionRegistry() {
+		return DynamicFunctionRegistry.getInstance();
+	}
+
+	public static CustomAggregateFunctionRegistry getDefaultAggregateFunctionRegistry() {
+		return CustomAggregateFunctionRegistry.getInstance();
+	}
+
+	public static TupleFunctionRegistry getDefaultTupleFunctionRegistry() {
+		return TupleFunctionRegistry.getInstance();
+	}
+
 	private static final long STATUS_CACHING_TIMEOUT = 60000l;
 
     private final Configuration conf; //the configuration of the HBase database
@@ -218,9 +230,9 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private RDFFactory rdfFactory;
 	private StatementIndices stmtIndices;
 	private ValueFactory valueFactory;
-	private final FunctionRegistry functionRegistry = DynamicFunctionRegistry.getInstance();
-	private final CustomAggregateFunctionRegistry aggregateFunctionRegistry = CustomAggregateFunctionRegistry.getInstance();
-	private final TupleFunctionRegistry tupleFunctionRegistry = TupleFunctionRegistry.getInstance();
+	private final FunctionRegistry functionRegistry = getDefaultFunctionRegistry();
+	private final CustomAggregateFunctionRegistry aggregateFunctionRegistry = getDefaultAggregateFunctionRegistry();
+	private final TupleFunctionRegistry tupleFunctionRegistry = getDefaultTupleFunctionRegistry();
 	private final SpinParser spinParser = new SpinParser(Input.TEXT_FIRST, functionRegistry, tupleFunctionRegistry);
 	private final ScanSettings scanSettings = new ScanSettings();
 	final SailConnectionFactory connFactory;

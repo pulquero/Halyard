@@ -209,7 +209,7 @@ public class SpinInferencing {
 		+ "PREFIX spl: <http://spinrdf.org/spl#>"
 		+ "CONSTRUCT {"
 		+ " ?s ?sp ?sv; "
-		+ " spin:constaint ?c."
+		+ " spin:constraint ?c."
 		+ " ?c ?cp ?cv."
 		+ "} WHERE {"
 		+ " VALUES ?type {spin:Function spin:MagicProperty} "

@@ -39,3 +39,6 @@ See [Documentation](https://pulquero.github.io/Halyard) for usage examples, arch
 
 ## Guides
 [Elasticsearch Export](/tools/elasticsearch.md)
+
+## Reference
+[Supported SPARQL functions](/functions.md)
