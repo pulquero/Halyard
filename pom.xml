@@ -31,7 +31,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>11</maven.compiler.source>
 		<maven.compiler.target>11</maven.compiler.target>
-		<rdf4j.version>4.3.5</rdf4j.version>
+		<rdf4j.version>4.3.8</rdf4j.version>
 		<hbase.version>2.5.5</hbase.version>
 		<hbase-connectors.version>1.0.0</hbase-connectors.version>
 		<hadoop.version>3.3.6</hadoop.version>
@@ -50,7 +50,7 @@
 		<icu4j.version>71.1</icu4j.version>
 		<junit4.version>4.13.2</junit4.version>
 		<junit5.version>5.8.2</junit5.version>
-		<assertj.version>3.19.0</assertj.version>
+		<assertj.version>3.24.2</assertj.version>
 		<test.working.directory>${project.build.directory}</test.working.directory>
 	</properties>
 	<scm>
@@ -231,7 +231,7 @@
 			<dependency>
 				<groupId>commons-codec</groupId>
 				<artifactId>commons-codec</artifactId>
-				<version>1.13</version>
+				<version>1.15</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.commons</groupId>
@@ -375,6 +375,17 @@
 				<groupId>org.apache.httpcomponents</groupId>
 				<artifactId>httpclient-cache</artifactId>
 				<version>${httpclient.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.slf4j</groupId>
+				<artifactId>slf4j-api</artifactId>
+				<version>${slf4j.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.slf4j</groupId>
+				<artifactId>slf4j-reload4j</artifactId>
+				<version>${slf4j.version}</version>
 			</dependency>
 
 			<dependency>
