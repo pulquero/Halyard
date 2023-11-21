@@ -17,6 +17,10 @@
 package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.vocab.HALYARD;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
@@ -28,9 +32,6 @@ import org.eclipse.rdf4j.sail.config.SailConfigSchema;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
-
-import java.net.MalformedURLException;
-import java.net.URL;
 
 /**
  *
@@ -120,6 +121,32 @@ public class HBaseSailConfigTest {
     }
 
     @Test
+	public void testValidationForTable() {
+		HBaseSailConfig cfg = new HBaseSailConfig();
+		cfg.setTableName("whatevertable");
+		cfg.setCreate(true);
+		cfg.validate();
+	}
+
+	@Test
+	public void testValidationForSnapshot1() {
+		HBaseSailConfig cfg = new HBaseSailConfig();
+		cfg.setSnapshotName("ss1");
+		cfg.setSnapshotRestorePath("snapshots");
+		cfg.setCreate(true); // should be ignored
+		cfg.validate();
+	}
+
+	@Test
+	public void testValidationForSnapshot2() {
+		HBaseSailConfig cfg = new HBaseSailConfig();
+		cfg.setSnapshotName("ss1");
+		cfg.setSnapshotRestorePath("snapshots");
+		cfg.setCreate(false); // should be ignored
+		cfg.validate();
+	}
+
+	@Test
     public void testExportAndParse() throws Exception {
         HBaseSailConfig cfg = new HBaseSailConfig();
         cfg.setTableName("whatevertable");

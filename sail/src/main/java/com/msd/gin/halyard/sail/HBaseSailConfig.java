@@ -16,8 +16,10 @@
  */
 package com.msd.gin.halyard.sail;
 
+import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.vocab.HALYARD;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
@@ -25,6 +27,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Connection;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
@@ -72,6 +77,13 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 	private String elasticKeystorePassword = null;
 	private URL elasticTruststoreLocation = null;
 	private String elasticTruststorePassword = null;
+
+	/**
+	 * Default constructor of HBaseSailConfig
+	 */
+	public HBaseSailConfig() {
+		super(HBaseSailFactory.SAIL_TYPE);
+	}
 
     /**
      * Sets HBase table name
@@ -260,14 +272,24 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 		this.elasticTruststorePassword = elasticTruststorePassword;
 	}
 
-	/**
-	 * Default constructor of HBaseSailConfig
-	 */
-    public HBaseSailConfig() {
-        super(HBaseSailFactory.SAIL_TYPE);
-    }
+	@Override
+	public void validate() throws SailConfigException {
+		super.validate();
+		if (create && StringUtils.isEmpty(tableName) && StringUtils.isEmpty(snapshotName)) {
+			throw new SailConfigException("Cannot create a table if no table is specified");
+		}
+		if (!create && StringUtils.isNotEmpty(tableName)) {
+			try (Connection conn = HalyardTableUtils.getConnection(HBaseConfiguration.create())) {
+				if (!HalyardTableUtils.tableExists(conn, TableName.valueOf(tableName))) {
+					throw new SailConfigException("Table does not exist");
+				}
+			} catch (IOException e) {
+				throw new SailConfigException(e);
+			}
+		}
+	}
 
-    /**
+	/**
      * Stores configuration into the given Model
      * @param graph Model to store configuration into
      * @return Resource node with the configuration within the Model
