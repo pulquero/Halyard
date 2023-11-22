@@ -112,7 +112,19 @@ public final class HalyardStats extends AbstractHalyardTool {
     private static final long DEFAULT_GRAPH_THRESHOLD = 1000;
     private static final long DEFAULT_PARTITION_THRESHOLD = 5000;
 
-    static final class HashTracker {
+	enum Counters {
+		REMOVED_STATEMENTS,
+	}
+
+	enum DefaultGraphCounters {
+		TRIPLES,
+		DISTINCT_SUBJECTS,
+		PROPERTIES,
+		DISTINCT_OBJECTS,
+		CLASSES,
+	}
+
+	static final class HashTracker {
 		final int offset;
 		final int len;
 		final int end;
@@ -154,7 +166,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         long timestamp;
 
         Resource graph = DEFAULT_GRAPH_NODE, lastGraph;
-        long triples, distinctSubjects, properties, distinctObjects, classes, removed;
+        long triples, distinctSubjects, properties, distinctObjects, classes, removedStmts;
         long distinctIRIReferenceSubjects, distinctIRIReferenceObjects, distinctBlankNodeObjects, distinctBlankNodeSubjects, distinctLiterals;
         long distinctTripleSubjects, distinctTripleObjects;
         Value rdfClass;
@@ -273,7 +285,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             	if (update && index.getName() == StatementIndex.Name.CSPO && graph.equals(statsContext)) {
                     if (isGraphContext(stmt.getSubject())) {
 						getConnection(output).removeSystemStatement(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
-                        removed++;
+                        removedStmts++;
                     }
             	} else {
 		            switch (index.getName()) {
@@ -357,7 +369,8 @@ public final class HalyardStats extends AbstractHalyardTool {
 
             output.progress();
             if ((counter++ % STATUS_UPDATE_INTERVAL) == 0) {
-                output.setStatus(MessageFormat.format("reg:{0} {1} t:{2} s:{3} p:{4} o:{5} c:{6} r:{7}", index, counter, triples, distinctSubjects, properties, distinctObjects, classes, removed));
+				output.setStatus(MessageFormat.format("reg:{0} {1} t:{2} s:{3} p:{4} o:{5} c:{6} r:{7}", index, counter, triples, distinctSubjects, properties, distinctObjects, classes, removedStmts));
+				LOG.info("StmtIndex:{} counter:{} triples:{} distinctSubjs:{} properties:{} distinctObjs:{} classes:{} removed:{}", index, counter, triples, distinctSubjects, properties, distinctObjects, classes, removedStmts);
             }
         }
 
@@ -425,6 +438,15 @@ public final class HalyardStats extends AbstractHalyardTool {
             } else {
                 report(output, SD.NAMED_GRAPH_PROPERTY, 1L);
             }
+
+			if (graph == DEFAULT_GRAPH_NODE) {
+				output.getCounter(DefaultGraphCounters.TRIPLES).increment(triples);
+				output.getCounter(DefaultGraphCounters.DISTINCT_SUBJECTS).increment(distinctSubjects);
+				output.getCounter(DefaultGraphCounters.PROPERTIES).increment(properties);
+				output.getCounter(DefaultGraphCounters.DISTINCT_OBJECTS).increment(distinctObjects);
+				output.getCounter(DefaultGraphCounters.CLASSES).increment(classes);
+			}
+
             setCounter = 0;
             triples = 0;
             distinctSubjects = 0;
@@ -463,7 +485,10 @@ public final class HalyardStats extends AbstractHalyardTool {
         @Override
         protected void cleanup(Context output) throws IOException, InterruptedException {
         	reset(output);
-        	if (sailConn != null) {
+
+			output.getCounter(Counters.REMOVED_STATEMENTS).increment(removedStmts);
+
+			if (sailConn != null) {
         		sailConn.close();
         		sailConn = null;
         	}
@@ -473,8 +498,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             }
             closeKeyspace();
         }
-
-    }
+	}
 
     static final class StatsCombiner extends Reducer<ImmutableBytesWritable, LongWritable, ImmutableBytesWritable, LongWritable> {
         final LongWritable outputValue = new LongWritable();
