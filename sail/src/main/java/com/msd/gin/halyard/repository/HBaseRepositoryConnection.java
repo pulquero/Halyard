@@ -15,7 +15,6 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.TupleQueryResultHandler;
 import org.eclipse.rdf4j.query.TupleQueryResultHandlerException;
-import org.eclipse.rdf4j.query.Update;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.impl.AbstractParserQuery;
@@ -30,7 +29,6 @@ import org.eclipse.rdf4j.repository.sail.SailGraphQuery;
 import org.eclipse.rdf4j.repository.sail.SailQuery;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailTupleQuery;
-import org.eclipse.rdf4j.repository.sail.SailUpdate;
 import org.eclipse.rdf4j.sail.SailException;
 
 public class HBaseRepositoryConnection extends SailRepositoryConnection {
@@ -113,10 +111,15 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 	}
 
 	@Override
-	public Update prepareUpdate(QueryLanguage ql, String updateQuery, String baseURI) throws RepositoryException, MalformedQueryException {
+	public HBaseUpdate prepareUpdate(String update) throws RepositoryException, MalformedQueryException {
+		return prepareUpdate(QueryLanguage.SPARQL, update, null);
+	}
+
+	@Override
+	public HBaseUpdate prepareUpdate(QueryLanguage ql, String updateQuery, String baseURI) throws RepositoryException, MalformedQueryException {
 		ParsedUpdate parsedUpdate = QueryParserUtil.parseUpdate(ql, updateQuery, baseURI);
 
-		SailUpdate update = new HBaseUpdate(parsedUpdate, sail, this);
+		HBaseUpdate update = new HBaseUpdate(parsedUpdate, sail, this);
 		addImplicitBindings(update);
 		return update;
 	}

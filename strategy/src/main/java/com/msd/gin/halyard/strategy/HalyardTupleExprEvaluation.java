@@ -2594,7 +2594,6 @@ final class HalyardTupleExprEvaluation {
 	    	boolean allAreStmts = (sps[sps.length-1] != null);
 	    	if (allAreStmts) {
 	        	starJoin.setAlgorithm(Algorithms.STAR_JOIN);
-	    		BindingSetPipeEvaluationStep firstStep = precompileTupleExpr(sps[0], evalContext);
 		    	return (parent, bindings) -> {
 		        	BindingSetPipeEvaluationStep step;
 		        	boolean isCommonBound = commonVar.hasValue() || bindings.hasBinding(commonVar.getName());
@@ -2677,6 +2676,7 @@ final class HalyardTupleExprEvaluation {
 		        	}
 	
 		    		if (!isPrebound) {
+			    		BindingSetPipeEvaluationStep firstStep = precompileTupleExpr(sps[0], evalContext);
 		    			step = precompileNestedLoopsJoin(firstStep, step, null);	
 		    		}
 		    		step.evaluate(parent, bindings);

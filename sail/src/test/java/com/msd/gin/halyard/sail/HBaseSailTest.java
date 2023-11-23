@@ -915,12 +915,13 @@ public class HBaseSailTest {
 		sail.init();
 		RDFFactory rdfFactory = sail.getRDFFactory();
 		ValueFactory vf = sail.getValueFactory();
+		HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer partitionIriTransformer = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIriTransformer(rdfFactory);
 		try (SailConnection conn = sail.getConnection()) {
 			conn.begin();
 			conn.addStatement(HALYARD.STATS_ROOT_NODE, VOID.TRIPLES, vf.createLiteral(10000l), HALYARD.STATS_GRAPH_CONTEXT);
-			conn.addStatement(vf.createIRI(HALYARD.STATS_ROOT_NODE.stringValue() + "_property_" + rdfFactory.id(RDF.TYPE)), VOID.TRIPLES, vf.createLiteral(5000l), HALYARD.STATS_GRAPH_CONTEXT);
+			conn.addStatement(vf.createIRI(partitionIriTransformer.apply(HALYARD.STATS_ROOT_NODE, VOID.PROPERTY, RDF.TYPE)), VOID.TRIPLES, vf.createLiteral(5000l), HALYARD.STATS_GRAPH_CONTEXT);
 			conn.addStatement(vf.createIRI("http://whatevercontext"), VOID.TRIPLES, vf.createLiteral(10000l), HALYARD.STATS_GRAPH_CONTEXT);
-			conn.addStatement(vf.createIRI("http://whatevercontext_property_" + rdfFactory.id(RDF.TYPE)), VOID.TRIPLES, vf.createLiteral(20l), HALYARD.STATS_GRAPH_CONTEXT);
+			conn.addStatement(vf.createIRI(partitionIriTransformer.apply(vf.createIRI("http://whatevercontext"), VOID.PROPERTY, RDF.TYPE)), VOID.TRIPLES, vf.createLiteral(20l), HALYARD.STATS_GRAPH_CONTEXT);
 			conn.commit();
 		}
 		TupleExpr q1 = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "select * where {?s a ?o}", "http://whatever/").getTupleExpr();

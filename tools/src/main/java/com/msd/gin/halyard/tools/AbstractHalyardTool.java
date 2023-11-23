@@ -30,6 +30,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -46,6 +47,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.TableName;
@@ -167,10 +169,19 @@ public abstract class AbstractHalyardTool implements Tool {
     				valueChecker.accept(value);
     			}
     		}
-    		conf.setStrings(option.confProperty, values);
+    		setStrings(conf, option.confProperty, Arrays.asList(values));
     	} else if (defaultValue != null) {
     		conf.setIfUnset(option.confProperty, String.valueOf(defaultValue));
     	}
+    }
+
+    protected static void setStrings(Configuration conf, String name, Iterable<String> values) {
+		conf.set(name, String.join(" ", values));
+    }
+
+    protected static String[] getStrings(Configuration conf, String name) {
+		String v = conf.get(name);
+		return StringUtils.isNotBlank(v) ? v.trim().split("\\s+") : new String[0];
     }
 
     protected void configureBoolean(CommandLine cmd, char opt) {

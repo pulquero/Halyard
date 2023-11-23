@@ -33,18 +33,18 @@ halyard:statsContext {
 	:graph0 sd:name :graph0 ;
 		sd:graph :graph0 ;
 		a sd:NamedGraph , sd:Graph , void:Dataset ;
-		dcterms:modified "2000-01-01T00:00:00.000Z"^^xsd:dateTime ;
+		dcterms:modified "2000-01-02T00:00:00.000Z"^^xsd:dateTime ;
 		void:classes "451"^^xsd:long ;
-		void:triples "991"^^xsd:long ;
+		void:triples "995"^^xsd:long ;
 		void:propertyPartition <halyard:dataset:http://whatever/graph0,property,eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha> ;
-		void:properties "14"^^xsd:long ;
-		void-ext:distinctLiterals "386"^^xsd:long ;
-		void:distinctObjects "887"^^xsd:long ;
-		void:distinctSubjects "91"^^xsd:long ;
-		void-ext:distinctBlankNodeObjects "50"^^xsd:long ;
-		void-ext:distinctBlankNodeSubjects "41"^^xsd:long ;
-		void-ext:distinctIRIReferenceObjects "451"^^xsd:long ;
-		void-ext:distinctIRIReferenceSubjects "50"^^xsd:long .
+		void:properties "18"^^xsd:long ;
+		void-ext:distinctLiterals "388"^^xsd:long ;
+		void:distinctObjects "891"^^xsd:long ;
+		void:distinctSubjects "94"^^xsd:long ;
+		void-ext:distinctBlankNodeObjects "51"^^xsd:long ;
+		void-ext:distinctBlankNodeSubjects "43"^^xsd:long ;
+		void-ext:distinctIRIReferenceObjects "452"^^xsd:long ;
+		void-ext:distinctIRIReferenceSubjects "51"^^xsd:long .
 
 	<halyard:dataset:http://whatever/graph0,property,eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha> a void:Dataset ;
 		void:property rdf:type ;
@@ -56,15 +56,15 @@ halyard:statsContext {
 		a sd:NamedGraph , sd:Graph , void:Dataset ;
 		dcterms:modified "2000-01-02T00:00:00.000Z"^^xsd:dateTime ;
 		void:classes "451"^^xsd:long ;
-		void:triples "991"^^xsd:long ;
+		void:triples "994"^^xsd:long ;
 		void:propertyPartition <halyard:dataset:http://whatever/graph1,property,eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha> ;
-		void:properties "15"^^xsd:long ;
-		void-ext:distinctLiterals "387"^^xsd:long ;
-		void:distinctObjects "888"^^xsd:long ;
-		void:distinctSubjects "91"^^xsd:long ;
-		void-ext:distinctBlankNodeObjects "50"^^xsd:long ;
-		void-ext:distinctBlankNodeSubjects "40"^^xsd:long ;
-		void-ext:distinctIRIReferenceObjects "451"^^xsd:long ;
+		void:properties "18"^^xsd:long ;
+		void-ext:distinctLiterals "388"^^xsd:long ;
+		void:distinctObjects "891"^^xsd:long ;
+		void:distinctSubjects "93"^^xsd:long ;
+		void-ext:distinctBlankNodeObjects "51"^^xsd:long ;
+		void-ext:distinctBlankNodeSubjects "42"^^xsd:long ;
+		void-ext:distinctIRIReferenceObjects "452"^^xsd:long ;
 		void-ext:distinctIRIReferenceSubjects "51"^^xsd:long .
 
 	<halyard:dataset:http://whatever/graph1,property,eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha> a void:Dataset ;
@@ -85,4 +85,32 @@ halyard:statsContext {
 		void-ext:object :typeThing;
 		void:triples "281"^^xsd:long;
 		void:distinctSubjects "191"^^xsd:long .
+
+	:graph2 sd:name :graph2;
+		sd:graph :graph2;
+		a sd:NamedGraph, sd:Graph, void:Dataset;
+		dc:modified "2000-01-02T00:00:00.000Z"^^xsd:dateTime;
+		void:triples "105"^^xsd:long;
+		void:distinctSubjects "8"^^xsd:long;
+		void:properties "6"^^xsd:long;
+		void:distinctObjects "25"^^xsd:long;
+		void:propertyPartition <halyard:dataset:http://whatever/graph2,property,qG_dE2JkcmKEXhw29op5c-SmkSE6DMrG>;
+		void-ext:distinctLiterals "23"^^xsd:long;
+		void-ext:distinctBlankNodeSubjects "2"^^xsd:long;
+		void-ext:distinctBlankNodeObjects "1"^^xsd:long;
+		void-ext:distinctIRIReferenceObjects "1"^^xsd:long;
+		void-ext:distinctIRIReferenceSubjects "6"^^xsd:long .
+
+	<halyard:dataset:http://whatever/graph2,property,qG_dE2JkcmKEXhw29op5c-SmkSE6DMrG>
+		a void:Dataset;
+		void:distinctObjects "20"^^xsd:long;
+		void:property :newPred;
+		void:triples "100"^^xsd:long .
+}
+
+halyard:statsContext {
+	<halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,qG_dE2JkcmKEXhw29op5c-SmkSE6DMrG>
+		void:distinctObjects 20;
+		void:triples 100;
+		void:property :newPred .
 }

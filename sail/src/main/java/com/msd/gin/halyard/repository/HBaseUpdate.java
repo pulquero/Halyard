@@ -42,9 +42,16 @@ import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.UpdateExecutionException;
+import org.eclipse.rdf4j.query.algebra.Add;
 import org.eclipse.rdf4j.query.algebra.Clear;
+import org.eclipse.rdf4j.query.algebra.Copy;
+import org.eclipse.rdf4j.query.algebra.Create;
+import org.eclipse.rdf4j.query.algebra.DeleteData;
 import org.eclipse.rdf4j.query.algebra.Filter;
+import org.eclipse.rdf4j.query.algebra.InsertData;
+import org.eclipse.rdf4j.query.algebra.Load;
 import org.eclipse.rdf4j.query.algebra.Modify;
+import org.eclipse.rdf4j.query.algebra.Move;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.StatementPattern.Scope;
@@ -64,19 +71,31 @@ import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailUpdate;
 import org.eclipse.rdf4j.repository.sail.helpers.SailUpdateExecutor;
 import org.eclipse.rdf4j.rio.ParserConfig;
+import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.UpdateContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class HBaseUpdate extends SailUpdate {
+public class HBaseUpdate extends SailUpdate implements Timestamped {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HBaseUpdate.class);
 
 	private final HBaseSail sail;
+	private long ts = NOT_SET;
 
 	public HBaseUpdate(ParsedUpdate parsedUpdate, HBaseSail sail, SailRepositoryConnection con) {
 		super(parsedUpdate, con);
 		this.sail = sail;
+	}
+
+	@Override
+	public long getTimestamp() {
+		return ts;
+	}
+
+	@Override
+	public void setTimestamp(long ts) {
+		this.ts = ts;
 	}
 
 	@Override
@@ -102,7 +121,7 @@ public class HBaseUpdate extends SailUpdate {
 				QueryBindingSet updateBindings = new QueryBindingSet(getBindings());
 				updateBindings.addBinding(HBaseSailConnection.UPDATE_PART_BINDING, vf.createLiteral(i));
 				try {
-					executor.executeUpdate(updateExpr, activeDataset, updateBindings, getIncludeInferred(), getMaxExecutionTime());
+					executor.executeUpdate(updateExpr, activeDataset, updateBindings, getIncludeInferred(), getMaxExecutionTime(), getTimestamp());
 				} catch (RDF4JException | IOException e) {
 					LOGGER.warn("exception during update execution: ", e);
 					if (!updateExpr.isSilent()) {
@@ -148,10 +167,39 @@ public class HBaseUpdate extends SailUpdate {
 			this.vf = vf;
 		}
 
-		@Override
-		protected void executeModify(Modify modify, UpdateContext uc, int maxExecutionTime) throws SailException {
-			TimestampedUpdateContext tsUc = new TimestampedUpdateContext(uc.getUpdateExpr(), uc.getDataset(), uc.getBindingSet(), uc.isIncludeInferred());
+		public void executeUpdate(UpdateExpr updateExpr, Dataset dataset, BindingSet bindings, boolean includeInferred, int maxExecutionTime, long ts) throws SailException, RDFParseException, IOException {
+			TimestampedUpdateContext uc = new TimestampedUpdateContext(updateExpr, dataset, bindings, includeInferred);
+			uc.setTimestamp(ts);
 
+			con.startUpdate(uc);
+			try {
+				if (updateExpr instanceof Load) {
+					executeLoad((Load) updateExpr, uc);
+				} else if (updateExpr instanceof Modify) {
+					executeModify((Modify) updateExpr, uc, maxExecutionTime);
+				} else if (updateExpr instanceof InsertData) {
+					executeInsertData((InsertData) updateExpr, uc, maxExecutionTime);
+				} else if (updateExpr instanceof DeleteData) {
+					executeDeleteData((DeleteData) updateExpr, uc, maxExecutionTime);
+				} else if (updateExpr instanceof Clear) {
+					executeClear((Clear) updateExpr, uc, maxExecutionTime);
+				} else if (updateExpr instanceof Create) {
+					executeCreate((Create) updateExpr, uc);
+				} else if (updateExpr instanceof Copy) {
+					executeCopy((Copy) updateExpr, uc, maxExecutionTime);
+				} else if (updateExpr instanceof Add) {
+					executeAdd((Add) updateExpr, uc, maxExecutionTime);
+				} else if (updateExpr instanceof Move) {
+					executeMove((Move) updateExpr, uc, maxExecutionTime);
+				} else if (updateExpr instanceof Load) {
+					throw new SailException("load operations can not be handled directly by the SAIL");
+				}
+			} finally {
+				con.endUpdate(uc);
+			}
+		}
+
+		protected void executeModify(Modify modify, TimestampedUpdateContext uc, int maxExecutionTime) throws SailException {
 			try {
 				final InsertAction insertAction;
 				TupleExpr insertClause = modify.getInsertExpr();
@@ -161,7 +209,7 @@ public class HBaseUpdate extends SailUpdate {
 					insertClause = optimize(insertClause, uc.getDataset(), uc.getBindingSet(), false);
 					InsertCollector insertCollector = new InsertCollector();
 					insertClause.visit(insertCollector);
-					insertAction = new InsertAction(sail, con, vf, tsUc, insertClause, insertCollector.getStatementPatterns(), insertCollector.getTupleFunctionCalls());
+					insertAction = new InsertAction(sail, con, vf, uc, insertClause, insertCollector.getStatementPatterns(), insertCollector.getTupleFunctionCalls());
 				} else {
 					insertAction = null;
 				}
@@ -173,7 +221,7 @@ public class HBaseUpdate extends SailUpdate {
 				if (deleteClause != null) {
 					// for deletes, TupleFunctions are expected in the where clause
 					whereClause = optimize(whereClause, uc.getDataset(), uc.getBindingSet(), true);
-					deleteAction = new DeleteAction(sail, con, vf, tsUc, deleteClause, StatementPatternCollector.process(deleteClause), WhereCollector.process(whereClause));
+					deleteAction = new DeleteAction(sail, con, vf, uc, deleteClause, StatementPatternCollector.process(deleteClause), WhereCollector.process(whereClause));
 				} else {
 					deleteAction = null;
 				}
@@ -262,8 +310,7 @@ public class HBaseUpdate extends SailUpdate {
 			con.evaluate(ucHandler, whereClause, uc.getDataset(), uc.getBindingSet(), uc.isIncludeInferred());
 		}
 
-		@Override
-		protected void executeClear(Clear clearExpr, UpdateContext uc, int maxExecutionTime) throws SailException {
+		protected void executeClear(Clear clearExpr, TimestampedUpdateContext uc, int maxExecutionTime) throws SailException {
 			try {
 				ValueConstant graph = clearExpr.getGraph();
 
@@ -659,6 +706,7 @@ public class HBaseUpdate extends SailUpdate {
 		final ValueFactory vf;
 		final TimestampedUpdateContext uc;
 		final List<TupleFunctionCall> timestampTfcs;
+		final long defaultTimestamp;
 		Resource prevSubj;
 		IRI prevPred;
 		Value prevObj;
@@ -669,6 +717,7 @@ public class HBaseUpdate extends SailUpdate {
 			this.conn = conn;
 			this.vf = vf;
 			this.uc = uc;
+			this.defaultTimestamp = uc.getTimestamp();
 			timestampTfcs = new ArrayList<>(tfcs.size());
 			for (TupleFunctionCall tfc : tfcs) {
 				if (HALYARD.TIMESTAMP_PROPERTY.stringValue().equals(tfc.getURI())) {
@@ -715,7 +764,7 @@ public class HBaseUpdate extends SailUpdate {
 					return;
 				}
 			}
-			uc.setTimestamp(Timestamped.NOT_SET);
+			uc.setTimestamp(defaultTimestamp);
 		}
 	}
 

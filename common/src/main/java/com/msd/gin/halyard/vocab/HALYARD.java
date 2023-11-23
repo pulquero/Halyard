@@ -100,6 +100,7 @@ public final class HALYARD implements Vocabulary {
 
     public final static IRI WKT_POINT_FUNCTION = SVF.createIRI(NAMESPACE, "wktPoint");
 
+    public final static IRI DATASET_IRI_FUNCTION = SVF.createIRI(NAMESPACE, "datasetIRI");
     public final static IRI PARALLEL_SPLIT_FUNCTION = SVF.createIRI(NAMESPACE, "forkAndFilterBy");
 
     public final static IRI DATA_URL_FUNCTION = SVF.createIRI(NAMESPACE, "dataURL");
@@ -131,7 +132,9 @@ public final class HALYARD implements Vocabulary {
 	public final static IRI MAP_TYPE = SVF.createIRI(NAMESPACE, "map");
 	public final static IRI JAVA_TYPE = SVF.createIRI(NAMESPACE, "javaObject");
 
-    public static final Namespace VALUE_ID_NS = new Base64Namespace("idv", "halyard:id:value:");
+	public static final Namespace VALUE_ID_NS = new Base64Namespace("idv", "halyard:id:value:");
+	
+	public static final Namespace STATEMENT_ID_NS = new Base64Namespace("id3", "halyard:id:statement:");
 
-    public static final Namespace STATEMENT_ID_NS = new Base64Namespace("id3", "halyard:id:statement:");
+	public static final String DATASET_NS = "halyard:dataset:";
 }

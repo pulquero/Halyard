@@ -1,0 +1,20 @@
+@prefix : <http://whatever/> .
+@prefix sd: <http://www.w3.org/ns/sparql-service-description#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+
+:graph0 {
+    [sd:name :graph0; sd:graph [dc:created "2000-01-02T00:00:00.000Z"^^xsd:dateTime] ] .
+}
+
+:graph1 {
+    [sd:name :graph1; sd:graph [dc:created "2000-01-02T00:00:00.000Z"^^xsd:dateTime] ] .
+}
+
+:graph2 {
+    [sd:name :graph2; sd:graph [dc:created "2000-01-02T00:00:00.000Z"^^xsd:dateTime] ] .
+    :subjA  :newPred 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20.
+    :subjB  :newPred 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20.
+    :subjC  :newPred 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20.
+    :subjD  :newPred 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20.
+    :subjE  :newPred 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20.
+}

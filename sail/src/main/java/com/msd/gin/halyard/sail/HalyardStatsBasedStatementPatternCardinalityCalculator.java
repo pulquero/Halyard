@@ -84,22 +84,25 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 
 	public static abstract class PartitionIriTransformer {
 		public final String apply(IRI graph, IRI partitionType, Value partitionId) {
-			return graph.stringValue() + "_" + partitionType.getLocalName() + "_" + id(partitionId);
+			return HALYARD.DATASET_NS + graph.stringValue() + "," + partitionType.getLocalName() + "," + id(partitionId);
 		}
 
 		protected abstract String id(Value partitionId);
 
+		public final boolean isPartitionIri(String iri) {
+			return iri.startsWith(HALYARD.DATASET_NS);
+		}
+
 		public final String getGraph(Resource partitionIri) {
 			String partitionString = partitionIri.stringValue();
-			int endSepPos = partitionString.lastIndexOf("_");
-			if (endSepPos != -1) {
-				int startSepPos = partitionString.lastIndexOf("_", endSepPos - 1);
-				if (startSepPos != -1) {
-					int startPos = startSepPos + 1;
-					int len = endSepPos - startPos;
-					if (partitionString.regionMatches(startPos, "subject", 0, len) || partitionString.regionMatches(startPos, "property", 0, len) || partitionString.regionMatches(startPos, "object", 0, len)) {
-						return partitionString.substring(0, startSepPos);
-					}
+			if (!isPartitionIri(partitionString)) {
+				return null;
+			}
+			int idSepPos = partitionString.lastIndexOf(",");
+			if (idSepPos != -1) {
+				int ptSepPos = partitionString.lastIndexOf(",", idSepPos - 1);
+				if (ptSepPos != -1) {
+					return partitionString.substring(HALYARD.DATASET_NS.length(), ptSepPos);
 				}
 			}
 			return null;

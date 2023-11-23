@@ -16,6 +16,7 @@
  */
 package com.msd.gin.halyard.tools;
 
+import com.google.common.collect.Sets;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.RDFContext;
@@ -25,6 +26,7 @@ import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueIO;
 import com.msd.gin.halyard.repository.HBaseRepository;
+import com.msd.gin.halyard.repository.HBaseRepositoryConnection;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
 import com.msd.gin.halyard.sail.HalyardStatsBasedStatementPatternCardinalityCalculator;
@@ -79,10 +81,14 @@ import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.SD;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
 import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.GraphQuery;
+import org.eclipse.rdf4j.query.GraphQueryResult;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
+import org.eclipse.rdf4j.repository.sail.SailRepository;
+import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.RDFWriter;
@@ -165,7 +171,8 @@ public final class HalyardStats extends AbstractHalyardTool {
         boolean update;
         long timestamp;
 
-        Resource graph = DEFAULT_GRAPH_NODE, lastGraph;
+        Resource lastCtx;
+        Resource graph = DEFAULT_GRAPH_NODE;
         long triples, distinctSubjects, properties, distinctObjects, classes, removedStmts;
         long distinctIRIReferenceSubjects, distinctIRIReferenceObjects, distinctBlankNodeObjects, distinctBlankNodeSubjects, distinctLiterals;
         long distinctTripleSubjects, distinctTripleObjects;
@@ -195,7 +202,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             partitionThresholds = getPartitionThresholds(conf);
             classPartitionThreshold = partitionThresholds.get(VOID.CLASS);
             statsContext = vf.createIRI(conf.get(STATS_GRAPH));
-            String[] namedGraphs = conf.getTrimmedStrings(NAMED_GRAPH_PROPERTY);
+            String[] namedGraphs = getStrings(conf, NAMED_GRAPH_PROPERTY);
             if (namedGraphs.length > 0) {
             	namedGraphContexts = new HashSet<>(namedGraphs.length + 1);
 	            for (String g : namedGraphs) {
@@ -216,12 +223,8 @@ public final class HalyardStats extends AbstractHalyardTool {
             return sailConn;
         }
 
-        private boolean isGraphContext(Resource subject) {
-        	if (namedGraphContexts == null || namedGraphContexts.contains(subject.stringValue())) {
-        		return true;
-        	}
-        	String subjectGraph = partitionIriTransformer.getGraph(subject);
-        	return (subjectGraph != null) && namedGraphContexts.contains(subjectGraph);
+        private boolean isIncludedGraphContext(String graphContext) {
+        	return (namedGraphContexts == null) || namedGraphContexts.contains(graphContext);
         }
 
         @Override
@@ -230,7 +233,7 @@ public final class HalyardStats extends AbstractHalyardTool {
             StatementIndex<?,?,?,?> index = stmtIndices.toIndex(key[rowKey.getOffset()]);
             if (index != lastIndex) {
             	lastIndex = index;
-            	lastGraph = null;
+            	lastCtx = null;
             	int hashLen, subhashLen;
                 switch (index.getName()) {
                     case SPO:
@@ -275,15 +278,22 @@ public final class HalyardStats extends AbstractHalyardTool {
             Statement[] stmts = stmtIndices.parseStatements(null, null, null, null, value, vf);
             for (Statement stmt : stmts) {
             	Resource ctx = index.getName().isQuadIndex() ? stmt.getContext() : DEFAULT_GRAPH_NODE;
-            	if (!ctx.equals(lastGraph)) {
-            		lastGraph = ctx;
+            	if (!ctx.equals(lastCtx)) {
+            		lastCtx = ctx;
             		lastSubsetIds = new HashSet<>();
             		reset(output);
                     rdfClass = null;
             		graph = ctx;
             	}
-            	if (update && index.getName() == StatementIndex.Name.CSPO && graph.equals(statsContext)) {
-                    if (isGraphContext(stmt.getSubject())) {
+            	if (graph.equals(statsContext) && (index.getName() == StatementIndex.Name.CSPO) && update) {
+            		String stmtStatsNode;
+            		String subj = stmt.getSubject().stringValue();
+            		if (partitionIriTransformer.isPartitionIri(subj)) {
+            			stmtStatsNode = partitionIriTransformer.getGraph(stmt.getSubject());
+            		} else {
+            			stmtStatsNode = subj;
+            		}
+                    if (isIncludedGraphContext(stmtStatsNode)) {
 						getConnection(output).removeSystemStatement(stmt.getSubject(), stmt.getPredicate(), stmt.getObject(), stmt.getContext(), timestamp);
                         removedStmts++;
                     }
@@ -381,35 +391,39 @@ public final class HalyardStats extends AbstractHalyardTool {
         /**
          * Reports a count.
          * @param output context
-         * @param property null for VOID.TRIPLES
+         * @param property property
          * @param partitionId if count is for a partition else null
-         * @param subsetProperty null for VOID.TRIPLES
+         * @param subsetProperty subset property
          * @param count count
          * @throws IOException
          * @throws InterruptedException
          */
         private void report(Context output, IRI property, Value partitionId, IRI subsetProperty, long count) throws IOException, InterruptedException {
-            if (count > 0 && (namedGraphContexts == null || namedGraphContexts.contains(graph.stringValue()))) {
-            	ValueIO.Writer writer = rdfFactory.valueWriter;
-            	bb.clear();
-            	bb = writer.writeValueWithSizeHeader(graph, bb, Short.BYTES);
-            	if (property != null) {
-	            	bb = writer.writeValueWithSizeHeader(property, bb, Short.BYTES);
-	                if (partitionId != null) {
-						bb = writer.writeValueWithSizeHeader(partitionId, bb, Short.BYTES);
-						if (subsetProperty != null) {
-							bb = writer.writeTo(subsetProperty, bb);
-						}
-	                }
-            	}
-				bb.flip();
-                outputKey.set(bb.array(), bb.arrayOffset(), bb.limit());
-                outputValue.set(count);
-                output.write(outputKey, outputValue);
+            if (count > 0 && isIncludedGraphContext(graph.stringValue())) {
+            	writeStat(output, graph, property, partitionId, subsetProperty, count);
             }
         }
 
-		private void reset(Context output) throws IOException, InterruptedException {
+        private void writeStat(Context output, Resource graph, IRI property, Value partitionId, IRI subsetProperty, long count) throws IOException, InterruptedException {
+        	ValueIO.Writer writer = rdfFactory.valueWriter;
+        	bb.clear();
+        	bb = writer.writeValueWithSizeHeader(graph, bb, Short.BYTES);
+        	if (!VOID.TRIPLES.equals(property)) { // use null for void:triples so that it is the first property
+            	bb = writer.writeValueWithSizeHeader(property, bb, Short.BYTES);
+                if (partitionId != null) {
+					bb = writer.writeValueWithSizeHeader(partitionId, bb, Short.BYTES);
+					if (!VOID.TRIPLES.equals(subsetProperty) && !VOID.ENTITIES.equals(subsetProperty)) { // use null to be first property
+						bb = writer.writeTo(subsetProperty, bb);
+					}
+                }
+        	}
+			bb.flip();
+            outputKey.set(bb.array(), bb.arrayOffset(), bb.limit());
+            outputValue.set(count);
+            output.write(outputKey, outputValue);
+        }
+
+        private void reset(Context output) throws IOException, InterruptedException {
 			assert setCounter <= triples;
 			assert distinctSubjects <= triples;
 			assert properties <= triples;
@@ -423,7 +437,7 @@ public final class HalyardStats extends AbstractHalyardTool {
 			assert distinctTripleObjects < distinctObjects;
 			assert distinctTripleSubjects < distinctSubjects;
             if (graph == DEFAULT_GRAPH_NODE || setCounter >= setThreshold) {
-                report(output, null, triples); // use null to be first property
+                report(output, VOID.TRIPLES, triples);
                 report(output, VOID.DISTINCT_SUBJECTS, distinctSubjects);
                 report(output, VOID.PROPERTIES, properties);
                 report(output, VOID.DISTINCT_OBJECTS, distinctObjects);
@@ -466,7 +480,7 @@ public final class HalyardStats extends AbstractHalyardTool {
 		private void resetSubset(Context output) throws IOException, InterruptedException {
 			assert subsetDistincts <= subsetCounter;
             if (subsetCounter >= subsetThreshold) {
-                report(output, subsetType, subsetId, null, subsetCounter); // use null to be first subsetProperty
+                report(output, subsetType, subsetId, VOID.TRIPLES, subsetCounter);
                 report(output, subsetType, subsetId, subsetDistinctType, subsetDistincts);
             }
             subsetCounter = 0;
@@ -477,7 +491,7 @@ public final class HalyardStats extends AbstractHalyardTool {
 
         private void resetClass(Context output) throws IOException, InterruptedException {
             if (instanceOfCounter >= classPartitionThreshold) {
-            	report(output, VOID.CLASS, rdfClass, null, instanceOfCounter);
+            	report(output, VOID.CLASS, rdfClass, VOID.ENTITIES, instanceOfCounter);
             }
             instanceOfCounter = 0;
         }
@@ -535,8 +549,8 @@ public final class HalyardStats extends AbstractHalyardTool {
         RDFWriter writer;
         IRI statsGraphContext;
         long timestamp;
-        HBaseSail sail;
-		HBaseSailConnection conn;
+        HBaseRepository repo;
+        HBaseRepositoryConnection conn;
         long removed = 0, added = 0;
         HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer partitionIriTransformer;
         IRI datePredicate;
@@ -550,12 +564,13 @@ public final class HalyardStats extends AbstractHalyardTool {
             statsGraphContext = vf.createIRI(conf.get(STATS_GRAPH));
             String targetUrl = conf.get(TARGET);
             if (targetUrl == null) {
-                sail = new HBaseSail(conf, conf.get(SOURCE_NAME_PROPERTY), false, 0, true, 0, null, null);
-                sail.init();
-				conn = sail.getConnection();
+                HBaseSail targetSail = new HBaseSail(conf, conf.get(SOURCE_NAME_PROPERTY), false, 0, true, 0, null, null);
+                repo = new HBaseRepository(targetSail);
+                repo.init();
+				conn = repo.getConnection();
 				conn.setNamespace(SD.PREFIX, SD.NAMESPACE);
 				conn.setNamespace(VOID.PREFIX, VOID.NAMESPACE);
-                conn.setNamespace(DCTERMS.PREFIX, DCTERMS.NAMESPACE);
+				conn.setNamespace(DCTERMS.PREFIX, DCTERMS.NAMESPACE);
 				conn.setNamespace(VOID_EXT.PREFIX, VOID_EXT.NAMESPACE);
 				conn.setNamespace(HALYARD.PREFIX, HALYARD.NAMESPACE);
 				datePredicate = DCTERMS.MODIFIED;
@@ -652,7 +667,7 @@ public final class HalyardStats extends AbstractHalyardTool {
 
         private void writeStatement(Resource subj, IRI pred, Value obj) {
             if (conn != null) {
-				conn.addSystemStatement(subj, pred, obj, statsGraphContext, timestamp);
+                ((HBaseSailConnection) conn.getSailConnection()).addSystemStatement(subj, pred, obj, statsGraphContext, timestamp);
             }
             if (writer != null) {
                 writer.handleStatement(vf.createStatement(subj, pred, obj, statsGraphContext));
@@ -662,13 +677,56 @@ public final class HalyardStats extends AbstractHalyardTool {
 
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
+			Configuration conf = context.getConfiguration();
+			String[] namedGraphs = getStrings(conf, NAMED_GRAPH_PROPERTY);
+			if (namedGraphs.length > 0 && conn != null) {
+				// approximately update default graph with any new partitions
+				LOG.info("Updating default graph statistics");
+				// ensure distinct namedGraphs
+				String ngValues = Sets.newHashSet(namedGraphs).stream().map(ng -> "<" + NTriplesUtil.escapeString(ng) + ">").reduce("", (x,y) -> x + " " + y);
+				String newStatsQuery = ""
+					+ "PREFIX sd: <"+SD.NAMESPACE+">"
+					+ "PREFIX void: <"+VOID.NAMESPACE+">"
+					+ "PREFIX void_ext: <"+VOID_EXT.NAMESPACE+">"
+					+ "PREFIX halyard: <"+HALYARD.NAMESPACE+">"
+					+ "CONSTRUCT {"
+					+ " ?dgs ?partitionType ?v; ?stat ?total ."
+					+ "}\n"
+					+ "FROM " + NTriplesUtil.toNTriplesString(statsGraphContext) + "\n"
+					+ "WHERE {"
+					+ " {"
+					+ "SELECT ?partitionType ?v ?stat (SUM(?x) as ?total)"
+					+ "  {\n"
+					+ " VALUES ?ng {" + ngValues + "}\n"
+					+ " VALUES (?partition ?partitionType) {"
+					+ " (void:propertyPartition void:property)"
+					+ " (void_ext:subjectPartition void_ext:subject)"
+					+ " (void_ext:objectPartition void_ext:object)"
+					+ " (void:classPartition void:class)"
+					+ " }\n"
+					+ " ?ng ^sd:name/sd:graph [ ?partition [ a void:Dataset; ?partitionType ?v; ?stat ?x ] ] ."
+					+ " FILTER (isNumeric(?x))"
+					+ "  } GROUP BY ?partitionType ?v ?stat"
+					+ " }"
+					+ "BIND(halyard:datasetIRI(?statsRootNode, ?partitionType, ?v) as ?dgs)"
+					+ "FILTER NOT EXISTS { ?dgs ?partitionType ?v }"
+					+ "}";
+				GraphQuery query = conn.prepareGraphQuery(newStatsQuery);
+				query.setBinding("statsRootNode", HALYARD.STATS_ROOT_NODE);
+				try (GraphQueryResult res = query.evaluate()) {
+					for (Statement stmt : res) {
+						writeStatement(stmt.getSubject(), stmt.getPredicate(), stmt.getObject());
+					}
+				}
+			}
+
         	if (conn != null) {
 				conn.close();
 				conn = null;
-            }
-			if (sail != null) {
-				sail.shutDown();
-				sail = null;
+        	}
+			if (repo != null) {
+				repo.shutDown();
+				repo = null;
             }
             if (writer != null) {
                 writer.endRDF();
@@ -724,7 +782,7 @@ public final class HalyardStats extends AbstractHalyardTool {
         String source = getConf().get(SOURCE_NAME_PROPERTY);
         String target = getConf().get(TARGET);
         String statsGraph = getConf().get(STATS_GRAPH);
-        List<String> namedGraphs = Arrays.asList(getConf().getTrimmedStrings(NAMED_GRAPH_PROPERTY));
+        List<String> namedGraphs = Arrays.asList(getStrings(getConf(), NAMED_GRAPH_PROPERTY));
         String snapshotPath = getConf().get(SNAPSHOT_PATH_PROPERTY);
 
         if (namedGraphs.size() == 1) {
@@ -734,9 +792,9 @@ public final class HalyardStats extends AbstractHalyardTool {
     			if (namedGraphs.isEmpty()) {
     	            LOG.info("No new named graphs found.");
     				return 0;
-    			} else {
-    				LOG.info("Found {} new named graphs: {}", namedGraphs.size(), namedGraphs);
     			}
+    			LOG.info("Found {} new named graphs: {}", namedGraphs.size(), namedGraphs);
+    			setStrings(getConf(), NAMED_GRAPH_PROPERTY, namedGraphs);
     		}
     	}
 
@@ -822,10 +880,11 @@ public final class HalyardStats extends AbstractHalyardTool {
 				TupleQuery modifiedQuery = conn.prepareTupleQuery(
 						"PREFIX dc: <"+DCTERMS.NAMESPACE+">"
 						+ "select ?modified where {"
-						+ "graph ?statsContext { <"+HALYARD.STATS_ROOT_NODE+"> dc:modified ?modified}"
+						+ "graph ?statsContext { ?statsRootNode dc:modified ?modified}"
 						+ "}"
 						+ "order by desc(?modified)"
 						+ "limit 1");
+				modifiedQuery.setBinding("statsRootNode", HALYARD.STATS_ROOT_NODE);
 				modifiedQuery.setBinding("statsContext", repo.getValueFactory().createIRI(statsGraph));
 				Value lastUpdated;
 				try (TupleQueryResult tqr = modifiedQuery.evaluate()) {
@@ -841,14 +900,14 @@ public final class HalyardStats extends AbstractHalyardTool {
 							"PREFIX sd: <"+SD.NAMESPACE+">"
 							+ "PREFIX void: <"+VOID.NAMESPACE+">"
 							+ "PREFIX dc: <"+DCTERMS.NAMESPACE+">"
-							+ "select ?graph where {"
+							+ "select distinct ?graph where {"
 							+ "?graph ^sd:name/sd:graph/dc:created ?t . filter(?t > ?lastUpdated)"
 							+ "}");
 					graphQuery.setBinding("lastUpdated", lastUpdated);
 					try (TupleQueryResult tqr = graphQuery.evaluate()) {
 						for (BindingSet bs : tqr) {
 							IRI graph = (IRI) bs.getValue("graph");
-							graphs.add(NTriplesUtil.toNTriplesString(graph));
+							graphs.add(graph.stringValue());
 						}
 					}
 				}

@@ -18,9 +18,9 @@ halyard:statsContext {
 		sd:namedGraph :graph0 , :graph1 , :graph2 ;
 		void:classes "1001"^^xsd:long ;
 		void:triples "2282"^^xsd:long ;
-		void:propertyPartition halyard:statsRoot_property_eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha ;
-		void-ext:objectPartition halyard:statsRoot_object_aedvuR4Uih-RZ8XJUH6HMkwUPiUxHC95;
-		void:classPartition halyard:statsRoot_class_aedvuR4Uih-RZ8XJUH6HMkwUPiUxHC95;
+		void:propertyPartition <halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha> ;
+		void-ext:objectPartition <halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,object,aedvuR4Uih-RZ8XJUH6HMkwUPiUxHC95>;
+		void:classPartition <halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,class,aedvuR4Uih-RZ8XJUH6HMkwUPiUxHC95>;
 		void:properties "14"^^xsd:long ;
 		void-ext:distinctLiterals "857"^^xsd:long ;
 		void:distinctObjects "1958"^^xsd:long ;
@@ -36,7 +36,7 @@ halyard:statsContext {
 		dcterms:modified "2000-01-01T00:00:00.000Z"^^xsd:dateTime ;
 		void:classes "451"^^xsd:long ;
 		void:triples "991"^^xsd:long ;
-		void:propertyPartition :graph0_property_eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha ;
+		void:propertyPartition <halyard:dataset:http://whatever/graph0,property,eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha> ;
 		void:properties "14"^^xsd:long ;
 		void-ext:distinctLiterals "386"^^xsd:long ;
 		void:distinctObjects "887"^^xsd:long ;
@@ -46,7 +46,7 @@ halyard:statsContext {
 		void-ext:distinctIRIReferenceObjects "451"^^xsd:long ;
 		void-ext:distinctIRIReferenceSubjects "50"^^xsd:long .
 
-	:graph0_property_eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha a void:Dataset ;
+	<halyard:dataset:http://whatever/graph0,property,eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha> a void:Dataset ;
 		void:property rdf:type ;
 		void:triples "541"^^xsd:long ;
 		void:distinctObjects "451"^^xsd:long .
@@ -54,35 +54,35 @@ halyard:statsContext {
 	:graph1 sd:name :graph1 ;
 		sd:graph :graph1 ;
 		a sd:NamedGraph , sd:Graph , void:Dataset ;
-		dcterms:modified "2000-01-02T00:00:00.000Z"^^xsd:dateTime ;
+		dcterms:modified "2000-01-01T00:00:00.000Z"^^xsd:dateTime ;
 		void:classes "451"^^xsd:long ;
-		void:triples "991"^^xsd:long ;
-		void:propertyPartition :graph1_property_eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha ;
-		void:properties "15"^^xsd:long ;
-		void-ext:distinctLiterals "387"^^xsd:long ;
-		void:distinctObjects "888"^^xsd:long ;
-		void:distinctSubjects "91"^^xsd:long ;
+		void:triples "990"^^xsd:long ;
+		void:propertyPartition <halyard:dataset:http://whatever/graph1,property,eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha> ;
+		void:properties "14"^^xsd:long ;
+		void-ext:distinctLiterals "386"^^xsd:long ;
+		void:distinctObjects "887"^^xsd:long ;
+		void:distinctSubjects "90"^^xsd:long ;
 		void-ext:distinctBlankNodeObjects "50"^^xsd:long ;
 		void-ext:distinctBlankNodeSubjects "40"^^xsd:long ;
 		void-ext:distinctIRIReferenceObjects "451"^^xsd:long ;
-		void-ext:distinctIRIReferenceSubjects "51"^^xsd:long .
+		void-ext:distinctIRIReferenceSubjects "50"^^xsd:long .
 
-	:graph1_property_eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha a void:Dataset ;
+	<halyard:dataset:http://whatever/graph1,property,eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha> a void:Dataset ;
 		void:property rdf:type ;
 		void:triples "540"^^xsd:long ;
 		void:distinctObjects "451"^^xsd:long .
 
-	halyard:statsRoot_class_aedvuR4Uih-RZ8XJUH6HMkwUPiUxHC95 a void:Dataset;
-		void:class :typeThing;
-		void:entities "281"^^xsd:long .
-
-	halyard:statsRoot_object_aedvuR4Uih-RZ8XJUH6HMkwUPiUxHC95 a void:Dataset;
-		void-ext:object :typeThing;
-		void:triples "281"^^xsd:long;
-		void:distinctSubjects "191"^^xsd:long .
-
-	halyard:statsRoot_property_eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha a void:Dataset ;
+	<halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,eRg5UlsxjZuh-4meqlYQe3-J8X_15Vha> a void:Dataset ;
 		void:property rdf:type ;
 		void:triples "1281"^^xsd:long ;
 		void:distinctObjects "1001"^^xsd:long .
+
+	<halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,class,aedvuR4Uih-RZ8XJUH6HMkwUPiUxHC95> a void:Dataset;
+		void:class :typeThing;
+		void:entities "281"^^xsd:long .
+
+	<halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,object,aedvuR4Uih-RZ8XJUH6HMkwUPiUxHC95> a void:Dataset;
+		void-ext:object :typeThing;
+		void:triples "281"^^xsd:long;
+		void:distinctSubjects "191"^^xsd:long .
 }
