@@ -24,7 +24,7 @@ Halyard is expected to run on an Apache Hadoop cluster node with configured Apac
 (For convenience, here is a [Java 11 build of HBase 2.5 against Hadoop 3.3](https://github.com/pulquero/hbase/releases/tag/rel%2F2.5.0%2B3.3.3)).
 
 To run the webapps on Tomcat, create `bin/setenv.sh` with the line
-`export CLASSPATH="$CATALINA_HOME/lib/*:/mnt/hbase-2.5.0/conf:/mnt/hbase-2.5.0/lib/shaded-clients/*:/mnt/hbase-2.5.0/lib/client-facing-thirdparty/*"`.
+`export CLASSPATH="$CATALINA_HOME/lib/*:/mnt/hbase-2.5.5/conf:/mnt/hbase-2.5.5/lib/shaded-clients/*:/mnt/hbase-2.5.5/lib/client-facing-thirdparty/*:/mnt/hadoop-3.3.6/etc/hadoop:/mnt/hadoop-3.3.6/share/hadoop/client/*"`.
 
 See [Documentation](https://pulquero.github.io/Halyard) for usage examples, architecture information, and more.
 
