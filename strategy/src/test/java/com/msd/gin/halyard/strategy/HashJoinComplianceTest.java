@@ -17,7 +17,7 @@ public class HashJoinComplianceTest extends RepositorySPARQLComplianceTestSuite 
 		setRepositoryFactory(new SailRepositoryFactory() {
 			@Override
 			public Repository getRepository(RepositoryImplConfig config) throws RepositoryConfigException {
-				Sail sail = new MemoryStoreWithHalyardStrategy(Integer.MAX_VALUE, 1, 0.0f, Integer.MAX_VALUE, Integer.MAX_VALUE);
+				Sail sail = new MemoryStoreWithHalyardStrategy(Integer.MAX_VALUE, 1, 0.0f, Integer.MAX_VALUE, Integer.MAX_VALUE, 0);
 				return new SailRepository(sail);
 			}
 		});

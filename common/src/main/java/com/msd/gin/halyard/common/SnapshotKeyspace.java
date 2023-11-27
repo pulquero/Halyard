@@ -22,19 +22,35 @@ import org.apache.hadoop.mapreduce.Job;
 final class SnapshotKeyspace implements Keyspace {
 	private final Configuration conf;
 	private final String snapshotName;
-	private final Path rootDir;
+	private final Path hbaseRootDir;
 	private final Path restoreDir;
 	private final boolean isOwner;
 
+	/**
+	 * 
+	 * @param conf
+	 * @param snapshotName
+	 * @param restoreDir restore directory or exported snapshot directory
+	 * @throws IOException
+	 */
 	public SnapshotKeyspace(Configuration conf, String snapshotName, Path restoreDir) throws IOException {
 		this.conf = conf;
 		this.snapshotName = snapshotName;
-		this.rootDir = CommonFSUtils.getRootDir(conf);
-		this.restoreDir = restoreDir;
-		FileSystem fs = rootDir.getFileSystem(conf);
-		this.isOwner = !fs.exists(restoreDir);
+		FileSystem restorefs = restoreDir.getFileSystem(conf);
+		restoreDir = restorefs.makeQualified(restoreDir);
+		Path defaultHBaseRootDir = CommonFSUtils.getRootDir(conf);
+		// if on same filesystem as HBase then use existing HBase data
+		if (restorefs.getUri().equals(defaultHBaseRootDir.getFileSystem(conf).getUri())) {
+			this.hbaseRootDir = defaultHBaseRootDir;
+			this.restoreDir = restoreDir;
+		} else {
+			// assume exported snapshot
+			this.hbaseRootDir = restoreDir;
+			this.restoreDir = new Path(restoreDir, "archive");
+		}
+		this.isOwner = !restorefs.exists(restoreDir);
 		if (this.isOwner) {
-			RestoreSnapshotHelper.copySnapshotForScanner(conf, fs, rootDir, restoreDir, snapshotName);
+			RestoreSnapshotHelper.copySnapshotForScanner(conf, restorefs, hbaseRootDir, restoreDir, snapshotName);
 		}
 	}
 
@@ -92,7 +108,7 @@ final class SnapshotKeyspace implements Keyspace {
 
 		@Override
 		public ResultScanner getScanner(Scan scan) throws IOException {
-			return new TableSnapshotScanner(conf, rootDir, restoreDir, snapshotName, scan, true);
+			return new TableSnapshotScanner(conf, hbaseRootDir, restoreDir, snapshotName, scan, true);
 		}
 
 		@Override

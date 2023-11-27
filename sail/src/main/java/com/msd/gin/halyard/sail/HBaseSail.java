@@ -376,7 +376,12 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	@Override
 	public String getTableName() {
-		return tableName.getNameWithNamespaceInclAsString();
+		return (tableName != null) ? tableName.getNameWithNamespaceInclAsString() : null;
+	}
+
+	@Override
+	public String getSnapshotName() {
+		return snapshotName;
 	}
 
 	@Override

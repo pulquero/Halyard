@@ -65,9 +65,10 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
 	private final float cardinalityRatio;
 	private final int minJoins;
 	private final int minUnions;
+	private final int pullAllLimit;
 
 	MemoryStoreWithHalyardStrategy() {
-		this(0, 0, Float.MAX_VALUE, 1, 1);
+		this(0, 0, Float.MAX_VALUE, 1, 1, 0);
 		SPARQLServiceResolver fsr = new SPARQLServiceResolver();
 		fsr.registerService("repository:memory", new SailFederatedService(new MemoryStore()));
 		fsr.registerService("repository:pushOnly", new SailFederatedService(new PushOnlyMemoryStore()));
@@ -95,12 +96,13 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
 		setFederatedServiceResolver(fsr);
 	}
 
-	MemoryStoreWithHalyardStrategy(int optHashJoinLimit, int evalHashJoinLimit, float cardinalityRatio, int starJoinMin, int naryUnionMin) {
+	MemoryStoreWithHalyardStrategy(int optHashJoinLimit, int evalHashJoinLimit, float cardinalityRatio, int starJoinMin, int naryUnionMin, int pullAllLimit) {
 		this.optHashJoinLimit = optHashJoinLimit;
 		this.evalHashJoinLimit = evalHashJoinLimit;
 		this.cardinalityRatio = cardinalityRatio;
 		this.minJoins = starJoinMin;
 		this.minUnions = naryUnionMin;
+		this.pullAllLimit = pullAllLimit;
 	}
 
 	LinkedList<TupleExpr> getQueryHistory() {
@@ -125,6 +127,7 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
         	conf.setFloat(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_COST_RATIO, cardinalityRatio);
         	conf.setInt(StrategyConfig.HALYARD_EVALUATION_STAR_JOIN_MIN_JOINS, minJoins);
         	conf.setInt(StrategyConfig.HALYARD_EVALUATION_NARY_UNION_MIN_UNIONS, minUnions);
+        	conf.setInt(StrategyConfig.HALYARD_EVALUATION_ASYNC_PULL_ALL_LIMIT, pullAllLimit);
         	HalyardEvaluationStrategy evalStrat = new HalyardEvaluationStrategy(conf, new MockTripleSource(tripleSource), dataset, getFederatedServiceResolver(), stats) {
         		@Override
         		public BindingSetPipeQueryEvaluationStep precompile(TupleExpr expr, QueryEvaluationContext evalContext) {

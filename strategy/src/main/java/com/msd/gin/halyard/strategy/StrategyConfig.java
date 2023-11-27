@@ -18,6 +18,7 @@ public final class StrategyConfig {
 	public static final String HALYARD_EVALUATION_BINDINGS_RATE_WINDOW_SIZE = "halyard.evaluation.bindingsRate.windowSize";
 	public static final String HALYARD_EVALUATION_TRACK_RESULT_SIZE_UPDATE_INTERVAL = "halyard.evaluation.trackResultSize.updateInterval";
 	public static final String HALYARD_EVALUATION_TRACK_RESULT_TIME_UPDATE_INTERVAL = "halyard.evaluation.trackResultTime.updateInterval";
+	public static final String HALYARD_EVALUATION_ASYNC_PULL_ALL_LIMIT = "halyard.evaluation.asyncPull.all.limit";
 
 	static final int DEFAULT_HASH_JOIN_LIMIT = 50000;
 	static final int DEFAULT_STAR_JOIN_MIN_JOINS = 3;
@@ -26,6 +27,7 @@ public final class StrategyConfig {
 	static final int DEFAULT_VALUE_CACHE_SIZE = 1000;
 	static final int DEFAULT_QUEUE_SIZE = 5000;
 	static final int DEFAULT_THREADS = 25;
+	static final int DEFAULT_ASYNC_PULL_ALL_LIMIT = 100;
 	public static final String JMX_DOMAIN = "com.msd.gin.halyard";
 
 	public final long trackResultSizeUpdateInterval;

@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface HBaseSailMXBean {
 	String getTableName();
+	String getSnapshotName();
 	boolean isPushStrategyEnabled();
 	int getEvaluationTimeout();
 	ElasticSettings getSearchSettings();

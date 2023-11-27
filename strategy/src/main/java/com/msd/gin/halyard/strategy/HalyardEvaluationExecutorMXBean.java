@@ -7,6 +7,9 @@ public interface HalyardEvaluationExecutorMXBean {
 	void setQueuePollTimeoutMillis(int millis);
 	int getQueuePollTimeoutMillis();
 
+	void setAsyncPullAllLimit(int limit);
+	int getAsyncPullAllLimit();
+
 	float getIncomingBindingsRatePerSecond();
 	float getOutgoingBindingsRatePerSecond();
 

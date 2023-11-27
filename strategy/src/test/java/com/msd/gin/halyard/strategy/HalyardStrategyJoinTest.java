@@ -61,7 +61,7 @@ public class HalyardStrategyJoinTest {
 
     @Before
     public void setUp() throws Exception {
-    	strategy = new MemoryStoreWithHalyardStrategy(optHashJoinLimit, evalHashJoinLimit, cardinalityRatio, starJoinMin, Integer.MAX_VALUE);
+    	strategy = new MemoryStoreWithHalyardStrategy(optHashJoinLimit, evalHashJoinLimit, cardinalityRatio, starJoinMin, Integer.MAX_VALUE, 0);
         repo = new SailRepository(strategy);
         repo.init();
         con = repo.getConnection();

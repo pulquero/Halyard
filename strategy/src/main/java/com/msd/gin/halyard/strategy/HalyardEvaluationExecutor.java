@@ -92,18 +92,28 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
     private int threads;
 
 	private final TrackingThreadPoolExecutor executor;
+	private final boolean isSnapshot;
 
     private int maxQueueSize;
 	private int pollTimeoutMillis;
 	private int offerTimeoutMillis;
+	private double asyncPullAllLimit;
 
-	public HalyardEvaluationExecutor(String name, Configuration conf, Map<String,String> connAttrs) {
+	public HalyardEvaluationExecutor(String name, Configuration conf, boolean isSnapshot, Map<String,String> connAttrs) {
+		this.isSnapshot = isSnapshot;
 	    threads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREADS, StrategyConfig.DEFAULT_THREADS);
 		executor = createExecutor(name + " ", threads);
 
 	    maxQueueSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_QUEUE_SIZE, StrategyConfig.DEFAULT_QUEUE_SIZE);
 		pollTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_POLL_TIMEOUT_MILLIS, Integer.MAX_VALUE);
 		offerTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_OFFER_TIMEOUT_MILLIS, conf.getInt("hbase.client.scanner.timeout.period", 60000));
+		if (isSnapshot) {
+			// due to region file locking must open/close iterator from the same thread!
+			asyncPullAllLimit = Double.POSITIVE_INFINITY;
+		} else {
+			int limit = conf.getInt(StrategyConfig.HALYARD_EVALUATION_ASYNC_PULL_ALL_LIMIT, StrategyConfig.DEFAULT_ASYNC_PULL_ALL_LIMIT);
+			setAsyncPullAllLimit(limit);
+		}
 
 		// don't both registering MBeans for short-lived queries
 		registerMBeanTask = new TimerTask() {
@@ -138,7 +148,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
 	HalyardEvaluationExecutor(Configuration conf) {
-		this("Halyard", conf, Collections.emptyMap());
+		this("Halyard", conf, false, Collections.emptyMap());
 	}
 
 	public void shutdown() {
@@ -176,6 +186,18 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
 	@Override
+	public void setAsyncPullAllLimit(int limit) {
+		if (!isSnapshot) {
+			asyncPullAllLimit = (limit != -1) ? limit : Double.POSITIVE_INFINITY;
+		}
+	}
+
+	@Override
+	public int getAsyncPullAllLimit() {
+		return (asyncPullAllLimit != Double.POSITIVE_INFINITY) ? (int) asyncPullAllLimit : -1;
+	}
+
+	@Override
 	public float getIncomingBindingsRatePerSecond() {
 		return (incomingBindingsRateTracker != null) ? incomingBindingsRateTracker.getRatePerSecond() : Float.NaN;
 	}
@@ -201,7 +223,22 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	void pullAndPushAsync(BindingSetPipe pipe,
 			QueryEvaluationStep evalStep,
 			TupleExpr node, BindingSet bs, HalyardEvaluationStrategy strategy) {
-		executor.execute(new IterateAndPipeTask(new CountingBindingSetPipe(pipe, incomingBindingsCount), evalStep, node, bs, strategy));
+		BindingSetPipe childPipe = new CountingBindingSetPipe(pipe, incomingBindingsCount);
+		double sizeEstimate = node.getResultSizeEstimate();
+		if (sizeEstimate == -1) {
+			// if unknown assume it is very large
+			sizeEstimate = Double.MAX_VALUE;
+		} else if (sizeEstimate == 0) {
+			// it's an estimate so even zero may not be zero
+			sizeEstimate = 1;
+		}
+		Runnable task;
+		if (sizeEstimate <= asyncPullAllLimit) {
+			task = new IterateAllAndPipeTask(childPipe, evalStep, node, bs, strategy);
+		} else {
+			task = new IterateSingleAndPipeTask(childPipe, evalStep, node, bs, strategy);
+		}
+		executor.execute(task);
     }
 
     /**
@@ -417,10 +454,10 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	/**
      * A holder for the BindingSetPipe and the iterator over a tree of query sub-parts
      */
-    final class IterateAndPipeTask extends PrioritizedTask {
+    final class IterateSingleAndPipeTask extends PrioritizedTask {
         private final BindingSetPipe pipe;
         private final QueryEvaluationStep evalStep;
-    	private final HalyardEvaluationStrategy strategy;
+        private final HalyardEvaluationStrategy strategy;
         private int pushPriority = MIN_SUB_PRIORITY;
         private CloseableIteration<BindingSet, QueryEvaluationException> iter;
 
@@ -428,8 +465,11 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
          * Constructor for the class with the supplied variables
          * @param pipe The pipe to return evaluations to
          * @param evalStep The query step to evaluation
+         * @param expr
+         * @param bs
+         * @param strategy
          */
-		IterateAndPipeTask(BindingSetPipe pipe,
+		IterateSingleAndPipeTask(BindingSetPipe pipe,
 				QueryEvaluationStep evalStep,
 				TupleExpr expr, BindingSet bs, HalyardEvaluationStrategy strategy) {
 			super(expr, bs);
@@ -447,25 +487,24 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
                 	if(iter.hasNext()) {
                         BindingSet bs = iter.next();
                         if (pipe.push(bs)) { //true indicates more data is expected from this binding set, put it on the queue
-                           	return true;
+                            return true;
                         }
             		}
-                	pipe.close();
             	}
-            	if (iter != null) {
-            		iter.close();
-            	}
-            	return false;
             } catch (Throwable e) {
-            	if (iter != null) {
-	            	try {
-	                    iter.close();
-	            	} catch (QueryEvaluationException ignore) {
-	            		e.addSuppressed(ignore);
-	            	}
-            	}
-                return pipe.handleException(e);
+                if (pipe.handleException(e)) {
+                	return true;
+                }
             }
+        	// close iter first to immediately release resources as pipe.close() maybe non-trivial (e.g. DISTINCT)
+        	if (iter != null) {
+        		try {
+        			iter.close();
+        		} catch (QueryEvaluationException ignore) {
+        		}
+        	}
+        	pipe.close();
+        	return false;
 		}
 
 		@Override
@@ -477,6 +516,54 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
         		setSubPriority(pushPriority);
                 executor.execute(this);
         	}
+    	}
+    }
+
+    final class IterateAllAndPipeTask extends PrioritizedTask {
+        private final BindingSetPipe pipe;
+        private final QueryEvaluationStep evalStep;
+        private final HalyardEvaluationStrategy strategy;
+
+        /**
+         * Constructor for the class with the supplied variables
+         * @param pipe The pipe to return evaluations to
+         * @param evalStep The query step to evaluation
+         * @param expr
+         * @param bs
+         * @param strategy
+         */
+		IterateAllAndPipeTask(BindingSetPipe pipe,
+				QueryEvaluationStep evalStep,
+				TupleExpr expr, BindingSet bs, HalyardEvaluationStrategy strategy) {
+			super(expr, bs);
+            this.pipe = pipe;
+            this.evalStep = evalStep;
+            this.strategy = strategy;
+        }
+
+		@Override
+    	public void run() {
+        	if (!pipe.isClosed()) {
+        		CloseableIteration<BindingSet, QueryEvaluationException> iter = strategy.track(evalStep.evaluate(bindingSet), queryNode);
+        		boolean doNext = true;
+        		while (doNext && !pipe.isClosed()) {
+            		try {
+            			doNext = iter.hasNext();
+            			if (doNext) {
+	            			BindingSet bs = iter.next();
+	            			doNext = pipe.push(bs);
+            			}
+            		} catch (Throwable e) {
+            			doNext = pipe.handleException(e);
+            		}
+        		}
+                // close iter first to immediately release resources as pipe.close() maybe non-trivial (e.g. DISTINCT)
+				try {
+					iter.close();
+				} catch (QueryEvaluationException ignore) {
+				}
+				pipe.close();
+			}
     	}
     }
 
