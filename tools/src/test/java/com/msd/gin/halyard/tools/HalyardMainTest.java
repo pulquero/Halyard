@@ -106,7 +106,7 @@ public class HalyardMainTest {
         HalyardMain.main(new String[]{"profile"});
     }
 
-    @Test(expected = MissingOptionException.class)
+    @Test(expected = RuntimeException.class)
     public void testEndpoint() throws Exception {
         HalyardMain.main(new String[]{"endpoint"});
     }

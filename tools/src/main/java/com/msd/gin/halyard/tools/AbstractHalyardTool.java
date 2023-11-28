@@ -235,8 +235,8 @@ public abstract class AbstractHalyardTool implements Tool {
         }
     }
 
-    protected final void addKeyValueOption(String opt, String argName, String confProperty, String description) {
-        Option o = new OrderedOption(opts++, opt, argName, confProperty, description);
+    protected final void addKeyValueOption(String opt, String longOpt, String argName, String confProperty, String description) {
+        Option o = new OrderedOption(opts++, opt, longOpt, argName, confProperty, description);
         options.addOption(o);
     }
 
@@ -317,8 +317,11 @@ public abstract class AbstractHalyardTool implements Tool {
             this.confProperty = confProperty;
         }
 
-        public OrderedOption(int order, String opt, String argName, String confProperty, String description) {
-            super(opt, buildDescription(description, confProperty));
+        /**
+         * Key-value option.
+         */
+        public OrderedOption(int order, String opt, String longOpt, String argName, String confProperty, String description) {
+            super(opt, longOpt, false, buildDescription(description, confProperty));
             setArgName(argName);
             setArgs(Option.UNLIMITED_VALUES);
             setValueSeparator('=');

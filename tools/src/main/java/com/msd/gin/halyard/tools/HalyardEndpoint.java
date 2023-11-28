@@ -23,6 +23,7 @@ import com.msd.gin.halyard.sail.HBaseSail;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -32,6 +33,10 @@ import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.MissingOptionException;
+import org.apache.hadoop.conf.Configuration;
+import org.eclipse.rdf4j.repository.sail.SailRepository;
+import org.eclipse.rdf4j.sail.Sail;
 
 /**
  * @author sykorjan
@@ -67,7 +72,7 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
         addOption(
                 "p", "port", "http_server_port", "HTTP server port number. If no port number is specified, system " +
                         "will automatically select a new port number", false, true);
-        addOption("s", "source-dataset", "dataset_table", "Source HBase table with Halyard RDF store", true, true);
+        addOption("s", "source-dataset", "dataset_table", "Source HBase table with Halyard RDF store", false, true);
         addOption("i", "elastic-index", "elastic_index_url", ElasticSettings.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
         addOption("t", "timeout", "evaluation_timeout", "Timeout in seconds for each query evaluation (default is " +
                 "unlimited timeout)", false, true);
@@ -82,6 +87,8 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
                 "Each property name is fully qualified class.field name of WriterSetting and property value is fully qualified " +
                 " class.field or enum name with the value to set. For example: " +
                 "\"org.eclipse.rdf4j.rio.helpers.JSONLDSettings.JSONLD_MODE=org.eclipse.rdf4j.rio.helpers.JSONLDMode.COMPACT\"", false, true);
+        addOption(null, "sail-factory", "class_name", "Specify a factory to use a different SAIL implementation", false, true);
+        addKeyValueOption(null, "sail-factory-param", "param=value", null, "Optional parameters to pass to the SAIL factory");
         addOption(null, "create", null, "Create HBase table if it doesn't exist", false, false);
         addOption(null, "pull", null, "Use a pull-based evaluation strategy", false, false);
     }
@@ -96,7 +103,7 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
      *                           subprocess
      */
     @Override
-    protected int run(CommandLine cmd) throws EndpointException {
+    protected int run(CommandLine cmd) throws EndpointException, MissingOptionException {
         try {
             int timeout = parseTimeout(cmd);
             int port = parsePort(cmd);
@@ -104,13 +111,42 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
             configureString(cmd, 'i', null);
             boolean create = cmd.hasOption("create");
             boolean usePush = !cmd.hasOption("pull");
+            String sailFactoryClassName = cmd.getOptionValue("sail-factory");
 
             // Any left-over non-recognized options and arguments are considered as part of user's custom commands
             // that are to be run by this tool
             List<String> cmdArgs = Arrays.asList(cmd.getArgs());
 
-            HBaseRepository rep = new HBaseRepository(
-                    new HBaseSail(getConf(), table, create, 0, usePush, timeout, ElasticSettings.from(getConf())));
+            SailRepository rep;
+            if (sailFactoryClassName != null) {
+            	if (table != null) {
+            		throw new EndpointException("Unexpected -s or --source-data");
+            	}
+
+            	EndpointSailFactory factory;
+            	try {
+            		Class<?> factoryClass = Class.forName(sailFactoryClassName);
+            		factory = (EndpointSailFactory) factoryClass.getDeclaredConstructor().newInstance();
+            		factory.setConf(getConf());
+            		Properties factoryParams = cmd.getOptionProperties("sail-factory-param");
+            		for (String key : factoryParams.stringPropertyNames()) {
+            			String value = factoryParams.getProperty(key);
+            			Method setter = factoryClass.getMethod("set"+Character.toUpperCase(key.charAt(0))+key.substring(1), String.class);
+            			setter.invoke(factory, value);
+            		}
+            	} catch (Exception e) {
+            		throw new EndpointException("Failed to instantiate SAIL");
+            	}
+            	rep = new SailRepository(factory.createSail());
+            } else {
+            	if (table == null) {
+            		throw new MissingOptionException("One of -s or --source-dataset is required");
+            	}
+
+            	rep = new HBaseRepository(
+	                    new HBaseSail(getConf(), table, create, 0, usePush, timeout, ElasticSettings.from(getConf())));
+            }
+
             rep.init();
             try {
                 Properties storedQueries = new Properties();
@@ -196,6 +232,11 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
                 throw new EndpointException("Failed to parse port number from the input string: " + portString);
             }
         }
+    }
+
+    public static interface EndpointSailFactory {
+    	void setConf(Configuration conf);
+    	Sail createSail();
     }
 
     /**

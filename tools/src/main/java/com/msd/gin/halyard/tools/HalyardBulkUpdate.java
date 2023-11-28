@@ -279,7 +279,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         addOption("w", "work-dir", "shared_folder", "Unique non-existent folder within shared filesystem to server as a working directory for the temporary HBase files,  the files are moved to their final HBase locations during the last stage of the load process", true, true);
         addOption("e", "target-timestamp", "timestamp", TIMESTAMP_PROPERTY, "Optionally specify timestamp of all updated records (default is actual time of the operation)", false, true);
         addOption("i", "elastic-index", "elastic_index_url", ElasticSettings.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
-        addKeyValueOption("$", "binding=value", BINDING_PROPERTY_PREFIX, "Optionally specify bindings");
+        addKeyValueOption("$", null, "binding=value", BINDING_PROPERTY_PREFIX, "Optionally specify bindings");
         addOption(null, "dry-run", null, DRY_RUN_PROPERTY, "Skip loading of HFiles", false, true);
     }
 
