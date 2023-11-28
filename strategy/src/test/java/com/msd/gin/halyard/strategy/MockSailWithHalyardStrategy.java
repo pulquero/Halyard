@@ -57,7 +57,7 @@ import org.eclipse.rdf4j.sail.memory.MemoryStoreConnection;
  *
  * @author Adam Sotona (MSD)
  */
-public class MemoryStoreWithHalyardStrategy extends MemoryStore {
+public class MockSailWithHalyardStrategy extends MemoryStore {
 
 	private final LinkedList<TupleExpr> queryHistory = new LinkedList<>();
 	private final int optHashJoinLimit;
@@ -67,11 +67,11 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
 	private final int minUnions;
 	private final int pullAllLimit;
 
-	MemoryStoreWithHalyardStrategy() {
+	MockSailWithHalyardStrategy() {
 		this(0, 0, Float.MAX_VALUE, 1, 1, 0);
 		SPARQLServiceResolver fsr = new SPARQLServiceResolver();
 		fsr.registerService("repository:memory", new SailFederatedService(new MemoryStore()));
-		fsr.registerService("repository:pushOnly", new SailFederatedService(new PushOnlyMemoryStore()));
+		fsr.registerService("repository:pushOnly", new SailFederatedService(new PushOnlyMockSail()));
 		fsr.registerService("repository:askOnly", new SailFederatedService(new MemoryStore()) {
 			@Override
 			public CloseableIteration<BindingSet, QueryEvaluationException> select(Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
@@ -96,7 +96,7 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
 		setFederatedServiceResolver(fsr);
 	}
 
-	MemoryStoreWithHalyardStrategy(int optHashJoinLimit, int evalHashJoinLimit, float cardinalityRatio, int starJoinMin, int naryUnionMin, int pullAllLimit) {
+	MockSailWithHalyardStrategy(int optHashJoinLimit, int evalHashJoinLimit, float cardinalityRatio, int starJoinMin, int naryUnionMin, int pullAllLimit) {
 		this.optHashJoinLimit = optHashJoinLimit;
 		this.evalHashJoinLimit = evalHashJoinLimit;
 		this.cardinalityRatio = cardinalityRatio;
@@ -127,7 +127,7 @@ public class MemoryStoreWithHalyardStrategy extends MemoryStore {
         	conf.setFloat(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_COST_RATIO, cardinalityRatio);
         	conf.setInt(StrategyConfig.HALYARD_EVALUATION_STAR_JOIN_MIN_JOINS, minJoins);
         	conf.setInt(StrategyConfig.HALYARD_EVALUATION_NARY_UNION_MIN_UNIONS, minUnions);
-        	conf.setInt(StrategyConfig.HALYARD_EVALUATION_ASYNC_PULL_ALL_LIMIT, pullAllLimit);
+        	conf.setInt(StrategyConfig.HALYARD_EVALUATION_PULL_PUSH_ASYNC_ALL_LIMIT, pullAllLimit);
         	HalyardEvaluationStrategy evalStrat = new HalyardEvaluationStrategy(conf, new MockTripleSource(tripleSource), dataset, getFederatedServiceResolver(), stats) {
         		@Override
         		public BindingSetPipeQueryEvaluationStep precompile(TupleExpr expr, QueryEvaluationContext evalContext) {

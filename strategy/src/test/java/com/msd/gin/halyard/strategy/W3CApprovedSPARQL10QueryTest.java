@@ -99,7 +99,7 @@ public class W3CApprovedSPARQL10QueryTest extends SPARQLQueryComplianceTest {
 
     @Override
     protected Repository newRepository() {
-        return new DatasetRepository(new SailRepository(new MemoryStoreWithHalyardStrategy()));
+        return new DatasetRepository(new SailRepository(new MockSailWithHalyardStrategy()));
     }
 
 	@Override

@@ -24,7 +24,7 @@ public class ConstrainedValueStrategyTest {
 
     @BeforeEach
     public void setUp() throws Exception {
-        repo = new SailRepository(new MemoryStoreWithConstraintsStrategy());
+        repo = new SailRepository(new MockSailWithConstraintsStrategy());
         repo.init();
         con = repo.getConnection();
     }

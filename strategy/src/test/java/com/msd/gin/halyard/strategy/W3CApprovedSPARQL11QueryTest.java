@@ -35,6 +35,6 @@ public class W3CApprovedSPARQL11QueryTest extends SPARQL11QueryComplianceTest {
 
     @Override
     protected Repository newRepository() {
-        return new DatasetRepository(new SailRepository(new MemoryStoreWithHalyardStrategy()));
+        return new DatasetRepository(new SailRepository(new MockSailWithHalyardStrategy()));
     }
 }

@@ -18,7 +18,7 @@ import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.helpers.NotifyingSailConnectionWrapper;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
 
-public class PushOnlyMemoryStore extends MemoryStore implements BindingSetConsumerSail, BindingSetPipeSail {
+public class PushOnlyMockSail extends MemoryStore implements BindingSetConsumerSail, BindingSetPipeSail {
 
 	@Override
 	public BindingSetPipeNotifyingSailConnection getConnection() throws SailException {

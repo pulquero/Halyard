@@ -17,7 +17,7 @@ public class StarJoinComplianceTest extends RepositorySPARQLComplianceTestSuite 
 		setRepositoryFactory(new SailRepositoryFactory() {
 			@Override
 			public Repository getRepository(RepositoryImplConfig config) throws RepositoryConfigException {
-				Sail sail = new MemoryStoreWithHalyardStrategy(0, 0, Float.MAX_VALUE, 1, Integer.MAX_VALUE, 0);
+				Sail sail = new MockSailWithHalyardStrategy(0, 0, Float.MAX_VALUE, 1, Integer.MAX_VALUE, 0);
 				return new SailRepository(sail);
 			}
 		});

@@ -248,12 +248,12 @@ final class HalyardTupleExprEvaluation {
 
 			@Override
 			public void evaluate(Consumer<BindingSet> handler, BindingSet bindings) {
-				executor.pushAndPullSync(handler, step, bindings);
+				executor.pushPullSync(handler, step, bindings);
 			}
 
 			@Override
 			public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(BindingSet bindings) {
-				return executor.pushAndPullAsync(step, expr, bindings);
+				return executor.pushPullAsync(step, expr, bindings);
 			}
     	};
     }
@@ -409,7 +409,7 @@ final class HalyardTupleExprEvaluation {
     		if (ts != null) {
     	        QueryEvaluationStep evalStep = evaluateStatementPattern(sp, nq, ts);
         		try {
-    				executor.pullAndPushAsync(parent, evalStep, trackExpr, bindings, parentStrategy);
+    				executor.pullPushAsync(parent, evalStep, trackExpr, bindings, parentStrategy);
                 } catch (QueryEvaluationException e) {
                     parent.handleException(e);
                 }
@@ -803,7 +803,7 @@ final class HalyardTupleExprEvaluation {
 							}
 						};
 					};
-					executor.pullAndPushAsync(parent, evalStep, tripleRef, bindings, parentStrategy);
+					executor.pullPushAsync(parent, evalStep, tripleRef, bindings, parentStrategy);
 				}
 			};
 		} else {
@@ -903,7 +903,7 @@ final class HalyardTupleExprEvaluation {
 						}
 					};
 				};
-				executor.pullAndPushAsync(parent, evalStep, tripleRef, bindings, parentStrategy);
+				executor.pullPushAsync(parent, evalStep, tripleRef, bindings, parentStrategy);
 			};
 		}
 	}
@@ -1015,7 +1015,7 @@ final class HalyardTupleExprEvaluation {
     private BindingSetPipeEvaluationStep precompileDescribeOperator(DescribeOperator operator, QueryEvaluationContext evalContext) {
 		BindingSetPipeQueryEvaluationStep argStep = precompile(operator.getArg(), evalContext);
 		return (parent, bindings) -> {
-			executor.pullAndPushAsync(parent, bs -> new DescribeIteration(argStep.evaluate(bs), parentStrategy,
+			executor.pullPushAsync(parent, bs -> new DescribeIteration(argStep.evaluate(bs), parentStrategy,
 				operator.getBindingNames(), bs), operator, bindings, parentStrategy);
         };
     }
@@ -1776,7 +1776,7 @@ final class HalyardTupleExprEvaluation {
 		            		}
 		            	}
 	            	};
-		            executor.pullAndPushAsync(topPipe, evalStep, service, fsBindings, parentStrategy);
+		            executor.pullPushAsync(topPipe, evalStep, service, fsBindings, parentStrategy);
 		        }
 	        }
 	    } catch (Throwable e) {
@@ -2665,7 +2665,7 @@ final class HalyardTupleExprEvaluation {
 								}
 								return new CloseableIteratorIteration<>(results.iterator());
 			        		};
-			        		step = (p, stepBindings) -> executor.pullAndPushAsync(p, evalStep, starJoin, stepBindings, parentStrategy);
+			        		step = (p, stepBindings) -> executor.pullPushAsync(p, evalStep, starJoin, stepBindings, parentStrategy);
 		        		} else {
 		        			// single statement pattern
 		        			step = (p, stepBindings) -> evaluateStatementPattern(p, sps[startIndex], starJoin, stepBindings);
@@ -2895,7 +2895,7 @@ final class HalyardTupleExprEvaluation {
             alpStrategy.setTrackResultSize(parentStrategy.isTrackResultSize());
             alpStrategy.setTrackTime(parentStrategy.isTrackTime());
 	        try {
-	        	executor.pullAndPushAsync(parent, bs -> new PathIteration(alpStrategy, scope, subjectVar, pathExpression, objVar, contextVar, minLength, bs), alp, bindings, parentStrategy);
+	        	executor.pullPushAsync(parent, bs -> new PathIteration(alpStrategy, scope, subjectVar, pathExpression, objVar, contextVar, minLength, bs), alp, bindings, parentStrategy);
 	        } catch (QueryEvaluationException e) {
 	            parent.handleException(e);
 	        }

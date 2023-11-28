@@ -90,7 +90,7 @@ public class HalyardSPARQLQueryTest extends SPARQLQueryComplianceTest {
 
     @Override
     protected Repository newRepository() {
-        return new DatasetRepository(new SailRepository(new MemoryStoreWithHalyardStrategy()));
+        return new DatasetRepository(new SailRepository(new MockSailWithHalyardStrategy()));
     }
 
 	@Override

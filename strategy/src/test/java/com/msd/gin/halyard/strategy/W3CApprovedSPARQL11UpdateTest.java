@@ -37,7 +37,7 @@ public class W3CApprovedSPARQL11UpdateTest extends SPARQL11UpdateComplianceTest 
 
     @Override
     protected ContextAwareRepository newRepository() throws Exception {
-        SailRepository repo = new SailRepository(new MemoryStoreWithHalyardStrategy());
+        SailRepository repo = new SailRepository(new MockSailWithHalyardStrategy());
         return new ContextAwareRepository(repo);
     }
 }

@@ -25,7 +25,7 @@ import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import org.eclipse.rdf4j.sail.memory.MemoryStoreConnection;
 import org.junit.Assert;
 
-class MemoryStoreWithConstraintsStrategy extends MemoryStore {
+class MockSailWithConstraintsStrategy extends MemoryStore {
 
     @Override
     protected NotifyingSailConnection getConnectionInternal() throws SailException {

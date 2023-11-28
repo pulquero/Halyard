@@ -19,7 +19,7 @@ public class ExistsStrategyTest {
 
     @BeforeEach
     public void setUp() throws Exception {
-        repo = new SailRepository(new MemoryStoreWithExistsStrategy());
+        repo = new SailRepository(new MockSailWithExistsStrategy());
         repo.init();
         con = repo.getConnection();
     }

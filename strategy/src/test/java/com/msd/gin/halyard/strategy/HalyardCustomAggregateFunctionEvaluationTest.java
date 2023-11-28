@@ -55,7 +55,7 @@ public class HalyardCustomAggregateFunctionEvaluationTest {
 
 	@BeforeAll
 	public static void setUp() throws IOException {
-		rep = new SailRepository(new MemoryStoreWithHalyardStrategy());
+		rep = new SailRepository(new MockSailWithHalyardStrategy());
 		functionFactory = new AggregateFunctionFactory() {
 			@Override
 			public String getIri() {

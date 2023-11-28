@@ -58,7 +58,7 @@ public class HalyardStrategyExtendedTest {
 
     @Before
     public void setUp() throws Exception {
-        repo = new SailRepository(new MemoryStoreWithHalyardStrategy());
+        repo = new SailRepository(new MockSailWithHalyardStrategy());
         repo.init();
         con = repo.getConnection();
     }

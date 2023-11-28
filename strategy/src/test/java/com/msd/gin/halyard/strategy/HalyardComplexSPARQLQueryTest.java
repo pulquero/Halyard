@@ -27,6 +27,6 @@ public class HalyardComplexSPARQLQueryTest extends ComplexSPARQLQueryTest {
 
     @Override
     protected Repository newRepository() throws Exception {
-        return new SailRepository(new MemoryStoreWithHalyardStrategy());
+        return new SailRepository(new MockSailWithHalyardStrategy());
     }
 }

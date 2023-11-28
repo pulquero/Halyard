@@ -30,7 +30,7 @@ public class HalyardSPARQLUpdateTest extends SPARQLUpdateTest {
 	protected Repository newRepository()
 		throws Exception
 	{
-		return new SailRepository(new MemoryStoreWithHalyardStrategy());
+		return new SailRepository(new MockSailWithHalyardStrategy());
 	}
 
 }

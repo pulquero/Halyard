@@ -89,31 +89,24 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	private MBeanManager<HalyardEvaluationExecutor> mbeanManager;
 	private final TimerTask registerMBeanTask;
 
-    private int threads;
+	private int threads;
 
 	private final TrackingThreadPoolExecutor executor;
-	private final boolean isSnapshot;
 
-    private int maxQueueSize;
+	private int maxQueueSize;
 	private int pollTimeoutMillis;
 	private int offerTimeoutMillis;
-	private double asyncPullAllLimit;
+	private double asyncPullPushAllLimit;
 
-	public HalyardEvaluationExecutor(String name, Configuration conf, boolean isSnapshot, Map<String,String> connAttrs) {
-		this.isSnapshot = isSnapshot;
+	public HalyardEvaluationExecutor(String name, Configuration conf, Map<String,String> connAttrs) {
 	    threads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREADS, StrategyConfig.DEFAULT_THREADS);
 		executor = createExecutor(name + " ", threads);
 
 	    maxQueueSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_QUEUE_SIZE, StrategyConfig.DEFAULT_QUEUE_SIZE);
 		pollTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_POLL_TIMEOUT_MILLIS, Integer.MAX_VALUE);
 		offerTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_OFFER_TIMEOUT_MILLIS, conf.getInt("hbase.client.scanner.timeout.period", 60000));
-		if (isSnapshot) {
-			// due to region file locking must open/close iterator from the same thread!
-			asyncPullAllLimit = Double.POSITIVE_INFINITY;
-		} else {
-			int limit = conf.getInt(StrategyConfig.HALYARD_EVALUATION_ASYNC_PULL_ALL_LIMIT, StrategyConfig.DEFAULT_ASYNC_PULL_ALL_LIMIT);
-			setAsyncPullAllLimit(limit);
-		}
+		int limit = conf.getInt(StrategyConfig.HALYARD_EVALUATION_PULL_PUSH_ASYNC_ALL_LIMIT, StrategyConfig.DEFAULT_PULL_PUSH_ASYNC_ALL_LIMIT);
+		setAsyncPullPushAllLimit(limit);
 
 		// don't both registering MBeans for short-lived queries
 		registerMBeanTask = new TimerTask() {
@@ -148,7 +141,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
 	HalyardEvaluationExecutor(Configuration conf) {
-		this("Halyard", conf, false, Collections.emptyMap());
+		this("Halyard", conf, Collections.emptyMap());
 	}
 
 	public void shutdown() {
@@ -186,15 +179,13 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
 	@Override
-	public void setAsyncPullAllLimit(int limit) {
-		if (!isSnapshot) {
-			asyncPullAllLimit = (limit != -1) ? limit : Double.POSITIVE_INFINITY;
-		}
+	public void setAsyncPullPushAllLimit(int limit) {
+		asyncPullPushAllLimit = (limit != -1) ? limit : Double.POSITIVE_INFINITY;
 	}
 
 	@Override
-	public int getAsyncPullAllLimit() {
-		return (asyncPullAllLimit != Double.POSITIVE_INFINITY) ? (int) asyncPullAllLimit : -1;
+	public int getAsyncPullPushAllLimit() {
+		return (asyncPullPushAllLimit != Double.POSITIVE_INFINITY) ? (int) asyncPullPushAllLimit : -1;
 	}
 
 	@Override
@@ -220,7 +211,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
      * @param bs binding set
      * @param strategy
      */
-	void pullAndPushAsync(BindingSetPipe pipe,
+	void pullPushAsync(BindingSetPipe pipe,
 			QueryEvaluationStep evalStep,
 			TupleExpr node, BindingSet bs, HalyardEvaluationStrategy strategy) {
 		BindingSetPipe childPipe = new CountingBindingSetPipe(pipe, incomingBindingsCount);
@@ -233,7 +224,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 			sizeEstimate = 1;
 		}
 		Runnable task;
-		if (sizeEstimate <= asyncPullAllLimit) {
+		if (sizeEstimate <= asyncPullPushAllLimit) {
 			task = new IterateAllAndPipeTask(childPipe, evalStep, node, bs, strategy);
 		} else {
 			task = new IterateSingleAndPipeTask(childPipe, evalStep, node, bs, strategy);
@@ -249,7 +240,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
      * @param strategy
      * @return iteration of binding sets to pull from.
      */
-	CloseableIteration<BindingSet, QueryEvaluationException> pushAndPullAsync(BindingSetPipeEvaluationStep evalStep, TupleExpr node, BindingSet bs) {
+	CloseableIteration<BindingSet, QueryEvaluationException> pushPullAsync(BindingSetPipeEvaluationStep evalStep, TupleExpr node, BindingSet bs) {
         QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(maxQueueSize, offerTimeoutMillis, TimeUnit.MILLISECONDS);
         Thread thr = new Thread(new PipeAndQueueTask(new CountingBindingSetPipe(pipe, outgoingBindingsCount), evalStep, node, bs));
         thr.setDaemon(true);
@@ -257,7 +248,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
         return new BindingSetPipeIteration(pipe);
 	}
 
-	void pushAndPullSync(Consumer<BindingSet> handler, BindingSetPipeEvaluationStep evalStep, BindingSet bindings) {
+	void pushPullSync(Consumer<BindingSet> handler, BindingSetPipeEvaluationStep evalStep, BindingSet bindings) {
 		QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(maxQueueSize, offerTimeoutMillis, TimeUnit.MILLISECONDS);
 		evalStep.evaluate(new CountingBindingSetPipe(pipe, outgoingBindingsCount), bindings);
 		pipe.collect(handler, pollTimeoutMillis, TimeUnit.MILLISECONDS);

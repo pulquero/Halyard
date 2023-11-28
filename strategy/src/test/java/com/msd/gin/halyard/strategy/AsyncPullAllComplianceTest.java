@@ -17,7 +17,7 @@ public class AsyncPullAllComplianceTest extends RepositorySPARQLComplianceTestSu
 		setRepositoryFactory(new SailRepositoryFactory() {
 			@Override
 			public Repository getRepository(RepositoryImplConfig config) throws RepositoryConfigException {
-				Sail sail = new MemoryStoreWithHalyardStrategy(0, 0, Float.MAX_VALUE, Integer.MAX_VALUE, 1, -1);
+				Sail sail = new MockSailWithHalyardStrategy(0, 0, Float.MAX_VALUE, Integer.MAX_VALUE, 1, -1);
 				return new SailRepository(sail);
 			}
 		});

@@ -173,8 +173,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			attrs.put(CONNECTION_ID_ATTRIBUTE, getId());
 			attrs.putAll(sail.getConnectionAttributes(MBeanManager.getId(sail)));
 			String sourceName = (sail.tableName != null) ? sail.tableName.getNameAsString() : sail.snapshotName;
-			boolean isSnapshot = (sail.snapshotName != null);
-			executor = new HalyardEvaluationExecutor(sourceName, sail.getConfiguration(), isSnapshot, attrs);
+			executor = new HalyardEvaluationExecutor(sourceName, sail.getConfiguration(), attrs);
 		}
 		return executor;
 	}

@@ -50,7 +50,7 @@ public class HalyardStrategyJoinTest {
     private final int starJoinMin;
     private Repository repo;
     private RepositoryConnection con;
-    private MemoryStoreWithHalyardStrategy strategy;
+    private MockSailWithHalyardStrategy strategy;
 
     public HalyardStrategyJoinTest(String algo, int optHashJoinLimit, int evalHashJoinLimit, float cardinalityRatio, int starJoinMin) {
 		this.optHashJoinLimit = optHashJoinLimit;
@@ -61,7 +61,7 @@ public class HalyardStrategyJoinTest {
 
     @Before
     public void setUp() throws Exception {
-    	strategy = new MemoryStoreWithHalyardStrategy(optHashJoinLimit, evalHashJoinLimit, cardinalityRatio, starJoinMin, Integer.MAX_VALUE, 0);
+    	strategy = new MockSailWithHalyardStrategy(optHashJoinLimit, evalHashJoinLimit, cardinalityRatio, starJoinMin, Integer.MAX_VALUE, 0);
         repo = new SailRepository(strategy);
         repo.init();
         con = repo.getConnection();

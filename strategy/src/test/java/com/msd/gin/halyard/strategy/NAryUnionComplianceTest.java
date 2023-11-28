@@ -17,7 +17,7 @@ public class NAryUnionComplianceTest extends RepositorySPARQLComplianceTestSuite
 		setRepositoryFactory(new SailRepositoryFactory() {
 			@Override
 			public Repository getRepository(RepositoryImplConfig config) throws RepositoryConfigException {
-				Sail sail = new MemoryStoreWithHalyardStrategy(0, 0, Float.MAX_VALUE, Integer.MAX_VALUE, 1, 0);
+				Sail sail = new MockSailWithHalyardStrategy(0, 0, Float.MAX_VALUE, Integer.MAX_VALUE, 1, 0);
 				return new SailRepository(sail);
 			}
 		});
