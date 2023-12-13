@@ -1,5 +1,10 @@
 package com.msd.gin.halyard.strategy;
 
+import javax.management.JMException;
+import javax.management.MBeanServer;
+import javax.management.MBeanServerFactory;
+import javax.management.ObjectName;
+
 import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,9 +27,15 @@ public class AsyncPullPusherTest {
 
 	@Test
 	public void testThreadPool() {
-		int tasks = pullPusher.getThreadPoolExecutor().getActiveCount();
-		assertEquals(0, tasks);
-		assertEquals(tasks, pullPusher.getThreadPoolExecutor().getThreadDump().length);
+		int taskCount = pullPusher.getThreadPoolExecutor().getActiveCount();
+		assertEquals(0, taskCount);
+		assertEquals(taskCount, pullPusher.getThreadPoolExecutor().getThreadDump().length);
 		assertEquals(0, pullPusher.getThreadPoolExecutor().getQueueDump().length);
+	}
+
+	@Test
+	public void testMXBean() throws JMException {
+		MBeanServer mbs = MBeanServerFactory.newMBeanServer();
+		mbs.registerMBean(pullPusher.getThreadPoolExecutor(), ObjectName.getInstance("foo:type=test"));
 	}
 }

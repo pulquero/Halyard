@@ -2,22 +2,26 @@ package com.msd.gin.halyard.util;
 
 import java.lang.management.ManagementFactory;
 import java.lang.ref.WeakReference;
-import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import javax.management.JMException;
+import javax.management.JMX;
 import javax.management.MBeanRegistration;
 import javax.management.MBeanServer;
+import javax.management.MBeanServerInvocationHandler;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 public abstract class MBeanManager<T> {
 	private final MBeanServer mbs;
-	private List<ObjectInstance> mbeanInsts;
+	private Map<Object,Pair<ObjectInstance,Object>> wrappers;
 
 	public static String getId(Object o) {
 		return Integer.toHexString(o.hashCode());
@@ -29,12 +33,13 @@ public abstract class MBeanManager<T> {
 
 	public final void register(T t) {
 		List<MBeanDetails> mbeanObjs = mbeans(t);
-		mbeanInsts = new ArrayList<>(mbeanObjs.size());
+		wrappers = new IdentityHashMap<>(mbeanObjs.size() + 1);
 		try {
 			for (MBeanDetails mbeanObj : mbeanObjs) {
 				Class<?> intf = mbeanObj.getInterface();
-				Object weakMBean = Proxy.newProxyInstance(intf.getClassLoader(), new Class[] {intf, MBeanRegistration.class}, new WeakMBean(mbeanObj.getMBean()));
-				mbeanInsts.add(mbs.registerMBean(weakMBean, mbeanObj.getName()));
+				Object weakMBean = Proxy.newProxyInstance(intf.getClassLoader(), new Class[] {intf, MBeanRegistration.class}, new WeakMBean(mbeanObj));
+				ObjectInstance inst = mbs.registerMBean(weakMBean, mbeanObj.getName());
+				wrappers.put(mbeanObj.getMBean(), Pair.of(inst, weakMBean));
 			}
 		} catch (JMException e) {
 			throw new AssertionError(e);
@@ -44,8 +49,8 @@ public abstract class MBeanManager<T> {
 	protected abstract List<MBeanDetails> mbeans(T t);
 
 	public final void unregister() {
-		for (Iterator<ObjectInstance> iter = mbeanInsts.iterator(); iter.hasNext(); ) {
-			ObjectInstance inst = iter.next();
+		for (Iterator<Pair<ObjectInstance,Object>> iter = wrappers.values().iterator(); iter.hasNext(); ) {
+			ObjectInstance inst = iter.next().getKey();
 			try {
 				mbs.unregisterMBean(inst.getObjectName());
 			} catch (JMException e) {
@@ -56,12 +61,18 @@ public abstract class MBeanManager<T> {
 	}
 
 
-	final class WeakMBean implements InvocationHandler, MBeanRegistration {
+	final class WeakMBean extends MBeanServerInvocationHandler implements MBeanRegistration {
 		private final WeakReference<Object> mbeanRef;
 		private ObjectName name;
 
-		WeakMBean(Object mbean) {
-			mbeanRef = new WeakReference<>(mbean);
+		WeakMBean(MBeanDetails mbeanObj) {
+			super(mbs, mbeanObj.getName(), mbeanObj.isMXBean());
+			mbeanRef = new WeakReference<>(mbeanObj.getMBean());
+		}
+
+		@Override
+		public ObjectName getObjectName() {
+			return name;
 		}
 
 		@Override
@@ -74,7 +85,15 @@ public abstract class MBeanManager<T> {
 			if (method.getDeclaringClass() == MBeanRegistration.class) {
 				return method.invoke(this, args);
 			} else {
-				return method.invoke(mbean, args);
+				Object result = method.invoke(mbean, args);
+				if (JMX.isMXBeanInterface(method.getReturnType())) {
+					// result maybe proxied
+					Pair<ObjectInstance,Object> wrapper = wrappers.get(result);
+					if (wrapper != null) {
+						return wrapper.getValue();
+					}
+				}
+				return result;
 			}
 		}
 

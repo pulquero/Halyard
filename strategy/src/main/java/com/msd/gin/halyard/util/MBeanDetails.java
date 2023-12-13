@@ -4,6 +4,7 @@ import com.msd.gin.halyard.strategy.StrategyConfig;
 
 import java.util.Map;
 
+import javax.management.JMX;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
@@ -38,6 +39,10 @@ public final class MBeanDetails {
 
 	public Class<?> getInterface() {
 		return intf;
+	}
+
+	public boolean isMXBean() {
+		return JMX.isMXBeanInterface(intf);
 	}
 
 	public ObjectName getName() {

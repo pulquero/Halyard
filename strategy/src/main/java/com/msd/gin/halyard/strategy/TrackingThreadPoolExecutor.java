@@ -49,7 +49,14 @@ public final class TrackingThreadPoolExecutor extends ThreadPoolExecutor impleme
 			Runnable r = entry.getValue();
 			dump.add(new ThreadInfo(t.getName(), t.getState(), r.toString()));
 		}
-		return dump.toArray(new ThreadInfo[dump.size()]);
+		ThreadInfo[] thrInfos = dump.toArray(new ThreadInfo[dump.size()]);
+		Arrays.sort(thrInfos, new Comparator<ThreadInfo>() {
+			@Override
+			public int compare(ThreadInfo o1, ThreadInfo o2) {
+				return o1.getName().compareTo(o2.getName());
+			}
+		});
+		return thrInfos;
 	}
 
 	@Override
