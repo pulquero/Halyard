@@ -80,6 +80,7 @@ public final class SCHEMA_ORG implements Vocabulary {
     public static final IRI ISSN = SVF.createIRI(NAMESPACE, "issn");
     public static final IRI ISSUE_NUMBER = SVF.createIRI(NAMESPACE, "issueNumber");
     public static final IRI KEYWORDS = SVF.createIRI(NAMESPACE, "keywords");
+    public static final IRI KNOWS_ABOUT = SVF.createIRI(NAMESPACE, "knowsAbout");
     public static final IRI MEDICINE_SPECIALTY = SVF.createIRI(NAMESPACE, "medicineSpecialty");
     public static final IRI MEDICINE_TYPE = SVF.createIRI(NAMESPACE, "medicineType");
     public static final IRI POSTAL_CODE = SVF.createIRI(NAMESPACE, "postalCode");
