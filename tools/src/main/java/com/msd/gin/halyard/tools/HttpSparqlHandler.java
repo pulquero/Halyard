@@ -81,6 +81,7 @@ import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.lang.FileFormat;
 import org.eclipse.rdf4j.common.lang.service.FileFormatServiceRegistry;
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.AbstractTupleQueryResultHandler;
@@ -159,6 +160,8 @@ public final class HttpSparqlHandler implements HttpHandler {
     private static final String UPDATE_PARAM = "update";
     private static final String USING_GRAPH_URI_PARAM = "using-graph-uri";
     private static final String USING_NAMED_GRAPH_PARAM = "using-named-graph-uri";
+    private static final String DEFAULT_PARAM = "default";
+    private static final String GRAPH_PARAM = "graph";
 
     private static final String TRACK_RESULT_SIZE_PARAM = "track-result-size";
     private static final String MAP_REDUCE_PARAM = "map-reduce";
@@ -308,7 +311,11 @@ public final class HttpSparqlHandler implements HttpHandler {
                 exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
                 doStop = true;
         	} else if ("DELETE".equalsIgnoreCase(exchange.getRequestMethod())) {
-        		clearData(exchange);
+        		SparqlQuery sparqlQuery = new SparqlQuery();
+            	for (NameValuePair nvp : getQueryParams(exchange)) {
+                    parseGraphStoreParameter(nvp, sparqlQuery);
+                }
+        		clearData(sparqlQuery, exchange);
         	} else {
 	            SparqlQuery sparqlQuery = retrieveQuery(exchange);
 	            if (sparqlQuery.getFlatFileFormat() != null) {
@@ -325,7 +332,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         			evaluateUpdate(sparqlQuery, exchange);
         		}
         	}
-        } catch (IllegalArgumentException | MalformedObjectNameException | MalformedQueryException | RDFParseException e) {
+        } catch (InvalidRequestException | MalformedQueryException | RDFParseException e) {
             LOGGER.debug("Bad request", e);
             sendErrorResponse(exchange, HttpURLConnection.HTTP_BAD_REQUEST, e);
         } catch (Exception e) {
@@ -344,9 +351,9 @@ public final class HttpSparqlHandler implements HttpHandler {
      * @param exchange HTTP request
      * @return SPARQL query
      * @throws IOException              If an error occurs during reading the request
-     * @throws IllegalArgumentException If the request does not follow the SPARQL Protocol Operation specification
+     * @throws InvalidRequestException If the request does not follow the SPARQL Protocol Operation specification
      */
-    private SparqlQuery retrieveQuery(HttpExchange exchange) throws IOException, IllegalArgumentException {
+    private SparqlQuery retrieveQuery(HttpExchange exchange) throws IOException, InvalidRequestException {
         String requestMethod = exchange.getRequestMethod();
         SparqlQuery sparqlQuery = new SparqlQuery();
         // Help variable for checking for multiple query parameters
@@ -362,7 +369,7 @@ public final class HttpSparqlHandler implements HttpHandler {
                 }
             }
             if (query == null) {
-                throw new IllegalArgumentException("No stored query for path: " + path);
+                throw new InvalidRequestException("No stored query for path: " + path);
             }
             if (isUpdate(query)) {
             	sparqlQuery.setUpdate(query);
@@ -373,7 +380,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         if ("GET".equalsIgnoreCase(requestMethod)) {
             try (InputStream requestBody = exchange.getRequestBody()) {
                 if (requestBody.available() > 0) {
-                    throw new IllegalArgumentException("Request via GET must not include a message body");
+                    throw new InvalidRequestException("Request via GET must not include a message body");
                 }
             }
 
@@ -385,7 +392,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 
                 String query = sparqlQuery.getQuery();
                 if (query == null) {
-                    throw new IllegalArgumentException("Missing parameter: query");
+                    throw new InvalidRequestException("Missing parameter: query");
                 }
             } else if (path == null || "/".equals(path)) {
             	// service description
@@ -402,12 +409,12 @@ public final class HttpSparqlHandler implements HttpHandler {
 
             // Check for presence of the Content-Type header
             if (!headers.containsKey("Content-Type")) {
-                throw new IllegalArgumentException("POST request has to contain header \"Content-Type\"");
+                throw new InvalidRequestException("POST request has to contain header \"Content-Type\"");
             }
 
             // Should not happen but better be safe than sorry
             if (headers.get("Content-Type").size() != 1) {
-                throw new IllegalArgumentException("POST request has to contain header \"Content-Type\" exactly once");
+                throw new InvalidRequestException("POST request has to contain header \"Content-Type\" exactly once");
             }
 
             // Check Content-Type header content
@@ -416,7 +423,7 @@ public final class HttpSparqlHandler implements HttpHandler {
                 String baseType = mimeType.getBaseType();
                 String charset = mimeType.getParameter("charset");
                 if (charset != null && !charset.equalsIgnoreCase(CHARSET.name())) {
-                    throw new IllegalArgumentException("Illegal Content-Type charset. Only UTF-8 is supported");
+                    throw new InvalidRequestException("Illegal Content-Type charset. Only UTF-8 is supported");
                 }
 
                 // Request message body is processed based on the value of Content-Type property
@@ -430,7 +437,7 @@ public final class HttpSparqlHandler implements HttpHandler {
                     }
 
                  	if (sparqlQuery.getQuery() == null && sparqlQuery.getUpdate() == null) {
-                        throw new IllegalArgumentException("Missing parameter: query/update");
+                        throw new InvalidRequestException("Missing parameter: query/update");
                     }
                 } else if (baseType.equals(UNENCODED_QUERY_CONTENT)) {
                     // Retrieve from the message body parameter query
@@ -452,17 +459,18 @@ public final class HttpSparqlHandler implements HttpHandler {
                 	for (NameValuePair nvp : getQueryParams(exchange)) {
                         parseQueryParameter(nvp, sparqlQuery);
                         parseUpdateParameter(nvp, sparqlQuery);
+                        parseGraphStoreParameter(nvp, sparqlQuery);
                     }
                 	RDFFormat rdfFormat = Rio.getParserFormatForMIMEType(baseType).orElse(null);
                 	QueryResultFormat qrFormat = (rdfFormat == null) ? QueryResultIO.getParserFormatForMIMEType(baseType).orElse(null) : null;
                 	if (rdfFormat != null) {
                 		if (sparqlQuery.getQuery() != null || sparqlQuery.getUpdate() != null) {
-                			throw new IllegalArgumentException("Unexpected query for RDF data");
+                			throw new InvalidRequestException("Unexpected query for RDF data");
                 		}
                 		sparqlQuery.setGraphFormat(rdfFormat);
                 	} else if (qrFormat != null) {
                  		if (sparqlQuery.getQuery() == null && sparqlQuery.getUpdate() == null) {
-                			throw new IllegalArgumentException("Missing query for flat file data");
+                			throw new InvalidRequestException("Missing query for flat file data");
                 		}
                 		sparqlQuery.setFlatFileFormat(qrFormat);
                 	} else {
@@ -472,21 +480,21 @@ public final class HttpSparqlHandler implements HttpHandler {
                 		supportedTypes.add(UNENCODED_UPDATE_CONTENT);
                 		RDFParserRegistry.getInstance().getKeys().stream().map(RDFFormat::getMIMETypes).flatMap(List::stream).forEach(supportedTypes::add);
                 		TupleQueryResultParserRegistry.getInstance().getKeys().stream().map(QueryResultFormat::getMIMETypes).flatMap(List::stream).forEach(supportedTypes::add);
-                		throw new IllegalArgumentException("Content-Type of POST request has to be one of " + supportedTypes);
+                		throw new InvalidRequestException("Content-Type of POST request has to be one of " + supportedTypes);
                 	}
                 }
             } catch (MimeTypeParseException e) {
-                throw new IllegalArgumentException("Illegal Content-Type header content");
+                throw new InvalidRequestException("Illegal Content-Type header content");
             }
         } else {
-            throw new IllegalArgumentException("Request method has to be only either GET or POST");
+            throw new InvalidRequestException("Request method has to be only either GET or POST");
         }
 
         String query = sparqlQuery.getQuery();
         if (query != null) {
             Matcher m = UNRESOLVED_PARAMETERS.matcher(query);
             if (m.find()) {
-                throw new IllegalArgumentException("Missing query parameter: " + m.group(1));
+                throw new InvalidRequestException("Missing query parameter: " + m.group(1));
             }
         }
 
@@ -494,7 +502,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         if (update != null) {
             Matcher m = UNRESOLVED_PARAMETERS.matcher(update);
             if (m.find()) {
-                throw new IllegalArgumentException("Missing update parameter: " + m.group(1));
+                throw new InvalidRequestException("Missing update parameter: " + m.group(1));
             }
         }
 
@@ -508,7 +516,7 @@ public final class HttpSparqlHandler implements HttpHandler {
      * @param sparqlQuery SparqlQuery to fill from the parsed parameter
      * @throws UnsupportedEncodingException which never happens
      */
-    private void parseQueryParameter(NameValuePair param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException {
+    private void parseQueryParameter(NameValuePair param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException, InvalidRequestException {
     	String name = param.getName();
     	String value = param.getValue();
         if (QUERY_PARAM.equals(name)) {
@@ -530,7 +538,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         }
     }
 
-    private void parseUpdateParameter(NameValuePair param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException {
+    private void parseUpdateParameter(NameValuePair param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException, InvalidRequestException {
     	String name = param.getName();
     	String value = param.getValue();
         if (UPDATE_PARAM.equals(name)) {
@@ -549,6 +557,16 @@ public final class HttpSparqlHandler implements HttpHandler {
             } else {
                 sparqlQuery.addParameter(name, value);
             }
+        }
+    }
+
+    private void parseGraphStoreParameter(NameValuePair param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException, InvalidRequestException {
+    	String name = param.getName();
+    	String value = param.getValue();
+    	if (DEFAULT_PARAM.equals(name)) {
+    		sparqlQuery.setDefaultGraph(true);
+    	} else if (GRAPH_PARAM.equals(name)) {
+            sparqlQuery.setGraph(repository.getValueFactory().createIRI(value));
         }
     }
 
@@ -571,7 +589,7 @@ public final class HttpSparqlHandler implements HttpHandler {
             	connection.begin();
     	        SailQuery query = connection.prepareQuery(QueryLanguage.SPARQL, sparqlQuery.getQuery(), null);
     			if (!(query instanceof TupleQuery)) {
-    				throw new IllegalArgumentException("Only SELECT queries are supported for Elasticsearch export");
+    				throw new InvalidRequestException("Only SELECT queries are supported for Elasticsearch export");
     			}
     	        addBindings(query, sparqlQuery.getBindings());
     	        Dataset dataset = sparqlQuery.getDataset();
@@ -687,7 +705,7 @@ public final class HttpSparqlHandler implements HttpHandler {
             String updateString = sparqlQuery.getUpdate();
             Dataset dataset = sparqlQuery.getDataset();
 	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
-	        	throw new IllegalArgumentException("Map-reduce doesn't support graph-uri parameters");
+	        	throw new InvalidRequestException("Map-reduce doesn't support graph-uri parameters");
 	        }
     		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
     		List<HalyardBulkUpdate.JsonInfo> infos = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlQuery.bindings);
@@ -723,7 +741,7 @@ public final class HttpSparqlHandler implements HttpHandler {
        	LOGGER.info("Update successfully processed");
     }
 
-    private List<JsonUpdateInfo> executeUpdate(SparqlQuery sparqlQuery) throws IOException {
+    private List<JsonUpdateInfo> executeUpdate(SparqlQuery sparqlQuery) throws IOException, InvalidRequestException {
         String updateString = sparqlQuery.getUpdate();
         Dataset dataset = sparqlQuery.getDataset();
         ParsedUpdate parsedUpdate;
@@ -738,7 +756,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
 	            // This will include default graphs and named graphs from  the request parameters
 	        	if (!parsedUpdate.getDatasetMapping().isEmpty()) {
-	        		throw new IllegalArgumentException("Can't provide graph-uri parameters for queries containing USING, USING NAMED or WITH clauses");
+	        		throw new InvalidRequestException("Can't provide graph-uri parameters for queries containing USING, USING NAMED or WITH clauses");
 	        	}
 	        	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
 	        		parsedUpdate.map(expr, dataset);
@@ -765,7 +783,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     	try(SailRepositoryConnection connection = repository.getConnection()) {
     		connection.begin();
     		try (InputStream in = exchange.getRequestBody()) {
-    			connection.add(in, sparqlQuery.getGraphFormat());
+    			connection.add(in, sparqlQuery.getGraphFormat(), sparqlQuery.getContexts());
     		}
     		connection.commit();
     	}
@@ -773,10 +791,10 @@ public final class HttpSparqlHandler implements HttpHandler {
     	exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, -1);
     }
 
-    private void clearData(HttpExchange exchange) throws Exception {
+    private void clearData(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
        	LOGGER.info("Clearing data");
 		try (SailRepositoryConnection conn = repository.getConnection()) {
-			conn.clear();
+			conn.clear(sparqlQuery.getContexts());
 		}
        	LOGGER.info("Clear successful");
     	exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, -1);
@@ -878,7 +896,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
 	            // This will include default graphs and named graphs from  the request parameters
 	        	if (!parsedUpdate.getDatasetMapping().isEmpty()) {
-	        		throw new IllegalArgumentException("Can't provide graph-uri parameters for queries containing USING, USING NAMED or WITH clauses");
+	        		throw new InvalidRequestException("Can't provide graph-uri parameters for queries containing USING, USING NAMED or WITH clauses");
 	        	}
 	        	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
 	        		parsedUpdate.map(expr, dataset);
@@ -937,7 +955,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 		}
 	}
 
-    private void sendManagementData(HttpExchange exchange) throws IOException, MalformedObjectNameException {
+    private void sendManagementData(HttpExchange exchange) throws IOException, InvalidRequestException {
         String path = exchange.getRequestURI().getPath();
         int indent = 0;
         for (NameValuePair queryParam : getQueryParams(exchange)) {
@@ -950,9 +968,15 @@ public final class HttpSparqlHandler implements HttpHandler {
         if (domain.isEmpty()) {
         	domain = "*";
         }
+        ObjectName mbQuery;
+        try {
+        	mbQuery = ObjectName.getInstance(domain+":*");
+        } catch (MalformedObjectNameException e) {
+        	throw new InvalidRequestException(e.getMessage());
+        }
     	JSONObject json = new JSONObject();
     	MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-    	Set<ObjectName> ons = mbs.queryNames(ObjectName.getInstance(domain+":*"), null);
+    	Set<ObjectName> ons = mbs.queryNames(mbQuery, null);
     	for (ObjectName on : ons) {
     		try {
         		MBeanInfo mbi = mbs.getMBeanInfo(on);
@@ -1123,6 +1147,8 @@ public final class HttpSparqlHandler implements HttpHandler {
         private final Map<String,Value> bindings = new HashMap<>();
         private final Set<IRI> defaultGraphs = new HashSet<>();
         private final Set<IRI> namedGraphs = new HashSet<>();
+        private boolean defaultGraph;
+        private IRI graph;
         private boolean trackResultSize;
         private boolean mapReduce;
         private String target;
@@ -1133,12 +1159,12 @@ public final class HttpSparqlHandler implements HttpHandler {
         	return replaceParameters(query);
         }
 
-        public void setQuery(String query) {
+        public void setQuery(String query) throws InvalidRequestException {
         	if (this.update != null) {
-                throw new IllegalArgumentException("Unexpected update string encountered");
+                throw new InvalidRequestException("Unexpected update string encountered");
         	}
         	if (this.query != null) {
-                throw new IllegalArgumentException("Multiple query strings encountered");
+                throw new InvalidRequestException("Multiple query strings encountered");
         	}
             this.query = query;
         }
@@ -1147,12 +1173,12 @@ public final class HttpSparqlHandler implements HttpHandler {
         	return replaceParameters(update);
         }
 
-        public void setUpdate(String update) {
+        public void setUpdate(String update) throws InvalidRequestException {
         	if (this.query != null) {
-                throw new IllegalArgumentException("Unexpected query string encountered");
+                throw new InvalidRequestException("Unexpected query string encountered");
         	}
         	if (this.update != null) {
-                throw new IllegalArgumentException("Multiple update strings encountered");
+                throw new InvalidRequestException("Multiple update strings encountered");
         	}
             this.update = update;
         }
@@ -1212,6 +1238,30 @@ public final class HttpSparqlHandler implements HttpHandler {
 					return Collections.unmodifiableSet(namedGraphs);
 				}
         	};
+        }
+
+        public void setDefaultGraph(boolean f) throws InvalidRequestException {
+        	if (this.defaultGraph) {
+        		throw new InvalidRequestException("Multiple 'default' query parameters encountered");
+        	}
+    		if (this.graph != null) {
+    			throw new InvalidRequestException("Cannot specify both 'default' and 'graph' query parameters");
+    		}
+        	this.defaultGraph = f;
+        }
+
+        public void setGraph(IRI graph) throws InvalidRequestException {
+        	if (this.graph != null) {
+        		throw new InvalidRequestException("Multiple 'graph' query parameters encountered");
+        	}
+    		if (this.defaultGraph) {
+    			throw new InvalidRequestException("Cannot specify both 'default' and 'graph' query parameters");
+    		}
+        	this.graph = graph;
+        }
+
+        public Resource[] getContexts() {
+        	return (graph != null) ? new Resource[] {graph} : new Resource[0];
         }
 
         public void setGraphFormat(RDFFormat format) {
@@ -1294,5 +1344,14 @@ public final class HttpSparqlHandler implements HttpHandler {
     			return null;
     		}
     	}
+    }
+
+
+    static final class InvalidRequestException extends Exception {
+		private static final long serialVersionUID = -4164792385420526471L;
+
+		public InvalidRequestException(String message) {
+			super(message);
+		}
     }
 }
