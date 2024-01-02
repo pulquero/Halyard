@@ -546,14 +546,14 @@ public final class StatementIndices {
 
 		// generate HBase key value pairs from: row, family, qualifier, value. Permutations of SPO (and if needed CSPO) are all stored.
 	    if (includeInDefaultGraph) {
-			kvs.add(new KeyValue(spo.row(sb, pb, ob, cb), HalyardTableUtils.CF_NAME, spo.qualifier(sb, pb, ob, cb), timestamp, type, spo.value(sb, pb, ob, cb)));
-			kvs.add(new KeyValue(pos.row(pb, ob, sb, cb), HalyardTableUtils.CF_NAME, pos.qualifier(pb, ob, sb, cb), timestamp, type, pos.value(pb, ob, sb, cb)));
-			kvs.add(new KeyValue(osp.row(ob, sb, pb, cb), HalyardTableUtils.CF_NAME, osp.qualifier(ob, sb, pb, cb), timestamp, type, osp.value(ob, sb, pb, cb)));
+			kvs.add(new KeyValue(spo.row(sb, pb, ob, cb), ColumnFamilyConfig.CF_NAME, spo.qualifier(sb, pb, ob, cb), timestamp, type, spo.value(sb, pb, ob, cb)));
+			kvs.add(new KeyValue(pos.row(pb, ob, sb, cb), ColumnFamilyConfig.CF_NAME, pos.qualifier(pb, ob, sb, cb), timestamp, type, pos.value(pb, ob, sb, cb)));
+			kvs.add(new KeyValue(osp.row(ob, sb, pb, cb), ColumnFamilyConfig.CF_NAME, osp.qualifier(ob, sb, pb, cb), timestamp, type, osp.value(ob, sb, pb, cb)));
 	    }
 	    if (context != null) {
-	    	kvs.add(new KeyValue(cspo.row(cb, sb, pb, ob), HalyardTableUtils.CF_NAME, cspo.qualifier(cb, sb, pb, ob), timestamp, type, cspo.value(cb, sb, pb, ob)));
-	    	kvs.add(new KeyValue(cpos.row(cb, pb, ob, sb), HalyardTableUtils.CF_NAME, cpos.qualifier(cb, pb, ob, sb), timestamp, type, cpos.value(cb, pb, ob, sb)));
-	    	kvs.add(new KeyValue(cosp.row(cb, ob, sb, pb), HalyardTableUtils.CF_NAME, cosp.qualifier(cb, ob, sb, pb), timestamp, type, cosp.value(cb, ob, sb, pb)));
+	    	kvs.add(new KeyValue(cspo.row(cb, sb, pb, ob), ColumnFamilyConfig.CF_NAME, cspo.qualifier(cb, sb, pb, ob), timestamp, type, cspo.value(cb, sb, pb, ob)));
+	    	kvs.add(new KeyValue(cpos.row(cb, pb, ob, sb), ColumnFamilyConfig.CF_NAME, cpos.qualifier(cb, pb, ob, sb), timestamp, type, cpos.value(cb, pb, ob, sb)));
+	    	kvs.add(new KeyValue(cosp.row(cb, ob, sb, pb), ColumnFamilyConfig.CF_NAME, cosp.qualifier(cb, ob, sb, pb), timestamp, type, cosp.value(cb, ob, sb, pb)));
 	    }
 	
 	    if (includeTriples) {

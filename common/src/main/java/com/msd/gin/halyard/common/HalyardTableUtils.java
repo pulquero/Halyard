@@ -16,13 +16,10 @@
  */
 package com.msd.gin.halyard.common;
 
-import com.msd.gin.halyard.common.StatementIndex.Name;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeSet;
@@ -35,11 +32,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.KeepDeletedCells;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
-import org.apache.hadoop.hbase.client.ColumnFamilyDescriptor;
-import org.apache.hadoop.hbase.client.ColumnFamilyDescriptorBuilder;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Get;
@@ -54,10 +48,6 @@ import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
-import org.apache.hadoop.hbase.io.compress.Compression;
-import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
-import org.apache.hadoop.hbase.regionserver.BloomType;
-import org.apache.hadoop.hbase.util.BloomFilterUtil;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.eclipse.rdf4j.model.IRI;
 
@@ -69,14 +59,10 @@ import org.eclipse.rdf4j.model.IRI;
  */
 public final class HalyardTableUtils {
 
-    static final byte[] CF_NAME = Bytes.toBytes("e");
     private static final byte[] CONFIG_ROW_KEY = new byte[] {(byte) 0xff};
     private static final byte[] CONFIG_COL = Bytes.toBytes("config");
 
-	static final int DEFAULT_MAX_VERSIONS = 1;
 	static final int READ_VERSIONS = 1;
-	private static final Compression.Algorithm DEFAULT_COMPRESSION_ALGORITHM = Compression.Algorithm.GZ;
-    private static final DataBlockEncoding DEFAULT_DATABLOCK_ENCODING = DataBlockEncoding.PREFIX;
 	private static final long REGION_MAX_FILESIZE = 10000000000l;  // 10GB
     private static final String REGION_SPLIT_POLICY = "org.apache.hadoop.hbase.regionserver.ConstantSizeRegionSplitPolicy";
 
@@ -121,20 +107,20 @@ public final class HalyardTableUtils {
 		Configuration conf = conn.getConfiguration();
 		RDFFactory rdfFactory = RDFFactory.create(conf);
 		StatementIndices indices = new StatementIndices(conf, rdfFactory);
-        return createTable(conn, htableName, splitBits < 0 ? null : calculateSplits(splitBits, true, indices), DEFAULT_MAX_VERSIONS, rdfFactory);
+        return createTable(conn, htableName, splitBits < 0 ? null : calculateSplits(splitBits, true, indices));
 	}
 
-	public static Table createTable(Connection conn, TableName htableName, @Nullable byte[][] splits, int maxVersions, RDFFactory rdfFactory) throws IOException {
+	public static Table createTable(Connection conn, TableName htableName, @Nullable byte[][] splits) throws IOException {
+		Configuration conf = conn.getConfiguration();
 		try (Admin admin = conn.getAdmin()) {
 			TableDescriptor td = TableDescriptorBuilder.newBuilder(htableName)
-				.setColumnFamily(createColumnFamily(maxVersions, rdfFactory))
+				.setColumnFamily(ColumnFamilyConfig.createColumnFamilyDesc(conf))
 				.setMaxFileSize(REGION_MAX_FILESIZE)
 				.setRegionSplitPolicyClassName(REGION_SPLIT_POLICY)
 				.build();
 			admin.createTable(td, splits);
 		}
 		Table table = conn.getTable(htableName);
-		Configuration conf = conn.getConfiguration();
 		HalyardTableConfiguration halyardConfig = new HalyardTableConfiguration(conf);
 		writeConfig(table, halyardConfig);
 		return table;
@@ -144,13 +130,13 @@ public final class HalyardTableUtils {
 		ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
 		halyardConfig.writeXml(bout);
 		Put configPut = new Put(CONFIG_ROW_KEY)
-			.addColumn(CF_NAME, CONFIG_COL, bout.toByteArray());
+			.addColumn(ColumnFamilyConfig.CF_NAME, CONFIG_COL, bout.toByteArray());
 		table.put(configPut);
 	}
 
 	public static Configuration readConfig(KeyspaceConnection conn) throws IOException {
 		Get getConfig = new Get(CONFIG_ROW_KEY)
-				.addColumn(CF_NAME, CONFIG_COL);
+				.addColumn(ColumnFamilyConfig.CF_NAME, CONFIG_COL);
 		Result res = conn.get(getConfig);
 		if (res == null) {
 			throw new IOException("No config found");
@@ -426,7 +412,7 @@ public final class HalyardTableUtils {
      */
 	static Scan scan(byte[] startRow, byte[] stopRow, int rowBatchSize, boolean indiscriminate) {
         Scan scan = new Scan();
-        scan.addFamily(CF_NAME);
+        scan.addFamily(ColumnFamilyConfig.CF_NAME);
 		scan.readVersions(READ_VERSIONS);
         scan.setAllowPartialResults(true);
         scan.setCaching(rowBatchSize);
@@ -445,30 +431,7 @@ public final class HalyardTableUtils {
 		return Math.min(cardinality, maxCachingLimit);
 	}
 
-	private static ColumnFamilyDescriptor createColumnFamily(int maxVersions, RDFFactory rdfFactory) {
-		int bloomPrefixLength = 1 + Collections.min(Arrays.asList(
-				rdfFactory.getSubjectRole(Name.SPO).keyHashSize(),
-				rdfFactory.getPredicateRole(Name.POS).keyHashSize(),
-				rdfFactory.getObjectRole(Name.OSP).keyHashSize(),
-				rdfFactory.getContextRole(Name.CSPO).keyHashSize(),
-				rdfFactory.getContextRole(Name.CPOS).keyHashSize(),
-				rdfFactory.getContextRole(Name.COSP).keyHashSize()
-		));
-		return ColumnFamilyDescriptorBuilder.newBuilder(CF_NAME)
-                .setMaxVersions(maxVersions)
-                .setBlockCacheEnabled(true)
-                .setBloomFilterType(BloomType.ROWPREFIX_FIXED_LENGTH)
-                .setConfiguration(BloomFilterUtil.PREFIX_LENGTH_KEY, Integer.toString(bloomPrefixLength))
-                .setCompressionType(DEFAULT_COMPRESSION_ALGORITHM)
-                .setDataBlockEncoding(DEFAULT_DATABLOCK_ENCODING)
-                .setCacheBloomsOnWrite(true)
-                .setCacheDataOnWrite(true)
-                .setCacheIndexesOnWrite(true)
-                .setKeepDeletedCells(maxVersions > 1 ? KeepDeletedCells.TRUE : KeepDeletedCells.FALSE)
-				.build();
-    }
-
 	public static byte[] getTableNameSuffixedWithFamily(byte[] tableName) {
-		return Bytes.add(tableName, Bytes.toBytes(";"), CF_NAME);
+		return Bytes.add(tableName, Bytes.toBytes(";"), ColumnFamilyConfig.CF_NAME);
 	}
 }

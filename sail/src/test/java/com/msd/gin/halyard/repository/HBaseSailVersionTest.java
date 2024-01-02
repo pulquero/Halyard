@@ -16,9 +16,9 @@
  */
 package com.msd.gin.halyard.repository;
 
+import com.msd.gin.halyard.common.ColumnFamilyConfig;
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
 import com.msd.gin.halyard.common.HalyardTableUtils;
-import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.strategy.StrategyConfig;
 
@@ -29,7 +29,6 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
@@ -136,11 +135,9 @@ public class HBaseSailVersionTest {
 
     @Test
     public void testModify() throws Exception {
-		TableName htableName = TableName.valueOf("timestamptable");
-		RDFFactory rdfFactory = RDFFactory.create(hconn.getConfiguration());
-		HalyardTableUtils.createTable(hconn, htableName, null, 5, rdfFactory);
+		hconn.getConfiguration().setInt(ColumnFamilyConfig.MAX_VERSIONS, 5);
 
-		HBaseSail sail = new HBaseSail(hconn, "timestamptable", false, 0, true, QUERY_TIMEOUT, null, null);
+		HBaseSail sail = new HBaseSail(hconn, "timestamptable", true, 0, true, QUERY_TIMEOUT, null, null);
 		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
         try(SailRepositoryConnection con = rep.getConnection()) {

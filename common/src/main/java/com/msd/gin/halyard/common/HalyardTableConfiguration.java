@@ -385,6 +385,7 @@ final class HalyardTableConfiguration {
 			return false;
 		}
 		HalyardTableConfiguration that = (HalyardTableConfiguration) other;
-		return this.config.equals(that.config);
+		// use hash code as a bloom filter
+		return (this.hashCode == that.hashCode) && this.config.equals(that.config);
 	}
 }

@@ -69,11 +69,9 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
     private static final String SPLIT_LIMIT_PROPERTY = confProperty(TOOL_NAME, "limit");
     private static final String DECIMATION_FACTOR_PROPERTY = confProperty(TOOL_NAME, "decimation-factor");
     private static final String OVERWRITE_PROPERTY = confProperty(TOOL_NAME, "overwrite");
-    private static final String MAX_VERSIONS_PROPERTY = confProperty(TOOL_NAME, "max-versions");
 
     private static final long DEFAULT_SPLIT_LIMIT = 55000000000l;
     private static final int DEFAULT_DECIMATION_FACTOR = 1000;
-    private static final int DEFAULT_MAX_VERSIONS = 1;
     private static final String NULL_TABLE = "-";
 
     enum Counters {
@@ -206,7 +204,6 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
             String target = conf.get(TABLE_PROPERTY);
             if (!NULL_TABLE.equals(target)) {
 	            TableName tableName = TableName.valueOf(target);
-	            int maxVersions = conf.getInt(MAX_VERSIONS_PROPERTY, DEFAULT_MAX_VERSIONS);
 	            boolean overwrite = conf.getBoolean(OVERWRITE_PROPERTY, false);
 	            try (Connection conn = HalyardTableUtils.getConnection(conf)) {
 	            	if (overwrite) {
@@ -217,8 +214,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
 			    			}
 			    		}
 	            	}
-	            	RDFFactory rdfFactory = RDFFactory.create(conf);
-		            HalyardTableUtils.createTable(conn, tableName, splits.toArray(new byte[splits.size()][]), maxVersions, rdfFactory).close();
+		            HalyardTableUtils.createTable(conn, tableName, splits.toArray(new byte[splits.size()][])).close();
 	            }
             }
         }
@@ -243,7 +239,6 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
         addOption("d", "decimation-factor", "decimation_factor", DECIMATION_FACTOR_PROPERTY, String.format("Optionally overide pre-split random decimation factor (default is %d)", DEFAULT_DECIMATION_FACTOR), false, true);
         addOption("l", "split-limit-splitSize", "splitSize", SPLIT_LIMIT_PROPERTY, String.format("Optionally override calculated split splitSize (default is %d)", DEFAULT_SPLIT_LIMIT), false, true);
         addOption("f", "force", null, OVERWRITE_PROPERTY, "Overwrite existing table", false, false);
-        addOption("n", "max-versions", "versions", MAX_VERSIONS_PROPERTY, String.format("Optionally set the maximum number of versions for the table (default is %d)", DEFAULT_MAX_VERSIONS), false, true);
     }
 
     @Override
