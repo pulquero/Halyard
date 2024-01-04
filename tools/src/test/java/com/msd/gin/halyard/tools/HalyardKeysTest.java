@@ -103,12 +103,12 @@ public class HalyardKeysTest extends AbstractHalyardToolTest {
         List<String> lines = Files.readAllLines(stats, StandardCharsets.US_ASCII);
         List<String> expectedLines = Arrays.asList(
         	"Index, Keys, Cols, Min cols/key, Max cols/key, Mean cols/key, Col freq",
-        	"SPO, 1951, 2282, 1, 9, 1, 1:1750|2:148|3:20|4:11|5:10|6:7|7:1|8:3|9:1",
-        	"POS, 1951, 2282, 1, 9, 1, 1:1750|2:148|3:20|4:11|5:10|6:7|7:1|8:3|9:1",
-        	"OSP, 1951, 2282, 1, 9, 1, 1:1750|2:148|3:20|4:11|5:10|6:7|7:1|8:3|9:1",
-        	"CSPO, 1837, 1982, 1, 4, 1, 1:1714|2:102|3:20|4:1",
-        	"CPOS, 1837, 1982, 1, 4, 1, 1:1714|2:102|3:20|4:1",
-        	"COSP, 1837, 1982, 1, 4, 1, 1:1714|2:102|3:20|4:1"
+        	"SPO, 1951, 2282, 1, 9, 1, 1:1750 | 2:148 | 3:20 | 4:11 | 5:10 | 6:7 | 7:1 | 8:3 | 9:1",
+        	"POS, 1951, 2282, 1, 9, 1, 1:1750 | 2:148 | 3:20 | 4:11 | 5:10 | 6:7 | 7:1 | 8:3 | 9:1",
+        	"OSP, 1951, 2282, 1, 9, 1, 1:1750 | 2:148 | 3:20 | 4:11 | 5:10 | 6:7 | 7:1 | 8:3 | 9:1",
+        	"CSPO, 1837, 1982, 1, 4, 1, 1:1714 | 2:102 | 3:20 | 4:1",
+        	"CPOS, 1837, 1982, 1, 4, 1, 1:1714 | 2:102 | 3:20 | 4:1",
+        	"COSP, 1837, 1982, 1, 4, 1, 1:1714 | 2:102 | 3:20 | 4:1"
         );
         assertEquals(expectedLines.size(), lines.size());
         for (int i=0; i<expectedLines.size(); i++) {

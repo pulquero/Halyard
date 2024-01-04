@@ -177,7 +177,7 @@ public final class HalyardKeys extends AbstractHalyardTool {
 					String freqSep = "";
 					for (Map.Entry<Integer,Long> entry : entries) {
 						buf.append(freqSep).append(entry.getKey()).append(":").append(entry.getValue());
-						freqSep = "|";
+						freqSep = " | ";
 					}
 		        	buf.append("\n");
 		        	fsOut.write(buf.toString().getBytes(StandardCharsets.US_ASCII));

@@ -24,6 +24,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -35,6 +36,7 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.MissingOptionException;
 import org.apache.hadoop.conf.Configuration;
+import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.sail.Sail;
 
@@ -91,6 +93,7 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
         addKeyValueOption(null, "sail-factory-param", "param=value", null, "Optional parameters to pass to the SAIL factory");
         addOption(null, "create", null, "Create HBase table if it doesn't exist", false, false);
         addOption(null, "pull", null, "Use a pull-based evaluation strategy", false, false);
+        addOption(null, "import-data", "data_url", "Load RDF data from given URLs at startup", false, false);
     }
 
     /**
@@ -149,6 +152,15 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
 
             rep.init();
             try {
+            	String[] importUrls = cmd.getOptionValues("import-data");
+            	if (importUrls != null) {
+            		try (RepositoryConnection conn = rep.getConnection()) {
+            			for (String importUrl : importUrls) {
+            				conn.add(new URL(importUrl));
+            			}
+            		}
+            	}
+
                 Properties storedQueries = new Properties();
                 if (cmd.hasOption('q')) {
                     String qf = cmd.getOptionValue('q');
