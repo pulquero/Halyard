@@ -379,7 +379,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		);
 		if (constraint1 != null) {
 			List<Filter> filters = new ArrayList<>();
-			appendValueFilters(ByteSequence.EMPTY, null,
+			appendValueConstraintFilters(ByteSequence.EMPTY, null,
 				role1.startKey(), role1.stopKey(),
 				concat3(role2.startKey(), role3.startKey(), role4.startKey()),
 				concat3(role2.stopKey(),  role3.stopKey(),  role4.stopKey()),
@@ -404,7 +404,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		if (constraint2 != null) {
 			List<Filter> filters = new ArrayList<>();
 			filters.add(qf);
-			appendValueFilters(kb, null,
+			appendValueConstraintFilters(kb, null,
 				role2.startKey(), role2.stopKey(),
 				concat2(role3.startKey(), role4.startKey()),
 				concat2(role3.stopKey(),  role4.stopKey()),
@@ -441,7 +441,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		if (constraint3 != null) {
 			List<Filter> filters = new ArrayList<>();
 			filters.add(qf);
-			appendValueFilters(concat2(k1b, k2b), k2 == null ? concat2(k1b, stop2) : null,
+			appendValueConstraintFilters(concat2(k1b, k2b), k2 == null ? concat2(k1b, stop2) : null,
 				role3.startKey(), role3.stopKey(),
 				role4.startKey(), role4.stopKey(),
 				constraint3, filters);
@@ -478,7 +478,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		if (constraint4 != null) {
 			List<Filter> filters = new ArrayList<>();
 			filters.add(qf);
-			appendValueFilters(concat3(k1b, k2b, k3b), k3 == null ? concat3(k1b, k2b, stop3) : null,
+			appendValueConstraintFilters(concat3(k1b, k2b, k3b), k3 == null ? concat3(k1b, k2b, stop3) : null,
 				role4.startKey(), role4.stopKey(),
 				ByteSequence.EMPTY,
 				ByteSequence.EMPTY,
@@ -503,7 +503,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		).setFilter(new ColumnPrefixFilter(qualifier(k1, k2, k3, k4)));
 	}
 
-	private void appendValueFilters(ByteSequence prefix, @Nullable ByteSequence stopPrefix, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys, ValueConstraint constraint, List<Filter> filters) {
+	private void appendValueConstraintFilters(ByteSequence prefix, @Nullable ByteSequence stopPrefix, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys, ValueConstraint constraint, List<Filter> filters) {
 		ValueType type = constraint.getValueType();
 		IRI dt = null;
 		if ((constraint instanceof LiteralConstraint)) {

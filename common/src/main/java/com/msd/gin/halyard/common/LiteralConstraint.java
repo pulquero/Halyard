@@ -38,9 +38,6 @@ public final class LiteralConstraint extends ValueConstraint {
 
 	@Override
 	public boolean test(Value v) {
-		if (!super.test(v)) {
-			return false;
-		}
 		if (!v.isLiteral()) {
 			return false;
 		}

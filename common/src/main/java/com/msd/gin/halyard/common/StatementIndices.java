@@ -383,11 +383,8 @@ public final class StatementIndices {
 					return osp.scanWithConstraint(obj, subjConstraint);
                 }
             } else {
-				if (obj == null) {
-					return pos.scanWithConstraint(pred, null, subjConstraint);
-                } else {
-					return pos.scanWithConstraint(pred, obj, subjConstraint);
-                }
+            	// obj can be null
+				return pos.scanWithConstraint(pred, obj, subjConstraint);
             }
         } else {
 			if (pred == null) {
@@ -397,11 +394,8 @@ public final class StatementIndices {
 					return cosp.scanWithConstraint(ctx, obj, subjConstraint);
                 }
             } else {
-				if (obj == null) {
-					return cpos.scanWithConstraint(ctx, pred, null, subjConstraint);
-                } else {
-					return cpos.scanWithConstraint(ctx, pred, obj, subjConstraint);
-                }
+            	// obj can be null
+				return cpos.scanWithConstraint(ctx, pred, obj, subjConstraint);
             }
         }
     }
@@ -415,11 +409,8 @@ public final class StatementIndices {
 					return pos.scanWithConstraint(pred, objConstraint);
                 }
             } else {
-				if (pred == null) {
-					return spo.scanWithConstraint(subj, null, objConstraint);
-                } else {
-					return spo.scanWithConstraint(subj, pred, objConstraint);
-                }
+            	// pred can be null
+				return spo.scanWithConstraint(subj, pred, objConstraint);
             }
         } else {
 			if (subj == null) {
@@ -429,11 +420,8 @@ public final class StatementIndices {
 					return cpos.scanWithConstraint(ctx, pred, objConstraint);
                 }
             } else {
-				if (pred == null) {
-					return cspo.scanWithConstraint(ctx, subj, null, objConstraint);
-                } else {
-					return cspo.scanWithConstraint(ctx, subj, pred, objConstraint);
-                }
+            	// pred can be null
+				return cspo.scanWithConstraint(ctx, subj, pred, objConstraint);
             }
         }
     }
