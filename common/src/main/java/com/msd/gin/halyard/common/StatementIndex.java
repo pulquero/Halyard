@@ -9,13 +9,17 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.filter.BinaryComponentComparator;
 import org.apache.hadoop.hbase.filter.ColumnPrefixFilter;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.MultiRowRangeFilter;
 import org.apache.hadoop.hbase.filter.MultiRowRangeFilter.RowRange;
+import org.apache.hadoop.hbase.filter.RowFilter;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -136,6 +140,39 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 				return b1.size() + b2.size() + b3.size();
 			}
 		};
+	}
+
+	static void addFilters(Scan scan, List<Filter> filters) {
+		int n = filters.size();
+		if (n == 1) {
+			scan.setFilter(filters.get(0));
+		} else if (n > 1) {
+			scan.setFilter(new FilterList(filters));
+		}
+	}
+
+	static byte[] prefixWithPartition(int partition, int nbits, ByteSequence bseq) {
+		int nbytes = nbits/8;
+		int rem = nbits - 8*nbytes;
+		int numPartitions = (1 << nbits);
+		if (partition >= numPartitions) {
+			throw new IllegalArgumentException(String.format("Partition number %d must be less than %d (%d bits)", partition, numPartitions, nbits));
+		}
+		byte[] b = bseq.copyBytes();
+		if (b.length < nbytes + (rem > 0 ? 1 : 0)) {
+			throw new IllegalArgumentException(String.format("Byte array not long enough to hold %d bits", nbits));
+		}
+		for (int i=0; i<nbytes; i++) {
+			b[i] = (byte) (partition >> (nbits - 8*(i + 1)));
+		}
+		if (rem > 0) {
+			int shift = 8 - rem;
+			// zero top bits
+			b[nbytes] &= (byte) ((1 << shift) - 1);
+			// replace top bits
+			b[nbytes] |= (byte) (partition << shift);
+		}
+		return b;
 	}
 
 	private final Name name;
@@ -367,58 +404,82 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	}
 
 	public Scan scan() {
-		return scanWithConstraint(null);
+		return scanWithConstraint(0, 0, null, null, null, null);
 	}
-	public Scan scanWithConstraint(@Nullable ValueConstraint constraint1) {
+	public Scan scanWithConstraint(int partition, int nbits, @Nullable ValueConstraint constraint1, @Nullable RDFIdentifier<T2> k2, @Nullable RDFIdentifier<T3> k3, @Nullable RDFIdentifier<T4> k4) {
 		int cardinality = cardinality1*cardinality2*cardinality3*cardinality4;
+		ByteSequence start1 = role1.startKey();
+		ByteSequence stop1 = role1.stopKey();
+		if (nbits > 0) {
+			start1 = new ByteArray(prefixWithPartition(partition, nbits, start1));
+			stop1 = new ByteArray(prefixWithPartition(partition, nbits, stop1));
+		}
 		Scan scan = scan(
-			role1.startKey(), role2.startKey(), role3.startKey(), role4.startKey(),
-			role1.stopKey(),  role2.stopKey(),  role3.stopKey(),  role4.stopKey(),
+			start1, role2.startKey(), role3.startKey(), role4.startKey(),
+			stop1,  role2.stopKey(),  role3.stopKey(),  role4.stopKey(),
 			cardinality,
 			true
 		);
+		List<Filter> filters = new ArrayList<>();
 		if (constraint1 != null) {
-			List<Filter> filters = new ArrayList<>();
 			appendValueConstraintFilters(ByteSequence.EMPTY, null,
-				role1.startKey(), role1.stopKey(),
+				start1, stop1,
 				concat3(role2.startKey(), role3.startKey(), role4.startKey()),
 				concat3(role2.stopKey(),  role3.stopKey(),  role4.stopKey()),
 				constraint1, filters);
-			scan.setFilter(new FilterList(filters));
 		}
+		if (k2 != null) {
+			filters.add(createKeyFilter(role2.keyHash(k2.getId(), idFormat), 1 + role1.keyHashSize()));
+		}
+		if (k3 != null) {
+			filters.add(createKeyFilter(role3.keyHash(k3.getId(), idFormat), 1 + role1.keyHashSize() + role2.keyHashSize()));
+		}
+		if (name.isQuadIndex() && k4 != null) {
+			filters.add(createKeyFilter(role4.keyHash(k4.getId(), idFormat), 1 + role1.keyHashSize() + role2.keyHashSize() + role3.keyHashSize()));
+		}
+		addFilters(scan, filters);
 		return scan;
 	}
 	public Scan scan(RDFIdentifier<T1> k) {
-		return scanWithConstraint(k, null);
+		return scanWithConstraint(k, 0, 0, null, null, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier<T1> k1, @Nullable ValueConstraint constraint2) {
+	public Scan scanWithConstraint(RDFIdentifier<T1> k1, int partition, int nbits, @Nullable ValueConstraint constraint2, @Nullable RDFIdentifier<T3> k3, @Nullable RDFIdentifier<T4> k4) {
 		ByteSequence kb = new ByteArray(role1.keyHash(k1.getId(), idFormat));
 		int cardinality = cardinality1*cardinality2*cardinality3;
+		ByteSequence start2 = role2.startKey();
+		ByteSequence stop2 = role2.stopKey();
+		if (nbits > 0) {
+			start2 = new ByteArray(prefixWithPartition(partition, nbits, start2));
+			stop2 = new ByteArray(prefixWithPartition(partition, nbits, stop2));
+		}
 		Scan scan = scan(
-			kb, role2.startKey(), role3.startKey(), role4.startKey(),
-			kb, role2.stopKey(),  role3.stopKey(),  role4.stopKey(),
+			kb, start2, role3.startKey(), role4.startKey(),
+			kb, stop2,  role3.stopKey(),  role4.stopKey(),
 			cardinality,
 			false
 		);
-		Filter qf = new ColumnPrefixFilter(qualifier(k1, null, null, null));
+		List<Filter> filters = new ArrayList<>();
+		filters.add(new ColumnPrefixFilter(qualifier(k1, null, null, null)));
 		if (constraint2 != null) {
-			List<Filter> filters = new ArrayList<>();
-			filters.add(qf);
 			appendValueConstraintFilters(kb, null,
-				role2.startKey(), role2.stopKey(),
+				start2, stop2,
 				concat2(role3.startKey(), role4.startKey()),
 				concat2(role3.stopKey(),  role4.stopKey()),
 				constraint2, filters);
-			scan.setFilter(new FilterList(filters));
-		} else {
-			scan.setFilter(qf);
 		}
+		if (k3 != null) {
+			filters.add(createKeyFilter(role3.keyHash(k3.getId(), idFormat), 1 + role1.keyHashSize() + role2.keyHashSize()));
+		}
+		if (name.isQuadIndex() && k4 != null) {
+			filters.add(createKeyFilter(role4.keyHash(k4.getId(), idFormat), 1 + role1.keyHashSize() + role2.keyHashSize() + role3.keyHashSize()));
+		}
+		addFilters(scan, filters);
 		return scan;
 	}
 	public Scan scan(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2) {
-		return scanWithConstraint(k1, k2, null);
+		return scanWithConstraint(k1, k2, 0, 0, null, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier<T1> k1, @Nullable RDFIdentifier<T2> k2, @Nullable ValueConstraint constraint3) {
+	public Scan scanWithConstraint(RDFIdentifier<T1> k1, @Nullable RDFIdentifier<T2> k2, int partition, int nbits, @Nullable ValueConstraint constraint3, @Nullable RDFIdentifier<T4> k4) {
 		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId(), idFormat));
 		ByteSequence k2b, stop2;
 		int cardinality;
@@ -431,30 +492,36 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			stop2 = role2.stopKey();
 			cardinality = cardinality1*cardinality2*cardinality3;
 		}
+		ByteSequence start3 = role3.startKey();
+		ByteSequence stop3 = role3.stopKey();
+		if (nbits > 0) {
+			start3 = new ByteArray(prefixWithPartition(partition, nbits, start3));
+			stop3 = new ByteArray(prefixWithPartition(partition, nbits, stop3));
+		}
 		Scan scan = scan(
-			k1b, k2b, role3.startKey(), role4.startKey(),
-			k1b, stop2, role3.stopKey(), role4.stopKey(),
+			k1b, k2b, start3, role4.startKey(),
+			k1b, stop2, stop3, role4.stopKey(),
 			cardinality,
 			false
 		);
-		Filter qf = new ColumnPrefixFilter(qualifier(k1, k2, null, null));
+		List<Filter> filters = new ArrayList<>();
+		filters.add(new ColumnPrefixFilter(qualifier(k1, k2, null, null)));
 		if (constraint3 != null) {
-			List<Filter> filters = new ArrayList<>();
-			filters.add(qf);
 			appendValueConstraintFilters(concat2(k1b, k2b), k2 == null ? concat2(k1b, stop2) : null,
-				role3.startKey(), role3.stopKey(),
+				start3, stop3,
 				role4.startKey(), role4.stopKey(),
 				constraint3, filters);
-			scan.setFilter(new FilterList(filters));
-		} else {
-			scan.setFilter(qf);
 		}
+		if (name.isQuadIndex() && k4 != null) {
+			filters.add(createKeyFilter(role4.keyHash(k4.getId(), idFormat), 1 + role1.keyHashSize() + role2.keyHashSize() + role3.keyHashSize()));
+		}
+		addFilters(scan, filters);
 		return scan;
 	}
 	public Scan scan(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, RDFIdentifier<T3> k3) {
-		return scanWithConstraint(k1, k2, k3, null);
+		return scanWithConstraint(k1, k2, k3, 0, 0, null);
 	}
-	public Scan scanWithConstraint(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, @Nullable RDFIdentifier<T3> k3, @Nullable ValueConstraint constraint4) {
+	public Scan scanWithConstraint(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, @Nullable RDFIdentifier<T3> k3, int partition, int nbits, @Nullable ValueConstraint constraint4) {
 		ByteSequence k1b = new ByteArray(role1.keyHash(k1.getId(), idFormat));
 		ByteSequence k2b = new ByteArray(role2.keyHash(k2.getId(), idFormat));
 		ByteSequence k3b, stop3;
@@ -468,25 +535,28 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			stop3 = role3.stopKey();
 			cardinality = cardinality1*cardinality2;
 		}
+		ByteSequence start4 = role4.startKey();
+		ByteSequence stop4 = role4.stopKey();
+		if (nbits > 0) {
+			start4 = new ByteArray(prefixWithPartition(partition, nbits, start4));
+			stop4 = new ByteArray(prefixWithPartition(partition, nbits, stop4));
+		}
 		Scan scan = scan(
-			k1b, k2b, k3b, role4.startKey(),
-			k1b, k2b, stop3, role4.stopKey(),
+			k1b, k2b, k3b, start4,
+			k1b, k2b, stop3, stop4,
 			cardinality,
 			false
 		);
-		Filter qf = new ColumnPrefixFilter(qualifier(k1, k2, k3, null));
+		List<Filter> filters = new ArrayList<>();
+		filters.add(new ColumnPrefixFilter(qualifier(k1, k2, k3, null)));
 		if (constraint4 != null) {
-			List<Filter> filters = new ArrayList<>();
-			filters.add(qf);
 			appendValueConstraintFilters(concat3(k1b, k2b, k3b), k3 == null ? concat3(k1b, k2b, stop3) : null,
-				role4.startKey(), role4.stopKey(),
+				start4, stop4,
 				ByteSequence.EMPTY,
 				ByteSequence.EMPTY,
 				constraint4, filters);
-			scan.setFilter(new FilterList(filters));
-		} else {
-			scan.setFilter(qf);
 		}
+		addFilters(scan, filters);
 		return scan;
 	}
 	public Scan scan(RDFIdentifier<T1> k1, RDFIdentifier<T2> k2, RDFIdentifier<T3> k3, RDFIdentifier<T4> k4) {
@@ -515,7 +585,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		if (stopPrefix == null) {
 			ranges = new ArrayList<>(typeSaltSize);
 			for (int i=0; i<typeSaltSize; i++) {
-				byte[] startRow = concat(false, prefix, rdfFactory.writeSaltAndType(i, type, dt, startKey), trailingStartKeys); // exclusive
+				byte[] startRow = concat(false, prefix, rdfFactory.writeSaltAndType(i, type, dt, startKey), trailingStartKeys); // inclusive
 				byte[] stopRow = concat(true, prefix, rdfFactory.writeSaltAndType(i, type, dt, stopKey), trailingStopKeys); // exclusive
 				ranges.add(new RowRange(startRow, true, stopRow, false));
 			}
@@ -525,6 +595,31 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			ranges = Collections.<RowRange>singletonList(new RowRange(startRow, true, stopRow, false));
 		}
 		filters.add(new MultiRowRangeFilter(ranges));
+	}
+
+	Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, RDFRole.Name role, int partition, int partitionBits, ValueConstraint constraint) {
+		RDFValue<?,T1> v1 = role1.getValue(subj, pred, obj, ctx);
+		RDFValue<?,T2> v2 = role2.getValue(subj, pred, obj, ctx);
+		RDFValue<?,T3> v3 = role3.getValue(subj, pred, obj, ctx);
+		RDFValue<?,T4> v4 = role4.getValue(subj, pred, obj, ctx);
+		int i = spocIndices[role.ordinal()];
+		switch (i) {
+			case 0:
+				return scanWithConstraint(partition, partitionBits, constraint, v2, v3, v4);
+			case 1:
+				return scanWithConstraint(v1, partition, partitionBits, constraint, v3, v4);
+			case 2:
+				return scanWithConstraint(v1, v2, partition, partitionBits, constraint, v4);
+			case 3:
+				return scanWithConstraint(v1, v2, v3, partition, partitionBits, constraint);
+			default:
+				throw new AssertionError();
+		}
+	}
+
+	private <T extends SPOC<?>> Filter createKeyFilter(byte[] key, int offset) {
+		BinaryComponentComparator cmp = new BinaryComponentComparator(key, offset);
+		return new RowFilter(CompareOperator.EQUAL, cmp);
 	}
 
 	/**
@@ -547,7 +642,15 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
         return res;
     }
 
-	@Override
+    boolean isInPartition(RDFValue<?,?> val, RDFRole.Name roleName, int partition, int partitionBits) {
+    	RDFRole<?> role = getRole(roleName);
+		byte[] start = prefixWithPartition(partition, partitionBits, role.startKey());
+		byte[] stop = prefixWithPartition(partition, partitionBits, role.stopKey());
+		byte[] key = role.keyHash(val.getId(), idFormat);
+		return Bytes.compareTo(start, key) <= 0 && Bytes.compareTo(key, stop) < 0;
+    }
+
+    @Override
 	public String toString() {
 		return name.toString();
 	}

@@ -18,6 +18,7 @@ package com.msd.gin.halyard.optimizers;
 
 import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
 
+import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.algebra.And;
@@ -34,19 +35,20 @@ import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.ValueConstant;
 import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
-import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
-public class HalyardFilterOptimizerTest {
-	public QueryOptimizer getOptimizer() {
+public class HalyardFilterOptimizerTest extends AbstractOptimizerTest {
+	private static final ValueFactory VF = SimpleValueFactory.getInstance();
+
+	@Override
+	protected QueryOptimizer getOptimizer() {
 		return new HalyardFilterOptimizer();
 	}
 
@@ -64,8 +66,8 @@ public class HalyardFilterOptimizerTest {
 		Var p = new Var("p");
 		Var o = new Var("o");
 		Var o2 = new Var("o2");
-		ValueConstant two = new ValueConstant(SimpleValueFactory.getInstance().createLiteral(2));
-		ValueConstant four = new ValueConstant(SimpleValueFactory.getInstance().createLiteral(4));
+		ValueConstant two = new ValueConstant(VF.createLiteral(2));
+		ValueConstant four = new ValueConstant(VF.createLiteral(4));
 		Compare oSmallerThanTwo = new Compare(o.clone(), two, CompareOp.GT);
 		Filter spo = new Filter(new StatementPattern(s.clone(), p.clone(), o.clone()), oSmallerThanTwo);
 		Compare o2SmallerThanFour = new Compare(o2.clone(), four, CompareOp.LT);
@@ -79,15 +81,15 @@ public class HalyardFilterOptimizerTest {
 	}
 
 	@Test
-	public void deMerge() {
+	public void doMerge() {
 		Var s = new Var("s");
 		Var p = new Var("p");
 		Var o = new Var("o");
 		Var o2 = new Var("o2");
-		ValueConstant one = new ValueConstant(SimpleValueFactory.getInstance().createLiteral(1));
-		ValueConstant two = new ValueConstant(SimpleValueFactory.getInstance().createLiteral(2));
-		ValueConstant four = new ValueConstant(SimpleValueFactory.getInstance().createLiteral(4));
-		ValueConstant five = new ValueConstant(SimpleValueFactory.getInstance().createLiteral(5));
+		ValueConstant one = new ValueConstant(VF.createLiteral(1));
+		ValueConstant two = new ValueConstant(VF.createLiteral(2));
+		ValueConstant four = new ValueConstant(VF.createLiteral(4));
+		ValueConstant five = new ValueConstant(VF.createLiteral(5));
 
 		And firstAnd = new And(new Compare(o.clone(), five, CompareOp.LT), new Compare(o.clone(), two, CompareOp.GT));
 		Filter spo = new Filter(new StatementPattern(s.clone(), p.clone(), o.clone()), firstAnd);
@@ -113,23 +115,6 @@ public class HalyardFilterOptimizerTest {
 		String query = "SELECT * WHERE {?s ?p ?o . ?o ?r ?z. FILTER NOT EXISTS {?o ?p2 []}\n ?z ?k ?m. FILTER NOT EXISTS {?o ?p2 ?v1, ?v2, ?v3. FILTER(?v2 < 4) FILTER(?v1 < 4) FILTER(?v2 > 0)} }";
 
 		testOptimizer(expectedQuery, query);
-	}
-
-	void testOptimizer(String expectedQuery, String actualQuery) {
-		ParsedQuery pq = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, actualQuery, null);
-		QueryOptimizer opt = getOptimizer();
-		opt.optimize(pq.getTupleExpr(), null, null);
-
-		ParsedQuery expectedParsedQuery = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, expectedQuery, null);
-		assertEquals(expectedParsedQuery.getTupleExpr(), pq.getTupleExpr());
-	}
-
-	void testOptimizer(TupleExpr expectedQuery, String actualQuery) {
-		ParsedQuery pq = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, actualQuery, null);
-		QueryOptimizer opt = getOptimizer();
-		opt.optimize(pq.getTupleExpr(), null, null);
-
-		assertEquals(expectedQuery, pq.getTupleExpr());
 	}
 
 	@Test

@@ -6,9 +6,56 @@ import java.nio.ByteBuffer;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.Value;
+
 @ThreadSafe
 public final class RDFRole<T extends SPOC<?>> {
-	public enum Name {SUBJECT, PREDICATE, OBJECT, CONTEXT}
+	public enum Name {
+		SUBJECT {
+			@Override
+			public <E> E getValue(E s, E p, E o, E c) {
+				return s;
+			}
+			@Override
+			public Value getValue(Statement s) {
+				return s.getSubject();
+			}
+		},
+		PREDICATE {
+			@Override
+			public <E> E getValue(E s, E p, E o, E c) {
+				return p;
+			}
+			@Override
+			public Value getValue(Statement s) {
+				return s.getPredicate();
+			}
+		},
+		OBJECT {
+			@Override
+			public <E> E getValue(E s, E p, E o, E c) {
+				return o;
+			}
+			@Override
+			public Value getValue(Statement s) {
+				return s.getObject();
+			}
+		},
+		CONTEXT {
+			@Override
+			public <E> E getValue(E s, E p, E o, E c) {
+				return c;
+			}
+			@Override
+			public Value getValue(Statement s) {
+				return s.getContext();
+			}
+		};
+
+		public abstract <E> E getValue(E s, E p, E o, E c);
+		public abstract Value getValue(Statement s);
+	}
 	private final Name name;
 	private final int idSize;
 	private final int keyHashSize;
@@ -29,6 +76,10 @@ public final class RDFRole<T extends SPOC<?>> {
 
 	Name getName() {
 		return name;
+	}
+
+	RDFValue<?,T> getValue(RDFValue<?,?> s, RDFValue<?,?> p, RDFValue<?,?> o, RDFValue<?,?> c) {
+		return (RDFValue<?,T>) name.getValue(s, p, o, c);
 	}
 
 	/**

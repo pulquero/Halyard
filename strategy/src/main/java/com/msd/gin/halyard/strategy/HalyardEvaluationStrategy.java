@@ -235,13 +235,17 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
      */
     @Override
     public FederatedService getService(String serviceUrl) throws QueryEvaluationException {
+    	return getService(serviceUrl, new HalyardEvaluationContext(dataset, tripleSource.getValueFactory()));
+    }
+
+    FederatedService getService(String serviceUrl, QueryEvaluationContext evalContext) throws QueryEvaluationException {
         if (serviceResolver == null) {
             throw new QueryEvaluationException("No Service Resolver set.");
         }
         return federatedServices.computeIfAbsent(serviceUrl, (endpoint) -> {
         	FederatedService fedService = serviceResolver.getService(serviceUrl);
         	if (fedService instanceof HalyardFederatedService) {
-        		fedService = ((HalyardFederatedService)fedService).createEvaluationInstance(this);
+        		fedService = ((HalyardFederatedService)fedService).createEvaluationInstance(this, (HalyardEvaluationContext) evalContext);
         	}
         	return fedService;
         });
@@ -343,10 +347,10 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		return QueryEvaluationUtility.getEffectiveBooleanValue(value).orElse(false);
 	}
 
-	boolean hasStatement(StatementPattern sp, BindingSet bindings) throws QueryEvaluationException {
+	boolean hasStatement(StatementPattern sp, BindingSet bindings, QueryEvaluationContext evalContext) throws QueryEvaluationException {
 		QuadPattern nq = tupleEval.getQuadPattern(sp, bindings);
 		if (nq != null) {
-			ExtendedTripleSource tripleSource = (ExtendedTripleSource) tupleEval.getTripleSource(sp, bindings);
+			ExtendedTripleSource tripleSource = (ExtendedTripleSource) tupleEval.getTripleSource(sp, bindings, evalContext);
 			if (tripleSource != null) {
 				if (nq.isAllNamedContexts()) {
 					// can't optimize for this

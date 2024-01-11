@@ -1,6 +1,5 @@
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.optimizers.ConstrainedValueOptimizer;
 import com.msd.gin.halyard.optimizers.ExtendedEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.HalyardBindingAssignerOptimizer;
 import com.msd.gin.halyard.optimizers.HalyardFilterOptimizer;
@@ -54,7 +53,6 @@ public class ExtendedQueryOptimizerPipeline implements QueryOptimizerPipeline {
 			StandardQueryOptimizerPipeline.UNION_SCOPE_CHANGE_OPTIMIZER,
 			StandardQueryOptimizerPipeline.QUERY_MODEL_NORMALIZER,
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
-			new ConstrainedValueOptimizer(),
 			new QueryJoinOptimizer(statistics),
 			ITERATIVE_EVALUATION_OPTIMIZER,
 			FILTER_OPTIMIZER, // after join optimizer so we push down on the best statements

@@ -6,7 +6,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import javax.annotation.Nonnull;
@@ -41,6 +43,7 @@ public final class StatementIndices {
 	private final StatementIndex<SPOC.C,SPOC.S,SPOC.P,SPOC.O> cspo;
 	private final StatementIndex<SPOC.C,SPOC.P,SPOC.O,SPOC.S> cpos;
 	private final StatementIndex<SPOC.C,SPOC.O,SPOC.S,SPOC.P> cosp;
+	private final Map<StatementIndex.Name,StatementIndex<?,?,?,?>> indices;
 
 	public static StatementIndices create() {
 		Configuration conf = HBaseConfiguration.create();
@@ -99,6 +102,13 @@ public final class StatementIndices {
 			rdfFactory.getPredicateRole(StatementIndex.Name.COSP),
 			rdfFactory, conf
 		);
+		this.indices = new EnumMap<>(StatementIndex.Name.class);
+		this.indices.put(StatementIndex.Name.SPO, this.spo);
+		this.indices.put(StatementIndex.Name.POS, this.pos);
+		this.indices.put(StatementIndex.Name.OSP, this.osp);
+		this.indices.put(StatementIndex.Name.CSPO, this.cspo);
+		this.indices.put(StatementIndex.Name.CPOS, this.cpos);
+		this.indices.put(StatementIndex.Name.COSP, this.cosp);
 	}
 
 	public RDFFactory getRDFFactory() {
@@ -192,7 +202,7 @@ public final class StatementIndices {
 				true
 			);
 		} else {
-			return index.scanWithConstraint(new ValueConstraint(ValueType.LITERAL));
+			return index.scanWithConstraint(0, 0, new ValueConstraint(ValueType.LITERAL), null, null, null);
 		}
 	}
 
@@ -210,7 +220,7 @@ public final class StatementIndices {
 				true
 			);
 		} else {
-			return index.scanWithConstraint(ctx, new ValueConstraint(ValueType.LITERAL));
+			return index.scanWithConstraint(ctx, 0, 0, new ValueConstraint(ValueType.LITERAL), null, null);
 		}
 	}
 
@@ -228,7 +238,7 @@ public final class StatementIndices {
 				true
 			);
 		} else {
-			return index.scanWithConstraint(pred, new ValueConstraint(ValueType.LITERAL));
+			return index.scanWithConstraint(pred, 0, 0, new ValueConstraint(ValueType.LITERAL), null, null);
 		}
 	}
 
@@ -248,7 +258,7 @@ public final class StatementIndices {
 				true
 			);
 		} else {
-			return index.scanWithConstraint(ctx, pred, new ValueConstraint(ValueType.LITERAL));
+			return index.scanWithConstraint(ctx, pred, 0, 0, new ValueConstraint(ValueType.LITERAL), null);
 		}
 	}
 
@@ -364,67 +374,134 @@ public final class StatementIndices {
 	    }
 	}
 
-    public Scan scanWithConstraints(RDFSubject subj, ValueConstraint subjConstraint, RDFPredicate pred, RDFObject obj, ValueConstraint objConstraint, RDFContext ctx) {
-		if (subj == null && subjConstraint != null && (pred == null || objConstraint == null)) {
-			return scanWithSubjectConstraint(subjConstraint, pred, obj, ctx);
-		} else if (obj == null && objConstraint != null) {
-			return scanWithObjectConstraint(subj, pred, objConstraint, ctx);
-		} else {
-			return scan(subj, pred, obj, ctx);
+	public static StatementIndex.Name getIndexForConstraint(boolean hasSubj, boolean hasPred, boolean hasObj, boolean hasCtx, RDFRole.Name constrainedRole) {
+		switch (constrainedRole) {
+			case SUBJECT:
+				if (hasSubj) {
+					throw new IllegalArgumentException("Subject is already known");
+				}
+				if (!hasCtx) {
+					if (!hasPred) {
+						if (!hasObj) {
+							return StatementIndex.Name.SPO;
+		                } else {
+							return StatementIndex.Name.OSP;
+		                }
+		            } else {
+		            	if (!hasObj) {
+							return StatementIndex.Name.POS;
+		            	} else {
+							return StatementIndex.Name.POS;
+		            	}
+		            }
+		        } else {
+					if (!hasPred) {
+						if (!hasObj) {
+							return StatementIndex.Name.CSPO;
+		                } else {
+							return StatementIndex.Name.COSP;
+		                }
+		            } else {
+		            	if (!hasObj) {
+							return StatementIndex.Name.CPOS;
+		            	} else {
+							return StatementIndex.Name.CPOS;
+		            	}
+		            }
+		        }
+			case PREDICATE:
+				if (hasPred) {
+					throw new IllegalArgumentException("Predicate is already known");
+				}
+				if (!hasCtx) {
+					if (!hasSubj) {
+						if (!hasObj) {
+							return StatementIndex.Name.POS;
+		                } else {
+							return StatementIndex.Name.OSP;
+		                }
+			        } else {
+						if (!hasObj) {
+							return StatementIndex.Name.SPO;
+		                } else {
+							return StatementIndex.Name.OSP;
+		                }
+			        }
+			    } else {
+					if (!hasSubj) {
+						if (!hasObj) {
+							return StatementIndex.Name.CPOS;
+		                } else {
+							return StatementIndex.Name.COSP;
+		                }
+			        } else {
+						if (!hasObj) {
+							return StatementIndex.Name.CSPO;
+		                } else {
+							return StatementIndex.Name.COSP;
+		                }
+			        }
+			    }
+			case OBJECT:
+				if (hasObj) {
+					throw new IllegalArgumentException("Object is already known");
+				}
+				if (!hasCtx) {
+					if (!hasSubj) {
+						if (!hasPred) {
+							return StatementIndex.Name.OSP;
+			            } else {
+							return StatementIndex.Name.POS;
+			            }
+			        } else {
+						if (!hasPred) {
+							return StatementIndex.Name.SPO;
+			            } else {
+							return StatementIndex.Name.SPO;
+			            }
+			        }
+			    } else {
+					if (!hasSubj) {
+						if (!hasPred) {
+							return StatementIndex.Name.COSP;
+			            } else {
+							return StatementIndex.Name.CPOS;
+			            }
+			        } else {
+						if (!hasPred) {
+							return StatementIndex.Name.CSPO;
+			            } else {
+							return StatementIndex.Name.CSPO;
+			            }
+			        }
+			    }
+			case CONTEXT:
+				throw new IllegalArgumentException("Context cannot be constrained");
+			default:
+				throw new AssertionError();
 		}
 	}
 
-	private Scan scanWithSubjectConstraint(@Nonnull ValueConstraint subjConstraint, @Nullable RDFPredicate pred, @Nullable RDFObject obj, @Nullable RDFContext ctx) {
-		if (ctx == null) {
-			if (pred == null) {
-				if (obj == null) {
-					return spo.scanWithConstraint(subjConstraint);
-                } else {
-					return osp.scanWithConstraint(obj, subjConstraint);
-                }
-            } else {
-            	// obj can be null
-				return pos.scanWithConstraint(pred, obj, subjConstraint);
-            }
-        } else {
-			if (pred == null) {
-				if (obj == null) {
-					return cspo.scanWithConstraint(ctx, subjConstraint);
-                } else {
-					return cosp.scanWithConstraint(ctx, obj, subjConstraint);
-                }
-            } else {
-            	// obj can be null
-				return cpos.scanWithConstraint(ctx, pred, obj, subjConstraint);
-            }
-        }
-    }
-
-	private Scan scanWithObjectConstraint(@Nullable RDFSubject subj, @Nullable RDFPredicate pred, @Nonnull ValueConstraint objConstraint, @Nullable RDFContext ctx) {
-		if (ctx == null) {
-			if (subj == null) {
-				if (pred == null) {
-					return osp.scanWithConstraint(objConstraint);
-                } else {
-					return pos.scanWithConstraint(pred, objConstraint);
-                }
-            } else {
-            	// pred can be null
-				return spo.scanWithConstraint(subj, pred, objConstraint);
-            }
-        } else {
-			if (subj == null) {
-				if (pred == null) {
-					return cosp.scanWithConstraint(ctx, objConstraint);
-                } else {
-					return cpos.scanWithConstraint(ctx, pred, objConstraint);
-                }
-            } else {
-            	// pred can be null
-				return cspo.scanWithConstraint(ctx, subj, pred, objConstraint);
-            }
-        }
-    }
+	public Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, StatementIndex.Name indexToUse, RDFRole.Name role, int partition, int partitionBits, ValueConstraint constraint) {
+    	if (partitionBits == 0 && constraint == null) {
+			return scan(subj, pred, obj, ctx);
+    	} else {
+    		StatementIndex<?,?,?,?> index = indices.get(indexToUse);
+    		RDFValue<?,?> constrainedValue = role.getValue(subj, pred, obj, ctx);
+			if (constrainedValue != null) {
+				// validate constraints
+				if (partitionBits != 0 && !index.isInPartition(constrainedValue, role, partition, partitionBits)) {
+					return null;
+				}
+				if (constraint != null && !constraint.test(constrainedValue.val)) {
+					return null;
+				}
+				return scan(subj, pred, obj, ctx);
+			} else {
+				return index.scanWithConstraint(subj, pred, obj, ctx, role, partition, partitionBits, constraint);
+			}
+		}
+	}
 
 	/**
 	 * Parser method returning all Statements from a single HBase Scan Result

@@ -2,10 +2,13 @@ package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.federation.SailFederatedService;
+import com.msd.gin.halyard.function.ParallelSplitFunction;
+import com.msd.gin.halyard.strategy.HalyardEvaluationContext;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 
 import java.util.Set;
 
+import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.MutableBindingSet;
 import org.eclipse.rdf4j.query.algebra.Service;
@@ -14,10 +17,12 @@ import org.eclipse.rdf4j.sail.SailConnection;
 
 public class HBaseFederatedService extends SailFederatedService implements HalyardFederatedService {
 	private final HBaseSail sail;
+	private final int forkIndex;
 
-	public HBaseFederatedService(HBaseSail sail) {
+	public HBaseFederatedService(HBaseSail sail, int forkIndex) {
 		super(sail);
 		this.sail = sail;
+		this.forkIndex = forkIndex;
 	}
 
 	@Override
@@ -29,13 +34,17 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 		} else {
 			queryString = service.getAskQueryString();
 		}
-		sail.addQueryString(bs, queryString);
+		ValueFactory vf = sail.getValueFactory();
+		bs.setBinding(HBaseSailConnection.SOURCE_STRING_BINDING, vf.createLiteral(queryString));
+		if (forkIndex != ParallelSplitFunction.NO_FORKING) {
+			bs.setBinding(HBaseSailConnection.FORK_INDEX_BINDING, vf.createLiteral(forkIndex));
+		}
 		return bs;
 	}
 
 	@Override
-	public FederatedService createEvaluationInstance(HalyardEvaluationStrategy strategy) {
-		return new HBaseFederatedService(sail) {
+	public FederatedService createEvaluationInstance(HalyardEvaluationStrategy strategy, HalyardEvaluationContext evalContext) {
+		return new HBaseFederatedService(sail, evalContext.getForkIndex()) {
 			@Override
 			protected SailConnection getConnection() {
 				return sail.getConnection(sail -> {

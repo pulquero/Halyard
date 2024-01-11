@@ -44,9 +44,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import static org.junit.Assert.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
 
 /**
  *
@@ -252,25 +252,6 @@ public class HalyardTableUtilsScanTest {
     }
 
     @Test
-    public void testScanWithSubjectAndObjectConstraint() throws Exception {
-        ValueFactory vf = SimpleValueFactory.getInstance();
-
-        RDFSubject subj = rdfFactory.createSubject(s == null ? null : vf.createIRI(s));
-        RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
-        RDFObject obj = rdfFactory.createObject(o == null ? null : vf.createLiteral(o));
-        RDFContext ctx = rdfFactory.createContext(c == null ? null : vf.createIRI(c));
-        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraints(subj, new ValueConstraint(ValueType.IRI), pred, obj, new LiteralConstraint(XSD.STRING), ctx))) {
-            Set<Statement> res = new HashSet<>();
-            Result r;
-            while ((r = rs.next()) != null) {
-                Collections.addAll(res, stmtIndices.parseStatements(subj, pred, null, ctx, r, vf));
-            }
-            assertTrue(allStatements.containsAll(res));
-            assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
-        }
-    }
-
-    @Test
     public void testScanWithSubjectConstraint() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
 
@@ -278,19 +259,49 @@ public class HalyardTableUtilsScanTest {
         RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
         RDFObject obj = rdfFactory.createObject(o == null ? null : vf.createLiteral(o));
         RDFContext ctx = rdfFactory.createContext(c == null ? null : vf.createIRI(c));
-        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraints(subj, new ValueConstraint(ValueType.IRI), pred, obj, null, ctx))) {
-            Set<Statement> res = new HashSet<>();
-            Result r;
-            while ((r = rs.next()) != null) {
-                Collections.addAll(res, stmtIndices.parseStatements(subj, pred, null, ctx, r, vf));
-            }
-            assertTrue(allStatements.containsAll(res));
-            if (pred == null || obj != null) {
-            	assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
-            } else {
-            	// scan is going to be a superset
-            	assertThat(s+", "+p+", "+o+", "+c, expRes, lessThanOrEqualTo(res.size()));
-            }
+        if (subj == null) {
+	        StatementIndex.Name index = StatementIndices.getIndexForConstraint(subj != null, pred != null, obj != null, ctx != null, RDFRole.Name.SUBJECT);
+	        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraint(subj, pred, obj, ctx, index, RDFRole.Name.SUBJECT, 0, 0, new ValueConstraint(ValueType.IRI)))) {
+	            Set<Statement> res = new HashSet<>();
+	            Result r;
+	            while ((r = rs.next()) != null) {
+	                Collections.addAll(res, stmtIndices.parseStatements(subj, pred, null, ctx, r, vf));
+	            }
+	            assertTrue(allStatements.containsAll(res));
+	            if (pred == null || obj != null) {
+	            	assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
+	            } else {
+	            	// scan is going to be a superset
+	            	assertThat(s+", "+p+", "+o+", "+c, expRes, lessThanOrEqualTo(res.size()));
+	            }
+	        }
+        }
+    }
+
+    @Test
+    public void testScanWithPredicateConstraint() throws Exception {
+        ValueFactory vf = SimpleValueFactory.getInstance();
+
+        RDFSubject subj = rdfFactory.createSubject(s == null ? null : vf.createIRI(s));
+        RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
+        RDFObject obj = rdfFactory.createObject(o == null ? null : vf.createLiteral(o));
+        RDFContext ctx = rdfFactory.createContext(c == null ? null : vf.createIRI(c));
+        if (pred == null) {
+	        StatementIndex.Name index = StatementIndices.getIndexForConstraint(subj != null, pred != null, obj != null, ctx != null, RDFRole.Name.PREDICATE);
+	        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraint(subj, pred, obj, ctx, index, RDFRole.Name.PREDICATE, 0, 0, new ValueConstraint(ValueType.IRI)))) {
+	            Set<Statement> res = new HashSet<>();
+	            Result r;
+	            while ((r = rs.next()) != null) {
+	                Collections.addAll(res, stmtIndices.parseStatements(subj, pred, null, ctx, r, vf));
+	            }
+	            assertTrue(allStatements.containsAll(res));
+	            if (obj == null || subj != null) {
+	            	assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
+	            } else {
+	            	// scan is going to be a superset
+	            	assertThat(s+", "+p+", "+o+", "+c, expRes, lessThanOrEqualTo(res.size()));
+	            }
+	        }
         }
     }
 
@@ -302,19 +313,22 @@ public class HalyardTableUtilsScanTest {
         RDFPredicate pred = rdfFactory.createPredicate(p == null ? null : vf.createIRI(p));
         RDFObject obj = rdfFactory.createObject(o == null ? null : vf.createLiteral(o));
         RDFContext ctx = rdfFactory.createContext(c == null ? null : vf.createIRI(c));
-        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraints(subj, null, pred, obj, new LiteralConstraint(XSD.STRING), ctx))) {
-            Set<Statement> res = new HashSet<>();
-            Result r;
-            while ((r = rs.next()) != null) {
-                Collections.addAll(res, stmtIndices.parseStatements(subj, pred, null, ctx, r, vf));
-            }
-            assertTrue(allStatements.containsAll(res));
-            if (subj == null || pred != null) {
-            	assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
-            } else {
-            	// scan is going to be a superset
-            	assertThat(s+", "+p+", "+o+", "+c, expRes, lessThanOrEqualTo(res.size()));
-            }
+        if (obj == null) {
+	        StatementIndex.Name index = StatementIndices.getIndexForConstraint(subj != null, pred != null, obj != null, ctx != null, RDFRole.Name.OBJECT);
+	        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraint(subj, pred, obj, ctx, index, RDFRole.Name.OBJECT, 0, 0, new LiteralConstraint(XSD.STRING)))) {
+	            Set<Statement> res = new HashSet<>();
+	            Result r;
+	            while ((r = rs.next()) != null) {
+	                Collections.addAll(res, stmtIndices.parseStatements(subj, pred, null, ctx, r, vf));
+	            }
+	            assertTrue(allStatements.containsAll(res));
+	            if (subj == null || pred != null) {
+	            	assertEquals(s+", "+p+", "+o+", "+c, expRes, res.size());
+	            } else {
+	            	// scan is going to be a superset
+	            	assertThat(s+", "+p+", "+o+", "+c, expRes, lessThanOrEqualTo(res.size()));
+	            }
+	        }
         }
     }
 }

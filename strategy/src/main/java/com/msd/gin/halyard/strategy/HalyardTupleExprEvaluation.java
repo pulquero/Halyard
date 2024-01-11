@@ -24,15 +24,16 @@ import com.msd.gin.halyard.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.algebra.NAryUnion;
 import com.msd.gin.halyard.algebra.StarJoin;
+import com.msd.gin.halyard.algebra.VarConstraint;
 import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
 import com.msd.gin.halyard.common.ValueFactories;
-import com.msd.gin.halyard.common.ValueType;
 import com.msd.gin.halyard.federation.BindingSetConsumerFederatedService;
 import com.msd.gin.halyard.federation.BindingSetPipeFederatedService;
+import com.msd.gin.halyard.function.ParallelSplitFunction;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.query.AbortConsumerException;
 import com.msd.gin.halyard.query.BindingSetPipe;
@@ -115,6 +116,7 @@ import org.eclipse.rdf4j.query.algebra.ArbitraryLengthPath;
 import org.eclipse.rdf4j.query.algebra.Avg;
 import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
+import org.eclipse.rdf4j.query.algebra.Compare;
 import org.eclipse.rdf4j.query.algebra.Count;
 import org.eclipse.rdf4j.query.algebra.Datatype;
 import org.eclipse.rdf4j.query.algebra.DescribeOperator;
@@ -264,7 +266,7 @@ final class HalyardTupleExprEvaluation {
      */
     private BindingSetPipeEvaluationStep precompileTupleExpr(TupleExpr expr, QueryEvaluationContext evalContext) {
         if (expr instanceof StatementPattern) {
-            return precompileStatementPattern((StatementPattern) expr);
+            return precompileStatementPattern((StatementPattern) expr, evalContext);
         } else if (expr instanceof UnaryTupleOperator) {
         	return precompileUnaryTupleOperator((UnaryTupleOperator) expr, evalContext);
         } else if (expr instanceof BinaryTupleOperator) {
@@ -278,7 +280,7 @@ final class HalyardTupleExprEvaluation {
         } else if (expr instanceof EmptySet) {
         	return precompileEmptySet((EmptySet) expr);
         } else if (expr instanceof ZeroLengthPath) {
-        	return precompileZeroLengthPath((ZeroLengthPath) expr);
+        	return precompileZeroLengthPath((ZeroLengthPath) expr, evalContext);
         } else if (expr instanceof ArbitraryLengthPath) {
         	return precompileArbitraryLengthPath((ArbitraryLengthPath) expr);
         } else if (expr instanceof BindingSetAssignment) {
@@ -306,7 +308,7 @@ final class HalyardTupleExprEvaluation {
         } else if (expr instanceof Filter) {
         	return precompileFilter((Filter) expr, evalContext);
         } else if (expr instanceof Service) {
-        	return precompileService((Service) expr);
+        	return precompileService((Service) expr, evalContext);
         } else if (expr instanceof Slice) {
         	return precompileSlice((Slice) expr, evalContext);
         } else if (expr instanceof Extension) {
@@ -335,38 +337,39 @@ final class HalyardTupleExprEvaluation {
         }
     }
 
-    private BindingSetPipeEvaluationStep precompileStatementPattern(StatementPattern sp) {
-    	return (parent, bindings) -> evaluateStatementPattern(parent, sp, sp, bindings);
+    private BindingSetPipeEvaluationStep precompileStatementPattern(StatementPattern sp, QueryEvaluationContext evalContext) {
+    	return (parent, bindings) -> evaluateStatementPattern(parent, sp, sp, bindings, evalContext);
     }
 
-    TripleSource getTripleSource(StatementPattern sp, BindingSet bindings) {
+    TripleSource getTripleSource(StatementPattern sp, BindingSet bindings, QueryEvaluationContext evalContext) {
     	if ((sp instanceof ConstrainedStatementPattern) && (tripleSource instanceof ConstrainedTripleSourceFactory)) {
     		ConstrainedStatementPattern csp = (ConstrainedStatementPattern) sp;
-    		ValueConstraint subjConstraint = null;
-    		if (csp.getSubjectType() != null) {
-    			subjConstraint = new ValueConstraint(csp.getSubjectType());
-    		}
-    		ValueConstraint objConstraint = null;
-    		if (csp.getObjectType() != null) {
-				if (csp.getObjectType() == ValueType.LITERAL) {
-					UnaryValueOperator constraintFunc = csp.getLiteralConstraintFunction();
-					if (constraintFunc != null) {
-						ValueExpr constraintValue = csp.getLiteralConstraintValue();
-						Value v;
-						if (constraintValue instanceof ValueConstant) {
-							v = ((ValueConstant) constraintValue).getValue();
-						} else if (constraintValue instanceof Var) {
-							v = Algebra.getVarValue((Var) constraintValue, bindings);
-						} else {
-							v = null;
-						}
-						if (v != null) {
+
+    		ValueConstraint constraint = null;
+    		VarConstraint varConstraint = csp.getConstraint();
+    		if (varConstraint != null && varConstraint.getValueType() != null) {
+    			constraint = new ValueConstraint(varConstraint.getValueType());
+				VarConstraint.FunctionalConstraint funcConstraint = varConstraint.getFunctionalConstraint();
+				if (funcConstraint != null) {
+					ValueExpr constraintFunc = funcConstraint.getFunction();
+					Compare.CompareOp constraintOp = funcConstraint.getOp();
+					ValueExpr constraintValue = funcConstraint.getValue();
+					Value v;
+					if (constraintValue instanceof ValueConstant) {
+						v = ((ValueConstant) constraintValue).getValue();
+					} else if (constraintValue instanceof Var) {
+						v = Algebra.getVarValue((Var) constraintValue, bindings);
+					} else {
+						v = null;
+					}
+					if (v != null) {
+						if (constraintOp == Compare.CompareOp.EQ) {
 							if (constraintFunc instanceof Datatype) {
 								if (!v.isIRI()) {
 									return null; // nothing to push
 								}
 								IRI dt = (IRI) v;
-				    			objConstraint = new LiteralConstraint(dt);
+				    			constraint = new LiteralConstraint(dt);
 							} else if (constraintFunc instanceof Lang) {
 								if (!v.isLiteral()) {
 									return null; // nothing to push
@@ -374,24 +377,32 @@ final class HalyardTupleExprEvaluation {
 								Literal langValue = (Literal) v;
 								String lang = langValue.getLabel();
 								if (!lang.isEmpty()) {
-					    			objConstraint = new LiteralConstraint(lang);
-								} else {
-					    			objConstraint = new ValueConstraint(ValueType.LITERAL);
+					    			constraint = new LiteralConstraint(lang);
 								}
 							} else if ((constraintFunc instanceof IsNumeric) && BooleanLiteral.TRUE.equals(v)) {
-				    			objConstraint = new LiteralConstraint(HALYARD.ANY_NUMERIC_TYPE);
+				    			constraint = new LiteralConstraint(HALYARD.ANY_NUMERIC_TYPE);
 							}
 						}
-	    			} else {
-		    			objConstraint = new ValueConstraint(ValueType.LITERAL);
 	    			}
-	    		} else {
-	    			objConstraint = new ValueConstraint(csp.getObjectType());
 	    		}
     		}
-			return ((ConstrainedTripleSourceFactory)tripleSource).getTripleSource(subjConstraint, objConstraint);
+    		int partitionIndex = ParallelSplitFunction.getForkIndex(evalContext);
+    		int partitionBits = getPartitionBits(partitionIndex, varConstraint);
+			return ((ConstrainedTripleSourceFactory)tripleSource).getTripleSource(csp.getIndexToUse(), csp.getConstrainedRole(), partitionIndex, partitionBits, constraint);
     	}
     	return tripleSource;
+    }
+
+    private static int getPartitionBits(int partitionIndex, VarConstraint varConstraint) {
+		if (partitionIndex >= 0 && varConstraint != null) {
+			int partitionCount = varConstraint.getPartitionCount();
+			if (partitionCount > 0 && partitionIndex >= partitionCount) {
+				throw new QueryEvaluationException(String.format("Partition index %d must be less than partition count %d", partitionIndex, partitionCount));
+			}
+    		return ParallelSplitFunction.powerOf2BitCount(partitionCount);
+		} else {
+			return 0;
+		}
     }
 
     /**
@@ -402,10 +413,10 @@ final class HalyardTupleExprEvaluation {
      * @param bindings the set of names to which values are bound. For example, select ?s, ?p, ?o has the names s, p and o and the values bound to them are the
      * results of the evaluation of this statement pattern
      */
-    private void evaluateStatementPattern(final BindingSetPipe parent, final StatementPattern sp, final TupleExpr trackExpr, final BindingSet bindings) {
+    private void evaluateStatementPattern(final BindingSetPipe parent, final StatementPattern sp, final TupleExpr trackExpr, final BindingSet bindings, final QueryEvaluationContext evalContext) {
         QuadPattern nq = getQuadPattern(sp, bindings);
         if (nq != null) {
-    		TripleSource ts = getTripleSource(sp, bindings);
+    		TripleSource ts = getTripleSource(sp, bindings, evalContext);
     		if (ts != null) {
     	        QueryEvaluationStep evalStep = evaluateStatementPattern(sp, nq, ts);
         		try {
@@ -1674,19 +1685,19 @@ final class HalyardTupleExprEvaluation {
      * Precompiles {@link Service} query model nodes
      * @param service
      */
-    private BindingSetPipeEvaluationStep precompileService(Service service) {
+    private BindingSetPipeEvaluationStep precompileService(Service service, QueryEvaluationContext evalContext) {
         Var serviceRef = service.getServiceRef();
         Value serviceRefValue = serviceRef.getValue();
         if (serviceRefValue != null) {
         	// service endpoint known ahead of time
-        	FederatedService fs = parentStrategy.getService(serviceRefValue.stringValue());
+        	FederatedService fs = parentStrategy.getService(serviceRefValue.stringValue(), evalContext);
         	return (topPipe, bindings) -> evaluateService(topPipe, service, fs, bindings);
         } else {
 			return (topPipe, bindings) -> {
 				Value boundServiceRefValue = bindings.getValue(serviceRef.getName());
 			    if (boundServiceRefValue != null) {
 			        String serviceUri = boundServiceRefValue.stringValue();
-		        	FederatedService fs = parentStrategy.getService(serviceUri);
+		        	FederatedService fs = parentStrategy.getService(serviceUri, evalContext);
 					evaluateService(topPipe, service, fs, bindings);
 			    } else {
 			        topPipe.handleException(new QueryEvaluationException("SERVICE variables must be bound at evaluation time."));
@@ -2667,7 +2678,7 @@ final class HalyardTupleExprEvaluation {
 			        		step = (p, stepBindings) -> executor.pullPushAsync(p, evalStep, starJoin, stepBindings, parentStrategy);
 		        		} else {
 		        			// single statement pattern
-		        			step = (p, stepBindings) -> evaluateStatementPattern(p, sps[startIndex], starJoin, stepBindings);
+		        			step = (p, stepBindings) -> evaluateStatementPattern(p, sps[startIndex], starJoin, stepBindings, evalContext);
 		        		}
 		        	} else {
 		        		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
@@ -2776,7 +2787,7 @@ final class HalyardTupleExprEvaluation {
 	 * Precompiles {@link ZeroLengthPath} query model nodes
 	 * @param zlp
 	 */
-	private BindingSetPipeEvaluationStep precompileZeroLengthPath(ZeroLengthPath zlp) {
+	private BindingSetPipeEvaluationStep precompileZeroLengthPath(ZeroLengthPath zlp, QueryEvaluationContext evalContext) {
 		return (parent, bindings) -> {
 			final Var subjVar = zlp.getSubjectVar();
 			final Var objVar = zlp.getObjectVar();
@@ -2832,7 +2843,7 @@ final class HalyardTupleExprEvaluation {
 							return handleException(ioe);
 						}
 					}
-				}, sp, zlp, bindings);
+				}, sp, zlp, bindings, evalContext);
 			} else {
 				QueryBindingSet result = new QueryBindingSet(bindings);
 				if (obj == null && subj != null) {

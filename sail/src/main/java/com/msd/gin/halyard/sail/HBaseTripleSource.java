@@ -26,7 +26,9 @@ import com.msd.gin.halyard.common.RDFContext;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.RDFObject;
 import com.msd.gin.halyard.common.RDFPredicate;
+import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.RDFSubject;
+import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.TimestampedValueFactory;
 import com.msd.gin.halyard.common.ValueConstraint;
@@ -182,7 +184,10 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 			for (Resource ctx : queryContexts.contextsToScan) {
 				RDFContext context = rdfFactory.createContext(ctx);
 				try {
-					Scan scan = scan(subject, predicate, object, context, stmtIndices);
+					Scan scan = scan(subject, predicate, object, context);
+					if (scan == null) {
+						return false;
+					}
 					return HalyardTableUtils.exists(keyspaceConn, scan);
 				} catch (IOException e) {
 					throw new QueryEvaluationException(e);
@@ -198,8 +203,8 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		}
 	}
 
-	protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, StatementIndices indices) throws IOException {
-		Scan scan = indices.scan(subj, pred, obj, ctx);
+	protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) throws IOException {
+		Scan scan = stmtIndices.scan(subj, pred, obj, ctx);
 		if (settings != null) {
 			scan.setTimeRange(settings.minTimestamp, settings.maxTimestamp);
 			scan.readVersions(settings.maxVersions);
@@ -212,11 +217,11 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	@Override
-	public TripleSource getTripleSource(ValueConstraint subjConstraint, ValueConstraint objConstraints) {
+	public TripleSource getTripleSource(StatementIndex.Name indexToUse, RDFRole.Name roleName, int partition, int partitionBits, ValueConstraint constraint) {
 		return new HBaseTripleSource(keyspaceConn, vf, stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker) {
 			@Override
-			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, StatementIndices indices) {
-				return indices.scanWithConstraints(subj, subjConstraint, pred, obj, objConstraints, ctx);
+			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) {
+				return stmtIndices.scanWithConstraint(subj, pred, obj, ctx, indexToUse, roleName, partition, partitionBits, constraint);
 			}
 		};
 	}
@@ -263,7 +268,10 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 
 						// build a ResultScanner from an HBase Scan that finds potential matches
 						ctx = rdfFactory.createContext(contexts.next());
-						Scan scan = scan(subj, pred, obj, ctx, stmtIndices);
+						Scan scan = scan(subj, pred, obj, ctx);
+						if (scan == null) {
+							return null;
+						}
 						rs = keyspaceConn.getScanner(scan);
 					} else {
 						return null;

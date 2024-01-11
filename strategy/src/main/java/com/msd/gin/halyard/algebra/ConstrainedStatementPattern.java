@@ -1,76 +1,56 @@
 package com.msd.gin.halyard.algebra;
 
-import com.msd.gin.halyard.common.ValueType;
-
-import java.util.Objects;
-
-import javax.annotation.Nonnull;
+import com.msd.gin.halyard.common.RDFRole;
+import com.msd.gin.halyard.common.StatementIndex;
 
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
-import org.eclipse.rdf4j.query.algebra.UnaryValueOperator;
-import org.eclipse.rdf4j.query.algebra.ValueExpr;
+import org.eclipse.rdf4j.query.algebra.Var;
 
-public class ConstrainedStatementPattern extends StatementPattern {
+public final class ConstrainedStatementPattern extends StatementPattern {
 
 	private static final long serialVersionUID = -1551292826547140642L;
 
-	private ValueType subjectType;
-	private ValueType objectType;
-	private UnaryValueOperator literalConstraintFunction;
-	private ValueExpr literalConstraintValue;
+	private StatementIndex.Name indexToUse;
+	private RDFRole.Name constrainedRole;
+	private VarConstraint constraint;
 
-	public static ConstrainedStatementPattern replace(StatementPattern sp) {
-		ConstrainedStatementPattern csp;
-		if (sp instanceof ConstrainedStatementPattern) {
-			csp = (ConstrainedStatementPattern) sp;
-		} else {
-			csp = new ConstrainedStatementPattern(sp);
-			sp.replaceWith(csp);
-		}
-		return csp;
+	public ConstrainedStatementPattern(StatementPattern sp, StatementIndex.Name indexToUse, RDFRole.Name constrainedRole, VarConstraint constraint) {
+		this(sp.getScope(), sp.getSubjectVar().clone(), sp.getPredicateVar().clone(), sp.getObjectVar().clone(), sp.getContextVar() != null ? sp.getContextVar().clone() : null, indexToUse, constrainedRole, constraint);
 	}
 
-	private ConstrainedStatementPattern(StatementPattern sp) {
-		super(sp.getScope(), sp.getSubjectVar().clone(), sp.getPredicateVar().clone(), sp.getObjectVar().clone(), sp.getContextVar() != null ? sp.getContextVar().clone() : null);
+	public ConstrainedStatementPattern(Scope scope, Var subject, Var predicate, Var object, Var context, StatementIndex.Name indexToUse, RDFRole.Name constrainedRole, VarConstraint constraint) {
+		super(scope, subject, predicate, object, context);
+		this.indexToUse = indexToUse;
+		this.constrainedRole = constrainedRole;
+		this.constraint = constraint;
 	}
 
-	public void setSubjectType(ValueType t) {
-		this.subjectType = t;
+	public StatementIndex.Name getIndexToUse() {
+		return indexToUse;
 	}
 
-	public ValueType getSubjectType() {
-		return this.subjectType;
+	public RDFRole.Name getConstrainedRole() {
+		return constrainedRole;
 	}
 
-	public void setObjectType(ValueType t) {
-		this.objectType = t;
+	public VarConstraint getConstraint() {
+		return constraint;
 	}
 
-	public ValueType getObjectType() {
-		return this.objectType;
-	}
-
-	public void setLiteralConstraint(@Nonnull UnaryValueOperator func, @Nonnull ValueExpr value) {
-		this.objectType = ValueType.LITERAL;
-		this.literalConstraintFunction = func;
-		this.literalConstraintValue = value;
-	}
-
-	public UnaryValueOperator getLiteralConstraintFunction() {
-		return literalConstraintFunction;
-	}
-
-	public ValueExpr getLiteralConstraintValue() {
-		return literalConstraintValue;
+	@Override
+	public String getSignature() {
+		Var constrainedVar = constrainedRole.getValue(this.getSubjectVar(), this.getPredicateVar(), this.getObjectVar(), this.getContextVar());
+		return super.getSignature() + " [" + indexToUse + " ?" + constrainedVar.getName() + " is " + constraint + "]";
 	}
 
 	@Override
 	public boolean equals(Object other) {
 		if (other instanceof ConstrainedStatementPattern) {
 			ConstrainedStatementPattern o = (ConstrainedStatementPattern) other;
-			return super.equals(other) && nullEquals(objectType, o.getObjectType())
-					&& nullEquals(literalConstraintFunction, o.getLiteralConstraintFunction())
-					&& nullEquals(literalConstraintValue, o.getLiteralConstraintValue());
+			return super.equals(other)
+					&& this.indexToUse == o.indexToUse
+					&& this.constrainedRole == o.constrainedRole
+					&& this.constraint.equals(o.constraint);
 		}
 		return false;
 	}
@@ -78,24 +58,18 @@ public class ConstrainedStatementPattern extends StatementPattern {
 	@Override
 	public int hashCode() {
 		int result = super.hashCode();
-		result = 89 * result + Objects.hashCode(objectType);
-		result = 89 * result + Objects.hashCode(literalConstraintFunction);
-		result = 89 * result + Objects.hashCode(literalConstraintValue);
+		result = 89 * result + indexToUse.hashCode();
+		result = 89 * result + constrainedRole.hashCode();
+		result = 89 * result + constraint.hashCode();
 		return result;
 	}
 
 	@Override
 	public ConstrainedStatementPattern clone() {
 		ConstrainedStatementPattern clone = (ConstrainedStatementPattern) super.clone();
-		clone.setObjectType(getObjectType());
-		if (getObjectType() == ValueType.LITERAL) {
-			UnaryValueOperator constraintFunc = getLiteralConstraintFunction();
-			ValueExpr constraintValue = getLiteralConstraintValue();
-			if (constraintFunc != null && constraintValue != null) {
-				clone.setLiteralConstraint(constraintFunc.clone(), constraintValue.clone());
-			}
+		if (constraint != null) {
+			clone.constraint = constraint.clone();
 		}
-
 		return clone;
 	}
 }

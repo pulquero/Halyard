@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.optimizers;
 
 import com.google.common.collect.Iterables;
+import com.msd.gin.halyard.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.algebra.NAryUnion;
 import com.msd.gin.halyard.algebra.StarJoin;
 
@@ -216,7 +217,14 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 
 		@Override
 		protected double getCardinality(StatementPattern sp) {
-			return spcalc.getStatementCardinality(sp.getSubjectVar(), sp.getPredicateVar(), sp.getObjectVar(), sp.getContextVar(), boundVars);
+			double card = spcalc.getStatementCardinality(sp.getSubjectVar(), sp.getPredicateVar(), sp.getObjectVar(), sp.getContextVar(), boundVars);
+			if (sp instanceof ConstrainedStatementPattern) {
+				ConstrainedStatementPattern csp = (ConstrainedStatementPattern) sp;
+				if (csp.getConstraint() != null && csp.getConstraint().getPartitionCount() > 0) {
+					card /= csp.getConstraint().getPartitionCount();
+				}
+			}
+			return card;
 		}
 
 		@Override

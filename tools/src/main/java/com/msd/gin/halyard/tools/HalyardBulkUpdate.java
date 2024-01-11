@@ -69,7 +69,6 @@ import org.eclipse.rdf4j.query.Update;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
-import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.parser.ParsedUpdate;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
@@ -123,6 +122,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
             final QueryInputFormat.QueryInputSplit qis = (QueryInputFormat.QueryInputSplit)context.getInputSplit();
             final String query = qis.getQuery();
             queryName = qis.getQueryName();
+            final int partitionIndex = qis.getRepeatIndex();
             ParsedUpdate parsedUpdate = QueryParserUtil.parseUpdate(QueryLanguage.SPARQL, query, null);
             if (parsedUpdate.getUpdateExprs().size() <= stage) {
                 context.setStatus("Nothing to execute in: " + queryName + " for stage #" + stage);
@@ -224,27 +224,22 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 					}
 				});
 				sail.setTrackResultSize(true);
-                Function fn = new ParallelSplitFunction(qis.getRepeatIndex());
-                sail.getFunctionRegistry().add(fn);
+                SailRepository rep = new SailRepository(sail);
                 try {
-                    SailRepository rep = new SailRepository(sail);
-                    try {
-                        rep.init();
-                        try(SailRepositoryConnection con = rep.getConnection()) {
-	                        Update upd = new HBaseUpdate(singleUpdate, sail, con);
-	                        Map<String,String> bindings = conf.getPropsWithPrefix(BINDING_PROPERTY_PREFIX);
-	                        for (Map.Entry<String,String> binding : bindings.entrySet()) {
-	                        	upd.setBinding(binding.getKey(), NTriplesUtil.parseValue(binding.getValue(), rep.getValueFactory()));
-	                        }
-	                        context.setStatus(queryName);
-	                        LOG.info("Executing update:\n{}", query);
-	                        upd.execute();
+                    rep.init();
+                    try(SailRepositoryConnection con = rep.getConnection()) {
+                        Update upd = new HBaseUpdate(singleUpdate, sail, con);
+    					upd.setBinding(HBaseSailConnection.FORK_INDEX_BINDING, rep.getValueFactory().createLiteral(partitionIndex));
+                        Map<String,String> bindings = conf.getPropsWithPrefix(BINDING_PROPERTY_PREFIX);
+                        for (Map.Entry<String,String> binding : bindings.entrySet()) {
+                        	upd.setBinding(binding.getKey(), NTriplesUtil.parseValue(binding.getValue(), rep.getValueFactory()));
                         }
-                    } finally {
-                        rep.shutDown();
+                        context.setStatus(queryName);
+                        LOG.info("Executing update (partition {}):\n{}", partitionIndex, query);
+                        upd.execute();
                     }
                 } finally {
-                	sail.getFunctionRegistry().remove(fn);
+                    rep.shutDown();
                 }
                 updateStatus(context);
                 LOG.info("Query finished with {} statements ({} KeyValues) added and {} ({} KeyValues) removed", addedStmts.get(), addedKvs.get(), removedStmts.get(), removedKvs.get());

@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.strategy;
 
+import com.msd.gin.halyard.function.ParallelSplitFunction;
+
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.Date;
@@ -27,10 +29,16 @@ public final class HalyardEvaluationContext implements QueryEvaluationContext {
 	private volatile Literal now;
 	private final Dataset dataset;
 	private final ValueFactory vf;
+	private final int forkIndex;
 
 	public HalyardEvaluationContext(Dataset dataset, ValueFactory vf) {
+		this(dataset, vf, ParallelSplitFunction.NO_FORKING);
+	}
+
+	public HalyardEvaluationContext(Dataset dataset, ValueFactory vf, int forkIndex) {
 		this.dataset = dataset;
 		this.vf = vf;
+		this.forkIndex = forkIndex;
 	}
 
 	@Override
@@ -53,5 +61,9 @@ public final class HalyardEvaluationContext implements QueryEvaluationContext {
 	@Override
 	public Dataset getDataset() {
 		return dataset;
+	}
+
+	public int getForkIndex() {
+		return forkIndex;
 	}
 }

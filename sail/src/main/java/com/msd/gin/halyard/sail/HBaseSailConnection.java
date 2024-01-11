@@ -23,6 +23,7 @@ import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.Timestamped;
+import com.msd.gin.halyard.function.ParallelSplitFunction;
 import com.msd.gin.halyard.optimizers.HalyardConstantOptimizer;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.TupleFunctionCallOptimizer;
@@ -112,6 +113,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	public static final String SOURCE_STRING_BINDING = internalBinding("source");
 	public static final String UPDATE_PART_BINDING = internalBinding("update_part");
 	private static final int NO_UPDATE_PARTS = -1;
+	public static final String FORK_INDEX_BINDING = internalBinding("fork_index");
 	private static final String CONNECTION_ID_ATTRIBUTE = "connectionId";
 
 	private final HBaseSail sail;
@@ -385,13 +387,14 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 		String sourceString = Literals.getLabel(bindings.getValue(SOURCE_STRING_BINDING), null);
 		int updatePart = Literals.getIntValue(bindings.getValue(UPDATE_PART_BINDING), NO_UPDATE_PARTS);
+		int forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), ParallelSplitFunction.NO_FORKING);
 		BindingSet queryBindings = removeImplicitBindings(bindings);
 
 		RDFStarTripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred);
 		EvaluationStrategy strategy = createEvaluationStrategy(tripleSource, dataset);
 
 		TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);
-		HalyardEvaluationContext evalContext = new HalyardEvaluationContext(dataset, tripleSource.getValueFactory());
+		HalyardEvaluationContext evalContext = new HalyardEvaluationContext(dataset, tripleSource.getValueFactory(), forkIndex);
 		QueryEvaluationStep step = strategy.precompile(optimizedTree, evalContext);
 		HBaseSail.QueryInfo queryInfo = sail.trackQuery(this, sourceString, tupleExpr, optimizedTree);
 		return evaluator.evaluate(optimizedTree, step, queryInfo);

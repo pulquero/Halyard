@@ -15,10 +15,10 @@ public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFId
 	}
 
 
-	protected RDFValue(RDFRole.Name role, V val, RDFFactory valueIO) {
+	protected RDFValue(RDFRole.Name role, V val, RDFFactory rdfFactory) {
 		super(role);
 		this.val = Objects.requireNonNull(val);
-		this.rdfFactory = Objects.requireNonNull(valueIO);
+		this.rdfFactory = Objects.requireNonNull(rdfFactory);
 	}
 
 	boolean isWellKnownIRI() {

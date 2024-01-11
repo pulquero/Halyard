@@ -16,6 +16,8 @@
  */
 package com.msd.gin.halyard.tools;
 
+import com.msd.gin.halyard.function.ParallelSplitFunction;
+
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;

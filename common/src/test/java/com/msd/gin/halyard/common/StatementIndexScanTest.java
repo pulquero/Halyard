@@ -2,7 +2,9 @@ package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.vocab.HALYARD;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -28,11 +30,12 @@ import org.eclipse.rdf4j.model.vocabulary.OWL;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @RunsLocalHBase
 public class StatementIndexScanTest {
@@ -53,7 +56,7 @@ public class StatementIndexScanTest {
     private static Set<Triple> allTriples;
     private static final Literal foobarLiteral = vf.createLiteral("foobar", vf.createIRI("http://whatever/datatype"));
 
-    @BeforeClass
+    @BeforeAll
     public static void setup() throws Exception {
 		Configuration conf = HBaseServerTestInstance.getInstanceConfig();
 		hConn = HalyardTableUtils.getConnection(conf);
@@ -65,10 +68,10 @@ public class StatementIndexScanTest {
         stringLiterals = new HashSet<>();
         nonstringLiterals = new HashSet<>();
         for (int i=0; i<10; i++) {
-			stringLiterals.add(vf.createLiteral(String.valueOf(Math.random())));
-			stringLiterals.add(vf.createLiteral(String.valueOf(Math.random()), "en"));
-			nonstringLiterals.add(vf.createLiteral(Math.random()));
-			nonstringLiterals.add(vf.createLiteral((long) Math.random()));
+			stringLiterals.add(vf.createLiteral(String.valueOf(i + Math.random())));
+			stringLiterals.add(vf.createLiteral(String.valueOf(i + Math.random()), "en"));
+			nonstringLiterals.add(vf.createLiteral(i + Math.random()));
+			nonstringLiterals.add(vf.createLiteral((long) (i + Math.random())));
         }
         nonstringLiterals.add(vf.createLiteral(new Date()));
         nonstringLiterals.add(foobarLiteral);
@@ -95,7 +98,6 @@ public class StatementIndexScanTest {
         }
         defaultGraphStatements = new HashSet<>();
         defaultGraphStatements.addAll(allStatements);
-        defaultGraphStatements.addAll(namedGraphStatements);
         long timestamp = System.currentTimeMillis();
 		List<Put> puts = new ArrayList<>();
 		for (Statement stmt : allStatements) {
@@ -110,7 +112,7 @@ public class StatementIndexScanTest {
         }
     }
 
-    @AfterClass
+    @AfterAll
     public static void teardown() throws Exception {
         keyspaceConn.close();
     }
@@ -125,47 +127,23 @@ public class StatementIndexScanTest {
 
     @Test
     public void testScanAll() throws Exception {
-        Set<Statement> actual = new HashSet<>();
         Scan scan = stmtIndices.scanAll();
-        try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
-            Result r;
-            while ((r = rs.next()) != null) {
-                for (Statement stmt : parseStatements(r)) {
-                    actual.add(stmt);
-                }
-            }
-        }
+        Set<Statement> actual = getStatements(scan);
         assertSets(allStatements, actual);
     }
 
     @Test
     public void testScanDefaultIndices() throws Exception {
-        Set<Statement> actual = new HashSet<>();
         Scan scan = stmtIndices.scanDefaultIndices();
-        try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
-            Result r;
-            while ((r = rs.next()) != null) {
-                for (Statement stmt : parseStatements(r)) {
-                    actual.add(stmt);
-                }
-            }
-        }
+        Set<Statement> actual = getStatements(scan);
         assertSets(defaultGraphStatements, actual);
     }
 
     @Test
     public void testScanContextIndices() throws Exception {
-        Set<Statement> actual = new HashSet<>();
         List<Scan> scans = stmtIndices.scanContextIndices(vf.createIRI(CTX));
         for (Scan scan : scans) {
-	        try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
-	            Result r;
-	            while ((r = rs.next()) != null) {
-	                for (Statement stmt : parseStatements(r)) {
-	                    actual.add(stmt);
-	                }
-	            }
-	        }
+            Set<Statement> actual = getStatements(scan);
 	        assertSets(namedGraphStatements, actual);
         }
     }
@@ -178,7 +156,7 @@ public class StatementIndexScanTest {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(r)) {
-                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
+                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
                     actual.add((Literal) stmt.getObject());
                 }
             }
@@ -194,7 +172,7 @@ public class StatementIndexScanTest {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(r)) {
-                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
+                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
                     actual.add((Literal) stmt.getObject());
                 }
             }
@@ -210,7 +188,7 @@ public class StatementIndexScanTest {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(r)) {
-                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
+                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
                     actual.add((Literal) stmt.getObject());
                 }
             }
@@ -226,7 +204,7 @@ public class StatementIndexScanTest {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(r)) {
-                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
+                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
                     actual.add((Literal) stmt.getObject());
                 }
             }
@@ -252,23 +230,65 @@ public class StatementIndexScanTest {
     }
 
     @Test
+    public void testScanAll_SPO() throws Exception {
+        List<Statement> actual = new ArrayList<>();
+        Scan scan = stmtIndices.getSPOIndex().scan();
+        try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
+            Result r;
+            while ((r = rs.next()) != null) {
+                for (Statement stmt : parseStatements(r)) {
+                    actual.add(stmt);
+                }
+            }
+        }
+        assertNoDuplicates(defaultGraphStatements, actual);
+    }
+
+    @Test
     public void testScanStringLiterals_SPO() throws Exception {
         Resource subj = vf.createIRI(SUBJ);
         RDFSubject rdfSubj = rdfFactory.createSubject(subj);
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, new LiteralConstraint(XSD.STRING));
+        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, 0, 0, new LiteralConstraint(XSD.STRING), null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(rdfSubj, rdfPred, null, null, r)) {
-                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
+                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
                     actual.add((Literal) stmt.getObject());
                 }
             }
         }
         assertSets(stringLiterals, actual);
+    }
+
+    @Test
+    public void testScanStringLiteralPartitions_SPO() throws Exception {
+        Resource subj = vf.createIRI(SUBJ);
+        RDFSubject rdfSubj = rdfFactory.createSubject(subj);
+        RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
+
+        int nbits = 3;
+        int numPartitions = (1 << nbits);
+        Set<Literal> actualTotal = new HashSet<>();
+        for (int i=0; i<numPartitions; i++) {
+            Set<Literal> actualPartition = new HashSet<>();
+	        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, i, nbits, new LiteralConstraint(XSD.STRING), null);
+	        try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
+	            Result r;
+	            while ((r = rs.next()) != null) {
+	                for (Statement stmt : parseStatements(rdfSubj, rdfPred, null, null, r)) {
+	                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
+	                    actualPartition.add((Literal) stmt.getObject());
+	                }
+	            }
+	        }
+	        assertThat(actualPartition.size()).as("Partition %d", i).isLessThan(stringLiterals.size());
+	        actualTotal.addAll(actualPartition);
+        }
+        assertSets(stringLiterals, actualTotal);
     }
 
     @Test
@@ -280,17 +300,46 @@ public class StatementIndexScanTest {
         RDFContext rdfCtx = rdfFactory.createContext(ctx);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(rdfCtx, rdfSubj, rdfPred, new LiteralConstraint(HALYARD.NON_STRING_TYPE));
+        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(rdfCtx, rdfSubj, rdfPred, 0, 0, new LiteralConstraint(HALYARD.NON_STRING_TYPE));
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(rdfSubj, rdfPred, null, rdfCtx, r)) {
-                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
+                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
                     actual.add((Literal) stmt.getObject());
                 }
             }
         }
         assertSets(nonstringLiterals, actual);
+    }
+
+    @Test
+    public void testScanNonStringLiteralPartitions_CSPO() throws Exception {
+        Resource subj = vf.createIRI(SUBJ);
+        Resource ctx = vf.createIRI(CTX);
+        RDFSubject rdfSubj = rdfFactory.createSubject(subj);
+        RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
+        RDFContext rdfCtx = rdfFactory.createContext(ctx);
+
+        int nbits = 3;
+        int numPartitions = (1 << nbits);
+        Set<Literal> actualTotal = new HashSet<>();
+        for (int i=0; i<numPartitions; i++) {
+            Set<Literal> actualPartition = new HashSet<>();
+	        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(rdfCtx, rdfSubj, rdfPred, i, nbits, new LiteralConstraint(HALYARD.NON_STRING_TYPE));
+	        try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
+	            Result r;
+	            while ((r = rs.next()) != null) {
+	                for (Statement stmt : parseStatements(rdfSubj, rdfPred, null, rdfCtx, r)) {
+	                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
+	                    actualPartition.add((Literal) stmt.getObject());
+	                }
+	            }
+	        }
+	        assertThat(actualPartition.size()).as("Partition %d", i).isLessThan(nonstringLiterals.size());
+	        actualTotal.addAll(actualPartition);
+        }
+        assertSets(nonstringLiterals, actualTotal);
     }
 
     @Test
@@ -300,12 +349,12 @@ public class StatementIndexScanTest {
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDFS.SEEALSO);
 
         Set<Triple> actual = new HashSet<>();
-        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, new ValueConstraint(ValueType.TRIPLE));
+        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, 0, 0, new ValueConstraint(ValueType.TRIPLE), null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(rdfSubj, rdfPred, null, null, r)) {
-                    assertTrue("Not a triple: "+stmt.getObject(), stmt.getObject().isTriple());
+                    assertTrue(stmt.getObject().isTriple(), "Not a triple: "+stmt.getObject());
                     actual.add((Triple) stmt.getObject());
                 }
             }
@@ -318,17 +367,42 @@ public class StatementIndexScanTest {
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(rdfPred, new LiteralConstraint(XSD.STRING));
+        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(rdfPred, 0, 0, new LiteralConstraint(XSD.STRING), null, null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(null, rdfPred, null, null, r)) {
-                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
+                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
                     actual.add((Literal) stmt.getObject());
                 }
             }
         }
         assertSets(stringLiterals, actual);
+    }
+
+    @Test
+    public void testScanStringLiteralPartitions_POS() throws Exception {
+        RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
+
+        int nbits = 3;
+        int numPartitions = (1 << nbits);
+        Set<Literal> actualTotal = new HashSet<>();
+        for (int i=0; i<numPartitions; i++) {
+            Set<Literal> actualPartition = new HashSet<>();
+	        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(rdfPred, i, nbits, new LiteralConstraint(XSD.STRING), null, null);
+	        try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
+	            Result r;
+	            while ((r = rs.next()) != null) {
+	                for (Statement stmt : parseStatements(null, rdfPred, null, null, r)) {
+	                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
+	                    actualPartition.add((Literal) stmt.getObject());
+	                }
+	            }
+	        }
+	        assertThat(actualPartition.size()).as("Partition %d", i).isLessThan(stringLiterals.size());
+	        actualTotal.addAll(actualPartition);
+        }
+        assertSets(stringLiterals, actualTotal);
     }
 
     @Test
@@ -338,12 +412,12 @@ public class StatementIndexScanTest {
         RDFContext rdfCtx = rdfFactory.createContext(ctx);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getCPOSIndex().scanWithConstraint(rdfCtx, rdfPred, new LiteralConstraint(HALYARD.NON_STRING_TYPE));
+        Scan scan = stmtIndices.getCPOSIndex().scanWithConstraint(rdfCtx, rdfPred, 0, 0, new LiteralConstraint(HALYARD.NON_STRING_TYPE), null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(null, rdfPred, null, rdfCtx, r)) {
-                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
+                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
                     actual.add((Literal) stmt.getObject());
                 }
             }
@@ -356,12 +430,12 @@ public class StatementIndexScanTest {
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDFS.SEEALSO);
 
         Set<Triple> actual = new HashSet<>();
-        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(rdfPred, new ValueConstraint(ValueType.TRIPLE));
+        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(rdfPred, 0, 0, new ValueConstraint(ValueType.TRIPLE), null, null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(null, rdfPred, null, null, r)) {
-                    assertTrue("Not a triple: "+stmt.getObject(), stmt.getObject().isTriple());
+                    assertTrue(stmt.getObject().isTriple(), "Not a triple: "+stmt.getObject());
                     actual.add((Triple) stmt.getObject());
                 }
             }
@@ -370,14 +444,36 @@ public class StatementIndexScanTest {
     }
 
     @Test
+    public void testScanAllPartitions_OSP() throws Exception {
+        int nbits = 3;
+        int numPartitions = (1 << nbits);
+        List<Statement> actualTotal = new ArrayList<>();
+        for (int i=0; i<numPartitions; i++) {
+        	List<Statement> actualPartition = new ArrayList<>();
+	        Scan scan = stmtIndices.getOSPIndex().scanWithConstraint(i, nbits, null, null, null, null);
+	        try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
+	            Result r;
+	            while ((r = rs.next()) != null) {
+	                for (Statement stmt : parseStatements(r)) {
+	                    actualPartition.add(stmt);
+	                }
+	            }
+	        }
+	        assertThat(actualPartition.size()).as("Partition %d", i).isLessThan(defaultGraphStatements.size());
+	        actualTotal.addAll(actualPartition);
+        }
+        assertNoDuplicates(defaultGraphStatements, actualTotal);
+    }
+
+    @Test
     public void testScanStringLiterals_OSP() throws Exception {
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getOSPIndex().scanWithConstraint(new LiteralConstraint(XSD.STRING));
+        Scan scan = stmtIndices.getOSPIndex().scanWithConstraint(0, 0, new LiteralConstraint(XSD.STRING), null, null, null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(r)) {
-                    assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
+                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
                     actual.add((Literal) stmt.getObject());
                 }
             }
@@ -391,12 +487,12 @@ public class StatementIndexScanTest {
         RDFContext rdfCtx = rdfFactory.createContext(ctx);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getCOSPIndex().scanWithConstraint(rdfCtx, new LiteralConstraint(HALYARD.NON_STRING_TYPE));
+        Scan scan = stmtIndices.getCOSPIndex().scanWithConstraint(rdfCtx, 0, 0, new LiteralConstraint(HALYARD.NON_STRING_TYPE), null, null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(null, null, null, rdfCtx, r)) {
-                   assertTrue("Not a literal: "+stmt.getObject(), stmt.getObject().isLiteral());
+                   assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
                    actual.add((Literal) stmt.getObject());
                 }
             }
@@ -407,17 +503,78 @@ public class StatementIndexScanTest {
     @Test
     public void testScanTriples_OSP() throws Exception {
         Set<Triple> actual = new HashSet<>();
-        Scan scan = stmtIndices.getOSPIndex().scanWithConstraint(new ValueConstraint(ValueType.TRIPLE));
+        Scan scan = stmtIndices.getOSPIndex().scanWithConstraint(0, 0, new ValueConstraint(ValueType.TRIPLE), null, null, null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
                 for (Statement stmt : parseStatements(r)) {
-                    assertTrue("Not a triple: "+stmt.getObject(), stmt.getObject().isTriple());
+                    assertTrue(stmt.getObject().isTriple(), "Not a triple: "+stmt.getObject());
                     actual.add((Triple) stmt.getObject());
                 }
             }
         }
         assertSets(allTriples, actual);
+    }
+
+    @Test
+    public void testScanByKeyFilter0_2() throws Exception {
+        Resource subj = vf.createIRI(SUBJ);
+        Resource ctx = vf.createIRI(CTX);
+        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(0, 0, null, rdfFactory.createObject(foobarLiteral), null, null);
+        Set<Statement> actual = getStatements(scan);
+        assertSets(Collections.singleton(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx)), actual);
+    }
+
+    @Test
+    public void testScanByKeyFilter0_3() throws Exception {
+        Resource subj = vf.createIRI(SUBJ);
+        Resource ctx = vf.createIRI(CTX);
+        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(0, 0, null, null, rdfFactory.createObject(foobarLiteral), null);
+        Set<Statement> actual = getStatements(scan);
+        assertSets(Collections.singleton(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx)), actual);
+    }
+
+    @Test
+    public void testScanByKeyFilter0_4() throws Exception {
+        Resource subj = vf.createIRI(SUBJ);
+        Resource ctx = vf.createIRI(CTX);
+        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(0, 0, null, null, null, rdfFactory.createObject(foobarLiteral));
+        Set<Statement> actual = getStatements(scan);
+        Set<Statement> expected = new HashSet<>();
+        expected.add(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx));
+        expected.add(vf.createStatement(subj, RDF.VALUE, foobarLiteral, HALYARD.TRIPLE_GRAPH_CONTEXT));
+        assertSets(expected, actual);
+    }
+
+    @Test
+    public void testScanByKeyFilter1_3() throws Exception {
+        Resource subj = vf.createIRI(SUBJ);
+        Resource ctx = vf.createIRI(CTX);
+        RDFContext rdfCtx = rdfFactory.createContext(ctx);
+        Scan scan = stmtIndices.getCPOSIndex().scanWithConstraint(rdfCtx, 0, 0, null, rdfFactory.createObject(foobarLiteral), null);
+        Set<Statement> actual = getStatements(scan);
+        assertSets(Collections.singleton(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx)), actual);
+    }
+
+    @Test
+    public void testScanByKeyFilter1_4() throws Exception {
+        Resource subj = vf.createIRI(SUBJ);
+        Resource ctx = vf.createIRI(CTX);
+        RDFContext rdfCtx = rdfFactory.createContext(ctx);
+        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(rdfCtx, 0, 0, null, null, rdfFactory.createObject(foobarLiteral));
+        Set<Statement> actual = getStatements(scan);
+        assertSets(Collections.singleton(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx)), actual);
+    }
+
+    @Test
+    public void testScanByKeyFilter2_4() throws Exception {
+        Resource subj = vf.createIRI(SUBJ);
+        Resource ctx = vf.createIRI(CTX);
+        RDFSubject rdfSubj = rdfFactory.createSubject(subj);
+        RDFContext rdfCtx = rdfFactory.createContext(ctx);
+        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(rdfCtx, rdfSubj, 0, 0, null, rdfFactory.createObject(foobarLiteral));
+        Set<Statement> actual = getStatements(scan);
+        assertSets(Collections.singleton(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx)), actual);
     }
 
     @Test
@@ -441,9 +598,27 @@ public class StatementIndexScanTest {
     	assertEquals(obj, actual);
     }
 
+    private Set<Statement> getStatements(Scan scan) throws IOException {
+    	Set<Statement> stmts = new HashSet<>();
+        try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
+            Result r;
+            while ((r = rs.next()) != null) {
+                for (Statement stmt : parseStatements(r)) {
+                    stmts.add(stmt);
+                }
+            }
+        }
+        return stmts;
+    }
+
+    private static <E> void assertNoDuplicates(Set<E> expected, List<E> actual) {
+    	assertEquals(expected.size(), actual.size());
+    	assertSets(expected, new HashSet<>(actual));
+    }
+
     private static <E> void assertSets(Set<E> expected, Set<E> actual) {
     	Set<E> diff = new HashSet<>(actual);
     	diff.removeAll(expected);
-    	assertEquals("Unexpected: "+diff, expected, actual);
+    	assertEquals(expected, actual, "Unexpected: "+diff);
     }
 }

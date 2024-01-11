@@ -22,6 +22,7 @@ import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.sail.ElasticSettings;
 import com.msd.gin.halyard.sail.HBaseSail;
+import com.msd.gin.halyard.sail.HBaseSailConnection;
 import com.msd.gin.halyard.sail.search.SearchDocument;
 
 import java.io.File;
@@ -51,7 +52,7 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.GraphQueryResult;
 import org.eclipse.rdf4j.query.TupleQueryResult;
-import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
+import org.eclipse.rdf4j.query.impl.MapBindingSet;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
@@ -85,10 +86,11 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
             final QueryInputFormat.QueryInputSplit qis = (QueryInputFormat.QueryInputSplit)context.getInputSplit();
             final String query = qis.getQuery();
             final String name = qis.getQueryName();
+            final int partitionIndex = qis.getRepeatIndex();
             int dot = name.indexOf('.');
             final String bName = dot > 0 ? name.substring(0, dot) : name;
             context.setStatus("Execution of: " + name);
-            LOG.info("Execution of {}:\n{}", name, query);
+            LOG.info("Executing query {} (partition {}):\n{}", name, partitionIndex, query);
             HalyardExport.StatusLog log = new HalyardExport.StatusLog() {
                 @Override
                 public void tick() {
@@ -110,31 +112,27 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
             String source = cfg.get(SOURCE);
             String target = cfg.get(TARGET);
         	HBaseSail sail = new HBaseSail(cfg, source, false, 0, true, 0, ElasticSettings.from(cfg), null);
-            Function fn = new ParallelSplitFunction(qis.getRepeatIndex());
-            sail.getFunctionRegistry().add(fn);
-        	try {
-            	HBaseRepository repo = new HBaseRepository(sail);
-	            try {
-	            	repo.init();
-	                HalyardExport.QueryResultWriter writer;
-	                if (EsOutputFormat.class.getName().equals(target)) {
-	                	writer = new EsOutputResultWriter(log, sail.getRDFFactory(), sail.getValueFactory(), context);
-	                } else {
-	                	writer = HalyardExport.createWriter(sail.getConfiguration(), log, MessageFormat.format(target, bName, qis.getRepeatIndex()), sail.getRDFFactory(), sail.getValueFactory(), cfg.get(JDBC_DRIVER), cfg.get(JDBC_CLASSPATH), props, false);
-	                }
-	                try {
-		        		HalyardExport.export(repo, query, writer);
-	                } catch (ExportInterruptedException e) {
-	                	throw (InterruptedException) e.getCause();
-		            } finally {
-		        		writer.close();
-		            }
+        	HBaseRepository repo = new HBaseRepository(sail);
+            try {
+            	repo.init();
+            	MapBindingSet bindings = new MapBindingSet();
+				bindings.setBinding(HBaseSailConnection.FORK_INDEX_BINDING, repo.getValueFactory().createLiteral(partitionIndex));
+                HalyardExport.QueryResultWriter writer;
+                if (EsOutputFormat.class.getName().equals(target)) {
+                	writer = new EsOutputResultWriter(log, sail.getRDFFactory(), sail.getValueFactory(), context);
+                } else {
+                	writer = HalyardExport.createWriter(sail.getConfiguration(), log, MessageFormat.format(target, bName, partitionIndex), sail.getRDFFactory(), sail.getValueFactory(), cfg.get(JDBC_DRIVER), cfg.get(JDBC_CLASSPATH), props, false);
+                }
+                try {
+	        		HalyardExport.export(repo, query, bindings, writer);
+                } catch (ExportInterruptedException e) {
+                	throw (InterruptedException) e.getCause();
 	            } finally {
-	            	repo.shutDown();
+	        		writer.close();
 	            }
-        	} finally {
-            	sail.getFunctionRegistry().remove(fn);
-        	}
+            } finally {
+            	repo.shutDown();
+            }
         }
 
         private static class EsOutputResultWriter extends HalyardExport.QueryResultWriter {

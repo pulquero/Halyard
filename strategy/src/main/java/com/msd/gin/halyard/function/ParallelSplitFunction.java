@@ -14,37 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.msd.gin.halyard.tools;
+package com.msd.gin.halyard.function;
 
-import static com.msd.gin.halyard.vocab.HALYARD.*;
+import static com.msd.gin.halyard.vocab.HALYARD.PARALLEL_SPLIT_FUNCTION;
 
 import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
+import com.msd.gin.halyard.strategy.HalyardEvaluationContext;
 
 import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.algebra.FunctionCall;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
 import org.eclipse.rdf4j.query.algebra.ValueConstant;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
+import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
+import org.kohsuke.MetaInfServices;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
-public final class ParallelSplitFunction implements Function {
-
-    private final int forkIndex;
-
-    public ParallelSplitFunction(int forkIndex) {
-        this.forkIndex = forkIndex;
-    }
+@MetaInfServices(Function.class)
+public final class ParallelSplitFunction implements ExtendedFunction {
+	public static final int NO_FORKING = -1;
 
     @Override
     public String getURI() {
@@ -52,7 +51,7 @@ public final class ParallelSplitFunction implements Function {
     }
 
     @Override
-    public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
+    public Value evaluate(TripleSource ts, QueryEvaluationContext qec, Value... args) throws ValueExprEvaluationException {
         if (args == null || args.length < 2) {
             throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function has at least two mandatory arguments: <constant number of parallel forks> and <binding variable(s) to filter by>");
         }
@@ -66,10 +65,19 @@ public final class ParallelSplitFunction implements Function {
             if (forks < 1) {
                 throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function first argument must be > 0");
             }
-            return valueFactory.createLiteral(Math.floorMod(Arrays.hashCode(args), forks) == forkIndex);
+            int forkIndex = getForkIndex(qec);
+            int actualForkCount = toActualForkCount(forks);
+            if (forkIndex >= actualForkCount) {
+            	throw new ValueExprEvaluationException(String.format("Fork index %d must be less than fork count %d", forkIndex, actualForkCount));
+            }
+            return ts.getValueFactory().createLiteral(forkIndex == NO_FORKING || (Math.floorMod(Arrays.hashCode(args), actualForkCount) == forkIndex));
         } catch (NumberFormatException e) {
             throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function first argument must be numeric constant");
         }
+    }
+
+    public static int getForkIndex(QueryEvaluationContext qec) {
+    	return (qec instanceof HalyardEvaluationContext) ? ((HalyardEvaluationContext)qec).getForkIndex() : NO_FORKING;
     }
 
     public static int getNumberOfForksFromFunctionArgument(String query, int stage) throws IllegalArgumentException{
@@ -82,8 +90,21 @@ public final class ParallelSplitFunction implements Function {
         } else {
             QueryParserUtil.parseQuery(QueryLanguage.SPARQL, query, null).getTupleExpr().visit(psfv);
         }
-        return psfv.forks;
+        return toActualForkCount(psfv.forks);
     }
+
+    public static int toActualForkCount(int forks) {
+    	return floorToPowerOf2(forks);
+    }
+
+    private static int floorToPowerOf2(int i) {
+    	return (i > 0) ? 1<<powerOf2BitCount(i) : 0;
+    }
+
+    public static int powerOf2BitCount(int i) {
+    	return (i > 0) ? Integer.SIZE - 1 - Integer.numberOfLeadingZeros(i) : 0;
+    }
+
 
     private static final class ParallelSplitFunctionVisitor extends SkipVarsQueryModelVisitor<IllegalArgumentException> {
 		int forks = 0;

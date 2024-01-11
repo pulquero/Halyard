@@ -43,6 +43,7 @@ import org.eclipse.rdf4j.query.GraphQuery;
 import org.eclipse.rdf4j.query.Query;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.TupleQuery;
+import org.eclipse.rdf4j.query.Update;
 import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
@@ -169,7 +170,7 @@ public final class HalyardProfile extends AbstractHalyardTool {
 			}
 
 		});
-        sail.getFunctionRegistry().add(new ParallelSplitFunction(0));
+
 		HBaseRepository repo = new HBaseRepository(sail);
         repo.init();
         try {
@@ -180,6 +181,7 @@ public final class HalyardProfile extends AbstractHalyardTool {
 				if (strippedQuery.startsWith("SELECT") || strippedQuery.startsWith("CONSTRUCT")
 						|| strippedQuery.startsWith("DESCRIBE") || strippedQuery.startsWith("ASK")) {
 					Query q = conn.prepareQuery(queryString);
+					q.setBinding(HBaseSailConnection.FORK_INDEX_BINDING, repo.getValueFactory().createLiteral(0));
 					if (q instanceof BooleanQuery) {
 					    ((BooleanQuery)q).evaluate();
 					} else if (q instanceof TupleQuery) {
@@ -188,7 +190,9 @@ public final class HalyardProfile extends AbstractHalyardTool {
 					    ((GraphQuery)q).evaluate();
 					}
 				} else {
-					conn.prepareUpdate(queryString).execute();
+					Update u = conn.prepareUpdate(queryString);
+					u.setBinding(HBaseSailConnection.FORK_INDEX_BINDING, repo.getValueFactory().createLiteral(0));
+					u.execute();
 				}
         	}
         } finally {

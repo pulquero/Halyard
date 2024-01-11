@@ -75,7 +75,6 @@ import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.query.MutableBindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.AbstractFederatedServiceResolver;
@@ -825,8 +824,4 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
     public IsolationLevel getDefaultIsolationLevel() {
         return IsolationLevels.NONE;
     }
-
-	void addQueryString(MutableBindingSet bs, String queryString) {
-		bs.setBinding(HBaseSailConnection.SOURCE_STRING_BINDING, getValueFactory().createLiteral(queryString));
-	}
 }

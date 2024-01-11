@@ -21,6 +21,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.common.JavaObjectLiteral;
+import com.msd.gin.halyard.function.ExtendedFunction;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.query.ValuePipe;
@@ -859,7 +860,7 @@ class HalyardValueExprEvaluation {
      * Evaluates a function.
      */
     private ValuePipeEvaluationStep precompileFunctionCall(FunctionCall node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
-		Function function = parentStrategy.functionRegistry.get(node.getURI()).orElseThrow(() -> new QueryEvaluationException(String.format("Unknown function '%s'", node.getURI())));
+    	Function function = parentStrategy.functionRegistry.get(node.getURI()).orElseThrow(() -> new QueryEvaluationException(String.format("Unknown function '%s'", node.getURI())));
 
 		// the NOW function is a special case as it needs to keep a shared return
         // value for the duration of the query.
@@ -883,7 +884,7 @@ class HalyardValueExprEvaluation {
 					}
 					Value result;
 			        try {
-			        	result = function.evaluate(tripleSource, arr);
+			        	result = evaluate(function, evalContext, arr);
 			        } catch (ValueExprEvaluationException e) {
 			        	return ValueOrError.fail(e.getMessage());
 			        }
@@ -895,13 +896,21 @@ class HalyardValueExprEvaluation {
 	        	}
         	} else {
         		try {
-		        	Value result = function.evaluate(tripleSource);
+		        	Value result = evaluate(function, evalContext);
 	        		parent.push(result);
 		        } catch (ValueExprEvaluationException e) {
 		        	parent.handleValueError(e.getMessage());
 		        }
         	}
         };
+    }
+
+    private Value evaluate(Function f, QueryEvaluationContext evalContext, Value... args) {
+    	if (f instanceof ExtendedFunction) {
+    		return ((ExtendedFunction)f).evaluate(tripleSource, evalContext, args);
+    	} else {
+    		return f.evaluate(tripleSource, args);
+    	}
     }
 
     /**
@@ -1397,7 +1406,7 @@ class HalyardValueExprEvaluation {
 	        boolean allVarsDistinct = (conVar != null && distinctVarCount == 4) || (conVar == null && distinctVarCount == 3);
 	        if (allVarsDistinct) {
 	        	return (valuePipe, bindings) -> {
-					boolean hasStmt = parentStrategy.hasStatement(sp, bindings);
+					boolean hasStmt = parentStrategy.hasStatement(sp, bindings, evalContext);
 			    	valuePipe.push(hasStmt ? TRUE : FALSE);
 				};
 			}

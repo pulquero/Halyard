@@ -67,6 +67,7 @@ import org.apache.hadoop.fs.Path;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.GraphQuery;
 import org.eclipse.rdf4j.query.GraphQueryResult;
@@ -74,6 +75,7 @@ import org.eclipse.rdf4j.query.Query;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
+import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -565,11 +567,14 @@ public final class HalyardExport extends AbstractHalyardTool {
     /**
      * Export function is called for the export execution with given arguments.
      */
-    static void export(Repository repo, String query, QueryResultWriter writer) throws IOException {
+    static void export(Repository repo, String query, BindingSet bindings, QueryResultWriter writer) throws IOException {
         writer.initTimer();
         writer.log.logStatus("Query execution started");
         try(RepositoryConnection conn = repo.getConnection()) {
             Query q = conn.prepareQuery(QueryLanguage.SPARQL, query);
+            for (Binding b : bindings) {
+            	q.setBinding(b.getName(), b.getValue());
+            }
             if (q instanceof TupleQuery) {
             	try (TupleQueryResult queryResult = ((TupleQuery) q).evaluate()) {
             		writer.writeTupleQueryResult(queryResult);
@@ -715,7 +720,7 @@ public final class HalyardExport extends AbstractHalyardTool {
     	repo.init();
     	try {
 	    	try (QueryResultWriter writer = createWriter(sail.getConfiguration(), log, cmd.getOptionValue('t'), sail.getRDFFactory(), sail.getValueFactory(), cmd.getOptionValue('c'), cmd.getOptionValue('l'), cmd.getOptionValues('p'), cmd.hasOption('r'))) {
-	    		export(repo, query, writer);
+	    		export(repo, query, EmptyBindingSet.getInstance(), writer);
 	    	}
     	} finally {
     		repo.shutDown();
