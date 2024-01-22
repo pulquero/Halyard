@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -125,7 +124,6 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	final FunctionRegistry functionRegistry;
 	final CustomAggregateFunctionRegistry aggregateFunctionRegistry;
 	final TupleFunctionRegistry tupleFunctionRegistry;
-	final AtomicReference<Literal> sharedValueOfNow = new AtomicReference<>();
 
 	/**
 	 * Default constructor of HalyardEvaluationStrategy

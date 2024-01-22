@@ -284,7 +284,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private TupleExpr bindOptimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred, TripleSource tripleSource, EvaluationStrategy strategy) {
 		return optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, (te, d, b) -> {
 			StandardQueryOptimizerPipeline.BINDING_ASSIGNER.optimize(te, d, b);
-			new HalyardConstantOptimizer(strategy).optimize(te, d, b);
+			new HalyardConstantOptimizer(strategy, tripleSource.getValueFactory()).optimize(te, d, b);
 		});
 	}
 

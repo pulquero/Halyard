@@ -323,7 +323,6 @@ final class HalyardTupleExprEvaluation {
         	return precompileOrder((Order) expr, evalContext);
         } else if (expr instanceof QueryRoot) {
         	QueryRoot root = (QueryRoot) expr;
-        	parentStrategy.sharedValueOfNow.set(null);
         	BindingSetPipeEvaluationStep step = precompileTupleExpr(root.getArg(), evalContext);
         	return (parent, bindings) -> {
         		step.evaluate(parentStrategy.track(parent, root), bindings);

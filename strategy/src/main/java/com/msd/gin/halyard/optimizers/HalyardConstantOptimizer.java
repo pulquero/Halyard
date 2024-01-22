@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.optimizers;
 
+import com.msd.gin.halyard.strategy.HalyardEvaluationContext;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -7,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
@@ -37,6 +40,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.FunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.numeric.Rand;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.rdfterm.STRUUID;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.rdfterm.UUID;
+import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.helpers.AbstractSimpleQueryModelVisitor;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 import org.slf4j.Logger;
@@ -47,14 +51,17 @@ public final class HalyardConstantOptimizer implements QueryOptimizer {
 	private static final Logger logger = LoggerFactory.getLogger(HalyardConstantOptimizer.class);
 
 	private final EvaluationStrategy strategy;
+	private final ValueFactory vf;
 
-	public HalyardConstantOptimizer(EvaluationStrategy strategy) {
+	public HalyardConstantOptimizer(EvaluationStrategy strategy, ValueFactory vf) {
 		this.strategy = strategy;
+		this.vf = vf;
 	}
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-		ConstantVisitor visitor = new ConstantVisitor(strategy);
+		HalyardEvaluationContext qec = new HalyardEvaluationContext(dataset, vf);
+		ConstantVisitor visitor = new ConstantVisitor(strategy, qec);
 		tupleExpr.visit(visitor);
 		Set<String> varsBefore = visitor.varNames;
 
@@ -95,9 +102,11 @@ public final class HalyardConstantOptimizer implements QueryOptimizer {
 	private static class ConstantVisitor extends VarNameCollector {
 
 		private final EvaluationStrategy strategy;
+		private final QueryEvaluationContext qec;
 
-		public ConstantVisitor(EvaluationStrategy strategy) {
+		public ConstantVisitor(EvaluationStrategy strategy, QueryEvaluationContext qec) {
 			this.strategy = strategy;
+			this.qec = qec;
 		}
 
 		List<ProjectionElemList> projElemLists = Collections.emptyList();
@@ -185,7 +194,7 @@ public final class HalyardConstantOptimizer implements QueryOptimizer {
 
 			if (isConstant(binaryValueOp.getLeftArg()) && isConstant(binaryValueOp.getRightArg())) {
 				try {
-					Value value = strategy.evaluate(binaryValueOp, EmptyBindingSet.getInstance());
+					Value value = strategy.precompile(binaryValueOp, qec).evaluate(EmptyBindingSet.getInstance());
 					binaryValueOp.replaceWith(new ValueConstant(value));
 				} catch (ValueExprEvaluationException e) {
 					// TODO: incompatible values types(?), remove the affected part
@@ -203,7 +212,7 @@ public final class HalyardConstantOptimizer implements QueryOptimizer {
 
 			if (!(unaryValueOp instanceof AggregateOperator) && isConstant(unaryValueOp.getArg())) {
 				try {
-					Value value = strategy.evaluate(unaryValueOp, EmptyBindingSet.getInstance());
+					Value value = strategy.precompile(unaryValueOp, qec).evaluate(EmptyBindingSet.getInstance());
 					unaryValueOp.replaceWith(new ValueConstant(value));
 				} catch (ValueExprEvaluationException e) {
 					// TODO: incompatible values types(?), remove the affected part
@@ -242,7 +251,7 @@ public final class HalyardConstantOptimizer implements QueryOptimizer {
 			// All arguments are constant
 
 			try {
-				Value value = strategy.evaluate(functionCall, EmptyBindingSet.getInstance());
+				Value value = strategy.precompile(functionCall, qec).evaluate(EmptyBindingSet.getInstance());
 				functionCall.replaceWith(new ValueConstant(value));
 			} catch (ValueExprEvaluationException e) {
 				// TODO: incompatible values types(?), remove the affected part of
@@ -311,7 +320,7 @@ public final class HalyardConstantOptimizer implements QueryOptimizer {
 
 			if (isConstant(node.getArg()) && isConstant(node.getPatternArg()) && isConstant(node.getFlagsArg())) {
 				try {
-					Value value = strategy.evaluate(node, EmptyBindingSet.getInstance());
+					Value value = strategy.precompile(node, qec).evaluate(EmptyBindingSet.getInstance());
 					node.replaceWith(new ValueConstant(value));
 				} catch (ValueExprEvaluationException e) {
 					logger.debug("Failed to evaluate BinaryValueOperator with two constant arguments", e);

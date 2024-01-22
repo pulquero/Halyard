@@ -1046,7 +1046,7 @@ class HalyardValueExprEvaluation {
      * @throws QueryEvaluationException
      */
     private ValuePipeEvaluationStep precompileNow(Now node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
-    	Literal now = parentStrategy.sharedValueOfNow.updateAndGet(current -> current != null ? current : evalContext.getNow());
+    	Literal now = evalContext.getNow();
         return (parent, bindings)-> {
         	parent.push(now);
         };

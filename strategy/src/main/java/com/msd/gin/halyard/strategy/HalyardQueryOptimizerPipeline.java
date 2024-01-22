@@ -69,7 +69,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 		return ExtendedQueryOptimizerPipeline.check(Arrays.asList(
 			ExtendedQueryOptimizerPipeline.BINDING_ASSIGNER,
 			StandardQueryOptimizerPipeline.BINDING_SET_ASSIGNMENT_INLINER,
-			new HalyardConstantOptimizer(strategy),
+			new HalyardConstantOptimizer(strategy, valueFactory),
 			new RegexAsStringFunctionOptimizer(valueFactory),
 			StandardQueryOptimizerPipeline.COMPARE_OPTIMIZER,
 			StandardQueryOptimizerPipeline.CONJUNCTIVE_CONSTRAINT_SPLITTER,
