@@ -66,7 +66,7 @@ public final class HalyardProfile extends AbstractHalyardTool {
             "Example: halyard profile -s my_dataset -q 'select * where {?s owl:sameAs ?o}'"
         );
         addOption("s", "source-dataset", "dataset_table", "Source HBase table with Halyard RDF store", true, true);
-        addOption("q", "query", "sparql_query", "SPARQL query to profile", true, true);
+        addOption("q", "query", "sparql_query", "SPARQL query to profile", false, true);
         addOption("i", "elastic-index", "elastic_index_url", ElasticSettings.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
     }
 
@@ -75,6 +75,11 @@ public final class HalyardProfile extends AbstractHalyardTool {
 		String queryString = cmd.getOptionValue('q');
 		String table = cmd.getOptionValue('s');
 		configureString(cmd, 'i', null);
+		if (queryString == null) {
+			System.out.println("Reading query from stdin (ctrl+D when done)...");
+			queryString = new String(System.in.readAllBytes()); // use platform encoding here!
+		}
+
 		HBaseSail sail = new HBaseSail(getConf(), table, false, 0, true, 0, ElasticSettings.from(getConf()), null, new HBaseSail.SailConnectionFactory() {
 			@Override
 			public HBaseSailConnection createConnection(HBaseSail sail) throws IOException {

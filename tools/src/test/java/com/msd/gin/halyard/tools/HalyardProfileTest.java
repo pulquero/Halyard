@@ -48,11 +48,6 @@ public class HalyardProfileTest {
     }
 
     @Test(expected = ParseException.class)
-    public void testMissingArgs() throws Exception {
-        runProfile("-s", "whatever");
-    }
-
-    @Test(expected = ParseException.class)
     public void testUnknownArg() throws Exception {
         runProfile("-y");
     }
