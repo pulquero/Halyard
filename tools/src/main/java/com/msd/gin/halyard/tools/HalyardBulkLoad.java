@@ -95,13 +95,17 @@ import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.eclipse.rdf4j.rio.ntriples.NTriplesParserSettings;
 import org.eclipse.rdf4j.rio.trix.TriXParser;
 import org.eclipse.rdf4j.rio.turtle.TurtleParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Apache Hadoop MapReduce Tool for bulk loading RDF into HBase
  * @author Adam Sotona (MSD)
  */
 public class HalyardBulkLoad extends AbstractHalyardTool {
-	private static final String TOOL_NAME = "bulkload";
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardBulkLoad.class);
+
+    private static final String TOOL_NAME = "bulkload";
 
     public static final String TARGET_TABLE_PROPERTY = confProperty(TOOL_NAME, "table.name");
 

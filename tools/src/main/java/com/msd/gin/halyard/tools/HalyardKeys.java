@@ -37,9 +37,13 @@ import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class HalyardKeys extends AbstractHalyardTool {
-	private static final String TOOL_NAME = "keys";
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardKeys.class);
+
+    private static final String TOOL_NAME = "keys";
 	private static final String TARGET_PROPERTY = confProperty(TOOL_NAME, "target");
 	private static final String DECIMATION_FACTOR_PROPERTY = confProperty(TOOL_NAME, "decimation-factor");
 	

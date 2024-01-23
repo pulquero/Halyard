@@ -24,12 +24,15 @@ import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.Update;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Command line tool executing SPARQL Update query on Halyard dataset directly
  * @author Adam Sotona (MSD)
  */
 public final class HalyardUpdate extends AbstractHalyardTool {
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardUpdate.class);
 
     public HalyardUpdate() {
         super(

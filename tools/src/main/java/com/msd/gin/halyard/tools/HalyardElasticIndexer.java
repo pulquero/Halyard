@@ -82,13 +82,17 @@ import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.elasticsearch.hadoop.mr.EsOutputFormat;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * MapReduce tool indexing all RDF literals in Elasticsearch
  * @author Adam Sotona (MSD)
  */
 public final class HalyardElasticIndexer extends AbstractHalyardTool {
-	private static final String TOOL_NAME = "esindex";
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardElasticIndexer.class);
+
+    private static final String TOOL_NAME = "esindex";
 
 	private static final String INDEX_URL_PROPERTY = confProperty(TOOL_NAME, "index.url");
 	private static final String CREATE_INDEX_PROPERTY = confProperty(TOOL_NAME, "index.create");

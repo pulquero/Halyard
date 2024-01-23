@@ -81,13 +81,17 @@ import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.sail.SailConnection;
 import org.eclipse.rdf4j.sail.SailException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * MapReduce tool providing summary of a Halyard dataset.
  * @author Adam Sotona (MSD)
  */
 public final class HalyardSummary extends AbstractHalyardTool {
-	private static final String TOOL_NAME = "summary";
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardSummary.class);
+
+    private static final String TOOL_NAME = "summary";
 
     enum SummaryType {
         ClassSummary, PredicateSummary, DomainSummary, RangeSummary, DomainAndRangeSummary;

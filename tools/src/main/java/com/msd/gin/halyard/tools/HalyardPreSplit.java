@@ -64,7 +64,9 @@ import org.slf4j.LoggerFactory;
  * @author Adam Sotona (MSD)
  */
 public final class HalyardPreSplit extends AbstractHalyardTool {
-	private static final String TOOL_NAME = "presplit";
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardPreSplit.class);
+
+    private static final String TOOL_NAME = "presplit";
     private static final String TABLE_PROPERTY = confProperty(TOOL_NAME, "table");
     private static final String SPLIT_LIMIT_PROPERTY = confProperty(TOOL_NAME, "limit");
     private static final String DECIMATION_FACTOR_PROPERTY = confProperty(TOOL_NAME, "decimation-factor");

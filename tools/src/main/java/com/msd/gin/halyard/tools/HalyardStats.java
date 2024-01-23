@@ -95,6 +95,8 @@ import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * MapReduce tool providing statistics about a Halyard dataset. Statistics about a dataset are reported in RDF using the VOID ontology. These statistics can be useful
@@ -102,7 +104,9 @@ import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
  * @author Adam Sotona (MSD)
  */
 public final class HalyardStats extends AbstractHalyardTool {
-	private static final String TOOL_NAME = "stats";
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardStats.class);
+
+    private static final String TOOL_NAME = "stats";
 
     private static final String TARGET = confProperty(TOOL_NAME, "target");
     private static final String GRAPH_THRESHOLD = confProperty(TOOL_NAME, "graph-threshold");

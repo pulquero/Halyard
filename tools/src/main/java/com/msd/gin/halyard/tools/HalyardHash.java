@@ -33,9 +33,13 @@ import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class HalyardHash extends AbstractHalyardTool {
-	private static final String TOOL_NAME = "hash";
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardHash.class);
+
+    private static final String TOOL_NAME = "hash";
 
 	private static final String DECIMATION_FACTOR_PROPERTY = confProperty(TOOL_NAME, "decimation-factor");
 	

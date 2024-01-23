@@ -70,13 +70,17 @@ import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
 public final class HalyardBulkDelete extends AbstractHalyardTool {
-	static final String DEFAULT_GRAPH_KEYWORD = "DEFAULT";
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardBulkDelete.class);
+
+    static final String DEFAULT_GRAPH_KEYWORD = "DEFAULT";
 	private static final String TOOL_NAME = "bulkdelete";
     private static final String SOURCE = confProperty(TOOL_NAME, "source");
     private static final String SNAPSHOT_PATH = confProperty(TOOL_NAME, "snapshot");

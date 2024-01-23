@@ -82,6 +82,8 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.RDFWriterRegistry;
 import org.eclipse.rdf4j.rio.Rio;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ErrorCause;
@@ -96,6 +98,7 @@ import co.elastic.clients.transport.ElasticsearchTransport;
  * @author Adam Sotona (MSD)
  */
 public final class HalyardExport extends AbstractHalyardTool {
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardExport.class);
 
     /**
      * A generic exception during export

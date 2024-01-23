@@ -79,6 +79,8 @@ import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.eclipse.rdf4j.sail.SailException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Apache Hadoop MapReduce tool for performing SPARQL Graph construct queries and then bulk loading the results back into HBase. Essentially, batch process queries
@@ -86,7 +88,9 @@ import org.eclipse.rdf4j.sail.SailException;
  * @author Adam Sotona (MSD)
  */
 public final class HalyardBulkUpdate extends AbstractHalyardTool {
-	private static final String TOOL_NAME = "bulkupdate";
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardBulkUpdate.class);
+
+    private static final String TOOL_NAME = "bulkupdate";
 
     private static final String TABLE_NAME_PROPERTY = confProperty(TOOL_NAME, "table.name");
     private static final String STAGE_PROPERTY = confProperty(TOOL_NAME, "update.stage");

@@ -69,7 +69,7 @@ import org.slf4j.LoggerFactory;
  * @author Adam Sotona (MSD)
  */
 public abstract class AbstractHalyardTool implements Tool {
-    static final Logger LOG = LoggerFactory.getLogger(AbstractHalyardTool.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractHalyardTool.class);
 
     protected static String confProperty(String tool, String key) {
         return "halyard-tools."+tool+"."+key;

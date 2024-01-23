@@ -59,12 +59,15 @@ import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.elasticsearch.hadoop.mr.EsOutputFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Apache Hadoop MapReduce tool for batch exporting of SPARQL queries.
  * @author Adam Sotona (MSD)
  */
 public final class HalyardBulkExport extends AbstractHalyardTool {
+    private static final Logger LOG = LoggerFactory.getLogger(HalyardBulkExport.class);
 
     private static final String SOURCE = "halyard.bulkexport.source";
     private static final String TARGET = "halyard.bulkexport.target";
