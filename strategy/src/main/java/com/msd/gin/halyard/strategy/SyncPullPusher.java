@@ -43,25 +43,29 @@ final class SyncPullPusher implements PullPusher {
 			QueryEvaluationStep evalStep,
 			TupleExpr expr, BindingSet bindingSet, HalyardEvaluationStrategy strategy) {
 		if (!pipe.isClosed()) {
-			CloseableIteration<BindingSet, QueryEvaluationException> iter = strategy.track(evalStep.evaluate(bindingSet), expr);
-			boolean doNext = true;
-			while (doNext && !pipe.isClosed()) {
-	    		try {
-	    			doNext = iter.hasNext();
-	    			if (doNext) {
-	        			BindingSet bs = iter.next();
-	        			doNext = pipe.push(bs);
-	    			}
-	    		} catch (Throwable e) {
-	    			doNext = pipe.handleException(e);
-	    		}
-			}
-	        // close iter first to immediately release resources as pipe.close() maybe non-trivial (e.g. DISTINCT)
 			try {
-				iter.close();
-			} catch (QueryEvaluationException ignore) {
-			}
-			pipe.close();
+				CloseableIteration<BindingSet, QueryEvaluationException> iter = strategy.track(evalStep.evaluate(bindingSet), expr);
+				boolean doNext = true;
+				while (doNext && !pipe.isClosed()) {
+		    		try {
+		    			doNext = iter.hasNext();
+		    			if (doNext) {
+		        			BindingSet bs = iter.next();
+		        			doNext = pipe.push(bs);
+		    			}
+		    		} catch (Throwable nextEx) {
+		    			doNext = pipe.handleException(nextEx);
+		    		}
+				}
+		        // close iter first to immediately release resources as pipe.close() maybe non-trivial (e.g. DISTINCT)
+				try {
+					iter.close();
+				} catch (QueryEvaluationException ignore) {}
+			} catch (Throwable evalEx) {
+    			pipe.handleException(evalEx);
+    		} finally {
+    			pipe.close();
+    		}
 		}
 	}
 }

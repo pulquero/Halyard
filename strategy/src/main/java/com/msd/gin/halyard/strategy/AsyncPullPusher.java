@@ -174,7 +174,10 @@ final class AsyncPullPusher implements PullPusher {
             		}
             	}
             } catch (Throwable e) {
-                if (pipe.handleException(e)) {
+            	// propagate exception
+            	boolean doNext = pipe.handleException(e);
+            	// if we have an iterator then keep going and pull next
+                if (iter != null && doNext) {
                 	return true;
                 }
             }

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -55,17 +56,17 @@ public class ExistsStrategyTest {
     @Test
     public void testDuplicateVars() {
     	// can't optimise
-    	assertThrows(QueryEvaluationException.class, () -> {
+    	assertEquals("Non-optimal strategy", assertThrows(QueryEvaluationException.class, () -> {
             con.prepareBooleanQuery("ask {filter exists {<http://whatever/subj1> ?p ?p}}").evaluate();
-    	});
+    	}).getCause().getMessage());
     }
 
     @Test
     public void testDuplicateVarsWithContext() {
     	// can't optimise
-    	assertThrows(QueryEvaluationException.class, () -> {
+    	assertEquals("Non-optimal strategy", assertThrows(QueryEvaluationException.class, () -> {
             con.prepareBooleanQuery("ask {filter exists { GRAPH ?s {?s <http://whatever/pred> ?o} }}").evaluate();
-    	});
+    	}).getCause().getMessage());
     }
 
     @AfterEach

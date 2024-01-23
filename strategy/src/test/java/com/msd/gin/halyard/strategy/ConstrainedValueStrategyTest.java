@@ -6,6 +6,7 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.GEO;
 import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.Repository;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ConstrainedValueStrategyTest {
@@ -35,6 +37,16 @@ public class ConstrainedValueStrategyTest {
     public void tearDown() throws Exception {
         con.close();
         repo.shutDown();
+    }
+
+    @Test
+    public void testFailIfNotUsingConstraint() {
+    	assertEquals("Non-optimal strategy", assertThrows(QueryEvaluationException.class, () -> {
+        	String q ="SELECT ?s { ?s ?p ?o }";
+            try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
+    	        res.hasNext();
+            }
+    	}).getCause().getMessage());
     }
 
     @Test
