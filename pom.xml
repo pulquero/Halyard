@@ -7,6 +7,7 @@
 	<artifactId>halyard</artifactId>
 	<version>4.9-SNAPSHOT</version>
 	<packaging>pom</packaging>
+	<organization><name>halyard</name></organization>
 	<name>Halyard-star</name>
 	<description>A fork of Halyard with support for RDF-star</description>
 	<url>https://github.com/pulquero/Halyard</url>
@@ -105,6 +106,19 @@
 				</configuration>
 			</plugin>
 			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>buildnumber-maven-plugin</artifactId>
+				<version>3.1.0</version>
+				<executions>
+					<execution>
+						<phase>validate</phase>
+						<goals>
+							<goal>create</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
 				<version>3.2.0</version>
@@ -113,6 +127,12 @@
 						<manifest>
 							<addClasspath>true</addClasspath>
 						</manifest>
+						<manifest>
+							<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+						</manifest>
+						<manifestEntries>
+							<Implementation-Build>${buildNumber}</Implementation-Build>
+						</manifestEntries>
 					</archive>
 				</configuration>
 			</plugin>
