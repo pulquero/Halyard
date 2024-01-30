@@ -2,10 +2,12 @@ package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.vocab.HALYARD;
 
-import java.io.Serializable;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.Objects;
+import java.util.zip.GZIPOutputStream;
 
-import org.apache.commons.lang3.SerializationUtils;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 
@@ -29,7 +31,13 @@ public class JavaObjectLiteral<T> extends AbstractDataLiteral implements ObjectL
 
 	@Override
 	public String getLabel() {
-		return Hashes.encode(SerializationUtils.serialize((Serializable)obj));
+		ByteArrayOutputStream out = new ByteArrayOutputStream(512);
+		try (ObjectOutputStream objOut = new ObjectOutputStream(new GZIPOutputStream(out))) {
+			objOut.writeObject(obj);
+		} catch (IOException ioe) {
+			throw new RuntimeException(ioe);
+		}
+		return Hashes.encode(out.toByteArray());
 	}
 
 	@Override
