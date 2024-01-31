@@ -94,7 +94,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 
     private static final String TABLE_NAME_PROPERTY = confProperty(TOOL_NAME, "table.name");
     private static final String STAGE_PROPERTY = confProperty(TOOL_NAME, "update.stage");
-    private static final long STATUS_UPDATE_INTERVAL = 10000L;
+    private static final int MAX_STATUS_UPDATE_INTERVAL = 10000;
 
     enum Counters {
 		ADDED_STATEMENTS,
@@ -108,6 +108,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
      */
     public static final class SPARQLUpdateMapper extends Mapper<NullWritable, Void, ImmutableBytesWritable, KeyValue> {
 
+        private int statusUpdateInterval = 1;
         private String tableName;
         private long timestamp;
         private int stage;
@@ -173,7 +174,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 								int insertedKvs = super.insertStatement(subj, pred, obj, ctx, timestamp);
 								long _addedStmts = addedStmts.incrementAndGet();
 								addedKvs.addAndGet(insertedKvs);
-								if (_addedStmts % STATUS_UPDATE_INTERVAL == 0) {
+								if (_addedStmts % statusUpdateInterval == 0L) {
 									updateStatus(context);
 								}
 								return insertedKvs;
@@ -194,7 +195,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 								int deletedKvs = super.deleteStatement(subj, pred, obj, ctx, timestamp);
 								long _removedStmts = removedStmts.incrementAndGet();
 								removedKvs.addAndGet(deletedKvs);
-								if (_removedStmts % STATUS_UPDATE_INTERVAL == 0) {
+								if (_removedStmts % statusUpdateInterval == 0L) {
 									updateStatus(context);
 								}
 								return deletedKvs;
@@ -261,6 +262,9 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 			context.getCounter(Counters.REMOVED_KVS).setValue(_removedKvs);
             context.setStatus(String.format("%s - %d (%d) added %d (%d) removed", queryName, _addedStmts, _addedKvs, _removedStmts, _removedKvs));
             LOG.info("{} statements ({} KeyValues) added and {} ({} KeyValues) removed",     _addedStmts, _addedKvs, _removedStmts, _removedKvs);
+            if (statusUpdateInterval < MAX_STATUS_UPDATE_INTERVAL) {
+                statusUpdateInterval *= 10;
+            }
 		}
     }
 
