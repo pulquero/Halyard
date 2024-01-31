@@ -12,6 +12,8 @@ import org.eclipse.rdf4j.query.algebra.SingletonSet;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.UnaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.Union;
+import org.eclipse.rdf4j.query.algebra.ValueConstant;
+import org.eclipse.rdf4j.query.algebra.ValueExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
 
 public final class Algebra {
@@ -120,6 +122,18 @@ public final class Algebra {
 	        v = bindings.getValue(var.getName());
 	    }
 	    return v;
+	}
+
+	public static Value evaluateConstant(ValueExpr expr, BindingSet bindings) {
+		Value v;
+		if (expr instanceof ValueConstant) {
+			v = ((ValueConstant) expr).getValue();
+		} else if (expr instanceof Var) {
+			v = Algebra.getVarValue((Var) expr, bindings);
+		} else {
+			v = null;
+		}
+		return v;
 	}
 
 	public static void _initResultSizeActual(QueryModelNode queryModelNode) {

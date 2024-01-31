@@ -18,6 +18,7 @@ package com.msd.gin.halyard.function;
 
 import static com.msd.gin.halyard.vocab.HALYARD.PARALLEL_SPLIT_FUNCTION;
 
+import com.msd.gin.halyard.algebra.Algebra;
 import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.strategy.HalyardEvaluationContext;
 
@@ -25,10 +26,10 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.algebra.FunctionCall;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
-import org.eclipse.rdf4j.query.algebra.ValueConstant;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
@@ -80,8 +81,8 @@ public final class ParallelSplitFunction implements ExtendedFunction {
     	return (qec instanceof HalyardEvaluationContext) ? ((HalyardEvaluationContext)qec).getForkIndex() : NO_FORKING;
     }
 
-    public static int getNumberOfForksFromFunctionArgument(String query, int stage) throws IllegalArgumentException{
-        ParallelSplitFunctionVisitor psfv = new ParallelSplitFunctionVisitor();
+    public static int getNumberOfForksFromFunctionArgument(String query, int stage, BindingSet bindings) throws IllegalArgumentException{
+        ParallelSplitFunctionVisitor psfv = new ParallelSplitFunctionVisitor(bindings);
         if (stage >= 0) {
             List<UpdateExpr> exprs = QueryParserUtil.parseUpdate(QueryLanguage.SPARQL, query, null).getUpdateExprs();
             if (stage < exprs.size()) {
@@ -107,8 +108,14 @@ public final class ParallelSplitFunction implements ExtendedFunction {
 
 
     private static final class ParallelSplitFunctionVisitor extends SkipVarsQueryModelVisitor<IllegalArgumentException> {
+    	final BindingSet bindings;
 		int forks = 0;
-        @Override
+
+		ParallelSplitFunctionVisitor(BindingSet bindings) {
+			this.bindings = bindings;
+		}
+
+		@Override
         public void meet(FunctionCall node) throws IllegalArgumentException {
             if (PARALLEL_SPLIT_FUNCTION.stringValue().equals(node.getURI())) {
                 List<ValueExpr> args = node.getArgs();
@@ -117,7 +124,11 @@ public final class ParallelSplitFunction implements ExtendedFunction {
                 }
                 int num;
                 try {
-                    num = Integer.parseInt(((ValueConstant)args.get(0)).getValue().stringValue());
+                	Value v = Algebra.evaluateConstant(args.get(0), bindings);
+                	if (v == null) {
+                    	throw new IllegalArgumentException();
+                	}
+                    num = Integer.parseInt(v.stringValue());
                     if (num < 1) {
                     	throw new IllegalArgumentException();
                     }

@@ -41,6 +41,7 @@ import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.util.StringUtils;
+import org.eclipse.rdf4j.query.BindingSet;
 
 /**
  *
@@ -53,40 +54,40 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
     public static final String QUERY_SUFFIX = ".query";
     public static final String REPEAT_SUFFIX = ".repeat";
 
-    public static void addQuery(Configuration conf, String name, String query, int stage) {
+    public static void addQuery(Configuration conf, String name, String query, int stage, BindingSet bindings) {
         Collection<String> qNames = conf.getStringCollection(QUERIES);
         qNames.add(name);
         conf.set(PREFIX + name + QUERY_SUFFIX, query);
-		int repeatCount = Math.max(1, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, stage));
+		int repeatCount = Math.max(1, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, stage, bindings));
         conf.setInt(PREFIX + name + REPEAT_SUFFIX, repeatCount);
         conf.setStrings(QUERIES, qNames.toArray(new String[qNames.size()]));
     }
 
-    private static void addQuery(Configuration conf, FileStatus fileStatus, int stage) throws IOException {
+    private static void addQuery(Configuration conf, FileStatus fileStatus, int stage, BindingSet bindings) throws IOException {
         Path path = fileStatus.getPath();
         try (FSDataInputStream in = path.getFileSystem(conf).open(path)) {
             byte buffer[] = new byte[(int)fileStatus.getLen()];
             IOUtils.readFully(in, buffer);
             String name = path.getName();
             String query = Bytes.toString(buffer);
-            addQuery(conf, name, query, stage);
+            addQuery(conf, name, query, stage, bindings);
         }
     }
 
-    private static void addQueryRecursively(Configuration conf, Path path, int stage)
+    private static void addQueryRecursively(Configuration conf, Path path, int stage, BindingSet bindings)
         throws IOException {
         RemoteIterator<LocatedFileStatus> iter = path.getFileSystem(conf).listLocatedStatus(path);
         while (iter.hasNext()) {
             LocatedFileStatus stat = iter.next();
             if (stat.isDirectory()) {
-                addQueryRecursively(conf, stat.getPath(), stage);
+                addQueryRecursively(conf, stat.getPath(), stage, bindings);
             } else {
-                addQuery(conf, stat, stage);
+                addQuery(conf, stat, stage, bindings);
             }
         }
     }
 
-    public static void setQueriesFromDirRecursive(Configuration conf, String dirs, int stage) throws IOException {
+    public static void setQueriesFromDirRecursive(Configuration conf, String dirs, int stage, BindingSet bindings) throws IOException {
         for (String dir : StringUtils.split(dirs)) {
             Path p = new Path(StringUtils.unEscapeString(dir));
             FileStatus[] matches = p.getFileSystem(conf).globStatus(p);
@@ -97,9 +98,9 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
             } else {
                 for (FileStatus globStat : matches) {
                     if (globStat.isDirectory()) {
-                        addQueryRecursively(conf, p, stage);
+                        addQueryRecursively(conf, p, stage, bindings);
                     } else {
-                        addQuery(conf, globStat, stage);
+                        addQuery(conf, globStat, stage, bindings);
                     }
                 }
             }

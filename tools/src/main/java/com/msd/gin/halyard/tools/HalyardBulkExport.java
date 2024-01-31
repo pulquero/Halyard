@@ -49,10 +49,12 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.GraphQueryResult;
 import org.eclipse.rdf4j.query.TupleQueryResult;
-import org.eclipse.rdf4j.query.impl.MapBindingSet;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
@@ -118,8 +120,13 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         	HBaseRepository repo = new HBaseRepository(sail);
             try {
             	repo.init();
-            	MapBindingSet bindings = new MapBindingSet();
-				bindings.setBinding(HBaseSailConnection.FORK_INDEX_BINDING, repo.getValueFactory().createLiteral(partitionIndex));
+            	QueryBindingSet allBindings = new QueryBindingSet();
+				allBindings.setBinding(HBaseSailConnection.FORK_INDEX_BINDING, repo.getValueFactory().createLiteral(partitionIndex));
+                BindingSet configBindings = AbstractHalyardTool.getBindings(cfg, repo.getValueFactory());
+                for (Binding binding : configBindings) {
+                	allBindings.setBinding(binding.getName(), binding.getValue());
+                }
+
                 HalyardExport.QueryResultWriter writer;
                 if (EsOutputFormat.class.getName().equals(target)) {
                 	writer = new EsOutputResultWriter(log, sail.getRDFFactory(), sail.getValueFactory(), context);
@@ -127,7 +134,7 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
                 	writer = HalyardExport.createWriter(sail.getConfiguration(), log, MessageFormat.format(target, bName, partitionIndex), sail.getRDFFactory(), sail.getValueFactory(), cfg.get(JDBC_DRIVER), cfg.get(JDBC_CLASSPATH), props, false);
                 }
                 try {
-	        		HalyardExport.export(repo, query, bindings, writer);
+	        		HalyardExport.export(repo, query, allBindings, writer);
                 } catch (ExportInterruptedException e) {
                 	throw (InterruptedException) e.getCause();
 	            } finally {
@@ -220,11 +227,14 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         addOption("l", "jdbc-driver-classpath", "driver_classpath", "JDBC driver classpath delimited by ':'", false, true);
         addOption("c", "jdbc-driver-class", "driver_class", "JDBC driver class name", false, true);
         addOption("i", "elastic-index", "elastic_index_url", ElasticSettings.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
+        addKeyValueOption("$", null, "binding=value", BINDING_PROPERTY_PREFIX, "Optionally specify bindings");
     }
 
     @Override
     protected int run(CommandLine cmd) throws Exception {
-        if (!cmd.getArgList().isEmpty()) throw new HalyardExport.ExportException("Unknown arguments: " + cmd.getArgList().toString());
+        if (!cmd.getArgList().isEmpty()) {
+        	throw new HalyardExport.ExportException("Unknown arguments: " + cmd.getArgList().toString());
+        }
         String source = cmd.getOptionValue('s');
         String queryFiles = cmd.getOptionValue('q');
         String query = cmd.getOptionValue("query");
@@ -254,6 +264,7 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
             getConf().setStrings(JDBC_PROPERTIES, props);
         }
         configureString(cmd, 'i', null);
+        configureBindings(cmd, '$');
 
         if (isEsExport) {
         	URL targetUrl = new URL(target);
@@ -288,6 +299,7 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
             }
             getConf().set(JDBC_CLASSPATH, newCp.toString());
         }
+        BindingSet bindings = AbstractHalyardTool.getBindings(getConf(), SimpleValueFactory.getInstance());
         Job job = Job.getInstance(getConf(), "HalyardBulkExport " + source + " -> " + target);
         job.setJarByClass(HalyardBulkExport.class);
         job.setMaxMapAttempts(1);
@@ -297,9 +309,9 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         job.setSpeculativeExecution(false);
         job.setInputFormatClass(QueryInputFormat.class);
 		if (queryFiles != null) {
-			QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, -1);
+			QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, -1, bindings);
 		} else {
-            QueryInputFormat.addQuery(job.getConfiguration(), "query", query, -1);
+            QueryInputFormat.addQuery(job.getConfiguration(), "query", query, -1, bindings);
 		}
         if (isEsExport) {
         	job.setOutputFormatClass(EsOutputFormat.class);

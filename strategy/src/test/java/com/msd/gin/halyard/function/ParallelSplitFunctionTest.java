@@ -23,8 +23,12 @@ import com.msd.gin.halyard.strategy.HalyardEvaluationContext;
 
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
+import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 import org.eclipse.rdf4j.query.impl.SimpleDataset;
 import org.junit.Test;
 
@@ -101,42 +105,42 @@ public class ParallelSplitFunctionTest {
 
     @Test
     public void testGetNumberOfForksFromFunction() {
-        assertEquals(8, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(8, ?s)}", -1));
+        assertEquals(8, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(8, ?s)}", -1, EmptyBindingSet.getInstance()));
     }
 
     @Test
     public void testGetNumberOfForksFromSelectWithoutFunction() {
-        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o.}", -1));
+        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o.}", -1, EmptyBindingSet.getInstance()));
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testGetNumberOfForksNoArgs() {
-        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">()}", -1);
+        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">()}", -1, EmptyBindingSet.getInstance());
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testGetNumberOfForksNANArg() {
-        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(\"not a number\", ?s)}", -1);
+        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(\"not a number\", ?s)}", -1, EmptyBindingSet.getInstance());
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void testGetNumberOfForksVarArg() {
-        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(?p, ?s)}", -1);
+    public void testGetNumberOfForksUnboundVarArg() {
+        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(?p, ?s)}", -1, EmptyBindingSet.getInstance());
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testGetNumberOfForksNegativeArg() {
-        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(-1, ?s)}", -1);
+        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(-1, ?s)}", -1, EmptyBindingSet.getInstance());
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testGetNumberOfForksDoubleFunction() {
-        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(8, ?s) filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(3, ?s)}", -1);
+        ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(8, ?s) filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(3, ?s)}", -1, EmptyBindingSet.getInstance());
     }
 
     @Test
     public void testGetNumberOfForksDoubleMatchingFunction() {
-        assertEquals(8, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(8, ?s) filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(8, ?s) filter <http://whatever/function>()}", -1));
+        assertEquals(8, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(8, ?s) filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(8, ?s) filter <http://whatever/function>()}", -1, EmptyBindingSet.getInstance()));
     }
 
     @Test
@@ -144,10 +148,18 @@ public class ParallelSplitFunctionTest {
         String query = "insert {?s ?p ?o} where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(16, ?s)};"
             + "clear all;"
             + "delete {?s ?p ?o} where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(8, ?s)}";
-        assertEquals(16, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 0));
-        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 1));
-        assertEquals(8, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 2));
-        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 3));
+        BindingSet bs = EmptyBindingSet.getInstance();
+        assertEquals(16, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 0, bs));
+        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 1, bs));
+        assertEquals(8, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 2, bs));
+        assertEquals(0, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, 3, bs));
     }
 
+
+    @Test
+    public void testGetNumberOfForksFromBindings() {
+    	QueryBindingSet bs = new QueryBindingSet();
+    	bs.setBinding("forks", SimpleValueFactory.getInstance().createLiteral(8));
+        assertEquals(8, ParallelSplitFunction.getNumberOfForksFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(?forks, ?s)}", -1, bs));
+    }
 }

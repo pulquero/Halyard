@@ -353,14 +353,7 @@ final class HalyardTupleExprEvaluation {
 					ValueExpr constraintFunc = funcConstraint.getFunction();
 					Compare.CompareOp constraintOp = funcConstraint.getOp();
 					ValueExpr constraintValue = funcConstraint.getValue();
-					Value v;
-					if (constraintValue instanceof ValueConstant) {
-						v = ((ValueConstant) constraintValue).getValue();
-					} else if (constraintValue instanceof Var) {
-						v = Algebra.getVarValue((Var) constraintValue, bindings);
-					} else {
-						v = null;
-					}
+					Value v = Algebra.evaluateConstant(constraintValue, bindings);
 					if (v != null) {
 						if (constraintOp == Compare.CompareOp.EQ) {
 							if (constraintFunc instanceof Datatype) {

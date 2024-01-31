@@ -1399,7 +1399,7 @@ class HalyardValueExprEvaluation {
      */
     private ValuePipeEvaluationStep precompileExists(Exists node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
     	TupleExpr subQuery = node.getSubQuery();
-    	if ((parentStrategy.getTripleSource() instanceof ExtendedTripleSource) && (subQuery instanceof StatementPattern)) {
+    	if ((tripleSource instanceof ExtendedTripleSource) && (subQuery instanceof StatementPattern)) {
     		StatementPattern sp = (StatementPattern) subQuery;
             final Var conVar = sp.getContextVar(); //graph or target context
 	        int distinctVarCount = sp.getBindingNames().size();

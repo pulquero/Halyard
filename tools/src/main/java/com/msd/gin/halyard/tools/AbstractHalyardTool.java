@@ -62,8 +62,11 @@ import org.apache.hadoop.hbase.util.BloomFilterUtil;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.util.Tool;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -230,12 +233,21 @@ public abstract class AbstractHalyardTool implements Tool {
 
     protected void configureBindings(CommandLine cmd, char opt) {
 	    Properties bindings = cmd.getOptionProperties(Character.toString(opt));
-	    for (String key : bindings.stringPropertyNames()) {
-	    	String value = bindings.getProperty(key);
+	    for (String name : bindings.stringPropertyNames()) {
+	    	String value = bindings.getProperty(name);
 	    	// validate value
 	    	NTriplesUtil.parseValue(value, SimpleValueFactory.getInstance());
-	    	getConf().set(BINDING_PROPERTY_PREFIX+key, value);
+	    	getConf().set(BINDING_PROPERTY_PREFIX+name, value);
 	    }
+    }
+
+    protected static BindingSet getBindings(Configuration conf, ValueFactory vf) {
+        Map<String,String> bindingProps = conf.getPropsWithPrefix(BINDING_PROPERTY_PREFIX);
+    	QueryBindingSet bindingSet = new QueryBindingSet(bindingProps.size()+1);
+        for (Map.Entry<String,String> binding : bindingProps.entrySet()) {
+        	bindingSet.setBinding(binding.getKey(), NTriplesUtil.parseValue(binding.getValue(), vf));
+        }
+        return bindingSet;
     }
 
     protected final void addOption(String opt, String longOpt, String argName, String description, boolean required, boolean single) {

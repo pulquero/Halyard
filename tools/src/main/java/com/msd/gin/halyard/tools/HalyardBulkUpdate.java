@@ -61,6 +61,7 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
@@ -345,6 +346,8 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                HBaseConfiguration.class,
                AuthenticationProtos.class);
         HBaseConfiguration.addHbaseResources(conf);
+        // get bindings from merged configs
+        BindingSet bindings = AbstractHalyardTool.getBindings(conf, SimpleValueFactory.getInstance());
         List<JsonInfo> infos = new ArrayList<>();
         int stages = 1;
         for (int stage = 0; stage < stages; stage++) {
@@ -361,9 +364,9 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 				RegionLocator regionLocator = conn.getRegionLocator(hTable.getName());
 				HFileOutputFormat2.configureIncrementalLoad(job, hTable.getDescriptor(), regionLocator);
 				if (queryFiles != null) {
-					QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, stage);
+					QueryInputFormat.setQueriesFromDirRecursive(job.getConfiguration(), queryFiles, stage, bindings);
 				} else {
-		            QueryInputFormat.addQuery(job.getConfiguration(), "update-operation", query, stage);
+		            QueryInputFormat.addQuery(job.getConfiguration(), "update-operation", query, stage, bindings);
 				}
                 Path outPath = new Path(workdir, "stage"+stage);
                 FileOutputFormat.setOutputPath(job, outPath);

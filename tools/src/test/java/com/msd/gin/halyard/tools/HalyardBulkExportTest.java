@@ -21,6 +21,7 @@ import com.msd.gin.halyard.sail.HBaseSail;
 
 import java.io.File;
 import java.io.PrintStream;
+import java.nio.file.Files;
 
 import org.apache.hadoop.util.ToolRunner;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -106,7 +107,7 @@ public class HalyardBulkExportTest extends AbstractHalyardToolTest {
     }
 
 	@Test
-    public void testSingleBulkExport() throws Exception {
+    public void testSingleQueryBulkExport() throws Exception {
 		String table = "singleBulkExportTable";
 		createData(table);
 
@@ -118,6 +119,24 @@ public class HalyardBulkExportTest extends AbstractHalyardToolTest {
         File f = new File(root, "test_singleBulkExport.csv");
         assertTrue(f.isFile());
         assertEquals(1001, HalyardExportTest.getLinesCount(f.toURI().toURL().toString(), null));
+
+        f.delete();
+        root.delete();
+    }
+
+	@Test
+    public void testSingleQueryBulkExportWithBinding() throws Exception {
+		String table = "singleBulkExportTableWithBinding";
+		createData(table);
+
+        File root = createTempDir("test_singleBulkExportWithBinding");
+
+        assertEquals(0, ToolRunner.run(HBaseServerTestInstance.getInstanceConfig(), new HalyardBulkExport(),
+                new String[]{"-s", table, "--query", "select * where {bind(?arg as ?v)}", "-t", root.toURI().toURL().toString() + "test_singleBulkExportWithBinding.csv", "-$arg=\"foobar\""}));
+
+        File f = new File(root, "test_singleBulkExportWithBinding.csv");
+        assertTrue(f.isFile());
+        assertEquals("foobar", Files.readAllLines(f.toPath()).get(1));
 
         f.delete();
         root.delete();
