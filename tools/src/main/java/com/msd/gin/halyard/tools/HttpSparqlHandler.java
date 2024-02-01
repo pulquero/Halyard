@@ -74,7 +74,6 @@ import javax.management.openmbean.TabularData;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.StringBuilderWriter;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.eclipse.rdf4j.common.exception.RDF4JException;
@@ -581,48 +580,15 @@ public final class HttpSparqlHandler implements HttpHandler {
      */
     private void evaluateQuery(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
     	if (sparqlQuery.target != null) {
-    		String esIndexUrl = sparqlQuery.target;
-    		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
-    		Configuration conf = sail.getConfiguration();
-            long exportedCount;
-            try (SailRepositoryConnection connection = repository.getConnection()) {
-            	connection.begin();
-    	        SailQuery query = connection.prepareQuery(QueryLanguage.SPARQL, sparqlQuery.getQuery(), null);
-    			if (!(query instanceof TupleQuery)) {
-    				throw new InvalidRequestException("Only SELECT queries are supported for Elasticsearch export");
-    			}
-    	        addBindings(query, sparqlQuery.getBindings());
-    	        Dataset dataset = sparqlQuery.getDataset();
-    	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
-    	            // This will include default graphs and named graphs from  the request parameters but default graphs and
-    	            // named graphs contained in the string query will be ignored
-    	            query.getParsedQuery().setDataset(dataset);
-    	        }
-	            LOGGER.info("Indexing results from query:\nBindings: {}\n{}", sparqlQuery.getBindings(), sparqlQuery.getQuery());
-        		try (HalyardExport.ElasticsearchWriter writer = new HalyardExport.ElasticsearchWriter(new HalyardExport.StatusLog() {
-						public void tick() {}
-						public void logStatus(String msg) {
-							LOGGER.info(msg);
-						}
-					}, ElasticSettings.from(esIndexUrl, conf), sail.getRDFFactory(), repository.getValueFactory())) {
-	            	writer.writeTupleQueryResult(((TupleQuery)query).evaluate());
-	            	connection.commit();
-	            	exportedCount = writer.getExportedCount();
-	            } catch (GeneralSecurityException e) {
-	            	throw new IOException(e);
-				}
-        	}
-
-            exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
-            exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
-            BufferedOutputStream response = new BufferedOutputStream(exchange.getResponseBody());
-        	JsonGenerator json = new ObjectMapper().createGenerator(response);
-        	json.writeStartObject();
-        	json.writeNumberField("totalExported", exportedCount);
-        	json.writeEndObject();
-        	json.close();
-            // commit the response only if there are no exceptions
-            response.close();
+    		if (sparqlQuery.mapReduce) {
+                validateMapReduce(sparqlQuery);
+        		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
+        		List<HalyardBulkExport.JsonInfo> infos = HalyardBulkExport.executeExport(sail.getConfiguration(), sail.getTableName(), sparqlQuery.getQuery(), sparqlQuery.target, sparqlQuery.bindings);
+        		sendMapReduceResults(exchange, infos);
+    		} else {
+    			List<JsonExportInfo> infos = executeExport(sparqlQuery);
+    			sendResults(exchange, infos);
+    		}
     	} else {
     		QueryEvaluator<?,?,?> evaluator = getQueryEvaluator(sparqlQuery.getQuery(), exchange);
             OutputStream response;
@@ -648,6 +614,39 @@ public final class HttpSparqlHandler implements HttpHandler {
             response.close();
     	}
        	LOGGER.info("Query successfully processed");
+    }
+
+    private List<JsonExportInfo> executeExport(SparqlQuery sparqlQuery) throws IOException, InvalidRequestException {
+		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
+        try (SailRepositoryConnection connection = repository.getConnection()) {
+        	connection.begin();
+	        SailQuery query = connection.prepareQuery(QueryLanguage.SPARQL, sparqlQuery.getQuery(), null);
+			if (!(query instanceof TupleQuery)) {
+				throw new InvalidRequestException("Only SELECT queries are supported for Elasticsearch export");
+			}
+	        addBindings(query, sparqlQuery.getBindings());
+	        Dataset dataset = sparqlQuery.getDataset();
+	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
+	            // This will include default graphs and named graphs from  the request parameters but default graphs and
+	            // named graphs contained in the string query will be ignored
+	            query.getParsedQuery().setDataset(dataset);
+	        }
+            LOGGER.info("Indexing results from query:\nBindings: {}\n{}", sparqlQuery.getBindings(), sparqlQuery.getQuery());
+    		try (HalyardExport.ElasticsearchWriter writer = new HalyardExport.ElasticsearchWriter(new HalyardExport.StatusLog() {
+					public void tick() {}
+					public void logStatus(String msg) {
+						LOGGER.info(msg);
+					}
+				}, ElasticSettings.from(sparqlQuery.target, sail.getConfiguration()), sail.getRDFFactory(), repository.getValueFactory())) {
+            	writer.writeTupleQueryResult(((TupleQuery)query).evaluate());
+            	connection.commit();
+            	JsonExportInfo info = new JsonExportInfo();
+            	info.totalExported = writer.getExportedCount();
+            	return Collections.singletonList(info);
+            } catch (GeneralSecurityException e) {
+            	throw new IOException(e);
+			}
+    	}
     }
 
     private QueryEvaluator<?,?,?> getQueryEvaluator(String queryString, HttpExchange exchange) throws IOException {
@@ -702,38 +701,15 @@ public final class HttpSparqlHandler implements HttpHandler {
 
     private void evaluateUpdate(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
         if (sparqlQuery.mapReduce) {
+            validateMapReduce(sparqlQuery);
             String updateString = sparqlQuery.getUpdate();
-            Dataset dataset = sparqlQuery.getDataset();
-	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
-	        	throw new InvalidRequestException("Map-reduce doesn't support graph-uri parameters");
-	        }
     		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
     		List<HalyardBulkUpdate.JsonInfo> infos = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlQuery.bindings);
-    		if (infos != null) {
-		        StringBuilderWriter buf = new StringBuilderWriter(128);
-	        	JsonGenerator json = new ObjectMapper().createGenerator(buf);
-	        	json.writeStartObject();
-	        	json.writeObjectField("jobs", infos);
-	        	json.writeEndObject();
-	        	json.close();
-	        	buf.close();
-		    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
-		    	sendResponse(exchange, HttpURLConnection.HTTP_OK, buf.toString());
-    		} else {
-    			throw new Exception("Map reduce failed");
-    		}
+    		sendMapReduceResults(exchange, infos);
         } else {
         	List<JsonUpdateInfo> infos = executeUpdate(sparqlQuery);
         	if (infos != null) {
-		        StringBuilderWriter buf = new StringBuilderWriter(128);
-	        	JsonGenerator json = new ObjectMapper().createGenerator(buf);
-	        	json.writeStartObject();
-	        	json.writeObjectField("results", infos);
-		    	json.writeEndObject();
-		    	json.close();
-		    	buf.close();
-		    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
-		    	sendResponse(exchange, HttpURLConnection.HTTP_OK, buf.toString());
+        		sendResults(exchange, infos);
 	        } else {
 	        	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
 	        }
@@ -776,6 +752,41 @@ public final class HttpSparqlHandler implements HttpHandler {
     	} else {
     		return null;
     	}
+    }
+
+    private void validateMapReduce(SparqlQuery sparqlQuery) throws InvalidRequestException {
+        Dataset dataset = sparqlQuery.getDataset();
+        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
+        	throw new InvalidRequestException("Map-reduce doesn't support graph-uri parameters");
+        }
+    }
+
+    private void sendResults(HttpExchange exchange, List<?> infos) throws IOException {
+        StringBuilderWriter buf = new StringBuilderWriter(128);
+    	JsonGenerator json = new ObjectMapper().createGenerator(buf);
+    	json.writeStartObject();
+    	json.writeObjectField("results", infos);
+    	json.writeEndObject();
+    	json.close();
+    	buf.close();
+    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
+    	sendResponse(exchange, HttpURLConnection.HTTP_OK, buf.toString());
+    }
+
+    private void sendMapReduceResults(HttpExchange exchange, List<?> infos) throws IOException {
+		if (infos != null) {
+	        StringBuilderWriter buf = new StringBuilderWriter(128);
+        	JsonGenerator json = new ObjectMapper().createGenerator(buf);
+        	json.writeStartObject();
+        	json.writeObjectField("jobs", infos);
+        	json.writeEndObject();
+        	json.close();
+        	buf.close();
+	    	exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT);
+	    	sendResponse(exchange, HttpURLConnection.HTTP_OK, buf.toString());
+		} else {
+			throw new IOException("Map reduce failed");
+		}
     }
 
     private void loadData(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
@@ -1312,6 +1323,10 @@ public final class HttpSparqlHandler implements HttpHandler {
     	abstract void evaluate(SailQuery query, H handler);
     }
 
+
+    static class JsonExportInfo {
+    	public long totalExported;
+    }
 
     static class JsonUpdateInfo {
     	public long totalInserted;

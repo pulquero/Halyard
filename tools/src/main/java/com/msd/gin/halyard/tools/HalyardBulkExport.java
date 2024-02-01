@@ -31,7 +31,9 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.MissingOptionException;
@@ -71,8 +73,8 @@ import org.slf4j.LoggerFactory;
 public final class HalyardBulkExport extends AbstractHalyardTool {
     private static final Logger LOG = LoggerFactory.getLogger(HalyardBulkExport.class);
 
-    private static final String SOURCE = "halyard.bulkexport.source";
-    private static final String TARGET = "halyard.bulkexport.target";
+    private static final String SOURCE_TABLE = "halyard.bulkexport.source";
+    private static final String TARGET_URL = "halyard.bulkexport.target";
     private static final String JDBC_DRIVER = "halyard.bulkexport.jdbc.driver";
     private static final String JDBC_CLASSPATH = "halyard.bulkexport.jdbc.classpath";
     private static final String JDBC_PROPERTIES = "halyard.bulkexport.jdbc.properties";
@@ -114,8 +116,7 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
                     props[i] = new String(Base64.decodeBase64(props[i]), StandardCharsets.UTF_8);
                 }
             }
-            String source = cfg.get(SOURCE);
-            String target = cfg.get(TARGET);
+            String source = cfg.get(SOURCE_TABLE);
         	HBaseSail sail = new HBaseSail(cfg, source, false, 0, true, 0, ElasticSettings.from(cfg), null);
         	HBaseRepository repo = new HBaseRepository(sail);
             try {
@@ -128,9 +129,10 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
                 }
 
                 HalyardExport.QueryResultWriter writer;
-                if (EsOutputFormat.class.getName().equals(target)) {
+                if (cfg.get("es.resource") != null) {
                 	writer = new EsOutputResultWriter(log, sail.getRDFFactory(), sail.getValueFactory(), context);
                 } else {
+                    String target = cfg.get(TARGET_URL);
                 	writer = HalyardExport.createWriter(sail.getConfiguration(), log, MessageFormat.format(target, bName, partitionIndex), sail.getRDFFactory(), sail.getValueFactory(), cfg.get(JDBC_DRIVER), cfg.get(JDBC_CLASSPATH), props, false);
                 }
                 try {
@@ -219,13 +221,13 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
                 + "The function takes one or more bindings as its arguments and these bindings are used as keys to randomly distribute the query evaluation across the executed parallel forks of the same query.",
             "Example: halyard bulkexport -s my_dataset -q hdfs:///myqueries/*.sparql -t hdfs:/my_folder/{0}-{1}.csv.gz"
         );
-        addOption("s", "source-dataset", "dataset_table", "Source HBase table with Halyard RDF store", true, true);
+        addOption("s", "source-dataset", "dataset_table", SOURCE_TABLE, "Source HBase table with Halyard RDF store", true, true);
         addOption("q", "queries", "sparql_queries", "folder or path pattern with SPARQL tuple or graph queries (this or --query is required)", false, true);
         addOption(null, "query", "sparql_query", "SPARQL tuple or graph query (this or -q is required)", false, true);
-        addOption("t", "target-url", "target_url", "file://<path>/{0}-{1}.<ext> or hdfs://<path>/{0}-{1}.<ext> or jdbc:<jdbc_connection>/{0}, where {0} is replaced query filename (without extension) and {1} is replaced with parallel fork index (when " + PARALLEL_SPLIT_FUNCTION.stringValue() + " function is used in the particular query)", true, true);
-        addOption("p", "jdbc-property", "property=value", "JDBC connection property", false, false);
-        addOption("l", "jdbc-driver-classpath", "driver_classpath", "JDBC driver classpath delimited by ':'", false, true);
-        addOption("c", "jdbc-driver-class", "driver_class", "JDBC driver class name", false, true);
+        addOption("t", "target-url", "target_url", TARGET_URL, "file://<path>/{0}-{1}.<ext> or hdfs://<path>/{0}-{1}.<ext> or jdbc:<jdbc_connection>/{0}, where {0} is replaced query filename (without extension) and {1} is replaced with parallel fork index (when " + PARALLEL_SPLIT_FUNCTION.stringValue() + " function is used in the particular query)", true, true);
+        addOption("p", "jdbc-property", "property=value", JDBC_PROPERTIES, "JDBC connection property", false, false);
+        addOption("l", "jdbc-driver-classpath", "driver_classpath", JDBC_CLASSPATH, "JDBC driver classpath delimited by ':'", false, true);
+        addOption("c", "jdbc-driver-class", "driver_class", JDBC_DRIVER, "JDBC driver class name", false, true);
         addOption("i", "elastic-index", "elastic_index_url", ElasticSettings.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
         addKeyValueOption("$", null, "binding=value", BINDING_PROPERTY_PREFIX, "Optionally specify bindings");
     }
@@ -235,13 +237,14 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         if (!cmd.getArgList().isEmpty()) {
         	throw new HalyardExport.ExportException("Unknown arguments: " + cmd.getArgList().toString());
         }
-        String source = cmd.getOptionValue('s');
+        configureString(cmd, 's', null);
         String queryFiles = cmd.getOptionValue('q');
         String query = cmd.getOptionValue("query");
         if (queryFiles == null && query == null) {
         	throw new MissingOptionException("One of -q or --query is required");
         }
-        String target = cmd.getOptionValue('t');
+        configureString(cmd, 't', null);
+        String target = getConf().get(TARGET_URL);
         boolean isEsExport = HalyardExport.isElasticsearch(target);
         if (!isEsExport) {
 	        if (queryFiles != null && !target.contains("{0}")) {
@@ -250,12 +253,20 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
 	            throw new HalyardExport.ExportException("Bulk export target cannot contain '{0}' when using --query.");
 	        }
         }
-        getConf().set(SOURCE, source);
-        getConf().set(TARGET, isEsExport ? EsOutputFormat.class.getName() : target);
-        String driver = cmd.getOptionValue('c');
-        if (driver != null) {
-            getConf().set(JDBC_DRIVER, driver);
+        configureString(cmd, 'c', null);
+
+        String cp = cmd.getOptionValue('l');
+        if (cp != null) {
+            String jars[] = cp.split(File.pathSeparator);
+            StringBuilder newCp = new StringBuilder();
+            String pathSep = "";
+            for (String jar : jars) {
+                newCp.append(pathSep).append(addTmpFile(getConf(), jar)); //append classpath entries to tmpfiles and trim paths from the classpath
+                pathSep = File.pathSeparator;
+            }
+            getConf().set(JDBC_CLASSPATH, newCp.toString());
         }
+
         String props[] = cmd.getOptionValues('p');
         if (props != null) {
             for (int i=0; i<props.length; i++) {
@@ -263,19 +274,37 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
             }
             getConf().setStrings(JDBC_PROPERTIES, props);
         }
+
         configureString(cmd, 'i', null);
         configureBindings(cmd, '$');
 
+        return (run(getConf(), queryFiles, query) != null) ? 0 : -1;
+    }
+
+    static List<JsonInfo> executeExport(Configuration conf, String source, String query, String target, Map<String,Value> bindings) throws Exception {
+    	Configuration jobConf = new Configuration(conf);
+    	jobConf.set(SOURCE_TABLE, source);
+    	jobConf.set(TARGET_URL, target);
+    	for (Map.Entry<String,Value> binding : bindings.entrySet()) {
+    		jobConf.set(BINDING_PROPERTY_PREFIX+binding.getKey(), NTriplesUtil.toNTriplesString(binding.getValue(), true));
+    	}
+    	return run(jobConf, null, query);
+    }
+
+    private static List<JsonInfo> run(Configuration conf, String queryFiles, String query) throws IOException, InterruptedException, ClassNotFoundException {
+    	String source = conf.get(SOURCE_TABLE);
+    	String target = conf.get(TARGET_URL);
+    	boolean isEsExport = HalyardExport.isElasticsearch(target);
         if (isEsExport) {
         	URL targetUrl = new URL(target);
             String indexName = targetUrl.getPath().substring(1);
-            getConf().set("es.nodes", targetUrl.getHost()+":"+targetUrl.getPort());
-            getConf().set("es.resource", indexName);
-            getConf().set("es.mapping.id", SearchDocument.ID_FIELD);
-            getConf().set("es.input.json", "yes");
+            conf.set("es.nodes", targetUrl.getHost()+":"+targetUrl.getPort());
+            conf.set("es.resource", indexName);
+            conf.set("es.mapping.id", SearchDocument.ID_FIELD);
+            conf.set("es.input.json", "yes");
         }
 
-        TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
+        TableMapReduceUtil.addDependencyJarsForClasses(conf,
                NTriplesUtil.class,
                Rio.class,
                AbstractRDFHandler.class,
@@ -285,22 +314,11 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
                HBaseConfiguration.class,
                AuthenticationProtos.class);
         if (System.getProperty("exclude.es-hadoop") == null) {
-         	TableMapReduceUtil.addDependencyJarsForClasses(getConf(), EsOutputFormat.class);
+         	TableMapReduceUtil.addDependencyJarsForClasses(conf, EsOutputFormat.class);
         }
-        HBaseConfiguration.addHbaseResources(getConf());
-        String cp = cmd.getOptionValue('l');
-        if (cp != null) {
-            String jars[] = cp.split(File.pathSeparator);
-            StringBuilder newCp = new StringBuilder();
-            String pathSep = "";
-            for (String jar : jars) {
-                newCp.append(pathSep).append(addTmpFile(jar)); //append classpath entries to tmpfiles and trim paths from the classpath
-                pathSep = File.pathSeparator;
-            }
-            getConf().set(JDBC_CLASSPATH, newCp.toString());
-        }
-        BindingSet bindings = AbstractHalyardTool.getBindings(getConf(), SimpleValueFactory.getInstance());
-        Job job = Job.getInstance(getConf(), "HalyardBulkExport " + source + " -> " + target);
+        HBaseConfiguration.addHbaseResources(conf);
+        BindingSet bindings = AbstractHalyardTool.getBindings(conf, SimpleValueFactory.getInstance());
+        Job job = Job.getInstance(conf, "HalyardBulkExport " + source + " -> " + target);
         job.setJarByClass(HalyardBulkExport.class);
         job.setMaxMapAttempts(1);
         job.setMapperClass(BulkExportMapper.class);
@@ -323,17 +341,34 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         TableMapReduceUtil.initCredentials(job);
         if (job.waitForCompletion(true)) {
             LOG.info("Bulk Export completed.");
-            return 0;
+            return Collections.singletonList(JsonInfo.from(job));
         } else {
     		LOG.error("Bulk Export failed to complete.");
-            return -1;
+            return null;
         }
     }
 
-    private String addTmpFile(String file) throws IOException {
-        String tmpFiles = getConf().get("tmpfiles");
+    private static String addTmpFile(Configuration conf, String file) throws IOException {
         Path path = new Path(new File(file).toURI());
-        getConf().set("tmpfiles", tmpFiles == null ? path.toString() : tmpFiles + "," + path.toString());
+        // org.apache.hadoop.mapreduce.JobResourceUploader tmpfiles
+        String tmpFiles = conf.get("tmpfiles");
+        conf.set("tmpfiles", tmpFiles == null ? path.toString() : tmpFiles + "," + path.toString());
         return path.getName();
+    }
+
+
+    static final class JsonInfo extends HttpSparqlHandler.JsonExportInfo {
+    	public String name;
+    	public String id;
+    	public String trackingURL;
+
+    	static JsonInfo from(Job job) throws IOException {
+    		JsonInfo info = new JsonInfo();
+    		info.name = job.getJobName();
+    		info.id = job.getJobID().getJtIdentifier();
+    		info.trackingURL = job.getTrackingURL();
+    		info.totalExported = job.getCounters().findCounter(Counters.EXPORTED_STATEMENTS).getValue();
+    		return info;
+    	}
     }
 }
