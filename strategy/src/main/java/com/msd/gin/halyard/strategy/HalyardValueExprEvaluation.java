@@ -931,7 +931,7 @@ class HalyardValueExprEvaluation {
 	    					case _true:
 						        // Left argument evaluated to 'true', result is determined
 						        // by the evaluation of the right argument.
-		    	            	rightStep.evaluate(new ConvertingValuePipe(topPipe, HalyardValueExprEvaluation.this::effectiveBooleanLiteral), bindings);
+		    	            	evaluateIsTrue(rightStep, topPipe, bindings);
 	    						break;
 	    					case _false:
 		    	                // Left argument evaluates to false, we don't need to look any
@@ -985,7 +985,7 @@ class HalyardValueExprEvaluation {
 	    					case _false:
 		    	                // Left argument evaluated to 'false', result is determined
 		    	                // by the evaluation of the right argument.
-		    	            	rightStep.evaluate(new ConvertingValuePipe(topPipe, HalyardValueExprEvaluation.this::effectiveBooleanLiteral), bindings);
+		    	            	evaluateIsTrue(rightStep, topPipe, bindings);
 	    						break;
 	    					case incompatibleValueExpression:
 	        					handleValueError("Or");
@@ -1519,8 +1519,16 @@ class HalyardValueExprEvaluation {
 		}
 	}
 
+	private void evaluateIsTrue(ValuePipeEvaluationStep step, ValuePipe parent, BindingSet bindings) {
+		step.evaluate(new ConvertingValuePipe(parent, HalyardValueExprEvaluation.this::effectiveBooleanLiteral), bindings);
+	}
+
 	ValueOrError effectiveBooleanLiteral(Value v) {
 		return of(QueryEvaluationUtility.getEffectiveBooleanValue(v));
+	}
+
+	boolean isTrue(Value v) {
+		return TRUE.equals(v);
 	}
 
 

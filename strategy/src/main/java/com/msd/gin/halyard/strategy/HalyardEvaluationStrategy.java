@@ -24,8 +24,10 @@ import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
+import com.msd.gin.halyard.query.ValuePipe;
 import com.msd.gin.halyard.query.ValuePipeQueryValueEvaluationStep;
 import com.msd.gin.halyard.strategy.HalyardTupleExprEvaluation.QuadPattern;
+import com.msd.gin.halyard.strategy.HalyardValueExprEvaluation.ConvertingValuePipe;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
@@ -343,6 +345,14 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	public boolean isTrue(QueryValueEvaluationStep step, BindingSet bindings) throws ValueExprEvaluationException, QueryEvaluationException {
 		Value value = step.evaluate(bindings);
 		return QueryEvaluationUtility.getEffectiveBooleanValue(value).orElse(false);
+	}
+
+	void isTrue(ValuePipeQueryValueEvaluationStep step, ValuePipe parent, BindingSet bindings) {
+		step.evaluate(new ConvertingValuePipe(parent, valueEval::effectiveBooleanLiteral), bindings);
+	}
+
+	boolean isTrue(Value v) {
+		return valueEval.isTrue(v);
 	}
 
 	boolean hasStatement(StatementPattern sp, BindingSet bindings, QueryEvaluationContext evalContext) throws QueryEvaluationException {

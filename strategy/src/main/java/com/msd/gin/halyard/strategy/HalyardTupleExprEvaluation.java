@@ -173,7 +173,6 @@ import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.DescribeIteration;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.PathIteration;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.ProjectionIterator;
-import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.ValueComparator;
 import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
 import org.eclipse.rdf4j.query.algebra.helpers.collectors.VarNameCollector;
@@ -994,11 +993,13 @@ final class HalyardTupleExprEvaluation {
 	            @Override
 	            protected boolean next(BindingSet bs) {
                     startSecondaryPipe();
-	            	conditionStep.evaluate(new BindingSetValuePipe(parent) {
+                    parentStrategy.isTrue(conditionStep, new BindingSetValuePipe(parent) {
 	            		@Override
 	            		protected void next(Value v) {
-	            			if (QueryEvaluationUtility.getEffectiveBooleanValue(v).orElse(false)) {
-		                        pushToParent(bs);
+	            			if (parentStrategy.isTrue(v)) {
+		                        if (!pushToParent(bs)) {
+		                        	parent.close();
+		                        }
 	            			}
 	            			endSecondaryPipe();
 	            		}
@@ -1878,37 +1879,37 @@ final class HalyardTupleExprEvaluation {
     }
 
     private BindingSetPipeEvaluationStep precompileNestedLoopsJoin(BindingSetPipeEvaluationStep outerStep, BindingSetPipeEvaluationStep innerStep, TupleExpr trackExpr) {
+    	final class NestedLoopsPipeJoin extends PipeJoin {
+			NestedLoopsPipeJoin(BindingSetPipe parent) {
+				super(parent);
+			}
+			@Override
+            protected boolean next(BindingSet bs) {
+            	startSecondaryPipe();
+                innerStep.evaluate(new BindingSetPipe(parent) {
+                	@Override
+                	protected boolean next(BindingSet bs) {
+                		return pushToParent(bs);
+                	}
+                    @Override
+    				protected void doClose() {
+                    	endSecondaryPipe();
+                    }
+                    @Override
+                    public String toString() {
+                    	return "JoinBindingSetPipe(inner)";
+                    }
+                }, bs);
+                return !parent.isClosed(); // innerStep is async, check if we've been closed
+            }
+            @Override
+            public String toString() {
+            	return "JoinBindingSetPipe(outer)";
+            }
+    	}
         return (topPipe, bindings) -> {
         	if (trackExpr != null) {
         		topPipe = parentStrategy.track(topPipe, trackExpr);
-        	}
-        	final class NestedLoopsPipeJoin extends PipeJoin {
-				NestedLoopsPipeJoin(BindingSetPipe parent) {
-					super(parent);
-				}
-				@Override
-	            protected boolean next(BindingSet bs) {
-	            	startSecondaryPipe();
-	                innerStep.evaluate(new BindingSetPipe(parent) {
-	                	@Override
-	                	protected boolean next(BindingSet bs) {
-	                		return pushToParent(bs);
-	                	}
-	                    @Override
-	    				protected void doClose() {
-	                    	endSecondaryPipe();
-	                    }
-	                    @Override
-	                    public String toString() {
-	                    	return "JoinBindingSetPipe(inner)";
-	                    }
-	                }, bs);
-	                return !parent.isClosed(); // innerStep is async, check if we've been closed
-	            }
-	            @Override
-	            public String toString() {
-	            	return "JoinBindingSetPipe(outer)";
-	            }
         	}
 	        outerStep.evaluate(new NestedLoopsPipeJoin(topPipe), bindings);
         };
@@ -1942,64 +1943,95 @@ final class HalyardTupleExprEvaluation {
     	leftJoin.setAlgorithm(Algorithms.NESTED_LOOPS);
         BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(leftJoin.getLeftArg(), evalContext);
         BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(leftJoin.getRightArg(), evalContext);
-        ValuePipeQueryValueEvaluationStep conditionStep = leftJoin.hasCondition() ? parentStrategy.precompile(leftJoin.getCondition(), evalContext) : null;
+        final class NestedLoopsLeftPipeJoin extends PipeJoin {
+        	final BindingSetPipeEvaluationStep joinStep;
+
+        	NestedLoopsLeftPipeJoin(BindingSetPipe parent) {
+				super(parent);
+				if (leftJoin.hasCondition()) {
+			        ValuePipeQueryValueEvaluationStep conditionStep = parentStrategy.precompile(leftJoin.getCondition(), evalContext);
+			        final Set<String> scopeBindingNames = leftJoin.getBindingNames();
+					joinStep = (pipe, leftBindings) -> {
+		                rightStep.evaluate(new BindingSetPipe(pipe) {
+		                    private final AtomicBoolean hasResults = new AtomicBoolean();
+		                    @Override
+		                    protected boolean next(BindingSet rightBindings) {
+                                // Limit the bindings to the ones that are in scope for
+                                // this filter
+                                QueryBindingSet scopeBindings = new QueryBindingSet(rightBindings);
+                                scopeBindings.retainAll(scopeBindingNames);
+                                parentStrategy.isTrue(conditionStep, new BindingSetValuePipe(parent) {
+                                	@Override
+                                	protected void next(Value v) {
+                                		if (parentStrategy.isTrue(v)) {
+		                                    hasResults.set(true);
+		                                    if (!pushToParent(rightBindings)) {
+		                                    	parent.close();
+		                                    }
+                                		}
+                                	}
+                                	@Override
+                                	public void handleValueError(String msg) {
+                                		// ignore
+                                	}
+                                }, scopeBindings);
+		                        return !parent.isClosed();
+		                    }
+		                    @Override
+		    				protected void doClose() {
+		                        if (!hasResults.get()) {
+		                            // Join failed, return left arg's bindings
+		                        	pushToParent(leftBindings);
+		                        }
+		                        endSecondaryPipe();
+		                    }
+		                    @Override
+		                    public String toString() {
+		                    	return "LeftJoinBindingSetPipe(right,withCondition)";
+		                    }
+		                }, leftBindings);
+		            };
+				} else {
+					joinStep = (pipe, leftBindings) -> {
+		                rightStep.evaluate(new BindingSetPipe(pipe) {
+		                    private volatile boolean hasResults = false;
+		                    @Override
+		                    protected boolean next(BindingSet rightBindings) {
+                                hasResults = true;
+                                return pushToParent(rightBindings);
+		                    }
+		                    @Override
+		    				protected void doClose() {
+		                        if (!hasResults) {
+		                            // Join failed, return left arg's bindings
+		                        	pushToParent(leftBindings);
+		                        }
+		                        endSecondaryPipe();
+		                    }
+		                    @Override
+		                    public String toString() {
+		                    	return "LeftJoinBindingSetPipe(right,withoutCondition)";
+		                    }
+		                }, leftBindings);
+		            };
+				}
+			}
+        	@Override
+            protected boolean next(final BindingSet leftBindings) {
+        		startSecondaryPipe();
+        		joinStep.evaluate(parent, leftBindings);
+                return !parent.isClosed(); // rightStep is async, check if we've been closed
+            }
+            @Override
+            public String toString() {
+            	return "LeftJoinBindingSetPipe(left)";
+            }
+        }
     	return (parentPipe, bindings) -> {
 	        parentPipe = parentStrategy.track(parentPipe, leftJoin);
 	        Pair<BindingSetPipe, BindingSet> wellDesignedData = wellDesignedLeftJoin(parentPipe, leftJoin, bindings);
 	        parentPipe = wellDesignedData.getLeft();
 	        bindings = wellDesignedData.getRight();
-	        final Set<String> scopeBindingNames = leftJoin.getBindingNames();
-	        final class NestedLoopsLeftPipeJoin extends PipeJoin {
-				NestedLoopsLeftPipeJoin(BindingSetPipe parent) {
-					super(parent);
-				}
-	        	@Override
-	            protected boolean next(final BindingSet leftBindings) {
-	        		startSecondaryPipe();
-	                rightStep.evaluate(new BindingSetPipe(parent) {
-	                    private boolean failed = true;
-	                    @Override
-	                    protected boolean next(BindingSet rightBindings) {
-	                    	try {
-	                            if (conditionStep == null) {
-	                                failed = false;
-	                                return pushToParent(rightBindings);
-	                            } else {
-	                                // Limit the bindings to the ones that are in scope for
-	                                // this filter
-	                                QueryBindingSet scopeBindings = new QueryBindingSet(rightBindings);
-	                                scopeBindings.retainAll(scopeBindingNames);
-	                                if (parentStrategy.isTrue(conditionStep, scopeBindings)) {
-	                                    failed = false;
-	                                    return pushToParent(rightBindings);
-	                                }
-	                            }
-	                        } catch (ValueExprEvaluationException ignore) {
-	                        } catch (QueryEvaluationException e) {
-	                            return handleException(e);
-	                        }
-	                        return true;
-	                    }
-	                    @Override
-	    				protected void doClose() {
-	                        if (failed) {
-	                            // Join failed, return left arg's bindings
-	                        	pushToParent(leftBindings);
-	                        }
-	                        endSecondaryPipe();
-	                    }
-	                    @Override
-	                    public String toString() {
-	                    	return "LeftJoinBindingSetPipe(right)";
-	                    }
-	                }, leftBindings);
-	                return !parent.isClosed(); // rightStep is async, check if we've been closed
-	            }
-	            @Override
-	            public String toString() {
-	            	return "LeftJoinBindingSetPipe(left)";
-	            }
-	        }
 	        leftStep.evaluate(new NestedLoopsLeftPipeJoin(parentPipe), bindings);
     	};
     }
