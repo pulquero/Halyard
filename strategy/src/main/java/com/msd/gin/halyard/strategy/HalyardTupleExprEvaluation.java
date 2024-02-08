@@ -156,7 +156,6 @@ import org.eclipse.rdf4j.query.algebra.TupleFunctionCall;
 import org.eclipse.rdf4j.query.algebra.UnaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.UnaryValueOperator;
 import org.eclipse.rdf4j.query.algebra.Union;
-import org.eclipse.rdf4j.query.algebra.ValueConstant;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.ZeroLengthPath;
@@ -928,7 +927,10 @@ final class HalyardTupleExprEvaluation {
         }
         final boolean includeAll = !outer;
     	return (parent, bindings) -> {
-	        step.evaluate(new BindingSetPipe(parent) {
+    		final class ProjectionBindingSetPipe extends BindingSetPipe {
+    			ProjectionBindingSetPipe(BindingSetPipe parent) {
+    				super(parent);
+    			}
 	            @Override
 	            protected boolean next(BindingSet bs) {
 	                return parent.push(ProjectionIterator.project(projection.getProjectionElemList(), bs, bindings, includeAll));
@@ -937,7 +939,8 @@ final class HalyardTupleExprEvaluation {
 	            public String toString() {
 	            	return "ProjectionBindingSetPipe";
 	            }
-	        }, bindings);
+    		}
+	        step.evaluate(new ProjectionBindingSetPipe(parent), bindings);
     	};
     }
 
@@ -948,10 +951,13 @@ final class HalyardTupleExprEvaluation {
     private BindingSetPipeEvaluationStep precompileMultiProjection(final MultiProjection multiProjection, QueryEvaluationContext evalContext) {
         BindingSetPipeEvaluationStep step = precompileTupleExpr(multiProjection.getArg(), evalContext);
         return (parent, bindings) -> {
-	        step.evaluate(new BindingSetPipe(parent) {
+        	final class MultiProjectionBindingSetPipe extends BindingSetPipe {
 	            final List<ProjectionElemList> projections = multiProjection.getProjections();
 	            final AtomicReferenceArray<BindingSet> previouslyPushed = new AtomicReferenceArray<>(projections.size());
-	
+
+	            MultiProjectionBindingSetPipe(BindingSetPipe parent) {
+    				super(parent);
+    			}
 	            @Override
 	            protected boolean next(BindingSet bs) {
 	                for (int i=0; i<projections.size(); i++) {
@@ -971,7 +977,8 @@ final class HalyardTupleExprEvaluation {
 	            public String toString() {
 	            	return "MultiProjectionBindingSetPipe";
 	            }
-	        }, bindings);
+        	}
+	        step.evaluate(new MultiProjectionBindingSetPipe(parent), bindings);
         };
     }
 
@@ -1135,8 +1142,12 @@ final class HalyardTupleExprEvaluation {
         }
         BindingSetPipeEvaluationStep step = precompileTupleExpr(order.getArg(), evalContext);
         return (parent, bindings) -> {
-	        step.evaluate(new BindingSetPipe(parent) {
+        	final class OrderBindingSetPipe extends BindingSetPipe {
 	            final AtomicLong minorOrder = new AtomicLong();
+
+	            OrderBindingSetPipe(BindingSetPipe parent) {
+    				super(parent);
+    			}
 
 	            @Override
 	            public boolean handleException(Throwable e) {
@@ -1176,7 +1187,8 @@ final class HalyardTupleExprEvaluation {
 	            public String toString() {
 	            	return "OrderBindingSetPipe";
 	            }
-	        }, bindings);
+        	}
+	        step.evaluate(new OrderBindingSetPipe(parent), bindings);
         };
     }
 
@@ -1200,34 +1212,43 @@ final class HalyardTupleExprEvaluation {
     	if (group.getGroupBindingNames().isEmpty()) {
     		// no GROUP BY present
     		return (parent, bindings) -> {
-	    		step.evaluate(new BindingSetPipe(parentStrategy.track(parent, group)) {
-	    			final GroupValue aggregators = createGroupValue(group, opArgSteps, bindings, evalContext);
-					@Override
-					protected boolean next(BindingSet bs) {
-						if (parent.isClosed()) {
-							return false;
-						}
-						aggregators.addValues(bs);
-						return true;
+        		final class GroupWithoutByBindingSetPipe extends BindingSetPipe {
+					final GroupValue aggregators = createGroupValue(group, opArgSteps, bindings, evalContext);
+
+					GroupWithoutByBindingSetPipe(BindingSetPipe parent) {
+						super(parent);
 					}
-					@Override
-					protected void doClose() {
-						QueryBindingSet result = new QueryBindingSet(bindings);
-						aggregators.bindResult(result);
-						parent.pushLast(result);
-						aggregators.close();
-					}
-					@Override
-					public String toString() {
-						return "AggregateBindingSetPipe-noGroupBy";
-					}
-	    		}, bindings);
+    				@Override
+    				protected boolean next(BindingSet bs) {
+    					if (parent.isClosed()) {
+    						return false;
+    					}
+    					aggregators.addValues(bs);
+    					return true;
+    				}
+    				@Override
+    				protected void doClose() {
+    					QueryBindingSet result = new QueryBindingSet(bindings);
+    					aggregators.bindResult(result);
+    					parent.pushLast(result);
+    					aggregators.close();
+    				}
+    				@Override
+    				public String toString() {
+    					return "AggregateBindingSetPipe-withoutGroupBy";
+    				}
+        		}
+	    		step.evaluate(new GroupWithoutByBindingSetPipe(parentStrategy.track(parent, group)), bindings);
     		};
     	} else {
     		return (parent, bindings) -> {
-	    		step.evaluate(new BindingSetPipe(parentStrategy.track(parent, group)) {
+        		final class GroupBindingSetPipe extends BindingSetPipe {
 	    			final Map<BindingSetValues,GroupValue> groupByMap = new ConcurrentHashMap<>(GROUP_BY_CONCURRENCY);
 	    			final String[] groupNames = toStringArray(group.getGroupBindingNames());
+
+	    			GroupBindingSetPipe(BindingSetPipe parent) {
+						super(parent);
+					}
 					@Override
 					protected boolean next(BindingSet bs) {
 						GroupValue aggregators = groupByMap.computeIfAbsent(BindingSetValues.create(groupNames, bs), k -> createGroupValue(group, opArgSteps, bindings, evalContext));
@@ -1254,7 +1275,8 @@ final class HalyardTupleExprEvaluation {
 					public String toString() {
 						return "AggregateBindingSetPipe";
 					}
-	    		}, bindings);
+        		}
+	    		step.evaluate(new GroupBindingSetPipe(parentStrategy.track(parent, group)), bindings);
     		};
     	}
     }
@@ -1444,7 +1466,7 @@ final class HalyardTupleExprEvaluation {
     	}
     }
 
-	private static class DistinctValues implements Predicate<Value>, AutoCloseable {
+	private static final class DistinctValues implements Predicate<Value>, AutoCloseable {
 		private final int threshold;
 		private final ValueFactory vf;
 		private BigHashSet<Value> distinctValues;
@@ -1475,7 +1497,7 @@ final class HalyardTupleExprEvaluation {
 		}
 	}
 
-	private static class DistinctBindingSets implements Predicate<BindingSet>, AutoCloseable {
+	private static final class DistinctBindingSets implements Predicate<BindingSet>, AutoCloseable {
 		private final int threshold;
 		private final ValueFactory vf;
 		private BigHashSet<BindingSet> distinctBindingSets;
@@ -1513,9 +1535,12 @@ final class HalyardTupleExprEvaluation {
     private BindingSetPipeEvaluationStep precompileReduced(Reduced reduced, QueryEvaluationContext evalContext) {
         BindingSetPipeEvaluationStep step = precompileTupleExpr(reduced.getArg(), evalContext);
         return (parent, bindings) -> {
-	        step.evaluate(new BindingSetPipe(parentStrategy.track(parent, reduced)) {
-	            private final AtomicReference<BindingSet> previous = new AtomicReference<>();
-	
+        	final class ReducedBindingSetPipe extends BindingSetPipe {
+				private final AtomicReference<BindingSet> previous = new AtomicReference<>();
+
+				ReducedBindingSetPipe(BindingSetPipe parent) {
+					super(parent);
+				}
 	            @Override
 	            protected boolean next(BindingSet bs) {
 	            	BindingSet localPrev = previous.get();
@@ -1529,7 +1554,8 @@ final class HalyardTupleExprEvaluation {
 	            public String toString() {
 	            	return "ReducedBindingSetPipe";
 	            }
-	        }, bindings);
+        	}
+	        step.evaluate(new ReducedBindingSetPipe(parentStrategy.track(parent, reduced)), bindings);
         };
     }
 
@@ -1540,8 +1566,12 @@ final class HalyardTupleExprEvaluation {
     private BindingSetPipeEvaluationStep precompileDistinct(final Distinct distinct, QueryEvaluationContext evalContext) {
         BindingSetPipeEvaluationStep step = precompileTupleExpr(distinct.getArg(), evalContext);
         return (parent, bindings) -> {
-	        step.evaluate(new BindingSetPipe(parentStrategy.track(parent, distinct)) {
+        	final class DistinctBindingSetPipe extends BindingSetPipe {
 	            private final BigHashSet<BindingSet> set = BigHashSet.createBindingSetSet(collectionMemoryThreshold, tripleSource.getValueFactory());
+
+	            DistinctBindingSetPipe(BindingSetPipe parent) {
+					super(parent);
+				}
 	            @Override
 	            public boolean handleException(Throwable e) {
 	                set.close();
@@ -1567,7 +1597,8 @@ final class HalyardTupleExprEvaluation {
 	            public String toString() {
 	            	return "DistinctBindingSetPipe";
 	            }
-	        }, bindings);
+        	}
+	        step.evaluate(new DistinctBindingSetPipe(parentStrategy.track(parent, distinct)), bindings);
         };
     }
 
@@ -1645,9 +1676,13 @@ final class HalyardTupleExprEvaluation {
         final long limit = slice.hasLimit() ? offset + slice.getLimit() : Long.MAX_VALUE;
         BindingSetPipeEvaluationStep step = precompileTupleExpr(slice.getArg(), evalContext);
         return (parent, bindings) -> {
-	        step.evaluate(new BindingSetPipe(parentStrategy.track(parent, slice)) {
-	            private final AtomicLong counter = new AtomicLong(0);
+        	final class SliceBindingSetPipe extends BindingSetPipe {
+				private final AtomicLong counter = new AtomicLong(0);
 	            private final AtomicLong remaining = new AtomicLong(limit-offset);
+
+	            SliceBindingSetPipe(BindingSetPipe parent) {
+					super(parent);
+				}
 	            @Override
 	            protected boolean next(BindingSet bs) {
 	                long l = counter.incrementAndGet();
@@ -1669,7 +1704,8 @@ final class HalyardTupleExprEvaluation {
 	            public String toString() {
 	            	return "SliceBindingSetPipe";
 	            }
-	        }, bindings);
+        	}
+	        step.evaluate(new SliceBindingSetPipe(parentStrategy.track(parent, slice)), bindings);
         };
     }
 
@@ -1846,8 +1882,11 @@ final class HalyardTupleExprEvaluation {
         	if (trackExpr != null) {
         		topPipe = parentStrategy.track(topPipe, trackExpr);
         	}
-	        outerStep.evaluate(new PipeJoin(topPipe) {
-	            @Override
+        	final class NestedLoopsPipeJoin extends PipeJoin {
+				NestedLoopsPipeJoin(BindingSetPipe parent) {
+					super(parent);
+				}
+				@Override
 	            protected boolean next(BindingSet bs) {
 	            	startSecondaryPipe();
 	                innerStep.evaluate(new BindingSetPipe(parent) {
@@ -1870,7 +1909,8 @@ final class HalyardTupleExprEvaluation {
 	            public String toString() {
 	            	return "JoinBindingSetPipe(outer)";
 	            }
-	        }, bindings);
+        	}
+	        outerStep.evaluate(new NestedLoopsPipeJoin(topPipe), bindings);
         };
     }
 
@@ -1909,7 +1949,10 @@ final class HalyardTupleExprEvaluation {
 	        parentPipe = wellDesignedData.getLeft();
 	        bindings = wellDesignedData.getRight();
 	        final Set<String> scopeBindingNames = leftJoin.getBindingNames();
-	        leftStep.evaluate(new PipeJoin(parentPipe) {
+	        final class NestedLoopsLeftPipeJoin extends PipeJoin {
+				NestedLoopsLeftPipeJoin(BindingSetPipe parent) {
+					super(parent);
+				}
 	        	@Override
 	            protected boolean next(final BindingSet leftBindings) {
 	        		startSecondaryPipe();
@@ -1956,7 +1999,8 @@ final class HalyardTupleExprEvaluation {
 	            public String toString() {
 	            	return "LeftJoinBindingSetPipe(left)";
 	            }
-	        }, bindings);
+	        }
+	        leftStep.evaluate(new NestedLoopsLeftPipeJoin(parentPipe), bindings);
     	};
     }
 
