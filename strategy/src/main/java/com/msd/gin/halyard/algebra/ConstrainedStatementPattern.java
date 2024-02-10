@@ -3,6 +3,8 @@ package com.msd.gin.halyard.algebra;
 import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.StatementIndex;
 
+import java.util.Objects;
+
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.Var;
 
@@ -20,6 +22,9 @@ public final class ConstrainedStatementPattern extends StatementPattern {
 
 	public ConstrainedStatementPattern(Scope scope, Var subject, Var predicate, Var object, Var context, StatementIndex.Name indexToUse, RDFRole.Name constrainedRole, VarConstraint constraint) {
 		super(scope, subject, predicate, object, context);
+		if (constraint.isPartitioned() && indexToUse == null) {
+			throw new IllegalArgumentException("Index to partition must be specified");
+		}
 		this.indexToUse = indexToUse;
 		this.constrainedRole = constrainedRole;
 		this.constraint = constraint;
@@ -40,7 +45,7 @@ public final class ConstrainedStatementPattern extends StatementPattern {
 	@Override
 	public String getSignature() {
 		Var constrainedVar = constrainedRole.getValue(this.getSubjectVar(), this.getPredicateVar(), this.getObjectVar(), this.getContextVar());
-		return super.getSignature() + " [" + indexToUse + " ?" + constrainedVar.getName() + " is " + constraint + "]";
+		return super.getSignature() + " [" + (indexToUse!=null ? indexToUse+" " : "") + "?" + constrainedVar.getName() + " is " + constraint + "]";
 	}
 
 	@Override
@@ -58,7 +63,7 @@ public final class ConstrainedStatementPattern extends StatementPattern {
 	@Override
 	public int hashCode() {
 		int result = super.hashCode();
-		result = 89 * result + indexToUse.hashCode();
+		result = 89 * result + Objects.hashCode(indexToUse);
 		result = 89 * result + constrainedRole.hashCode();
 		result = 89 * result + constraint.hashCode();
 		return result;

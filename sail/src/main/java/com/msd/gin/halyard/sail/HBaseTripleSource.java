@@ -44,6 +44,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import javax.annotation.Nullable;
+
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
@@ -205,11 +207,15 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 
 	protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) throws IOException {
 		Scan scan = stmtIndices.scan(subj, pred, obj, ctx);
+		applySettings(scan);
+		return scan;
+	}
+
+	private void applySettings(Scan scan) throws IOException {
 		if (settings != null) {
 			scan.setTimeRange(settings.minTimestamp, settings.maxTimestamp);
 			scan.readVersions(settings.maxVersions);
 		}
-		return scan;
 	}
 
 	public TripleSource getTimestampedTripleSource() {
@@ -217,11 +223,13 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	@Override
-	public TripleSource getTripleSource(StatementIndex.Name indexToUse, RDFRole.Name roleName, int partition, int partitionBits, ValueConstraint constraint) {
+	public TripleSource getTripleSource(@Nullable StatementIndex.Name indexToUse, RDFRole.Name roleName, int partition, int partitionBits, ValueConstraint constraint) {
 		return new HBaseTripleSource(keyspaceConn, vf, stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker) {
 			@Override
-			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) {
-				return stmtIndices.scanWithConstraint(subj, pred, obj, ctx, indexToUse, roleName, partition, partitionBits, constraint);
+			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) throws IOException {
+				Scan scan = stmtIndices.scanWithConstraint(subj, pred, obj, ctx, indexToUse, roleName, partition, partitionBits, constraint);
+				applySettings(scan);
+				return scan;
 			}
 		};
 	}

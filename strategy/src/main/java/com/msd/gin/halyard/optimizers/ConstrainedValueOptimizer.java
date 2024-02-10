@@ -107,8 +107,15 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 			if (!hasCtx && sp.getScope() == StatementPattern.Scope.DEFAULT_CONTEXTS) {
 				hasCtx = (dataset != null) && !dataset.getDefaultGraphs().isEmpty();
 			}
-			StatementIndex.Name index = StatementIndices.getIndexForConstraint(s != null, p != null, o != null, hasCtx, role);
-			ConstrainedStatementPattern csp = new ConstrainedStatementPattern(sp, index, role, constraintFilters.getLeft());
+			VarConstraint constraint = constraintFilters.getLeft();
+			StatementIndex.Name index;
+			if (constraint.isPartitioned()) {
+				// must provide index to use for partitioning
+				index = StatementIndices.getIndexForConstraint(s != null, p != null, o != null, hasCtx, role);
+			} else {
+				index = null;
+			}
+			ConstrainedStatementPattern csp = new ConstrainedStatementPattern(sp, index, role, constraint);
 			sp.replaceWith(csp);
 			if (!constraintFilters.getRight().isEmpty()) {
 				for (Filter f : constraintFilters.getRight()) {

@@ -48,6 +48,10 @@ public final class VarConstraint implements Serializable, Cloneable {
 		return partitionCount;
 	}
 
+	public boolean isPartitioned() {
+		return (partitionCount > 0);
+	}
+
 	@Override
 	public boolean equals(Object other) {
 		if (other instanceof VarConstraint) {

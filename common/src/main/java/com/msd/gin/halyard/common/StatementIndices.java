@@ -489,7 +489,9 @@ public final class StatementIndices {
     		StatementIndex<?,?,?,?> index = indices.get(indexToUse);
     		RDFValue<?,?> constrainedValue = role.getValue(subj, pred, obj, ctx);
 			if (constrainedValue != null) {
-				// validate constraints
+				// validate constraints if value is known ahead-of-time
+
+				// NB: index must be specified if partitioned
 				if (partitionBits != 0 && !index.isInPartition(constrainedValue, role, partition, partitionBits)) {
 					return null;
 				}
@@ -498,6 +500,10 @@ public final class StatementIndices {
 				}
 				return scan(subj, pred, obj, ctx);
 			} else {
+				if (index == null) {
+					indexToUse = getIndexForConstraint(subj != null, pred != null, obj != null, ctx != null, role);
+					index = indices.get(indexToUse);
+				}
 				return index.scanWithConstraint(subj, pred, obj, ctx, role, partition, partitionBits, constraint);
 			}
 		}

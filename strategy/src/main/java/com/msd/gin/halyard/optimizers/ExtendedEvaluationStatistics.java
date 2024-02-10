@@ -220,7 +220,7 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 			double card = spcalc.getStatementCardinality(sp.getSubjectVar(), sp.getPredicateVar(), sp.getObjectVar(), sp.getContextVar(), boundVars);
 			if (sp instanceof ConstrainedStatementPattern) {
 				ConstrainedStatementPattern csp = (ConstrainedStatementPattern) sp;
-				if (csp.getConstraint() != null && csp.getConstraint().getPartitionCount() > 0) {
+				if (csp.getConstraint() != null && csp.getConstraint().isPartitioned()) {
 					card /= csp.getConstraint().getPartitionCount();
 				}
 			}
