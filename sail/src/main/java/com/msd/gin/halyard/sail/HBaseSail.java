@@ -301,11 +301,9 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	/**
 	 * Construct HBaseSail for a snapshot.
 	 * 
-	 * @param conn
 	 * @param config
-	 * @param tableName
-	 * @param create
-	 * @param splitBits
+	 * @param snapshotName
+	 * @param snapshotRestorePath
 	 * @param pushStrategy
 	 * @param evaluationTimeout
 	 * @param elasticSettings

@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.github.pulquero.halyard</groupId>
 	<artifactId>halyard</artifactId>
-	<version>4.9-SNAPSHOT</version>
+	<version>4.9</version>
 	<packaging>pom</packaging>
 	<organization><name>halyard</name></organization>
 	<name>Halyard-star</name>
@@ -193,16 +193,15 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>3.2.0</version>
+				<version>3.6.3</version>
 				<configuration>
 					<encoding>UTF-8</encoding>
-					<aggregate>true</aggregate>
 				</configuration>
 				<executions>
 					<execution>
 						<id>attach-javadocs</id>
 						<goals>
-							<goal>jar</goal>
+							<goal>aggregate-jar</goal>
 						</goals>
 					</execution>
 				</executions>
