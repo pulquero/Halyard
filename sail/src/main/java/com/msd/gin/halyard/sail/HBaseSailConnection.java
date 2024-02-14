@@ -436,6 +436,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			((BindingSetPipeQueryEvaluationStep) step).evaluate(pipe, EmptyBindingSet.getInstance());
 		} else {
 			BindingSetPipeSailConnection.report(step.evaluate(EmptyBindingSet.getInstance()), pipe);
+			pipe.close();
 		}
 	}
 

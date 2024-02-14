@@ -48,6 +48,7 @@ public class PushOnlyMockSail extends MemoryStore implements BindingSetConsumerS
 		@Override
 		public void evaluate(BindingSetPipe pipe, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
 			BindingSetPipeSailConnection.report(getWrappedConnection().evaluate(tupleExpr, dataset, bindings, includeInferred), pipe);
+			pipe.close();
 		}
 	}
 

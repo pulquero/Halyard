@@ -12,13 +12,21 @@ import org.eclipse.rdf4j.sail.SailConnection;
 public interface BindingSetPipeSailConnection extends SailConnection {
 	default void evaluate(BindingSetPipe pipe, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
 		report(evaluate(tupleExpr, dataset, bindings, includeInferred), pipe);
+		pipe.close();
 	}
 
-	static void report(CloseableIteration<? extends BindingSet, QueryEvaluationException> iter, BindingSetPipe pipe) {
+	/**
+	 * NB: does not close the pipe so you can report multiple iterations to the same pipe.
+	 * @param iter iteration of binding sets to push to the pipe
+	 * @param pipe the pipe to push to
+	 * @return true if the pipe can accept more binding sets
+	 */
+	static boolean report(CloseableIteration<? extends BindingSet, QueryEvaluationException> iter, BindingSetPipe pipe) {
 		while (iter.hasNext()) {
 			if (!pipe.push(iter.next())) {
-				break;
+				return false;
 			}
 		}
+		return true;
 	}
 }
