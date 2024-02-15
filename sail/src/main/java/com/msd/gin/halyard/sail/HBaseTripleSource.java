@@ -212,7 +212,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	private void applySettings(Scan scan) throws IOException {
-		if (settings != null) {
+		if (scan != null && settings != null) {
 			scan.setTimeRange(settings.minTimestamp, settings.maxTimestamp);
 			scan.readVersions(settings.maxVersions);
 		}
