@@ -26,7 +26,7 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.sail.SailConnection;
 
-import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
 
 public class SailConnectionTripleSource implements CloseableTripleSource {
 

@@ -28,9 +28,9 @@ import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.parser.ParsedGraphQuery;
 
-import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
-import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
-import com.msd.gin.halyard.function.ExtendedTupleFunction;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.spin.SpinParser;
 
 public class ConstructTupleFunction extends AbstractSpinFunction implements ExtendedTupleFunction {

@@ -10,8 +10,8 @@
  *******************************************************************************/
 package com.msd.gin.halyard.federation;
 
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.strategy.TupleFunctionEvaluationStrategy;
 
 import java.util.ArrayList;

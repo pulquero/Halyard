@@ -3,6 +3,7 @@ package com.msd.gin.halyard.function;
 import static com.msd.gin.halyard.vocab.HALYARD.*;
 
 import com.msd.gin.halyard.common.Timestamped;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.sail.HBaseTripleSource;
 import com.msd.gin.halyard.spin.function.AbstractSpinFunction;
 

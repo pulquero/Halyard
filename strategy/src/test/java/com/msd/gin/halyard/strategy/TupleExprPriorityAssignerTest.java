@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.algebra.ServiceRoot;
+import com.msd.gin.halyard.query.algebra.ServiceRoot;
 
 import java.util.Collections;
 

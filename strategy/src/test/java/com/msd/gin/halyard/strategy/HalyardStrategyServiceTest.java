@@ -18,7 +18,7 @@ package com.msd.gin.halyard.strategy;
 
 import static junit.framework.TestCase.assertNotNull;
 
-import com.msd.gin.halyard.algebra.evaluation.EmptyTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.repository.sparql.federation.SPARQLServiceResolver;

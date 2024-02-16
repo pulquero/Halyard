@@ -1,9 +1,9 @@
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
-import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;

@@ -5,7 +5,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry
 import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.SailException;
 
-import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
 
 /**
  * Interface for SAILs that support native SPIN evaluation.

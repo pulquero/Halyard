@@ -146,7 +146,7 @@ import com.google.common.base.Function;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Sets;
-import com.msd.gin.halyard.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.spin.function.FunctionParser;
 import com.msd.gin.halyard.spin.function.KnownFunctionParser;
 import com.msd.gin.halyard.spin.function.KnownTupleFunctionParser;

@@ -19,7 +19,7 @@ import org.eclipse.rdf4j.query.parser.ParsedUpdate;
 import org.eclipse.rdf4j.rio.ParserConfig;
 import org.eclipse.rdf4j.sail.SailConnection;
 
-import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
 
 /**
  * QueryPreparer for use with Sails.

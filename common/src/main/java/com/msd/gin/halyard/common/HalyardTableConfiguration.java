@@ -4,6 +4,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.Maps;
+import com.msd.gin.halyard.model.Vocabulary;
 
 import java.io.BufferedReader;
 import java.io.IOException;

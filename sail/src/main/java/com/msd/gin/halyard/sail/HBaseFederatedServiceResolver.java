@@ -1,7 +1,6 @@
 package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.common.HalyardTableUtils;
-import com.msd.gin.halyard.function.ParallelSplitFunction;
 import com.msd.gin.halyard.repository.HBaseRepositoryManager;
 import com.msd.gin.halyard.sail.HBaseSail.Ticker;
 import com.msd.gin.halyard.util.MBeanManager;
@@ -104,7 +103,7 @@ public class HBaseFederatedServiceResolver extends SPARQLServiceResolver
 						// ignore
 				}
 			}
-			federatedService = new HBaseFederatedService(sail, ParallelSplitFunction.NO_FORKING);
+			federatedService = new HBaseFederatedService(sail);
 		} else {
 			SPARQLRepository sparqlRepo = new SPARQLRepository(serviceUrl);
 			sparqlRepo.setHttpClientSessionManager(getHttpClientSessionManager());

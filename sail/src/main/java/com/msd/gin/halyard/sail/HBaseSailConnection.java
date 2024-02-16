@@ -16,14 +16,14 @@
  */
 package com.msd.gin.halyard.sail;
 
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.ServiceRoot;
-import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.ServiceRoot;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.Timestamped;
-import com.msd.gin.halyard.function.ParallelSplitFunction;
 import com.msd.gin.halyard.optimizers.HalyardConstantOptimizer;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.TupleFunctionCallOptimizer;
@@ -38,7 +38,6 @@ import com.msd.gin.halyard.spin.SpinFunctionInterpreter;
 import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
 import com.msd.gin.halyard.strategy.ExtendedEvaluationStrategy;
 import com.msd.gin.halyard.strategy.ExtendedQueryOptimizerPipeline;
-import com.msd.gin.halyard.strategy.HalyardEvaluationContext;
 import com.msd.gin.halyard.strategy.HalyardEvaluationExecutor;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 import com.msd.gin.halyard.util.MBeanManager;
@@ -95,6 +94,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 import org.eclipse.rdf4j.query.algebra.evaluation.RDFStarTripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
+import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.ParentReferenceCleaner;
 import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.StandardQueryOptimizerPipeline;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
@@ -114,6 +114,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	public static final String UPDATE_PART_BINDING = internalBinding("update_part");
 	private static final int NO_UPDATE_PARTS = -1;
 	public static final String FORK_INDEX_BINDING = internalBinding("fork_index");
+	public static final String FORK_COUNT_BINDING = internalBinding("fork_count");
 	private static final String CONNECTION_ID_ATTRIBUTE = "connectionId";
 
 	private final HBaseSail sail;
@@ -387,14 +388,23 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 		String sourceString = Literals.getLabel(bindings.getValue(SOURCE_STRING_BINDING), null);
 		int updatePart = Literals.getIntValue(bindings.getValue(UPDATE_PART_BINDING), NO_UPDATE_PARTS);
-		int forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), ParallelSplitFunction.NO_FORKING);
+		int forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), 0);
 		BindingSet queryBindings = removeImplicitBindings(bindings);
+		// try bindings first
+		int forkCount = Literals.getIntValue(bindings.getValue(FORK_COUNT_BINDING), -1);
+		if (forkCount == -1) {
+			// if not then probe the query
+			forkCount = ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument(tupleExpr, queryBindings);
+		}
+		if (forkIndex >= forkCount) {
+			throw new QueryEvaluationException(String.format("Partition index %d must be less than partition count %d", forkIndex, forkCount));
+		}
 
-		RDFStarTripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred);
+		RDFStarTripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred, forkIndex, forkCount);
 		EvaluationStrategy strategy = createEvaluationStrategy(tripleSource, dataset);
 
 		TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);
-		HalyardEvaluationContext evalContext = new HalyardEvaluationContext(dataset, tripleSource.getValueFactory(), forkIndex);
+		QueryEvaluationContext evalContext = new QueryEvaluationContext.Minimal(dataset, tripleSource.getValueFactory());
 		QueryEvaluationStep step = strategy.precompile(optimizedTree, evalContext);
 		HBaseSail.QueryInfo queryInfo = sail.trackQuery(this, sourceString, tupleExpr, optimizedTree);
 		return evaluator.evaluate(optimizedTree, step, queryInfo);

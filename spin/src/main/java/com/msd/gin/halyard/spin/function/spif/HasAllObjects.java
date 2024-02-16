@@ -23,8 +23,8 @@ import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.TripleSources;
 
-import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
-import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.spin.function.AbstractSpinFunction;
 
 public class HasAllObjects extends AbstractSpinFunction implements Function {

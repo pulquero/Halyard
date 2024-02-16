@@ -1,7 +1,5 @@
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.strategy.HalyardEvaluationContext;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -60,7 +58,7 @@ public final class HalyardConstantOptimizer implements QueryOptimizer {
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-		HalyardEvaluationContext qec = new HalyardEvaluationContext(dataset, vf);
+		QueryEvaluationContext qec = new QueryEvaluationContext.Minimal(dataset, vf);
 		ConstantVisitor visitor = new ConstantVisitor(strategy, qec);
 		tupleExpr.visit(visitor);
 		Set<String> varsBefore = visitor.varNames;

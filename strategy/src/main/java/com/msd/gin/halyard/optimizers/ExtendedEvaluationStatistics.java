@@ -1,9 +1,9 @@
 package com.msd.gin.halyard.optimizers;
 
 import com.google.common.collect.Iterables;
-import com.msd.gin.halyard.algebra.ConstrainedStatementPattern;
-import com.msd.gin.halyard.algebra.NAryUnion;
-import com.msd.gin.halyard.algebra.StarJoin;
+import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
+import com.msd.gin.halyard.query.algebra.NAryUnion;
+import com.msd.gin.halyard.query.algebra.StarJoin;
 
 import java.io.IOException;
 import java.util.Collections;

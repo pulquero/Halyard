@@ -20,8 +20,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
-import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.sail.connection.SailConnectionQueryPreparer;
 import com.msd.gin.halyard.sail.connection.SailConnectionTripleSource;
 

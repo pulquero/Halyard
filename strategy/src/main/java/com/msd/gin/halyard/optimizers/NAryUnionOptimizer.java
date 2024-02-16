@@ -1,8 +1,8 @@
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
-import com.msd.gin.halyard.algebra.NAryUnion;
-import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.NAryUnion;
+import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
 
 import java.util.ArrayList;
 import java.util.Collections;

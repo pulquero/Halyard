@@ -2,9 +2,9 @@ package com.msd.gin.halyard.sail.search;
 
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.BGPCollector;
-import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.BGPCollector;
+import com.msd.gin.halyard.query.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.common.JavaObjectLiteral;
 import com.msd.gin.halyard.vocab.HALYARD;
 

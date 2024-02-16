@@ -1,11 +1,11 @@
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.NAryTupleOperator;
-import com.msd.gin.halyard.algebra.Parent;
-import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
-import com.msd.gin.halyard.algebra.StarJoin;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.NAryTupleOperator;
+import com.msd.gin.halyard.query.algebra.Parent;
+import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.StarJoin;
 
 import java.util.ArrayList;
 import java.util.Collections;

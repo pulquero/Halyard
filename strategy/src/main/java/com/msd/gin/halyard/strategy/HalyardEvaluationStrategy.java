@@ -16,9 +16,10 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
-import com.msd.gin.halyard.algebra.evaluation.ModelTripleSource;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.ModelTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
 import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
@@ -235,17 +236,17 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
      */
     @Override
     public FederatedService getService(String serviceUrl) throws QueryEvaluationException {
-    	return getService(serviceUrl, new HalyardEvaluationContext(dataset, tripleSource.getValueFactory()));
+    	return getService(serviceUrl, 0, 1);
     }
 
-    FederatedService getService(String serviceUrl, QueryEvaluationContext evalContext) throws QueryEvaluationException {
+    FederatedService getService(String serviceUrl, int forkIndex, int forkCount) throws QueryEvaluationException {
         if (serviceResolver == null) {
             throw new QueryEvaluationException("No Service Resolver set.");
         }
         return federatedServices.computeIfAbsent(serviceUrl, (endpoint) -> {
         	FederatedService fedService = serviceResolver.getService(serviceUrl);
         	if (fedService instanceof HalyardFederatedService) {
-        		fedService = ((HalyardFederatedService)fedService).createEvaluationInstance(this, (HalyardEvaluationContext) evalContext);
+        		fedService = ((HalyardFederatedService)fedService).createEvaluationInstance(this, forkIndex, forkCount);
         	}
         	return fedService;
         });
@@ -281,7 +282,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
     @Override
     public QueryEvaluationStep precompile(TupleExpr expr) {
-    	return precompile(expr, new HalyardEvaluationContext(dataset, tripleSource.getValueFactory()));
+    	return precompile(expr, new QueryEvaluationContext.Minimal(dataset, tripleSource.getValueFactory()));
     }
 
     /**
@@ -330,7 +331,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
      */
     @Override
     public Value evaluate(ValueExpr expr, BindingSet bindings) throws ValueExprEvaluationException, QueryEvaluationException {
-        return valueEval.precompile(expr, new HalyardEvaluationContext(dataset, tripleSource.getValueFactory())).evaluate(bindings);
+        return valueEval.precompile(expr, new QueryEvaluationContext.Minimal(dataset, tripleSource.getValueFactory())).evaluate(bindings);
     }
 
     /**
@@ -338,7 +339,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
      */
     @Override
     public boolean isTrue(ValueExpr expr, BindingSet bindings) throws ValueExprEvaluationException, QueryEvaluationException {
-    	return isTrue(valueEval.precompile(expr, new HalyardEvaluationContext(dataset, tripleSource.getValueFactory())), bindings);
+    	return isTrue(valueEval.precompile(expr, new QueryEvaluationContext.Minimal(dataset, tripleSource.getValueFactory())), bindings);
     }
 
 	@Override
@@ -355,10 +356,10 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		return valueEval.isTrue(v);
 	}
 
-	boolean hasStatement(StatementPattern sp, BindingSet bindings, QueryEvaluationContext evalContext) throws QueryEvaluationException {
+	boolean hasStatement(StatementPattern sp, BindingSet bindings) throws QueryEvaluationException {
 		QuadPattern nq = tupleEval.getQuadPattern(sp, bindings);
 		if (nq != null) {
-			ExtendedTripleSource tripleSource = (ExtendedTripleSource) tupleEval.getTripleSource(sp, bindings, evalContext);
+			ExtendedTripleSource tripleSource = (ExtendedTripleSource) tupleEval.getTripleSource(sp, bindings);
 			if (tripleSource != null) {
 				if (nq.isAllNamedContexts()) {
 					// can't optimize for this

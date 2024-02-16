@@ -16,7 +16,7 @@
  */
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.Arrays;

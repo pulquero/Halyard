@@ -18,10 +18,10 @@ package com.msd.gin.halyard.sail;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFObject;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.sail.search.SearchDocument;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
@@ -50,8 +50,8 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 	private final SearchClient searchClient;
 
 	public HBaseSearchTripleSource(KeyspaceConnection table, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory, HBaseSail.ScanSettings settings, SearchClient searchClient,
-			HBaseSail.Ticker ticker) {
-		super(table, vf, stmtIndices, timeoutSecs, qpFactory, settings, ticker);
+			HBaseSail.Ticker ticker, int forkIndex, int forkCount) {
+		super(table, vf, stmtIndices, timeoutSecs, qpFactory, settings, ticker, forkIndex, forkCount);
 		this.searchClient = Objects.requireNonNull(searchClient);
 	}
 

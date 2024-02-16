@@ -1,12 +1,12 @@
 package com.msd.gin.halyard.vocab;
 
+import com.msd.gin.halyard.model.Vocabulary;
+
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.impl.SimpleNamespace;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.kohsuke.MetaInfServices;
-
-import com.msd.gin.halyard.common.Vocabulary;
 
 @MetaInfServices(Vocabulary.class)
 public final class SCHEMA_ORG implements Vocabulary {

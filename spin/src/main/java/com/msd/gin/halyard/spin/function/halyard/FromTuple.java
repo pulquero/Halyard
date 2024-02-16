@@ -12,7 +12,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 
 import com.msd.gin.halyard.common.TupleLiteral;
-import com.msd.gin.halyard.function.ExtendedTupleFunction;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.spin.function.AbstractSpinFunction;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
 import com.msd.gin.halyard.vocab.HALYARD;

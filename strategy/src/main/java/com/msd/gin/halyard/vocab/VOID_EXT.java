@@ -16,7 +16,7 @@
  */
 package com.msd.gin.halyard.vocab;
 
-import com.msd.gin.halyard.common.Vocabulary;
+import com.msd.gin.halyard.model.Vocabulary;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Namespace;

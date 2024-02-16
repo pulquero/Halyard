@@ -1,9 +1,9 @@
 package com.msd.gin.halyard.optimizers;
 
 import com.google.common.collect.Sets;
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
-import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.ExtendedTupleFunctionCall;
+import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
 
 import java.util.Set;
 

@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.AbstractDataLiteral;
+import com.msd.gin.halyard.model.ObjectLiteral;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.HashMap;

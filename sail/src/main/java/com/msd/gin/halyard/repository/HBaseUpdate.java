@@ -1,9 +1,9 @@
 package com.msd.gin.halyard.repository;
 
 import com.google.common.base.Stopwatch;
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.evaluation.EmptyTripleSource;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 import com.msd.gin.halyard.common.Timestamped;
 import com.msd.gin.halyard.query.CloseableConsumer;
 import com.msd.gin.halyard.query.TimeLimitConsumer;

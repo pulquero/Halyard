@@ -3,6 +3,7 @@ package com.msd.gin.halyard.function;
 import com.msd.gin.halyard.common.Hashes;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.sail.HBaseTripleSource;
 import com.msd.gin.halyard.vocab.HALYARD;
 

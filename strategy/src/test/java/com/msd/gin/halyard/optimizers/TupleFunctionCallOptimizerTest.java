@@ -1,8 +1,8 @@
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.ExtendedTupleFunctionCall;
 
 import java.util.ArrayList;
 import java.util.Arrays;

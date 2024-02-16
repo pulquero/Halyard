@@ -2,11 +2,11 @@ package com.msd.gin.halyard.optimizers;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.BGPCollector;
-import com.msd.gin.halyard.algebra.Parent;
-import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
-import com.msd.gin.halyard.algebra.StarJoin;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.BGPCollector;
+import com.msd.gin.halyard.query.algebra.Parent;
+import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.StarJoin;
 
 import java.util.Collection;
 import java.util.List;

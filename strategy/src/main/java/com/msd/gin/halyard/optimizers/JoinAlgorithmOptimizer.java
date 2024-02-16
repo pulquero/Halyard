@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.algebra.Algorithms;
-import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.Algorithms;
+import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
 
 import java.util.HashSet;
 import java.util.Set;

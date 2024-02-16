@@ -41,7 +41,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import com.msd.gin.halyard.algebra.evaluation.ModelTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.ModelTripleSource;
 
 @RunWith(Parameterized.class)
 public class SpinParserTest {

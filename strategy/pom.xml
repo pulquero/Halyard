@@ -17,6 +17,16 @@
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
+			<groupId>${project.groupId}</groupId>
+			<artifactId>halyard-api</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>${project.groupId}</groupId>
+			<artifactId>halyard-queryalgebra</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>org.eclipse.rdf4j</groupId>
 			<artifactId>rdf4j-collection-factory-mapdb</artifactId>
 			<version>${rdf4j.version}</version>
@@ -43,11 +53,6 @@
 			<artifactId>rdf4j-sparql-testsuite</artifactId>
 			<version>${rdf4j.version}</version>
 			<scope>test</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>org.kohsuke.metainf-services</groupId>
-			<artifactId>metainf-services</artifactId>
 		</dependency>
 	</dependencies>
 </project>

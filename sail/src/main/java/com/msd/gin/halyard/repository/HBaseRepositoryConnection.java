@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.repository;
 
-import com.msd.gin.halyard.algebra.ExtendedQueryRoot;
+import com.msd.gin.halyard.query.algebra.ExtendedQueryRoot;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
 

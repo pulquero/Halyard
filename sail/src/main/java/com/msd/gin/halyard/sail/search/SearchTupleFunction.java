@@ -1,10 +1,10 @@
 package com.msd.gin.halyard.sail.search;
 
 import com.google.common.collect.Lists;
-import com.msd.gin.halyard.common.ObjectLiteral;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.function.ExtendedTupleFunction;
+import com.msd.gin.halyard.model.ObjectLiteral;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.sail.HBaseSearchTripleSource;
 import com.msd.gin.halyard.vocab.HALYARD;
 

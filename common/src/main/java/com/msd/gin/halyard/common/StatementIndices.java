@@ -482,17 +482,17 @@ public final class StatementIndices {
 		}
 	}
 
-	public Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, StatementIndex.Name indexToUse, RDFRole.Name role, int partition, int partitionBits, ValueConstraint constraint) {
+	public Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, StatementIndex.Name indexToPartition, RDFRole.Name role, int partition, int partitionBits, ValueConstraint constraint) {
     	if (partitionBits == 0 && constraint == null) {
 			return scan(subj, pred, obj, ctx);
     	} else {
-    		StatementIndex<?,?,?,?> index = indices.get(indexToUse);
+    		StatementIndex<?,?,?,?> partitionedIndex = indices.get(indexToPartition);
     		RDFValue<?,?> constrainedValue = role.getValue(subj, pred, obj, ctx);
 			if (constrainedValue != null) {
 				// validate constraints if value is known ahead-of-time
 
 				// NB: index must be specified if partitioned
-				if (partitionBits != 0 && !index.isInPartition(constrainedValue, role, partition, partitionBits)) {
+				if (partitionBits != 0 && !partitionedIndex.isInPartition(constrainedValue, role, partition, partitionBits)) {
 					return null;
 				}
 				if (constraint != null && !constraint.test(constrainedValue.val)) {
@@ -500,8 +500,11 @@ public final class StatementIndices {
 				}
 				return scan(subj, pred, obj, ctx);
 			} else {
-				if (index == null) {
-					indexToUse = getIndexForConstraint(subj != null, pred != null, obj != null, ctx != null, role);
+				StatementIndex<?,?,?,?> index;
+				if (partitionedIndex != null) {
+					index = partitionedIndex;
+				} else {
+					StatementIndex.Name indexToUse = getIndexForConstraint(subj != null, pred != null, obj != null, ctx != null, role);
 					index = indices.get(indexToUse);
 				}
 				return index.scanWithConstraint(subj, pred, obj, ctx, role, partition, partitionBits, constraint);

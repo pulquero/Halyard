@@ -17,23 +17,23 @@
 package com.msd.gin.halyard.strategy;
 
 import com.google.common.collect.Sets;
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.Algorithms;
-import com.msd.gin.halyard.algebra.ConstrainedStatementPattern;
-import com.msd.gin.halyard.algebra.ExtendedTupleFunctionCall;
-import com.msd.gin.halyard.algebra.NAryUnion;
-import com.msd.gin.halyard.algebra.StarJoin;
-import com.msd.gin.halyard.algebra.VarConstraint;
-import com.msd.gin.halyard.algebra.evaluation.ConstrainedTripleSourceFactory;
-import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.Algorithms;
+import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
+import com.msd.gin.halyard.query.algebra.ExtendedTupleFunctionCall;
+import com.msd.gin.halyard.query.algebra.NAryUnion;
+import com.msd.gin.halyard.query.algebra.StarJoin;
+import com.msd.gin.halyard.query.algebra.VarConstraint;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
 import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
 import com.msd.gin.halyard.common.ValueFactories;
 import com.msd.gin.halyard.federation.BindingSetConsumerFederatedService;
 import com.msd.gin.halyard.federation.BindingSetPipeFederatedService;
-import com.msd.gin.halyard.function.ParallelSplitFunction;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.query.AbortConsumerException;
 import com.msd.gin.halyard.query.BindingSetPipe;
@@ -335,12 +335,13 @@ final class HalyardTupleExprEvaluation {
     }
 
     private BindingSetPipeEvaluationStep precompileStatementPattern(StatementPattern sp, QueryEvaluationContext evalContext) {
-    	return (parent, bindings) -> evaluateStatementPattern(parent, sp, sp, bindings, evalContext);
+    	return (parent, bindings) -> evaluateStatementPattern(parent, sp, sp, bindings);
     }
 
-    TripleSource getTripleSource(StatementPattern sp, BindingSet bindings, QueryEvaluationContext evalContext) {
-    	if ((sp instanceof ConstrainedStatementPattern) && (tripleSource instanceof ConstrainedTripleSourceFactory)) {
+    TripleSource getTripleSource(StatementPattern sp, BindingSet bindings) {
+    	if ((sp instanceof ConstrainedStatementPattern) && (tripleSource instanceof PartitionableTripleSource)) {
     		ConstrainedStatementPattern csp = (ConstrainedStatementPattern) sp;
+    		PartitionableTripleSource pts = (PartitionableTripleSource) tripleSource;
 
     		ValueConstraint constraint = null;
     		VarConstraint varConstraint = csp.getConstraint();
@@ -376,23 +377,15 @@ final class HalyardTupleExprEvaluation {
 	    			}
 	    		}
     		}
-    		int partitionIndex = ParallelSplitFunction.getForkIndex(evalContext);
-    		int partitionBits = getPartitionBits(partitionIndex, varConstraint);
-			return ((ConstrainedTripleSourceFactory)tripleSource).getTripleSource(csp.getIndexToUse(), csp.getConstrainedRole(), partitionIndex, partitionBits, constraint);
+    		if (varConstraint != null) {
+    			int partitionCount = varConstraint.getPartitionCount();
+    			if (partitionCount != pts.getPartitionCount()) {
+    				throw new IllegalStateException(String.format("Partition mis-match: query (%d) not compatible with triple store (%d)", partitionCount, pts.getPartitionCount()));
+    			}
+    		}
+			return pts.partition(csp.getIndexToPartition(), csp.getConstrainedRole(), constraint);
     	}
     	return tripleSource;
-    }
-
-    private static int getPartitionBits(int partitionIndex, VarConstraint varConstraint) {
-		if (partitionIndex >= 0 && varConstraint != null) {
-			int partitionCount = varConstraint.getPartitionCount();
-			if (partitionCount > 0 && partitionIndex >= partitionCount) {
-				throw new QueryEvaluationException(String.format("Partition index %d must be less than partition count %d", partitionIndex, partitionCount));
-			}
-    		return ParallelSplitFunction.powerOf2BitCount(partitionCount);
-		} else {
-			return 0;
-		}
     }
 
     /**
@@ -403,10 +396,10 @@ final class HalyardTupleExprEvaluation {
      * @param bindings the set of names to which values are bound. For example, select ?s, ?p, ?o has the names s, p and o and the values bound to them are the
      * results of the evaluation of this statement pattern
      */
-    private void evaluateStatementPattern(final BindingSetPipe parent, final StatementPattern sp, final TupleExpr trackExpr, final BindingSet bindings, final QueryEvaluationContext evalContext) {
+    private void evaluateStatementPattern(final BindingSetPipe parent, final StatementPattern sp, final TupleExpr trackExpr, final BindingSet bindings) {
         QuadPattern nq = getQuadPattern(sp, bindings);
         if (nq != null) {
-    		TripleSource ts = getTripleSource(sp, bindings, evalContext);
+    		TripleSource ts = getTripleSource(sp, bindings);
     		if (ts != null) {
     	        QueryEvaluationStep evalStep = evaluateStatementPattern(sp, nq, ts);
         		try {
@@ -1713,20 +1706,32 @@ final class HalyardTupleExprEvaluation {
     /**
      * Precompiles {@link Service} query model nodes
      * @param service
+     * @param evalContext
      */
     private BindingSetPipeEvaluationStep precompileService(Service service, QueryEvaluationContext evalContext) {
+        int partitionIndex;
+        int partitionCount;
+        if (tripleSource instanceof PartitionableTripleSource) {
+        	PartitionableTripleSource partitionableTripleSource = (PartitionableTripleSource) tripleSource;
+        	partitionIndex = partitionableTripleSource.getPartitionIndex();
+        	partitionCount = partitionableTripleSource.getPartitionCount();
+        } else {
+        	partitionIndex = 0;
+        	partitionCount = 1;
+        }
+
         Var serviceRef = service.getServiceRef();
         Value serviceRefValue = serviceRef.getValue();
         if (serviceRefValue != null) {
         	// service endpoint known ahead of time
-        	FederatedService fs = parentStrategy.getService(serviceRefValue.stringValue(), evalContext);
+        	FederatedService fs = parentStrategy.getService(serviceRefValue.stringValue(), partitionIndex, partitionCount);
         	return (topPipe, bindings) -> evaluateService(topPipe, service, fs, bindings);
         } else {
 			return (topPipe, bindings) -> {
 				Value boundServiceRefValue = bindings.getValue(serviceRef.getName());
 			    if (boundServiceRefValue != null) {
 			        String serviceUri = boundServiceRefValue.stringValue();
-		        	FederatedService fs = parentStrategy.getService(serviceUri, evalContext);
+		        	FederatedService fs = parentStrategy.getService(serviceUri, partitionIndex, partitionCount);
 					evaluateService(topPipe, service, fs, bindings);
 			    } else {
 			        topPipe.handleException(new QueryEvaluationException("SERVICE variables must be bound at evaluation time."));
@@ -2746,7 +2751,7 @@ final class HalyardTupleExprEvaluation {
 			        		step = (p, stepBindings) -> executor.pullPushAsync(p, evalStep, starJoin, stepBindings, parentStrategy);
 		        		} else {
 		        			// single statement pattern
-		        			step = (p, stepBindings) -> evaluateStatementPattern(p, sps[startIndex], starJoin, stepBindings, evalContext);
+		        			step = (p, stepBindings) -> evaluateStatementPattern(p, sps[startIndex], starJoin, stepBindings);
 		        		}
 		        	} else {
 		        		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
@@ -2911,7 +2916,7 @@ final class HalyardTupleExprEvaluation {
 							return handleException(ioe);
 						}
 					}
-				}, sp, zlp, bindings, evalContext);
+				}, sp, zlp, bindings);
 			} else {
 				QueryBindingSet result = new QueryBindingSet(bindings);
 				if (obj == null && subj != null) {

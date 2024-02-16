@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.sail.geosparql;
 
-import com.msd.gin.halyard.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.ArrayList;

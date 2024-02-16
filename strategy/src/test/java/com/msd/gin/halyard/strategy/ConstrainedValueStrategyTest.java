@@ -8,6 +8,7 @@ import org.eclipse.rdf4j.model.vocabulary.GEO;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.QueryLanguage;
+import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
@@ -28,7 +29,7 @@ public class ConstrainedValueStrategyTest {
 
     @BeforeEach
     public void setUp() throws Exception {
-        repo = new SailRepository(new MockSailWithConstraintsStrategy(1));
+        repo = new SailRepository(new MockSailWithConstraintsStrategy());
         repo.init();
         con = repo.getConnection();
     }
@@ -188,7 +189,9 @@ public class ConstrainedValueStrategyTest {
         con.add(vf.createIRI("http://whatever/b"), vf.createIRI("http://whatever/val"), vf.createLiteral(10));
     	String q ="PREFIX halyard: <"+HALYARD.NAMESPACE+">\n"
     			+"SELECT ?s { ?s ?p ?o filter(halyard:forkAndFilterBy(2,?s)) }";
-        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
+    	TupleQuery query = con.prepareTupleQuery(q);
+    	query.setBinding(MockSailWithConstraintsStrategy.FORK_INDEX_BINDING, vf.createLiteral(1));
+        try (TupleQueryResult res = query.evaluate()) {
 	        assertTrue(res.hasNext());
 	        BindingSet bs = res.next();
 	        assertFalse(res.hasNext());
@@ -203,7 +206,9 @@ public class ConstrainedValueStrategyTest {
         con.add(vf.createIRI("http://whatever/b"), vf.createIRI("http://whatever/val"), vf.createLiteral(10));
     	String q ="PREFIX halyard: <"+HALYARD.NAMESPACE+">\n"
     			+"SELECT ?s { VALUES ?s {<http://whatever/a> <http://whatever/b>} ?s ?p ?o filter(halyard:forkAndFilterBy(2,?s)) }";
-        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
+    	TupleQuery query = con.prepareTupleQuery(q);
+    	query.setBinding(MockSailWithConstraintsStrategy.FORK_INDEX_BINDING, vf.createLiteral(1));
+        try (TupleQueryResult res = query.evaluate()) {
 	        assertTrue(res.hasNext());
 	        BindingSet bs = res.next();
 	        assertFalse(res.hasNext());
@@ -218,7 +223,9 @@ public class ConstrainedValueStrategyTest {
         con.add(vf.createIRI("http://whatever/b"), vf.createIRI("http://whatever/val"), vf.createLiteral(-1));
     	String q ="PREFIX halyard: <"+HALYARD.NAMESPACE+">\n"
     			+"SELECT ?s { ?s ?p ?o filter(halyard:forkAndFilterBy(2,?o)) }";
-        try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
+    	TupleQuery query = con.prepareTupleQuery(q);
+    	query.setBinding(MockSailWithConstraintsStrategy.FORK_INDEX_BINDING, vf.createLiteral(1));
+        try (TupleQueryResult res = query.evaluate()) {
 	        assertTrue(res.hasNext());
 	        BindingSet bs = res.next();
 	        assertFalse(res.hasNext());

@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.federation;
 
-import com.msd.gin.halyard.algebra.ServiceRoot;
+import com.msd.gin.halyard.query.algebra.ServiceRoot;
 import com.msd.gin.halyard.common.ValueFactories;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.sail.BindingSetConsumerSail;

@@ -19,8 +19,6 @@ package com.msd.gin.halyard.sail;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
-import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
-import com.msd.gin.halyard.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
@@ -28,11 +26,13 @@ import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.federation.SailFederatedService;
-import com.msd.gin.halyard.function.DynamicFunctionRegistry;
 import com.msd.gin.halyard.optimizers.ExtendedEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.ServiceStatisticsProvider;
 import com.msd.gin.halyard.optimizers.StatementPatternCardinalityCalculator;
+import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.query.algebra.evaluation.function.DynamicFunctionRegistry;
 import com.msd.gin.halyard.sail.connection.SailConnectionQueryPreparer;
 import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.spin.SpinFunctionInterpreter;
@@ -686,9 +686,13 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	}
 
 	HBaseTripleSource createTripleSource(KeyspaceConnection keyspaceConn, boolean includeInferred) {
+		return createTripleSource(keyspaceConn, includeInferred, 0, 1);
+	}
+
+	HBaseTripleSource createTripleSource(KeyspaceConnection keyspaceConn, boolean includeInferred, int forkIndex, int forkCount) {
 		QueryPreparer.Factory qpFactory = () -> new SailConnectionQueryPreparer(getConnection(), includeInferred, getValueFactory());
-		return getSearchClient().<HBaseTripleSource>map(sc -> new HBaseSearchTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), sc, ticker))
-				.orElseGet(() -> new HBaseTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), ticker));
+		return getSearchClient().<HBaseTripleSource>map(sc -> new HBaseSearchTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), sc, ticker, forkIndex, forkCount))
+				.orElseGet(() -> new HBaseTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), ticker, forkIndex, forkCount));
 	}
 
 	public RDFFactory getRDFFactory() {

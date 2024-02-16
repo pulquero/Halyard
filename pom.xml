@@ -62,6 +62,9 @@
 		<tag>v4.0</tag>
 	</scm>
 	<modules>
+		<module>api</module>
+		<module>model</module>
+		<module>queryalgebra</module>
 		<module>common</module>
 		<module>strategy</module>
 		<module>rio</module>

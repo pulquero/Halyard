@@ -1,9 +1,9 @@
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
-import com.msd.gin.halyard.algebra.Algorithms;
-import com.msd.gin.halyard.algebra.NAryTupleOperator;
-import com.msd.gin.halyard.algebra.StarJoin;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.Algorithms;
+import com.msd.gin.halyard.query.algebra.NAryTupleOperator;
+import com.msd.gin.halyard.query.algebra.StarJoin;
 
 import java.io.InputStream;
 import java.util.ArrayList;

@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.algebra.NAryUnion;
+import com.msd.gin.halyard.query.algebra.NAryUnion;
 
 import java.util.Arrays;
 

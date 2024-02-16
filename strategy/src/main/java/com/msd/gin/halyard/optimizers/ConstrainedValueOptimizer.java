@@ -1,15 +1,15 @@
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.BGPCollector;
-import com.msd.gin.halyard.algebra.ConstrainedStatementPattern;
-import com.msd.gin.halyard.algebra.SkipVarsQueryModelVisitor;
-import com.msd.gin.halyard.algebra.VarConstraint;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.BGPCollector;
+import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
+import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.VarConstraint;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
 import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueType;
-import com.msd.gin.halyard.function.ParallelSplitFunction;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.ArrayList;
@@ -269,7 +269,7 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 				List<ValueExpr> args = funcCall.getArgs();
 				if (HALYARD.PARALLEL_SPLIT_FUNCTION.stringValue().equals(funcCall.getURI()) && args.size() == 2 && args.get(0) instanceof ValueConstant && isVar(args.get(1))) {
 					int partitionCount = Literals.getIntValue(((ValueConstant) args.get(0)).getValue(), -1);
-					if (partitionCount > 0) {
+					if (partitionCount > 1) {
 						addExactConstraint((Var) args.get(1), ParallelSplitFunction.toActualForkCount(partitionCount), filter);
 					}
 				}

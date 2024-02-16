@@ -3,7 +3,7 @@ package com.msd.gin.halyard.sail.geosparql;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.WKTLiteral;
-import com.msd.gin.halyard.function.ExtendedTupleFunction;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.sail.HBaseSearchTripleSource;
 import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.sail.search.SearchDocument;

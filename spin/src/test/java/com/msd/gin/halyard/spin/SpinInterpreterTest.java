@@ -24,8 +24,8 @@ import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import org.junit.Test;
 
-import com.msd.gin.halyard.algebra.Algebra;
-import com.msd.gin.halyard.algebra.evaluation.CloseableTripleSource;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.sail.connection.SailConnectionTripleSource;
 
 public class SpinInterpreterTest {

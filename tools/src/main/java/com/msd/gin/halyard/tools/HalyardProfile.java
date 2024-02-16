@@ -16,7 +16,7 @@
  */
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.sail.ElasticSettings;
@@ -36,10 +36,13 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.hadoop.hbase.KeyValue;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.EmptyIteration;
+import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.BooleanQuery;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.GraphQuery;
+import org.eclipse.rdf4j.query.Operation;
 import org.eclipse.rdf4j.query.Query;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.TupleQuery;
@@ -68,6 +71,7 @@ public final class HalyardProfile extends AbstractHalyardTool {
         addOption("s", "source-dataset", "dataset_table", "Source HBase table with Halyard RDF store", true, true);
         addOption("q", "query", "sparql_query", "SPARQL query to profile", false, true);
         addOption("i", "elastic-index", "elastic_index_url", ElasticSettings.ELASTIC_INDEX_URL, "Optional ElasticSearch index URL", false, true);
+        addKeyValueOption("$", null, "binding=value", BINDING_PROPERTY_PREFIX, "Optionally specify bindings");
     }
 
     @Override
@@ -75,6 +79,7 @@ public final class HalyardProfile extends AbstractHalyardTool {
 		String queryString = cmd.getOptionValue('q');
 		String table = cmd.getOptionValue('s');
 		configureString(cmd, 'i', null);
+		configureBindings(cmd, '$');
 		if (queryString == null) {
 			System.out.println("Reading query from stdin (ctrl+D when done)...");
 			queryString = new String(System.in.readAllBytes()); // use platform encoding here!
@@ -178,6 +183,7 @@ public final class HalyardProfile extends AbstractHalyardTool {
 
 		HBaseRepository repo = new HBaseRepository(sail);
         repo.init();
+        BindingSet bindings = AbstractHalyardTool.getBindings(getConf(), repo.getValueFactory());
         try {
         	try(RepositoryConnection conn = repo.getConnection()) {
 	        	System.out.println(queryString);
@@ -186,7 +192,7 @@ public final class HalyardProfile extends AbstractHalyardTool {
 				if (strippedQuery.startsWith("SELECT") || strippedQuery.startsWith("CONSTRUCT")
 						|| strippedQuery.startsWith("DESCRIBE") || strippedQuery.startsWith("ASK")) {
 					Query q = conn.prepareQuery(queryString);
-					q.setBinding(HBaseSailConnection.FORK_INDEX_BINDING, repo.getValueFactory().createLiteral(0));
+					setBindings(q, bindings, repo.getValueFactory());
 					if (q instanceof BooleanQuery) {
 					    ((BooleanQuery)q).evaluate();
 					} else if (q instanceof TupleQuery) {
@@ -196,7 +202,7 @@ public final class HalyardProfile extends AbstractHalyardTool {
 					}
 				} else {
 					Update u = conn.prepareUpdate(queryString);
-					u.setBinding(HBaseSailConnection.FORK_INDEX_BINDING, repo.getValueFactory().createLiteral(0));
+					setBindings(u, bindings, repo.getValueFactory());
 					u.execute();
 				}
         	}
@@ -204,5 +210,11 @@ public final class HalyardProfile extends AbstractHalyardTool {
             repo.shutDown();
         }
         return 0;
+    }
+
+    static void setBindings(Operation op, BindingSet bindings, ValueFactory vf) {
+    	for (Binding b : bindings) {
+    		op.setBinding(b.getName(), b.getValue());
+    	}
     }
 }

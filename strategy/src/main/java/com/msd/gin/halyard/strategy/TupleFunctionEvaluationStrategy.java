@@ -10,7 +10,7 @@
  *******************************************************************************/
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.function.ExtendedTupleFunction;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 
 import java.util.List;
 import java.util.function.Function;

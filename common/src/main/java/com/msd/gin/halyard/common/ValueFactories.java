@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.AbstractDataLiteral;
+
 import java.util.Set;
 
 import org.eclipse.rdf4j.model.Literal;

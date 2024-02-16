@@ -2,7 +2,7 @@ package com.msd.gin.halyard.vocab;
 
 import com.msd.gin.halyard.common.AbstractIRIEncodingNamespace;
 import com.msd.gin.halyard.common.ValueIO;
-import com.msd.gin.halyard.common.Vocabulary;
+import com.msd.gin.halyard.model.Vocabulary;
 
 import java.lang.reflect.Field;
 import java.math.BigInteger;

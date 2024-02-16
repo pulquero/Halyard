@@ -16,8 +16,8 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.algebra.AbstractExtendedQueryModelVisitor;
-import com.msd.gin.halyard.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.QueueingBindingSetPipe;
 import com.msd.gin.halyard.util.MBeanDetails;

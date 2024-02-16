@@ -16,7 +16,7 @@
  */
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.function.ParallelSplitFunction;
+import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -58,7 +58,7 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
         Collection<String> qNames = conf.getStringCollection(QUERIES);
         qNames.add(name);
         conf.set(PREFIX + name + QUERY_SUFFIX, query);
-		int repeatCount = Math.max(1, ParallelSplitFunction.getNumberOfForksFromFunctionArgument(query, stage, bindings));
+		int repeatCount = ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument(query, stage, bindings);
         conf.setInt(PREFIX + name + REPEAT_SUFFIX, repeatCount);
         conf.setStrings(QUERIES, qNames.toArray(new String[qNames.size()]));
     }

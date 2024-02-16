@@ -19,13 +19,12 @@ package com.msd.gin.halyard.strategy;
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.msd.gin.halyard.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.common.JavaObjectLiteral;
-import com.msd.gin.halyard.function.ExtendedFunction;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.query.ValuePipe;
 import com.msd.gin.halyard.query.ValuePipeQueryValueEvaluationStep;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -884,7 +883,7 @@ class HalyardValueExprEvaluation {
 					}
 					Value result;
 			        try {
-			        	result = evaluate(function, evalContext, arr);
+			        	result = function.evaluate(tripleSource, arr);
 			        } catch (ValueExprEvaluationException e) {
 			        	return ValueOrError.fail(e.getMessage());
 			        }
@@ -896,21 +895,13 @@ class HalyardValueExprEvaluation {
 	        	}
         	} else {
         		try {
-		        	Value result = evaluate(function, evalContext);
+		        	Value result = function.evaluate(tripleSource);
 	        		parent.push(result);
 		        } catch (ValueExprEvaluationException e) {
 		        	parent.handleValueError(e.getMessage());
 		        }
         	}
         };
-    }
-
-    private Value evaluate(Function f, QueryEvaluationContext evalContext, Value... args) {
-    	if (f instanceof ExtendedFunction) {
-    		return ((ExtendedFunction)f).evaluate(tripleSource, evalContext, args);
-    	} else {
-    		return f.evaluate(tripleSource, args);
-    	}
     }
 
     /**
@@ -1406,7 +1397,7 @@ class HalyardValueExprEvaluation {
 	        boolean allVarsDistinct = (conVar != null && distinctVarCount == 4) || (conVar == null && distinctVarCount == 3);
 	        if (allVarsDistinct) {
 	        	return (valuePipe, bindings) -> {
-					boolean hasStmt = parentStrategy.hasStatement(sp, bindings, evalContext);
+					boolean hasStmt = parentStrategy.hasStatement(sp, bindings);
 			    	valuePipe.push(hasStmt ? TRUE : FALSE);
 				};
 			}
