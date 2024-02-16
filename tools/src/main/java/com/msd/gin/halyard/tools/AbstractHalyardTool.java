@@ -60,9 +60,9 @@ import org.apache.hadoop.hbase.regionserver.BloomType;
 import org.apache.hadoop.hbase.tool.BulkLoadHFiles;
 import org.apache.hadoop.hbase.util.BloomFilterUtil;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.util.Tool;
-import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -284,11 +284,9 @@ public abstract class AbstractHalyardTool implements Tool {
     	return conf.getBoolean(DRY_RUN_PROPERTY, false);
     }
 
-    protected final void bulkLoad(TableName tableName, Path workDir) throws IOException {
-    	bulkLoad(getConf(), tableName, workDir);
-    }
-
-    protected static final void bulkLoad(Configuration conf, TableName tableName, Path workDir) throws IOException {
+    protected static final void bulkLoad(Job job, TableName tableName, Path workDir) throws IOException {
+    	// ensure job configuration is used
+    	Configuration conf = job.getConfiguration();
     	if (isDryRun(conf)) {
     		LOG.info("Skipping bulk load - dry run");
     	} else {
@@ -302,6 +300,9 @@ public abstract class AbstractHalyardTool implements Tool {
 		byte[] tableAndFamily = HalyardTableUtils.getTableNameSuffixedWithFamily(tableName.toBytes());
 		Map<byte[], String> bloomTypeMap = createFamilyConfValueMap(conf, "hbase.hfileoutputformat.families.bloomtype");
 		String bloomType = bloomTypeMap.get(tableAndFamily);
+		if (bloomType == null) {
+			throw new IllegalStateException("Missing bloom filter configuration");
+		}
 		if (BloomType.ROWPREFIX_FIXED_LENGTH.toString().equals(bloomType)) {
 			Map<byte[], String> bloomParamMap = createFamilyConfValueMap(conf, "hbase.hfileoutputformat.families.bloomparam");
 			String bloomParam = bloomParamMap.get(tableAndFamily);

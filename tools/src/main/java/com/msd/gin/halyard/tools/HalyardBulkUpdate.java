@@ -370,8 +370,6 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 				}
                 Path outPath = new Path(workdir, "stage"+stage);
                 FileOutputFormat.setOutputPath(job, outPath);
-                TableMapReduceUtil.addDependencyJars(job);
-                TableMapReduceUtil.initCredentials(job);
                 if (stage == 0) { //count real number of stages
                     for (InputSplit is : new QueryInputFormat().getSplits(job)) {
                         QueryInputFormat.QueryInputSplit qis = (QueryInputFormat.QueryInputSplit)is;
@@ -385,7 +383,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                 }
                 if (job.waitForCompletion(true)) {
                 	infos.add(JsonInfo.from(job));
-    				bulkLoad(conf, hTable.getName(), outPath);
+    				bulkLoad(job, hTable.getName(), outPath);
                     LOG.info("Stage #{} of {} completed.", stage+1, stages);
                 } else {
             		LOG.error("Stage #{} of {} failed to complete.", stage+1, stages);

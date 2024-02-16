@@ -271,7 +271,6 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
             for (int i=0; !scans.isEmpty(); i++) {
                 Job job = Job.getInstance(getConf(), "HalyardDelete " + source);
                 job.setJarByClass(HalyardBulkDelete.class);
-                TableMapReduceUtil.initCredentials(job);
                 keyspace.initMapperJob(
                     scans,
                     DeleteMapper.class,
@@ -291,9 +290,8 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         		}
         		Path workDir = new Path(cmd.getOptionValue('w'), "pass"+(i+1));
                 FileOutputFormat.setOutputPath(job, workDir);
-                TableMapReduceUtil.addDependencyJars(job);
 	            if (job.waitForCompletion(true)) {
-					bulkLoad(hTableName, workDir);
+					bulkLoad(job, hTableName, workDir);
 	                LOG.info("Bulk Delete completed.");
 	                if (!isDryRun(getConf()) && job.getCounters().findCounter(Counters.REMOVED_TRIPLED_KVS).getValue() > 0) {
 	                	// maybe more triples to delete

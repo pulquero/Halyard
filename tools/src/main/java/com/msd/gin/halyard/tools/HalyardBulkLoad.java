@@ -710,14 +710,6 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
         FileInputFormat.setInputPaths(job, sourcePaths);
         Path outPath = new Path(workdir);
         FileOutputFormat.setOutputPath(job, outPath);
-        TableMapReduceUtil.initCredentials(job);
-        TableMapReduceUtil.addDependencyJars(job);
-        TableMapReduceUtil.addDependencyJarsForClasses(job.getConfiguration(),
-                NTriplesUtil.class,
-                Rio.class,
-                AbstractRDFHandler.class,
-                RDFFormat.class,
-                RDFParser.class);
 
         TableDescriptor tableDesc;
 		try (Connection conn = HalyardTableUtils.getConnection(getConf())) {
@@ -725,6 +717,12 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
 				tableDesc = hTable.getDescriptor();
 				RegionLocator regionLocator = conn.getRegionLocator(tableDesc.getTableName());
 				HFileOutputFormat2.configureIncrementalLoad(job, tableDesc, regionLocator);
+		        TableMapReduceUtil.addDependencyJarsForClasses(job.getConfiguration(),
+		                NTriplesUtil.class,
+		                Rio.class,
+		                AbstractRDFHandler.class,
+		                RDFFormat.class,
+		                RDFParser.class);
 	        }
             try (Keyspace keyspace = HalyardTableUtils.getKeyspace(getConf(), conn, tableDesc.getTableName(), null, null)) {
             	try (KeyspaceConnection ksConn = keyspace.getConnection()) {
@@ -741,7 +739,7 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
         			HalyardTableUtils.clearStatements(conn, tableName);
         		}
             }
-    		bulkLoad(tableName, outPath);
+    		bulkLoad(job, tableName, outPath);
             LOG.info("Bulk Load completed.");
         } else {
     		LOG.error("Bulk Load failed to complete.");
