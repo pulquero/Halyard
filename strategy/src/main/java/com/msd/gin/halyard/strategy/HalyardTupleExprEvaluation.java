@@ -17,17 +17,6 @@
 package com.msd.gin.halyard.strategy;
 
 import com.google.common.collect.Sets;
-import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
-import com.msd.gin.halyard.query.algebra.Algebra;
-import com.msd.gin.halyard.query.algebra.Algorithms;
-import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
-import com.msd.gin.halyard.query.algebra.ExtendedTupleFunctionCall;
-import com.msd.gin.halyard.query.algebra.NAryUnion;
-import com.msd.gin.halyard.query.algebra.StarJoin;
-import com.msd.gin.halyard.query.algebra.VarConstraint;
-import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
-import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
-import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
 import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.ValueConstraint;
@@ -40,11 +29,23 @@ import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.query.ValuePipe;
 import com.msd.gin.halyard.query.ValuePipeQueryValueEvaluationStep;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.Algorithms;
+import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
+import com.msd.gin.halyard.query.algebra.ExtendedTupleFunctionCall;
+import com.msd.gin.halyard.query.algebra.NAryUnion;
+import com.msd.gin.halyard.query.algebra.StarJoin;
+import com.msd.gin.halyard.query.algebra.VarConstraint;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
 import com.msd.gin.halyard.strategy.aggregators.AvgAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.AvgCollector;
 import com.msd.gin.halyard.strategy.aggregators.CSVCollector;
 import com.msd.gin.halyard.strategy.aggregators.ConcatAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.CountAggregateFunction;
+import com.msd.gin.halyard.strategy.aggregators.ExtendedAggregateCollector;
+import com.msd.gin.halyard.strategy.aggregators.ExtendedAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.LongCollector;
 import com.msd.gin.halyard.strategy.aggregators.MaxAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.MinAggregateFunction;
@@ -66,6 +67,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -81,7 +83,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -1189,25 +1193,34 @@ final class HalyardTupleExprEvaluation {
     /**
      * Precompile {@link Group} query model nodes
      * @param group
+     * @param evalContext
      */
     private BindingSetPipeEvaluationStep precompileGroup(Group group, QueryEvaluationContext evalContext) {
         BindingSetPipeEvaluationStep step = precompileTupleExpr(group.getArg(), evalContext);
         List<GroupElem> elems = group.getGroupElements();
-        ValuePipeQueryValueEvaluationStep[] opArgSteps = new ValuePipeQueryValueEvaluationStep[elems.size()];
-        for (int i=0; i<opArgSteps.length; i++) {
-        	AggregateOperator op = elems.get(i).getOperator();
-        	if (op instanceof UnaryValueOperator) {
-        		ValueExpr arg = ((UnaryValueOperator)op).getArg();
-        		if (arg != null) {
-        			opArgSteps[i] = parentStrategy.precompile(arg, evalContext);
-        		}
-        	}
+        String[] elemNames = new String[elems.size()];
+        QueryValueStepEvaluator[] argEvaluators = new QueryValueStepEvaluator[elems.size()];
+        for (int i=0; i<elems.size(); i++) {
+        	GroupElem elem = elems.get(i);
+        	elemNames[i] = elem.getName();
+        	AggregateOperator op = elem.getOperator();
+    		ValueExpr arg = ((UnaryValueOperator)op).getArg();
+    		QueryValueStepEvaluator evaluator;
+    		if (arg != null) {
+    			evaluator = new QueryValueStepEvaluator(parentStrategy.precompile(arg, evalContext));
+    		} else {
+    			evaluator = null;
+    		}
+    		argEvaluators[i] = evaluator;
 		}
-    	if (group.getGroupBindingNames().isEmpty()) {
+
+        if (group.getGroupBindingNames().isEmpty()) {
     		// no GROUP BY present
     		return (parent, bindings) -> {
-        		final class GroupWithoutByBindingSetPipe extends BindingSetPipe {
-					final GroupValue aggregators = createGroupValue(group, opArgSteps, bindings, evalContext);
+    			List<Supplier<Aggregator<?,?,?>>> aggregatorFactories = createAggregatorFactories(elems, argEvaluators, bindings, evalContext);
+
+    	        final class GroupWithoutByBindingSetPipe extends BindingSetPipe {
+					final GroupValue aggregators = GroupValue.create(elemNames, aggregatorFactories);
 
 					GroupWithoutByBindingSetPipe(BindingSetPipe parent) {
 						super(parent);
@@ -1217,13 +1230,13 @@ final class HalyardTupleExprEvaluation {
     					if (parent.isClosed()) {
     						return false;
     					}
-    					aggregators.addValues(bs);
+    					aggregators.addValues(bs, argEvaluators);
     					return true;
     				}
     				@Override
     				protected void doClose() {
     					QueryBindingSet result = new QueryBindingSet(bindings);
-    					aggregators.bindResult(result);
+    					aggregators.bindResult(result, tripleSource);
     					parent.pushLast(result);
     					aggregators.close();
     				}
@@ -1236,7 +1249,10 @@ final class HalyardTupleExprEvaluation {
     		};
     	} else {
     		return (parent, bindings) -> {
-        		final class GroupBindingSetPipe extends BindingSetPipe {
+    			List<Supplier<Aggregator<?,?,?>>> aggregatorFactories = createAggregatorFactories(elems, argEvaluators, bindings, evalContext);
+
+    			final class GroupBindingSetPipe extends BindingSetPipe {
+	    			final Function<BindingSetValues, GroupValue> valueLoader = k -> GroupValue.create(elemNames, aggregatorFactories);
 	    			final Map<BindingSetValues,GroupValue> groupByMap = new ConcurrentHashMap<>(GROUP_BY_CONCURRENCY);
 	    			final String[] groupNames = toStringArray(group.getGroupBindingNames());
 
@@ -1245,22 +1261,21 @@ final class HalyardTupleExprEvaluation {
 					}
 					@Override
 					protected boolean next(BindingSet bs) {
-						GroupValue aggregators = groupByMap.computeIfAbsent(BindingSetValues.create(groupNames, bs), k -> createGroupValue(group, opArgSteps, bindings, evalContext));
-						aggregators.addValues(bs);
+						BindingSetValues key = BindingSetValues.create(groupNames, bs);
+						GroupValue aggregators = groupByMap.computeIfAbsent(key, valueLoader);
+						aggregators.addValues(bs, argEvaluators);
 						return true;
 					}
 					@Override
 					protected void doClose() {
-						if (!groupByMap.isEmpty()) {
-							for(Map.Entry<BindingSetValues,GroupValue> aggEntry : groupByMap.entrySet()) {
-								BindingSetValues groupKey = aggEntry.getKey();
-								MutableBindingSet result = groupKey.setBindings(groupNames, bindings);
-								try (GroupValue aggregators = aggEntry.getValue()) {
-									aggregators.bindResult(result);
-								}
-								if (!parent.push(result)) {
-									break;
-								}
+						for(Map.Entry<BindingSetValues,GroupValue> aggEntry : groupByMap.entrySet()) {
+							BindingSetValues groupKey = aggEntry.getKey();
+							MutableBindingSet result = groupKey.setBindings(groupNames, bindings);
+							try (GroupValue aggregators = aggEntry.getValue()) {
+								aggregators.bindResult(result, tripleSource);
+							}
+							if (!parent.push(result)) {
+								break;
 							}
 						}
 						parent.close();
@@ -1275,38 +1290,53 @@ final class HalyardTupleExprEvaluation {
     	}
     }
 
-    private GroupValue createGroupValue(Group group, ValuePipeQueryValueEvaluationStep[] opArgSteps, BindingSet parentBindings, QueryEvaluationContext evalContext) {
-		Map<String,Aggregator<?,?>> aggregators = new HashMap<>();
-        List<GroupElem> elems = group.getGroupElements();
-		for (int i=0; i<opArgSteps.length; i++) {
-			GroupElem ge = elems.get(i);
-			Aggregator<?,?> agg = createAggregator(ge.getOperator(), opArgSteps[i], parentBindings, evalContext);
-			if (agg != null) {
-				aggregators.put(ge.getName(), agg);
-			}
+    private List<Supplier<Aggregator<?,?,?>>> createAggregatorFactories(List<GroupElem> elems, QueryValueStepEvaluator[] argEvaluators, BindingSet bindings, QueryEvaluationContext evalContext) {
+		List<Supplier<Aggregator<?,?,?>>> aggregatorFactories = new ArrayList<>(elems.size());
+        for (int i=0; i<elems.size(); i++) {
+        	GroupElem elem = elems.get(i);
+			QueryValueStepEvaluator opArgEvaluator = argEvaluators[i];
+			Supplier<Aggregator<?,?,?>> aggregatorFactory = getAggregatorFactory(elem.getOperator(), opArgEvaluator, bindings, evalContext);
+			aggregatorFactories.add(aggregatorFactory);
 		}
-		return new GroupValue(aggregators);
+        return aggregatorFactories;
     }
 
-    private static final class GroupValue implements AutoCloseable {
-		private final Map<String, Aggregator<?,?>> aggregators;
+    private static final class GroupValue implements AutoCloseable, Serializable {
+		private static final long serialVersionUID = 276586631113153333L;
+		private final String[] elemNames;
+		private final Aggregator<?,?,?>[] aggregators;
 
-		GroupValue(Map<String, Aggregator<?,?>> aggregators) {
+		static GroupValue create(String[] elemNames, List<Supplier<Aggregator<?,?,?>>> aggregatorFactories) {
+			int n = aggregatorFactories.size();
+			Aggregator<?,?,?>[] aggregators = new Aggregator<?,?,?>[n];
+			for (int i=0; i<n; i++) {
+				aggregators[i] = aggregatorFactories.get(i).get();
+			}
+			return new GroupValue(elemNames, aggregators);
+		}
+
+		GroupValue(String[] elemNames, Aggregator<?,?,?>[] aggregators) {
+			this.elemNames = elemNames;
 			this.aggregators = aggregators;
 		}
 
-		void addValues(BindingSet bindingSet) {
-			for(Aggregator<?,?> agg : aggregators.values()) {
-				agg.process(bindingSet);
+		void addValues(BindingSet bindingSet, QueryValueStepEvaluator[] evaluationSteps) {
+			for(int i=0; i<elemNames.length; i++) {
+				Aggregator<?,?,?> agg = aggregators[i];
+				if (agg != null) {
+					agg.process(bindingSet, evaluationSteps[i]);
+				}
 			}
 		}
 
-		void bindResult(MutableBindingSet bs) {
-			for(Map.Entry<String,Aggregator<?,?>> entry : aggregators.entrySet()) {
-				try(Aggregator<?,?> agg = entry.getValue()) {
-					Value v = agg.getValue();
-					if (v != null) {
-						bs.setBinding(entry.getKey(), v);
+		void bindResult(MutableBindingSet bs, TripleSource ts) {
+			for(int i=0; i<elemNames.length; i++) {
+				try(Aggregator<?,?,?> agg = aggregators[i]) {
+					if (agg != null) {
+						Value v = agg.getValue(ts);
+						if (v != null) {
+							bs.setBinding(elemNames[i], v);
+						}
 					}
 				} catch (ValueExprEvaluationException ignore) {
 					// There was a type error when calculating the value of the
@@ -1319,56 +1349,63 @@ final class HalyardTupleExprEvaluation {
 
 		@Override
 		public void close() {
-			for (Aggregator<?,?> agg : aggregators.values()) {
-				agg.close();
+			for (Aggregator<?,?,?> agg : aggregators) {
+				if (agg != null) {
+					agg.close();
+				}
 			}
 		}
 
 		@Override
 		public String toString() {
-			return aggregators.toString();
+			return Arrays.toString(aggregators);
 		}
     }
 
 	private static final Predicate<?> ALWAYS_TRUE = (v) -> true;
 
-	private Aggregator<?,?> createAggregator(AggregateOperator operator, ValuePipeQueryValueEvaluationStep opArgStep, BindingSet parentBindings, QueryEvaluationContext evalContext) {
-		ValueFactory valueFactory = tripleSource.getValueFactory();
+	private Supplier<Aggregator<?,?,?>> getAggregatorFactory(AggregateOperator operator, QueryValueStepEvaluator opArgEvaluator, BindingSet parentBindings, QueryEvaluationContext evalContext) {
 		boolean isDistinct = operator.isDistinct();
 		if (operator instanceof Count) {
 			Count count = (Count) operator;
 			if (count.getArg() != null) {
-				QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
-				Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-				return Aggregator.create(new CountAggregateFunction(eval), distinct, new LongCollector(valueFactory));
+				return () -> {
+					Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
+					return ThreadSafeAggregator.create(new CountAggregateFunction(), distinct, new LongCollector());
+				};
 			} else {
-				Predicate<BindingSet> distinct = isDistinct ? createDistinctBindingSets() : (Predicate<BindingSet>) ALWAYS_TRUE;
-				return Aggregator.create(new WildcardCountAggregateFunction(), distinct, new LongCollector(valueFactory));
+				return () -> {
+					Predicate<BindingSet> distinct = isDistinct ? createDistinctBindingSets() : (Predicate<BindingSet>) ALWAYS_TRUE;
+					return ThreadSafeAggregator.create(new WildcardCountAggregateFunction(), distinct, new LongCollector());
+				};
 			}
 		} else if (operator instanceof Min) {
-			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
-			Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-			return Aggregator.create(new MinAggregateFunction(eval), distinct, ValueCollector.create(parentStrategy.isStrict()));
+			return () -> {
+				Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
+				return ThreadSafeAggregator.create(new MinAggregateFunction(), distinct, ValueCollector.create(parentStrategy.isStrict()));
+			};
 		} else if (operator instanceof Max) {
-			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
-			Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-			return Aggregator.create(new MaxAggregateFunction(eval), distinct, ValueCollector.create(parentStrategy.isStrict()));
+			return () -> {
+				Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
+				return ThreadSafeAggregator.create(new MaxAggregateFunction(), distinct, ValueCollector.create(parentStrategy.isStrict()));
+			};
 		} else if (operator instanceof Sum) {
-			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
-			Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-			return Aggregator.create(new SumAggregateFunction(eval), distinct, new NumberCollector());
+			return () -> {
+				Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
+				return ThreadSafeAggregator.create(new SumAggregateFunction(), distinct, new NumberCollector());
+			};
 		} else if (operator instanceof Avg) {
-			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
-			Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-			return Aggregator.create(new AvgAggregateFunction(eval), distinct, new AvgCollector(valueFactory));
+			return () -> {
+				Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
+				return ThreadSafeAggregator.create(new AvgAggregateFunction(), distinct, new AvgCollector());
+			};
 		} else if (operator instanceof Sample) {
-			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
-			Predicate<Value> distinct = (Predicate<Value>) ALWAYS_TRUE;
-			return Aggregator.create(new SampleAggregateFunction(eval), distinct, new SampleCollector());
+			return () -> {
+				Predicate<Value> distinct = (Predicate<Value>) ALWAYS_TRUE;
+				return ThreadSafeAggregator.create(new SampleAggregateFunction(), distinct, new SampleCollector());
+			};
 		} else if (operator instanceof GroupConcat) {
 			GroupConcat grpConcat = (GroupConcat) operator;
-			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
-			Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
 			String sep;
 			ValueExpr sepExpr = grpConcat.getSeparator();
 			if (sepExpr != null) {
@@ -1376,18 +1413,30 @@ final class HalyardTupleExprEvaluation {
 			} else {
 				sep = " ";
 			}
-			return Aggregator.create(new ConcatAggregateFunction(eval), distinct, new CSVCollector(sep, valueFactory));
+			return () -> {
+				Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
+				return ThreadSafeAggregator.create(new ConcatAggregateFunction(), distinct, new CSVCollector(sep));
+			};
 		} else if (operator instanceof AggregateFunctionCall) {
 			AggregateFunctionCall aggFuncCall = (AggregateFunctionCall) operator;
 			AggregateFunctionFactory aggFuncFactory = parentStrategy.aggregateFunctionRegistry.get(aggFuncCall.getIRI())
 				.orElseThrow(() -> new QueryEvaluationException("Unknown aggregate function '" + aggFuncCall.getIRI() + "'"));
-			QueryValueStepEvaluator eval = new QueryValueStepEvaluator(opArgStep);
-			AggregateFunction aggFunc = aggFuncFactory.buildFunction(eval);
-			Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
+			AggregateFunction aggFunc = aggFuncFactory.buildFunction(opArgEvaluator);
 			if (aggFunc instanceof ThreadSafeAggregateFunction) {
-				return Aggregator.create((ThreadSafeAggregateFunction) aggFunc, distinct, aggFuncFactory.getCollector());
+				return () -> {
+					Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
+					return ThreadSafeAggregator.create((ThreadSafeAggregateFunction) aggFunc, distinct, (ExtendedAggregateCollector) aggFuncFactory.getCollector());
+				};
+			} else if (aggFunc instanceof ExtendedAggregateFunction) {
+				return () -> {
+					Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
+					return ExtendedAggregator.create((ExtendedAggregateFunction) aggFunc, distinct, (ExtendedAggregateCollector) aggFuncFactory.getCollector());
+				};
 			} else {
-				return SynchronizedAggregator.create(aggFunc, distinct, aggFuncFactory.getCollector());
+				return () -> {
+					Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
+					return SynchronizedAggregator.create(aggFunc, distinct, aggFuncFactory.getCollector());
+				};
 			}
 		} else {
 			return null;
@@ -1402,41 +1451,87 @@ final class HalyardTupleExprEvaluation {
 		return new DistinctBindingSets(collectionMemoryThreshold, tripleSource.getValueFactory());
 	}
 
-	private static class Aggregator<T extends AggregateCollector, D> implements AutoCloseable {
-    	private final Predicate<D> distinctPredicate;
-    	private final AggregateFunction<T, D> aggFunc;
-    	private final T valueCollector;
+	private static abstract class Aggregator<T extends AggregateCollector, D, AF extends AggregateFunction<T,D>> implements AutoCloseable {
+    	protected final Predicate<D> distinctPredicate;
+    	protected final AF aggFunc;
+    	protected final T valueCollector;
 
-    	static <T extends AggregateCollector,D> Aggregator<T,D> create(ThreadSafeAggregateFunction<T,D> aggFunc, Predicate<D> distinctPredicate, T valueCollector) {
-    		return new Aggregator<T,D>(aggFunc, distinctPredicate, valueCollector);
-    	}
-
-    	private Aggregator(AggregateFunction<T, D> aggFunc, Predicate<D> distinctPredicate, T valueCollector) {
+    	private Aggregator(AF aggFunc, Predicate<D> distinctPredicate, T valueCollector) {
 			this.distinctPredicate = distinctPredicate;
 			this.aggFunc = aggFunc;
 			this.valueCollector = valueCollector;
 		}
 
-    	void process(BindingSet bs) {
-    		aggFunc.processAggregate(bs, distinctPredicate, valueCollector);
-    	}
+    	abstract void process(BindingSet bs, QueryValueStepEvaluator evaluationStep);
 
-    	Value getValue() {
-    		return valueCollector.getFinalValue();
-    	}
+    	abstract Value getValue(TripleSource ts);
 
     	@Override
-		public void close() {
+		public final void close() {
 			if (distinctPredicate instanceof AutoCloseable) {
 				try {
 					((AutoCloseable)distinctPredicate).close();
 				} catch (Exception ignore) {
 				}
 			}
+			if (valueCollector instanceof AutoCloseable) {
+				try {
+					((AutoCloseable)distinctPredicate).close();
+				} catch (Exception ignore) {
+				}
+			}
 		}
+	}
+
+	private static final class ThreadSafeAggregator<T extends ExtendedAggregateCollector, D> extends Aggregator<T, D, ThreadSafeAggregateFunction<T,D>> implements Serializable {
+		private static final long serialVersionUID = -425855529343469186L;
+
+		static <T extends ExtendedAggregateCollector,D> ThreadSafeAggregator<T,D> create(ThreadSafeAggregateFunction<T,D> aggFunc, Predicate<D> distinctPredicate, T valueCollector) {
+    		return new ThreadSafeAggregator<T,D>(aggFunc, distinctPredicate, valueCollector);
+    	}
+
+    	private ThreadSafeAggregator(ThreadSafeAggregateFunction<T, D> aggFunc, Predicate<D> distinctPredicate, T valueCollector) {
+    		super(aggFunc, distinctPredicate, valueCollector);
+		}
+
+    	@Override
+    	void process(BindingSet bs, QueryValueStepEvaluator evaluationStep) {
+   			aggFunc.processAggregate(bs, distinctPredicate, valueCollector, evaluationStep);
+    	}
+
+    	@Override
+    	Value getValue(TripleSource ts) {
+    		return valueCollector.getFinalValue(ts);
+    	}
     }
 
-    private static class SynchronizedAggregator<T extends AggregateCollector, D> extends Aggregator<T, D> {
+    private static final class ExtendedAggregator<T extends ExtendedAggregateCollector, D> extends Aggregator<T, D, ExtendedAggregateFunction<T,D>> implements Serializable {
+		private static final long serialVersionUID = 5903416271410355393L;
+
+		static <T extends ExtendedAggregateCollector,D> ExtendedAggregator<T,D> create(ExtendedAggregateFunction<T,D> aggFunc, Predicate<D> distinctPredicate, T valueCollector) {
+    		return new ExtendedAggregator<T,D>(aggFunc, distinctPredicate, valueCollector);
+    	}
+
+    	private ExtendedAggregator(ExtendedAggregateFunction<T, D> aggFunc, Predicate<D> distinctPredicate, T valueCollector) {
+    		super(aggFunc, distinctPredicate, valueCollector);
+		}
+
+    	@Override
+    	void process(BindingSet bs, QueryValueStepEvaluator evaluationStep) {
+    		synchronized (this) {
+    			aggFunc.processAggregate(bs, distinctPredicate, valueCollector, evaluationStep);
+    		}
+    	}
+
+    	@Override
+    	Value getValue(TripleSource ts) {
+    		synchronized (this) {
+    			return valueCollector.getFinalValue(ts);
+    		}
+    	}
+    }
+
+    private static final class SynchronizedAggregator<T extends AggregateCollector, D> extends Aggregator<T, D, AggregateFunction<T,D>> {
     	static <T extends AggregateCollector,D> SynchronizedAggregator<T,D> create(AggregateFunction<T,D> aggFunc, Predicate<D> distinctPredicate, T valueCollector) {
     		return new SynchronizedAggregator<T,D>(aggFunc, distinctPredicate, valueCollector);
     	}
@@ -1446,35 +1541,30 @@ final class HalyardTupleExprEvaluation {
 		}
 
     	@Override
-    	void process(BindingSet bs) {
+    	void process(BindingSet bs, QueryValueStepEvaluator evaluationStep) {
     		synchronized (this) {
-    			super.process(bs);
+    			aggFunc.processAggregate(bs, distinctPredicate, valueCollector);
     		}
     	}
 
     	@Override
-    	Value getValue() {
+    	Value getValue(TripleSource ts) {
     		synchronized (this) {
-    			return super.getValue();
+    			return valueCollector.getFinalValue();
     		}
     	}
     }
 
-	private static final class DistinctValues implements Predicate<Value>, AutoCloseable {
-		private final int threshold;
-		private final ValueFactory vf;
+	private static final class DistinctValues implements Predicate<Value>, AutoCloseable, Serializable {
+		private static final long serialVersionUID = 5043947558619017568L;
 		private BigHashSet<Value> distinctValues;
 
 		DistinctValues(int threshold, ValueFactory vf) {
-			this.threshold = threshold;
-			this.vf = vf;
+			distinctValues = BigHashSet.createValueSet(threshold, vf);
 		}
 
 		@Override
 		public boolean test(Value v) {
-			if (distinctValues == null) {
-				distinctValues = BigHashSet.createValueSet(threshold, vf);
-			}
 			try {
 				return distinctValues.add(v);
 			} catch (IOException e) {
@@ -1484,28 +1574,20 @@ final class HalyardTupleExprEvaluation {
 
 		@Override
 		public void close() {
-			if (distinctValues != null) {
-				distinctValues.close();
-				distinctValues = null;
-			}
+			distinctValues.close();
 		}
 	}
 
-	private static final class DistinctBindingSets implements Predicate<BindingSet>, AutoCloseable {
-		private final int threshold;
-		private final ValueFactory vf;
+	private static final class DistinctBindingSets implements Predicate<BindingSet>, AutoCloseable, Serializable {
+		private static final long serialVersionUID = 6096880507258975267L;
 		private BigHashSet<BindingSet> distinctBindingSets;
 
 		DistinctBindingSets(int threshold, ValueFactory vf) {
-			this.threshold = threshold;
-			this.vf = vf;
+			distinctBindingSets = BigHashSet.createBindingSetSet(threshold, vf);
 		}
 
 		@Override
 		public boolean test(BindingSet v) {
-			if (distinctBindingSets == null) {
-				distinctBindingSets = BigHashSet.createBindingSetSet(threshold, vf);
-			}
 			try {
 				return distinctBindingSets.add(v);
 			} catch (IOException e) {
@@ -1515,10 +1597,7 @@ final class HalyardTupleExprEvaluation {
 
 		@Override
 		public void close() {
-			if (distinctBindingSets != null) {
-				distinctBindingSets.close();
-				distinctBindingSets = null;
-			}
+			distinctBindingSets.close();
 		}
 	}
 
@@ -2916,6 +2995,16 @@ final class HalyardTupleExprEvaluation {
 							return handleException(ioe);
 						}
 					}
+		            @Override
+					protected void doClose() {
+		               	set.close();
+		                parent.close();
+		            }
+		            @Override
+		            public boolean handleException(Throwable e) {
+		                set.close();
+		                return parent.handleException(e);
+		            }
 				}, sp, zlp, bindings);
 			} else {
 				QueryBindingSet result = new QueryBindingSet(bindings);

@@ -11,15 +11,11 @@ import org.eclipse.rdf4j.query.BindingSet;
 
 public class SampleAggregateFunction extends ThreadSafeAggregateFunction<SampleCollector,Value> {
 
-	public SampleAggregateFunction(QueryValueStepEvaluator evaluator) {
-		super(evaluator);
-	}
-
 	@Override
-	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, SampleCollector col) {
+	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, SampleCollector col, QueryValueStepEvaluator evaluationStep) {
 		Optional<Value> nextValue;
 		if (!col.hasSample()) {
-			Value v = evaluate(bs);
+			Value v = evaluationStep.apply(bs);
 			if (v != null) {
 				// try setting the first value
 				if (col.setInitial(v)) {
@@ -39,7 +35,7 @@ public class SampleAggregateFunction extends ThreadSafeAggregateFunction<SampleC
 		// new value to report.
 		if (ThreadLocalRandom.current().nextBoolean()) {
 			if (nextValue == null) {
-				nextValue = Optional.ofNullable(evaluate(bs));
+				nextValue = Optional.ofNullable(evaluationStep.apply(bs));
 			}
 			nextValue.ifPresent(col::setSample);
 		}

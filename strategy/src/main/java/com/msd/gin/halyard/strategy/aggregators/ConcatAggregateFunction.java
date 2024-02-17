@@ -9,13 +9,9 @@ import org.eclipse.rdf4j.query.BindingSet;
 
 public class ConcatAggregateFunction extends ThreadSafeAggregateFunction<CSVCollector,Value> {
 
-	public ConcatAggregateFunction(QueryValueStepEvaluator evaluator) {
-		super(evaluator);
-	}
-
 	@Override
-	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, CSVCollector col) {
-		Value v = evaluate(bs);
+	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, CSVCollector col, QueryValueStepEvaluator evaluationStep) {
+		Value v = evaluationStep.apply(bs);
 		if (v != null && distinctPredicate.test(v)) {
 			// atomically add newStr
 			col.append(v.stringValue());

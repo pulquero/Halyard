@@ -21,7 +21,7 @@ public final class GroupIntoTuplesAggregateFactory implements AggregateFunctionF
 
 	@Override
 	public AggregateFunction buildFunction(Function<BindingSet, Value> evaluationStep) {
-		return new ValuesAggregateFunction(evaluationStep);
+		return new ValuesAggregateFunction();
 	}
 
 	@Override

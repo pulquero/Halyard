@@ -7,11 +7,11 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.algebra.MathExpr.MathOp;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.MathUtil;
-import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateCollector;
 
-public final class NumberCollector implements AggregateCollector {
+public final class NumberCollector implements ExtendedAggregateCollector {
 	static final Literal ZERO = SimpleValueFactory.getInstance().createLiteral(BigInteger.ZERO);
 
 	private final AtomicReference<Literal> vref = new AtomicReference<>();
@@ -30,7 +30,7 @@ public final class NumberCollector implements AggregateCollector {
 	}
 
 	@Override
-	public Value getFinalValue() {
+	public Value getFinalValue(TripleSource ts) {
 		if (typeError != null) {
 			// a type error occurred while processing the aggregate, throw it
 			// now.

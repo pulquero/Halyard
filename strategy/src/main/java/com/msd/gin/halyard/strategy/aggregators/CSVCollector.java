@@ -1,17 +1,14 @@
 package com.msd.gin.halyard.strategy.aggregators;
 
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateCollector;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 
-public final class CSVCollector implements AggregateCollector {
+public final class CSVCollector implements ExtendedAggregateCollector {
 	private final StringBuilder concatenated = new StringBuilder(128);
 	private final String separator;
-	private final ValueFactory vf;
 
-	public CSVCollector(String sep, ValueFactory vf) {
+	public CSVCollector(String sep) {
 		this.separator = sep;
-		this.vf = vf;
 	}
 
 	public synchronized void append(String s) {
@@ -22,11 +19,11 @@ public final class CSVCollector implements AggregateCollector {
 	}
 
 	@Override
-	public synchronized Value getFinalValue() {
+	public synchronized Value getFinalValue(TripleSource ts) {
 		if (concatenated.length() == 0) {
-			return vf.createLiteral("");
+			return ts.getValueFactory().createLiteral("");
 		}
 
-		return vf.createLiteral(concatenated.toString());
+		return ts.getValueFactory().createLiteral(concatenated.toString());
 	}
 }

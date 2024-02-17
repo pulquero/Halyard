@@ -1,15 +1,18 @@
 package com.msd.gin.halyard.strategy;
 
 import com.msd.gin.halyard.common.TupleLiteral;
+import com.msd.gin.halyard.strategy.aggregators.ExtendedAggregateCollector;
 import com.msd.gin.halyard.strategy.aggregators.HIndexAggregateFactory;
 import com.msd.gin.halyard.strategy.aggregators.MaxWithAggregateFactory;
 import com.msd.gin.halyard.strategy.aggregators.MinWithAggregateFactory;
 import com.msd.gin.halyard.strategy.aggregators.ModeAggregateFactory;
+import com.msd.gin.halyard.strategy.aggregators.ThreadSafeAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.TopNWithAggregateFactory;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -27,13 +30,13 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.query.algebra.MathExpr;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.aggregate.stdev.PopulationStandardDeviationAggregateFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.aggregate.stdev.StandardDeviationAggregateFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.aggregate.variance.PopulationVarianceAggregateFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.aggregate.variance.VarianceAggregateFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.MathUtil;
-import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateCollector;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunction;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunctionFactory;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.CustomAggregateFunctionRegistry;
@@ -64,24 +67,24 @@ public class HalyardCustomAggregateFunctionEvaluationTest {
 
 			@Override
 			public AggregateFunction<SumCollector, Value> buildFunction(Function<BindingSet, Value> evaluationStep) {
-				return new AggregateFunction<>(evaluationStep) {
+				return new ThreadSafeAggregateFunction<>() {
 
-					public void processAggregate(BindingSet s, Predicate<Value> distinctValue, SumCollector sum)
+					public void processAggregate(BindingSet s, Predicate<Value> distinctValue, SumCollector sum, QueryValueStepEvaluator evaluationStep)
 							throws QueryEvaluationException {
-						if (sum.typeError != null) {
+						if (sum.typeErrorRef.get() != null) {
 							// halt further processing if a type error has been raised
 							return;
 						}
 
-						Value v = evaluate(s);
+						Value v = evaluationStep.apply(s);
 						if (v instanceof Literal) {
 							if (distinctValue.test(v)) {
 								Literal nextLiteral = (Literal) v;
 								if (nextLiteral.getDatatype() != null
 										&& XMLDatatypeUtil.isNumericDatatype(nextLiteral.getDatatype())) {
-									sum.value = MathUtil.compute(sum.value, nextLiteral, MathExpr.MathOp.PLUS);
+									sum.valueRef.accumulateAndGet(nextLiteral, (x,y) -> MathUtil.compute(x, y, MathExpr.MathOp.PLUS));
 								} else {
-									sum.typeError = new ValueExprEvaluationException("not a number: " + v);
+									sum.typeErrorRef.set(new ValueExprEvaluationException("not a number: " + v));
 								}
 							}
 						}
@@ -521,18 +524,19 @@ public class HalyardCustomAggregateFunctionEvaluationTest {
 	/**
 	 * Dummy collector to verify custom aggregate functions
 	 */
-	private static class SumCollector implements AggregateCollector {
-		private ValueExprEvaluationException typeError = null;
+	private static class SumCollector implements ExtendedAggregateCollector {
+		private final AtomicReference<ValueExprEvaluationException> typeErrorRef = new AtomicReference<>();
 
-		private Literal value = SimpleValueFactory.getInstance().createLiteral("0", CoreDatatype.XSD.INTEGER);
+		private final AtomicReference<Literal> valueRef = new AtomicReference<>(SimpleValueFactory.getInstance().createLiteral("0", CoreDatatype.XSD.INTEGER));
 
 		@Override
-		public Value getFinalValue() {
-			if (typeError != null) {
+		public Value getFinalValue(TripleSource ts) {
+			ValueExprEvaluationException ex = typeErrorRef.get();
+			if (ex != null) {
 				// a type error occurred while processing the aggregate, throw it now.
-				throw typeError;
+				throw ex;
 			}
-			return value;
+			return valueRef.get();
 		}
 	}
 

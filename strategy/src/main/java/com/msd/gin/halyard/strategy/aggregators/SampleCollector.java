@@ -3,10 +3,10 @@ package com.msd.gin.halyard.strategy.aggregators;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
-import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateCollector;
 
-public final class SampleCollector implements AggregateCollector {
+public final class SampleCollector implements ExtendedAggregateCollector {
 	private final AtomicReference<Value> vref = new AtomicReference<>();
 
 	public boolean hasSample() {
@@ -22,7 +22,7 @@ public final class SampleCollector implements AggregateCollector {
 	}
 
 	@Override
-	public Value getFinalValue() {
+	public Value getFinalValue(TripleSource ts) {
 		Value v = vref.get();
 		if (v == null) {
 			throw new ValueExprEvaluationException("SAMPLE undefined");

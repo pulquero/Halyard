@@ -12,19 +12,15 @@ import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 
 public final class SumAggregateFunction extends ThreadSafeAggregateFunction<NumberCollector,Value> {
 
-	public SumAggregateFunction(QueryValueStepEvaluator evaluator) {
-		super(evaluator);
-	}
-
 	@Override
-	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, NumberCollector col) {
+	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, NumberCollector col, QueryValueStepEvaluator evaluationStep) {
 		if (col.hasError()) {
 			// Prevent calculating the aggregate further if a type error has
 			// occured.
 			return;
 		}
 
-		Value v = evaluate(bs);
+		Value v = evaluationStep.apply(bs);
 		if (v != null) {
 			if (v.isLiteral()) {
 				if (distinctPredicate.test(v)) {

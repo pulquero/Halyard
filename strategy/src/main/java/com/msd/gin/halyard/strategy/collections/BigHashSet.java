@@ -22,10 +22,13 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -44,10 +47,11 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
 
     private static final String SET_NAME = "temp";
 
+    private final AtomicLong counter = new AtomicLong();
+    private final AtomicInteger refCounter = new AtomicInteger();
     private final int memoryThreshold;
     private final Serializer<E> serializer;
-    private Set<E> set;
-    private DB db;
+    private volatile Pair<Set<E>,DB> setDb;
 
     public static <E extends Serializable> BigHashSet<E> create(int memoryThreshold, Serializer<E> serializer) {
     	return new BigHashSet<>(memoryThreshold, serializer);
@@ -68,7 +72,7 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
     private BigHashSet(int memoryThreshold, Serializer<E> serializer) {
     	this.memoryThreshold = memoryThreshold;
     	this.serializer = serializer;
-    	this.set = new HashSet<>(1024);
+    	this.setDb = Pair.of(ConcurrentHashMap.newKeySet(1024), null);
     }
 
     /**
@@ -77,40 +81,64 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
      * @return boolean if the element has been already present
      * @throws IOException throws IOException in case of problem with underlying storage
      */
-    public synchronized boolean add(E e) throws IOException {
-    	if (set == null) {
+    public boolean add(E e) throws IOException {
+    	Pair<Set<E>,DB> localRef = setDb;
+    	if (localRef == null) {
     		throw new IOException("Already closed");
     	}
 
-    	if (db == null && set.size() > memoryThreshold) {
-    		swapToDisk();
+    	if (shouldSwap(localRef)) {
+    		synchronized (this) {
+    			localRef = setDb;
+    			if (shouldSwap(localRef)) {
+    				// spin lock
+    				while (refCounter.get() > 0) {
+    					;
+    				}
+    				localRef = transferToDisk(localRef);
+    				setDb = localRef;
+    			}
+    		}
     	}
 
+    	boolean added;
+    	refCounter.incrementAndGet();
+    	localRef = setDb;
     	try {
-            return set.add(e);
+            added = localRef.getLeft().add(e);
         } catch (IllegalAccessError err) {
             throw new IOException(err);
+        } finally {
+        	refCounter.decrementAndGet();
         }
+    	if (added) {
+    		counter.incrementAndGet();
+    	}
+    	return added;
     }
 
-    private synchronized void swapToDisk() {
-    	if (db != null) {
-    		return;
-    	}
+    private boolean shouldSwap(Pair<Set<E>,DB> ref) {
+    	return ref.getRight() == null && size() >= memoryThreshold;
+    }
 
-    	db = DBMaker.newTempFileDB().deleteFilesAfterClose().closeOnJvmShutdown().mmapFileEnableIfSupported().transactionDisable().asyncWriteEnable().make();
+    private Pair<Set<E>,DB> transferToDisk(Pair<Set<E>,DB> ref) {
+    	if (ref.getRight() != null) {
+    		throw new IllegalStateException();
+    	}
+    	DB db = DBMaker.newTempFileDB().deleteFilesAfterClose().closeOnJvmShutdown().mmapFileEnableIfSupported().transactionDisable().asyncWriteEnable().make();
     	HTreeSetMaker setMaker = db.createHashSet(SET_NAME);
     	if (serializer != null) {
     		setMaker = setMaker.serializer(serializer);
     	}
-        Set<E> dbSet = setMaker.make();
-        dbSet.addAll(set);
-        set = dbSet;
+        Set<E> set = setMaker.make();
+        set.addAll(ref.getLeft());
+        return Pair.of(set, db);
     }
 
     @Override
-    public synchronized Iterator<E> iterator() {
-        return set.iterator();
+    public Iterator<E> iterator() {
+    	Pair<Set<E>,DB> localRef = setDb;
+        return localRef.getLeft().iterator();
     }
 
     /**
@@ -119,28 +147,36 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
      * @return boolean if the element has been present
      * @throws IOException throws IOException in case of problem with underlying storage
      */
-    public synchronized boolean contains(E e) throws IOException {
-    	if (set == null) {
+    public boolean contains(E e) throws IOException {
+    	Pair<Set<E>,DB> localRef = setDb;
+    	if (localRef == null) {
     		throw new IOException("Already closed");
     	}
 
     	try {
-            return set.contains(e);
+            return localRef.getLeft().contains(e);
         } catch (IllegalAccessError err) {
             throw new IOException(err);
         }
     }
 
+    public long size() {
+    	return counter.get();
+    }
+
     @Override
     public synchronized void close() {
-    	set = null;
-    	if (db != null) {
+    	Pair<Set<E>,DB> localRef = setDb;
+    	if (localRef != null) {
 	        try {
-	            db.close();
+	    		DB db = localRef.getRight();
+	    		if (db != null) {
+	    			db.close();
+	    		}
 	        } catch (IllegalAccessError|IllegalStateException ignore) {
 	            //silent close
 	        } finally {
-	        	db = null;
+	        	setDb = null;
 	        }
     	}
     }

@@ -17,8 +17,15 @@
 package com.msd.gin.halyard.strategy.collections;
 
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import org.junit.Test;
-import static org.junit.Assert.*;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  *
@@ -32,6 +39,9 @@ public class BigHashSetTest {
         bhs.add("hi");
         assertEquals("hi", bhs.iterator().next());
         assertTrue(bhs.contains("hi"));
+        assertEquals(1, bhs.size());
+        bhs.add("hi");
+        assertEquals(1, bhs.size());
         bhs.close();
         bhs.close();
     }
@@ -48,5 +58,35 @@ public class BigHashSetTest {
         BigHashSet<String> bhs = BigHashSet.create(10);
         bhs.close();
         bhs.contains("hi");
+    }
+
+    @Test
+    public void testDiskUnderLoad() throws Exception {
+    	int n = 100;
+        BigHashSet<Integer> bhs = BigHashSet.create(3);
+        CountDownLatch startLock = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(8);
+        for (int i=0; i<n; i++) {
+        	final int k = i;
+        	executor.execute(() -> {
+        		try {
+            		startLock.await();
+					bhs.add(k);
+				} catch (Exception e) {
+					throw new AssertionError(e);
+				}
+        	});
+        }
+        startLock.countDown();
+        executor.shutdown();
+        if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+        	throw new AssertionError();
+        }
+        assertEquals(n, bhs.size());
+        int actual = 0;
+        for (Integer i : bhs) {
+        	actual++;
+        }
+        assertEquals(n, actual);
     }
 }

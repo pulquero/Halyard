@@ -27,7 +27,7 @@ public class HIndexAggregateFactory implements AggregateFunctionFactory {
 
 	@Override
 	public AggregateFunction buildFunction(Function<BindingSet, Value> evaluationStep) {
-		return new ValuesAggregateFunction(evaluationStep);
+		return new ValuesAggregateFunction();
 	}
 
 	@Override

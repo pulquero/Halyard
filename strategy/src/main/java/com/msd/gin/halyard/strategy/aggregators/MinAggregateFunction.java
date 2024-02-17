@@ -9,13 +9,9 @@ import org.eclipse.rdf4j.query.BindingSet;
 
 public final class MinAggregateFunction extends ThreadSafeAggregateFunction<ValueCollector<Value>,Value> {
 
-	public MinAggregateFunction(QueryValueStepEvaluator evaluator) {
-		super(evaluator);
-	}
-
 	@Override
-	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, ValueCollector<Value> col) {
-		Value v = evaluate(bs);
+	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, ValueCollector<Value> col, QueryValueStepEvaluator evaluationStep) {
+		Value v = evaluationStep.apply(bs);
 		if (v != null && distinctPredicate.test(v)) {
 			col.min(v);
 		}

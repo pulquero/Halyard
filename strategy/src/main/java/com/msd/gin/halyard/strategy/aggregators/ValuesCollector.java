@@ -6,9 +6,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
 
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateCollector;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 
-final class ValuesCollector implements AggregateCollector {
+final class ValuesCollector implements ExtendedAggregateCollector {
+	// concurrent sequence of values
 	private final Queue<Value> values = new ConcurrentLinkedQueue<>();
 	private final Function<Collection<Value>,Value> combiner;
 
@@ -21,7 +22,7 @@ final class ValuesCollector implements AggregateCollector {
 	}
 
 	@Override
-	public Value getFinalValue() {
+	public Value getFinalValue(TripleSource ts) {
 		return combiner.apply(values);
 	}
 }

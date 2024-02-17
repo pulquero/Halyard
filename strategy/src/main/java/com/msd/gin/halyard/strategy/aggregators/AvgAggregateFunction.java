@@ -12,19 +12,15 @@ import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 
 public class AvgAggregateFunction extends ThreadSafeAggregateFunction<AvgCollector,Value> {
 
-	public AvgAggregateFunction(QueryValueStepEvaluator evaluator) {
-		super(evaluator);
-	}
-
 	@Override
-	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, AvgCollector col) {
+	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, AvgCollector col, QueryValueStepEvaluator evaluationStep) {
 		if (col.hasError()) {
 			// Prevent calculating the aggregate further if a type error has
 			// occured.
 			return;
 		}
 
-		Value v = evaluate(bs);
+		Value v = evaluationStep.apply(bs);
 		if ( v != null) {
 			if (v.isLiteral()) {
 				if (distinctPredicate.test(v)) {

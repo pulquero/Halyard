@@ -1,5 +1,6 @@
 package com.msd.gin.halyard.strategy.aggregators;
 
+import com.msd.gin.halyard.strategy.QueryValueStepEvaluator;
 import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.function.Predicate;
 
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateCollector;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunction;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunctionFactory;
@@ -24,7 +26,7 @@ public final class ModeAggregateFactory implements AggregateFunctionFactory {
 
 	@Override
 	public AggregateFunction buildFunction(Function<BindingSet, Value> evaluationStep) {
-		return new ModeAggregateFunction(evaluationStep);
+		return new ModeAggregateFunction();
 	}
 
 	@Override
@@ -34,13 +36,9 @@ public final class ModeAggregateFactory implements AggregateFunctionFactory {
 
 
 	private static final class ModeAggregateFunction extends ThreadSafeAggregateFunction<ModeCollector,Value> {
-		ModeAggregateFunction(Function<BindingSet, Value> evaluator) {
-			super(evaluator);
-		}
-
 		@Override
-		public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, ModeCollector col) {
-			Value v = evaluate(bs);
+		public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, ModeCollector col, QueryValueStepEvaluator evaluationStep) {
+			Value v = evaluationStep.apply(bs);
 			if (v != null && distinctPredicate.test(v)) {
 				col.add(v);
 			}
@@ -48,7 +46,7 @@ public final class ModeAggregateFactory implements AggregateFunctionFactory {
 	}
 
 
-	private static final class ModeCollector implements AggregateCollector {
+	private static final class ModeCollector implements ExtendedAggregateCollector {
 		private final ConcurrentHashMap<Value,AtomicLong> freqTable = new ConcurrentHashMap<>();
 
 		void add(Value l) {
@@ -56,7 +54,7 @@ public final class ModeAggregateFactory implements AggregateFunctionFactory {
 		}
 
 		@Override
-		public Value getFinalValue() {
+		public Value getFinalValue(TripleSource ts) {
 			Map.Entry<Value,AtomicLong> entry = freqTable.reduceEntries(50000, (e1, e2) -> {
 				if (Long.compare(e1.getValue().get(), e2.getValue().get()) >= 0) {
 					return e1;

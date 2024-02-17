@@ -9,13 +9,9 @@ import org.eclipse.rdf4j.query.BindingSet;
 
 public final class CountAggregateFunction extends ThreadSafeAggregateFunction<LongCollector,Value> {
 
-	public CountAggregateFunction(QueryValueStepEvaluator evaluator) {
-		super(evaluator);
-	}
-
 	@Override
-	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, LongCollector col) {
-		Value value = evaluate(bs);
+	public void processAggregate(BindingSet bs, Predicate<Value> distinctPredicate, LongCollector col, QueryValueStepEvaluator evaluationStep) {
+		Value value = evaluationStep.apply(bs);
 		if (value != null && distinctPredicate.test(value)) {
 			col.increment();
 		}
