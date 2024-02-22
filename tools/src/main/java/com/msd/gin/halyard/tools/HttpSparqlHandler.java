@@ -582,6 +582,9 @@ public final class HttpSparqlHandler implements HttpHandler {
     	if (sparqlQuery.target != null) {
     		if (sparqlQuery.mapReduce) {
                 validateMapReduce(sparqlQuery);
+                if (!(repository instanceof HBaseRepository)) {
+                	throw new InvalidRequestException(String.format("MapReduce is not supported on %s", repository.getClass().getName()));
+                }
         		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
         		List<HalyardBulkExport.JsonInfo> infos = HalyardBulkExport.executeExport(sail.getConfiguration(), sail.getTableName(), sparqlQuery.getQuery(), sparqlQuery.target, sparqlQuery.bindings);
         		sendMapReduceResults(exchange, infos);
@@ -703,6 +706,9 @@ public final class HttpSparqlHandler implements HttpHandler {
         if (sparqlQuery.mapReduce) {
             validateMapReduce(sparqlQuery);
             String updateString = sparqlQuery.getUpdate();
+            if (!(repository instanceof HBaseRepository)) {
+            	throw new InvalidRequestException(String.format("MapReduce is not supported on %s", repository.getClass().getName()));
+            }
     		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
     		List<HalyardBulkUpdate.JsonInfo> infos = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlQuery.bindings);
     		sendMapReduceResults(exchange, infos);
