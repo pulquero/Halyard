@@ -305,8 +305,20 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 			// take the (geometric) mean of the two estimates
 			return Math.sqrt(estimate12 * estimate21);
 		} else if (partition1 != null && partition2 == null) {
+			/*
+			 * e.g. s=?, p=known, o=bound
+			 * partition1Type=void:property, partition1=p, distinct1Type=void:distinctObjects
+			 * partition2Type=void-ext:object, partition2=null, distinct2Type=void:distinctSubjects
+			 * total distinct objects / (distinct objects with p / triples with p)
+			 */
 			return subsetTriples(graph, partition2Type, partition2, totalTriples, defaultCardinality) / partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
 		} else if (partition1 == null && partition2 != null) {
+			/*
+			 * e.g. s=bound, p=known, o=?
+			 * partition1Type=void-ext:subject, partition1=null, distinct1Type=void:properties
+			 * partition2Type=void:property, partition2=p, distinct2Type=void:distinctObjects
+			 * total distinct subjects * (distinct objects with p / triples with p)
+			 */
 			return subsetTriples(graph, partition1Type, partition1, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
 		} else {
 			return subsetTriples(graph, partition1Type, partition1, totalTriples, defaultCardinality) * subsetTriples(graph, partition2Type, partition2, totalTriples, defaultCardinality) / totalTriples;
@@ -314,7 +326,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	}
 
 	/**
-	 * Estimates the ratio of distinct objects/properties, distinct subjects/object, distinct properties/subject.
+	 * Estimates the ratio of distinct objects/triples with property, distinct subjects/triples with object, distinct properties/triples with subject.
 	 */
 	private double partitionRatio(IRI graph, IRI partitionType, Value partition, IRI ratioType, long totalTriples, long defaultCardinality) {
 		IRI partitionIri = statsSource.getValueFactory().createIRI(partitionIriTransformer.apply(graph, partitionType, partition));
