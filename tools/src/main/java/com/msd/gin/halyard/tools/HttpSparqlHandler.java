@@ -805,7 +805,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     		connection.commit();
     	}
        	LOGGER.info("Load successful");
-    	exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, -1);
+    	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
     }
 
     private void clearData(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
@@ -814,7 +814,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 			conn.clear(sparqlQuery.getContexts());
 		}
        	LOGGER.info("Clear successful");
-    	exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, -1);
+    	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
     }
 
     private void executeQueryTemplate(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {

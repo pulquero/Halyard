@@ -670,7 +670,7 @@ public class HttpSparqlHandlerTest {
         OutputStreamWriter out = new OutputStreamWriter(urlConnection.getOutputStream());
         out.write("<http://newdata/s> <http://newdata/p> <http://newdata/o> .");
         out.close();
-        assertEquals(HttpURLConnection.HTTP_OK, urlConnection.getResponseCode());
+        assertEquals(HttpURLConnection.HTTP_NO_CONTENT, urlConnection.getResponseCode());
     }
 
     @Test
