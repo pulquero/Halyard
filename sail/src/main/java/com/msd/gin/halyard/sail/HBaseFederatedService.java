@@ -19,7 +19,7 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 	private final int forkCount;
 
 	HBaseFederatedService(HBaseSail sail) {
-		this(sail, 0, 1);
+		this(sail, -1, 0);
 	}
 
 	private HBaseFederatedService(HBaseSail sail, int forkIndex, int forkCount) {

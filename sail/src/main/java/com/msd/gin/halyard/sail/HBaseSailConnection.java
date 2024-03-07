@@ -388,7 +388,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 		String sourceString = Literals.getLabel(bindings.getValue(SOURCE_STRING_BINDING), null);
 		int updatePart = Literals.getIntValue(bindings.getValue(UPDATE_PART_BINDING), NO_UPDATE_PARTS);
-		int forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), 0);
+		int forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), -1);
 		BindingSet queryBindings = removeImplicitBindings(bindings);
 		// try bindings first
 		int forkCount = Literals.getIntValue(bindings.getValue(FORK_COUNT_BINDING), -1);

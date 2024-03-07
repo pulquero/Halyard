@@ -107,27 +107,27 @@ public class ParallelSplitFunctionTest {
         assertEquals(1, ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument("select * where {?s ?p ?o.}", -1, EmptyBindingSet.getInstance()));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = ValueExprEvaluationException.class)
     public void testGetNumberOfForksNoArgs() {
         ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">()}", -1, EmptyBindingSet.getInstance());
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = ValueExprEvaluationException.class)
     public void testGetNumberOfForksNANArg() {
         ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(\"not a number\", ?s)}", -1, EmptyBindingSet.getInstance());
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = ValueExprEvaluationException.class)
     public void testGetNumberOfForksUnboundVarArg() {
         ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(?p, ?s)}", -1, EmptyBindingSet.getInstance());
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = ValueExprEvaluationException.class)
     public void testGetNumberOfForksNegativeArg() {
         ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(-1, ?s)}", -1, EmptyBindingSet.getInstance());
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = ValueExprEvaluationException.class)
     public void testGetNumberOfForksDoubleFunction() {
         ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument("select * where {?s ?p ?o. filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(8, ?s) filter <" + PARALLEL_SPLIT_FUNCTION.stringValue() + ">(3, ?s)}", -1, EmptyBindingSet.getInstance());
     }

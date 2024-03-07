@@ -483,7 +483,7 @@ public final class StatementIndices {
 	}
 
 	public Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, StatementIndex.Name indexToPartition, RDFRole.Name role, int partition, int partitionBits, ValueConstraint constraint) {
-    	if (partitionBits == 0 && constraint == null) {
+    	if ((partition == -1 || partitionBits == 0) && constraint == null) {
 			return scan(subj, pred, obj, ctx);
     	} else {
     		StatementIndex<?,?,?,?> partitionedIndex = indices.get(indexToPartition);

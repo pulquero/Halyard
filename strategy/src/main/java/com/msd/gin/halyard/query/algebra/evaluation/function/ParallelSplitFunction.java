@@ -60,20 +60,33 @@ public final class ParallelSplitFunction implements Function {
                 throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function does not allow null values");
             }
         }
+
+        final int forksArg;
         try {
-            int forks = Integer.parseInt(args[0].stringValue());
-            if (forks < 1) {
-                throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function first argument must be > 0");
-            }
-            int forkIndex = getForkIndex(ts);
-            int actualForkCount = toActualForkCount(forks);
-            if (forkIndex >= actualForkCount) {
-            	throw new ValueExprEvaluationException(String.format("Fork index %d must be less than fork count %d", forkIndex, actualForkCount));
-            }
-            return ts.getValueFactory().createLiteral(actualForkCount == 1 || (Math.floorMod(Arrays.hashCode(args), actualForkCount) == forkIndex));
-        } catch (NumberFormatException e) {
-            throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function first argument must be numeric constant");
+	        forksArg = Integer.parseInt(args[0].stringValue());
+	    } catch (NumberFormatException e) {
+	        throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function first argument must be numeric constant");
+	    }
+        if (forksArg < 1) {
+            throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function first argument must be > 0");
         }
+        final int forkCount = toActualForkCount(forksArg);
+
+        int forkIndex;
+        if (ts instanceof PartitionableTripleSource) {
+        	PartitionableTripleSource pts = (PartitionableTripleSource) ts;
+        	forkIndex = pts.getPartitionIndex();
+        	int partitionCount = pts.getPartitionCount();
+        	if (partitionCount != forkCount) {
+				throw new ValueExprEvaluationException(String.format("The number of TripleStore partitions (%d) is not the same as the number of forks (%d)", partitionCount, forkCount));
+        	}
+            if (forkIndex >= forkCount) {
+            	throw new ValueExprEvaluationException(String.format("Fork index %d must be less than fork count %d", forkIndex, forkCount));
+            }
+        } else {
+        	forkIndex = -1;
+        }
+        return ts.getValueFactory().createLiteral(forkIndex == -1 || forkCount == 1 || (Math.floorMod(Arrays.hashCode(args), forkCount) == forkIndex));
     }
 
 	@Override
@@ -81,11 +94,7 @@ public final class ParallelSplitFunction implements Function {
 		return valueFactory.createLiteral(true);
 	}
 
-    private static int getForkIndex(TripleSource ts) {
-    	return (ts instanceof PartitionableTripleSource) ? ((PartitionableTripleSource)ts).getPartitionIndex() : 0;
-    }
-
-    public static int getNumberOfPartitionsFromFunctionArgument(String query, int stage, BindingSet bindings) throws IllegalArgumentException{
+    public static int getNumberOfPartitionsFromFunctionArgument(String query, int stage, BindingSet bindings) throws ValueExprEvaluationException{
         if (stage >= 0) {
             List<UpdateExpr> exprs = QueryParserUtil.parseUpdate(QueryLanguage.SPARQL, query, null).getUpdateExprs();
             if (stage < exprs.size()) {
@@ -99,7 +108,7 @@ public final class ParallelSplitFunction implements Function {
         }
     }
 
-    public static int getNumberOfPartitionsFromFunctionArgument(QueryModelNode node, BindingSet bindings) throws IllegalArgumentException{
+    public static int getNumberOfPartitionsFromFunctionArgument(QueryModelNode node, BindingSet bindings) throws ValueExprEvaluationException{
         ParallelSplitFunctionVisitor psfv = new ParallelSplitFunctionVisitor(bindings);
         node.visit(psfv);
         // there is at least one partition - everything
@@ -115,11 +124,14 @@ public final class ParallelSplitFunction implements Function {
     }
 
     public static int powerOf2BitCount(int i) {
+    	if (i < 0) {
+    		throw new IllegalArgumentException(String.format("Must be a non-negative integer: %d", i));
+    	}
     	return (i > 0) ? Integer.SIZE - 1 - Integer.numberOfLeadingZeros(i) : 0;
     }
 
 
-    private static final class ParallelSplitFunctionVisitor extends SkipVarsQueryModelVisitor<IllegalArgumentException> {
+    private static final class ParallelSplitFunctionVisitor extends SkipVarsQueryModelVisitor<ValueExprEvaluationException> {
     	final BindingSet bindings;
 		int forks = 0;
 
@@ -128,29 +140,29 @@ public final class ParallelSplitFunction implements Function {
 		}
 
 		@Override
-        public void meet(FunctionCall node) throws IllegalArgumentException {
+        public void meet(FunctionCall node) throws ValueExprEvaluationException {
             if (PARALLEL_SPLIT_FUNCTION.stringValue().equals(node.getURI())) {
                 List<ValueExpr> args = node.getArgs();
                 if (args.size() < 2) {
-                	throw new IllegalArgumentException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function has at least two mandatory arguments: <constant number of parallel forks> and <binding variable(s) to filter by>");
+                	throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function has at least two mandatory arguments: <constant number of parallel forks> and <binding variable(s) to filter by>");
                 }
                 int num;
                 try {
                 	Value v = Algebra.evaluateConstant(args.get(0), bindings);
                 	if (v == null) {
-                    	throw new IllegalArgumentException();
+                        throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function first argument (number of forks) must be an integer constant > 0");
                 	}
                     num = Integer.parseInt(v.stringValue());
                     if (num < 1) {
-                    	throw new IllegalArgumentException();
+                        throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function first argument (number of forks) must be an integer constant > 0");
                     }
-                } catch (ClassCastException | IllegalArgumentException ex) {
-                    throw new IllegalArgumentException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function first argument (number of forks) must be integer constant > 0");
+                } catch (NumberFormatException ex) {
+                    throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function first argument (number of forks) must be an integer constant > 0", ex);
                 }
                 if (forks == 0) {
                     forks = num;
                 } else if (forks != num) {
-                    throw new IllegalArgumentException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function is used twice with different first argument (number of forks)");
+                    throw new ValueExprEvaluationException(PARALLEL_SPLIT_FUNCTION.getLocalName() + " function is used twice with different first argument (number of forks)");
                 }
             }
         }
