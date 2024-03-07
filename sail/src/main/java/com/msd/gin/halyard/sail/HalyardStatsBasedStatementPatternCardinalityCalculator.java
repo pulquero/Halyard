@@ -31,6 +31,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
@@ -257,85 +260,99 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	}
 
 	/**
-	 * Calculate a multiplier for the triple count for this sub-part of the graph.
+	 * How many triples are there with one role known?
 	 */
-	private double subsetTriples(IRI graph, IRI partitionType, Value partition, long totalTriples, long defaultCardinality) {
+	private double subsetTriples(IRI graph, IRI partitionType, @Nullable Value partition, long totalTriples, long defaultCardinality) {
 		if (partition != null) {
+			// if we know the value then we can retrieve the triple count directly from stored stats
+
 			// total number of triples of type 'partitionType' with the value 'partition'
 			IRI partitionIri = statsSource.getValueFactory().createIRI(partitionIriTransformer.apply(graph, partitionType, partition));
 			return getTriplesCount(partitionIri, defaultCardinality);
 		} else {
-			// total number of distinct values
-			long distinctCount = getValue(graph, DISTINCT_PREDICATES.get(partitionType), -1L);
-			if (distinctCount != -1L) {
-				double estimate = 0.0;
-				if (distinctCount <= AVERAGING_LIMIT) {
-					// few enough distinct values that we can calculate a weighted average
-					// assume the bigger the partition, the more likely it is to be used
-					// sum x^2 / sum x
-					long sumxx = 0L;
-					long sumx = 0L;
-					try (CloseableIteration<? extends Statement, QueryEvaluationException> iter = statsSource.getStatements(graph, PARTITION_PREDICATES.get(partitionType), null, HALYARD.STATS_GRAPH_CONTEXT)) {
-						while (iter.hasNext()) {
-							Statement stmt = iter.next();
-							long count = getTriplesCount((IRI) stmt.getObject(), defaultCardinality);
-							sumxx += count * count;
-							sumx += count;
-						}
-					}
-					long threshold = getValue(HALYARD.STATS_ROOT_NODE, PARTITION_THRESHOLD_PREDICATES.get(partitionType), 0);
-					estimate = (sumx > 0) ? (double) (sumxx + (totalTriples - sumx) * threshold) / (double) totalTriples : 0.0;
-				}
-				if (estimate == 0.0) {
-					// average cardinality for partitionType - assume the triples are evenly distributed over each possible value
-					estimate = (double) totalTriples / (double) distinctCount;
-				}
-				return estimate;
-			} else {
-				// if there are no stats then assume the triple count is below the threshold
-				return getValue(HALYARD.STATS_ROOT_NODE, PARTITION_THRESHOLD_PREDICATES.get(partitionType), defaultCardinality);
-			}
+			// if we don't know the value then we can use the average cardinality for that role
+			return getCardinality(graph, partitionType, totalTriples, defaultCardinality);
 		}
 	}
 
-	private double subsetTriples(IRI graph, IRI partition1Type, Value partition1, IRI distinct1Type, IRI partition2Type, Value partition2, IRI distinct2Type, long totalTriples, long defaultCardinality) {
-		if (partition1 != null && partition2 != null) {
-			double estimate12 = subsetTriples(graph, partition1Type, partition1, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
-			double estimate21 = subsetTriples(graph, partition2Type, partition2, totalTriples, defaultCardinality) * partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
-			// take the (geometric) mean of the two estimates
-			return Math.sqrt(estimate12 * estimate21);
-		} else if (partition1 != null && partition2 == null) {
-			/*
-			 * e.g. s=?, p=known, o=bound
-			 * partition1Type=void:property, partition1=p, distinct1Type=void:distinctObjects
-			 * partition2Type=void-ext:object, partition2=null, distinct2Type=void:distinctSubjects
-			 * total distinct objects / (distinct objects with p / triples with p)
-			 */
-			return subsetTriples(graph, partition2Type, partition2, totalTriples, defaultCardinality) / partitionRatio(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
-		} else if (partition1 == null && partition2 != null) {
-			/*
-			 * e.g. s=bound, p=known, o=?
-			 * partition1Type=void-ext:subject, partition1=null, distinct1Type=void:properties
-			 * partition2Type=void:property, partition2=p, distinct2Type=void:distinctObjects
-			 * total distinct subjects * (distinct objects with p / triples with p)
-			 */
-			return subsetTriples(graph, partition1Type, partition1, totalTriples, defaultCardinality) * partitionRatio(graph, partition2Type, partition2, distinct2Type, totalTriples, defaultCardinality);
+	private double getCardinality(IRI graph, IRI partitionType, long totalTriples, long defaultCardinality) {
+		// total number of distinct values
+		long distinctCount = getValue(graph, DISTINCT_PREDICATES.get(partitionType), -1L);
+
+		if (distinctCount != -1L) {
+			double estimate = 0.0;
+			if (distinctCount <= AVERAGING_LIMIT) {
+				// few enough distinct values that we can calculate a weighted average cardinality
+				// assume the bigger the partition, the more likely it is to be used:
+				// sum_v x_v^2 / sum x_v, where x_v is the number of triples with value v
+				long sumxx = 0L;
+				long sumx = 0L;
+				// get the partitions for all the values
+				try (CloseableIteration<? extends Statement, QueryEvaluationException> iter = statsSource.getStatements(graph, PARTITION_PREDICATES.get(partitionType), null, HALYARD.STATS_GRAPH_CONTEXT)) {
+					while (iter.hasNext()) {
+						Statement stmt = iter.next();
+						// get the number of triples for this value
+						long count = getTriplesCount((IRI) stmt.getObject(), defaultCardinality);
+						sumxx += count * count;
+						sumx += count;
+					}
+				}
+				long threshold = getValue(HALYARD.STATS_ROOT_NODE, PARTITION_THRESHOLD_PREDICATES.get(partitionType), 0);
+				estimate = (sumx > 0) ? (double) (sumxx + (totalTriples - sumx) * threshold) / (double) totalTriples : 0.0;
+			}
+
+			if (estimate == 0.0) {
+				// average cardinality for partitionType - assume the triples are evenly distributed over each possible value
+				estimate = (double) totalTriples / (double) distinctCount;
+			}
+
+			return estimate;
 		} else {
-			return subsetTriples(graph, partition1Type, partition1, totalTriples, defaultCardinality) * subsetTriples(graph, partition2Type, partition2, totalTriples, defaultCardinality) / totalTriples;
+			// if there are no stats then assume the triple count is below the threshold
+			return getValue(HALYARD.STATS_ROOT_NODE, PARTITION_THRESHOLD_PREDICATES.get(partitionType), defaultCardinality);
 		}
 	}
 
 	/**
-	 * Estimates the ratio of distinct objects/triples with property, distinct subjects/triples with object, distinct properties/triples with subject.
+	 * How many triples are there with two roles known?
 	 */
-	private double partitionRatio(IRI graph, IRI partitionType, Value partition, IRI ratioType, long totalTriples, long defaultCardinality) {
+	private double subsetTriples(IRI graph, IRI partition1Type, Value partition1, IRI distinct1Type, IRI partition2Type, Value partition2, IRI distinct2Type, long totalTriples, long defaultCardinality) {
+		if (partition1 != null) {
+			return getPartitionedCardinality(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
+		} else if (partition2 != null) {
+			// the number of distinct values associated to partition2 is a rough indication of the cardinality of partition1
+			return getDistinctCount(graph, partition2Type, partition2, distinct2Type, defaultCardinality);
+		} else {
+			// geometric mean of 1 and best upper bound
+			double bound1 = subsetTriples(graph, partition1Type, null, totalTriples, defaultCardinality);
+			double bound2 = subsetTriples(graph, partition2Type, null, totalTriples, defaultCardinality);
+			return Math.sqrt(Math.min(bound1, bound2));
+		}
+	}
+
+	/**
+	 * Estimates object cardinality (triples/distinct objects) for a property partition, subject cardinality (triples/distinct subjects) for an object partition, property
+	 * cardinality (triples/distinct properties) for a subject partition.
+	 */
+	private double getPartitionedCardinality(IRI graph, IRI partitionType, @Nonnull Value partition, IRI distinctType, long totalTriples, long defaultCardinality) {
 		IRI partitionIri = statsSource.getValueFactory().createIRI(partitionIriTransformer.apply(graph, partitionType, partition));
-		long distinctCount = getValue(partitionIri, ratioType, -1L);
+		long distinctCount = getValue(partitionIri, distinctType, -1L);
 		long partitionCount = getTriplesCount(partitionIri, -1L);
 		if (distinctCount != -1L && partitionCount != -1L) {
-			return (double) distinctCount / (double) partitionCount;
+			return (double) partitionCount / (double) distinctCount;
 		} else {
-			return (double) getTriplesCount(partitionIri, defaultCardinality) / (double) totalTriples;
+			return (double) totalTriples / (double) getTriplesCount(partitionIri, defaultCardinality);
+		}
+	}
+
+	private double getDistinctCount(IRI graph, IRI partitionType, @Nonnull Value partition, IRI distinctType, long defaultCardinality) {
+		IRI partitionIri = statsSource.getValueFactory().createIRI(partitionIriTransformer.apply(graph, partitionType, partition));
+		long distinctCount = getValue(partitionIri, distinctType, -1L);
+		if (distinctCount != -1L) {
+			return distinctCount;
+		} else {
+			// geometric mean of 1 (best case estimate) and worst case estimate
+			return Math.sqrt(getTriplesCount(partitionIri, defaultCardinality));
 		}
 	}
 

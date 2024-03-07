@@ -23,9 +23,16 @@ import org.eclipse.rdf4j.query.algebra.Var;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
+	private static final int TOTAL_TRIPLES = 13;
+	private static final int TRIPLES_WITH_SUBJ = 6;
+	private static final int TRIPLES_WITH_PRED = 4;
+	private static final int TRIPLES_WITH_OBJ = 3;
+	private static final int GRAPH_TRIPLES = 25;
+
 	private final ValueFactory vf = SimpleValueFactory.getInstance();
 	private final IRI graph1 = vf.createIRI("http://graph1");
 	private final IRI subj = vf.createIRI("http://subject");
@@ -43,14 +50,14 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 			}
 		};
 		Model model = new LinkedHashModel();
-		model.add(graphNode, VOID.TRIPLES, vf.createLiteral(13), HALYARD.STATS_GRAPH_CONTEXT);
+		model.add(graphNode, VOID.TRIPLES, vf.createLiteral(TOTAL_TRIPLES), HALYARD.STATS_GRAPH_CONTEXT);
 		model.add(graphNode, VOID.DISTINCT_SUBJECTS, vf.createLiteral(3), HALYARD.STATS_GRAPH_CONTEXT);
 		model.add(graphNode, VOID.PROPERTIES, vf.createLiteral(5), HALYARD.STATS_GRAPH_CONTEXT);
-		model.add(vf.createIRI(transformer.apply(graphNode, VOID_EXT.SUBJECT, subj)), VOID.TRIPLES, vf.createLiteral(6), HALYARD.STATS_GRAPH_CONTEXT);
-		model.add(vf.createIRI(transformer.apply(graphNode, VOID.PROPERTY, pred)), VOID.TRIPLES, vf.createLiteral(4), HALYARD.STATS_GRAPH_CONTEXT);
+		model.add(vf.createIRI(transformer.apply(graphNode, VOID_EXT.SUBJECT, subj)), VOID.TRIPLES, vf.createLiteral(TRIPLES_WITH_SUBJ), HALYARD.STATS_GRAPH_CONTEXT);
+		model.add(vf.createIRI(transformer.apply(graphNode, VOID.PROPERTY, pred)), VOID.TRIPLES, vf.createLiteral(TRIPLES_WITH_PRED), HALYARD.STATS_GRAPH_CONTEXT);
 		model.add(vf.createIRI(transformer.apply(graphNode, VOID_EXT.OBJECT, obj)), VOID.DISTINCT_SUBJECTS, vf.createLiteral(2), HALYARD.STATS_GRAPH_CONTEXT);
-		model.add(vf.createIRI(transformer.apply(graphNode, VOID_EXT.OBJECT, obj)), VOID.TRIPLES, vf.createLiteral(3), HALYARD.STATS_GRAPH_CONTEXT);
-		model.add(graph1, VOID.TRIPLES, vf.createLiteral(25), HALYARD.STATS_GRAPH_CONTEXT);
+		model.add(vf.createIRI(transformer.apply(graphNode, VOID_EXT.OBJECT, obj)), VOID.TRIPLES, vf.createLiteral(TRIPLES_WITH_OBJ), HALYARD.STATS_GRAPH_CONTEXT);
+		model.add(graph1, VOID.TRIPLES, vf.createLiteral(GRAPH_TRIPLES), HALYARD.STATS_GRAPH_CONTEXT);
 		ModelTripleSource ts = new ModelTripleSource(model, vf);
 		Cache<Pair<IRI, IRI>, Long> cache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatisticsCache();
 		calc = new HalyardStatsBasedStatementPatternCardinalityCalculator(ts, transformer, cache);
@@ -69,13 +76,15 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 	@Test
 	public void testSingleValue() {
 		double card = calc.getStatementCardinality(new Var("s", subj), new Var("p"), new Var("o"), null, Collections.emptySet());
-		assertEquals(6.0, card);
+		assertEquals(TRIPLES_WITH_SUBJ, card);
 	}
 
 	@Test
 	public void testDoubleValue() {
 		double card = calc.getStatementCardinality(new Var("s", subj), new Var("p", pred), new Var("o"), null, Collections.emptySet());
-		assertEquals(Math.ceil(6.0 * 4.0 / 13.0), card);
+		assertThat(card).isLessThan(TRIPLES_WITH_SUBJ);
+		assertThat(card).isLessThan(TRIPLES_WITH_PRED);
+		assertEquals(3.0, card);
 	}
 
 	@Test
@@ -83,7 +92,8 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 		Set<String> boundVars = new HashSet<>();
 		boundVars.add("s");
 		double card = calc.getStatementCardinality(new Var("s"), new Var("p"), new Var("o", obj), null, boundVars);
-		assertEquals(Math.ceil((13.0 / 3.0) * (3.0 / 2.0)), card);
+		assertThat(card).isLessThan(TRIPLES_WITH_OBJ);
+		assertEquals(2.0, card);
 	}
 
 	@Test
@@ -91,6 +101,7 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 		Set<String> boundVars = new HashSet<>();
 		boundVars.add("s");
 		double card = calc.getStatementCardinality(new Var("s"), new Var("p"), new Var("o"), null, boundVars);
+		assertThat(card).isLessThan(TOTAL_TRIPLES);
 		assertEquals(Math.ceil(13.0 / 3.0), card);
 	}
 
@@ -100,7 +111,8 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 		boundVars.add("s");
 		boundVars.add("p");
 		double card = calc.getStatementCardinality(new Var("s"), new Var("p"), new Var("o"), null, boundVars);
-		assertEquals(Math.ceil((13.0 / 3.0 * 13.0 / 5.0) / 13.0), card);
+		assertThat(card).isLessThan(TOTAL_TRIPLES);
+		assertEquals(2.0, card);
 	}
 
 	@Test
@@ -108,6 +120,7 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 		Set<String> boundVars = new HashSet<>();
 		boundVars.add("s");
 		double card = calc.getStatementCardinality(new Var("s"), new Var("p"), new Var("o"), new Var("c", vf.createIRI("http://graph1")), boundVars);
+		assertThat(card).isLessThan(GRAPH_TRIPLES);
 		assertEquals(Math.sqrt(25.0), card);
 	}
 
@@ -117,7 +130,8 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 		boundVars.add("s");
 		boundVars.add("p");
 		double card = calc.getStatementCardinality(new Var("s"), new Var("p"), new Var("o"), new Var("c", vf.createIRI("http://graph1")), boundVars);
-		assertEquals(1.0, card);
+		assertThat(card).isLessThan(GRAPH_TRIPLES);
+		assertEquals(3.0, card);
 	}
 
 	@Test

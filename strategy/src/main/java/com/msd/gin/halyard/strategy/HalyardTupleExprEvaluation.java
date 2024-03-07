@@ -1813,7 +1813,7 @@ final class HalyardTupleExprEvaluation {
 		        	FederatedService fs = parentStrategy.getService(serviceUri, partitionIndex, partitionCount);
 					evaluateService(topPipe, service, fs, bindings);
 			    } else {
-			        topPipe.handleException(new QueryEvaluationException("SERVICE variables must be bound at evaluation time."));
+			        topPipe.handleException(new QueryEvaluationException(String.format("SERVICE variables must be bound at evaluation time - use a subselect to ensure %s is bound.", serviceRef.getName())));
 			    }
 			};
         }

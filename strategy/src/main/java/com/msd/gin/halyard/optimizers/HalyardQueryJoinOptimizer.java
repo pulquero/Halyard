@@ -57,9 +57,9 @@ public final class HalyardQueryJoinOptimizer extends QueryJoinOptimizer {
 
 	private Set<String> getParallelSplitBindings(TupleExpr tupleExpr) {
         final Set<String> parallelSplitBindings = new HashSet<>();
-        tupleExpr.visit(new SkipVarsQueryModelVisitor<IncompatibleOperationException>() {
+        tupleExpr.visit(new SkipVarsQueryModelVisitor<RuntimeException>() {
             @Override
-            public void meet(FunctionCall node) throws IncompatibleOperationException {
+            public void meet(FunctionCall node) throws RuntimeException {
                 if (HALYARD.PARALLEL_SPLIT_FUNCTION.stringValue().equals(node.getURI())) {
                     for (ValueExpr arg : node.getArgs()) {
                         if (arg instanceof Var) {

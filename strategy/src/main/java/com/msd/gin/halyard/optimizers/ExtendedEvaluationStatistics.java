@@ -3,6 +3,7 @@ package com.msd.gin.halyard.optimizers;
 import com.google.common.collect.Iterables;
 import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.query.algebra.NAryUnion;
+import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.query.algebra.StarJoin;
 
 import java.io.IOException;
@@ -118,6 +119,7 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 
 		protected static final double VAR_CARDINALITY = 10.0;
 		private static final double TFC_COST_FACTOR = 0.1;
+		private static final double UNBOUND_SERVICE_CARDINALITY = 1.0e+15;
 
 		protected final StatementPatternCardinalityCalculator spcalc;
 		protected final ServiceStatisticsProvider srvStatsProvider;
@@ -385,14 +387,14 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
     		}
     		srvStats.ifPresentOrElse(stats -> {
                 TupleExpr remoteExpr = node.getServiceExpr();
-                meetServiceExpr(remoteExpr, stats);
+                meetServiceExprWithStats(remoteExpr, stats);
     		},
-    			() -> super.meet(node)
+    			() -> meetServiceNoStats(node)
     		);
             updateMap(node);
         }
 
-        protected void meetServiceExpr(TupleExpr remoteExpr, ExtendedEvaluationStatistics srvStats) {
+        protected void meetServiceExprWithStats(TupleExpr remoteExpr, ExtendedEvaluationStatistics srvStats) {
         	if (mapToUpdate != null) {
         		srvStats.updateCardinalityMapInternal(remoteExpr, boundVars, mapToUpdate, useCached);
         		cardinality = mapToUpdate.get(remoteExpr);
@@ -401,10 +403,50 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
         	}
         }
 
+		private void meetServiceNoStats(Service node) {
+			if (!node.getServiceRef().hasValue()) {
+				// the URI is not available, may be computed in the course of the
+				// query
+				// => use high cost to order the SERVICE node late in the query plan
+				cardinality = UNBOUND_SERVICE_CARDINALITY;
+			} else {
+				ServiceNodeAnalyzer serviceAnalyzer = new ServiceNodeAnalyzer();
+				node.visitChildren(serviceAnalyzer);
+				int count = serviceAnalyzer.getStatementCount();
+
+				// more than one free variable in a single triple pattern
+				if (count == 1 && node.getServiceVars().size() > 1) {
+					cardinality = 100 + node.getServiceVars().size(); // TODO (should
+					// be higher
+					// than other
+					// simple
+					// stmts)
+				} else {
+					// only very selective statements should be better than this
+					// => evaluate service expressions first
+					cardinality = 1 + (node.getServiceVars().size() * 0.1);
+				}
+			}
+		}
+
         protected void updateMap(TupleExpr node) {
             if (mapToUpdate != null) {
                 mapToUpdate.put(node, cardinality);
             }
         }
+
+    	// count the number of triple patterns
+    	private static class ServiceNodeAnalyzer extends SkipVarsQueryModelVisitor<RuntimeException> {
+    		private int count = 0;
+
+    		public int getStatementCount() {
+    			return count;
+    		}
+
+    		@Override
+    		public void meet(StatementPattern node) {
+    			count++;
+    		}
+    	}
 	}
 }

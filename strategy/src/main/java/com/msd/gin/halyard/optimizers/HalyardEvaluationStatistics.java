@@ -130,7 +130,7 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
         }
 
         @Override
-        protected void meetServiceExpr(TupleExpr remoteExpr, ExtendedEvaluationStatistics srvStats) {
+        protected void meetServiceExprWithStats(TupleExpr remoteExpr, ExtendedEvaluationStatistics srvStats) {
         	if (srvStats instanceof HalyardEvaluationStatistics) {
 	            if (mapToUpdate != null) {
 	                ((HalyardEvaluationStatistics)srvStats).updateCardinalityMapInternal(remoteExpr, boundVars, priorityVariables, mapToUpdate, useCached);
@@ -139,7 +139,7 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
 	            	cardinality = ((HalyardEvaluationStatistics)srvStats).getCardinalityInternal(remoteExpr, boundVars, priorityVariables, useCached);
 	            }
         	} else {
-        		super.meetServiceExpr(remoteExpr, srvStats);
+        		super.meetServiceExprWithStats(remoteExpr, srvStats);
         	}
         }
     }
