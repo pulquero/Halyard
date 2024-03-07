@@ -273,6 +273,9 @@
 								</copy>
 								<copy todir="${project.build.directory}/rdf4j-server-patch/WEB-INF/lib" overwrite="true">
 									<file file="../common/target/halyard-common-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../api/target/halyard-api-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../model/target/halyard-model-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../queryalgebra/target/halyard-queryalgebra-${project.version}.jar" basedir="${project.basedir}" />
 									<file file="../strategy/target/halyard-strategy-${project.version}.jar" basedir="${project.basedir}" />
 									<file file="../sail/target/halyard-sail-${project.version}.jar" basedir="${project.basedir}" />
 									<file file="../spin/target/halyard-spin-${project.version}.jar" basedir="${project.basedir}" />
@@ -303,6 +306,9 @@
 								</copy>
 								<copy todir="${project.build.directory}/rdf4j-workbench-patch/WEB-INF/lib" overwrite="true">
 									<file file="../common/target/halyard-common-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../api/target/halyard-api-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../model/target/halyard-model-${project.version}.jar" basedir="${project.basedir}" />
+									<file file="../queryalgebra/target/halyard-queryalgebra-${project.version}.jar" basedir="${project.basedir}" />
 									<file file="../strategy/target/halyard-strategy-${project.version}.jar" basedir="${project.basedir}" />
 									<file file="../sail/target/halyard-sail-${project.version}.jar" basedir="${project.basedir}" />
 									<file file="../spin/target/halyard-spin-${project.version}.jar" basedir="${project.basedir}" />
