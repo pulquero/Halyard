@@ -2,9 +2,9 @@ package com.msd.gin.halyard.function;
 
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.sail.HBaseTripleSource;
 import com.msd.gin.halyard.sail.HalyardStatsBasedStatementPatternCardinalityCalculator;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Value;

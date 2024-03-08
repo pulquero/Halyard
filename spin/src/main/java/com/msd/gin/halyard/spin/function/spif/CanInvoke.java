@@ -51,6 +51,7 @@ import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.algebra.evaluation.AbstractQueryPreparer;
 import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.query.algebra.evaluation.impl.ExtendedEvaluationStrategy;
 import com.msd.gin.halyard.spin.Argument;
 import com.msd.gin.halyard.spin.ConstraintViolation;
 import com.msd.gin.halyard.spin.SpinFunctionInterpreter;
@@ -58,7 +59,6 @@ import com.msd.gin.halyard.spin.SpinInferencing;
 import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
 import com.msd.gin.halyard.spin.SpinParser;
 import com.msd.gin.halyard.spin.function.AbstractSpinFunction;
-import com.msd.gin.halyard.strategy.ExtendedEvaluationStrategy;
 
 public class CanInvoke extends AbstractSpinFunction implements Function {
 

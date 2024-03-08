@@ -18,8 +18,8 @@ package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
 import com.msd.gin.halyard.common.HalyardTableUtils;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.sail.HBaseSail;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.File;
 import java.util.ArrayList;

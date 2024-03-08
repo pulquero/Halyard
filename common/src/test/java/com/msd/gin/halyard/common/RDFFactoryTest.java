@@ -1,8 +1,8 @@
 package com.msd.gin.halyard.common;
 
-import com.msd.gin.halyard.vocab.HALYARD;
-import com.msd.gin.halyard.vocab.SEMOPENALEX;
-import com.msd.gin.halyard.vocab.WIKIDATA;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.SEMOPENALEX;
+import com.msd.gin.halyard.model.vocabulary.WIKIDATA;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -44,55 +44,56 @@ public class RDFFactoryTest {
 
 	static List<Object[]> createData(ValueFactory vf) {
 		return Arrays.asList(
-			new Object[] {RDF.TYPE, ValueIO.IRI_HASH_TYPE},
-			new Object[] {vf.createLiteral("foo"), ValueIO.UNCOMPRESSED_STRING_TYPE},
-			new Object[] {vf.createBNode("__foobar__"), ValueIO.BNODE_TYPE},
-			new Object[] {vf.createIRI("test:/foo"), ValueIO.IRI_TYPE},
-			new Object[] {vf.createIRI("http://www.testmyiri.com"), ValueIO.COMPRESSED_IRI_TYPE},
-			new Object[] {vf.createIRI("https://www.testmyiri.com"), ValueIO.COMPRESSED_IRI_TYPE},
-			new Object[] {vf.createIRI("http://dx.doi.org/", "blah"), ValueIO.COMPRESSED_IRI_TYPE},
-			new Object[] {vf.createIRI("https://dx.doi.org/", "blah"), ValueIO.COMPRESSED_IRI_TYPE},
-			new Object[] {vf.createLiteral("5423"), ValueIO.UNCOMPRESSED_STRING_TYPE},
-			new Object[] {vf.createLiteral("\u98DF"), ValueIO.UNCOMPRESSED_STRING_TYPE},
-			new Object[] {vf.createLiteral(true), ValueIO.TRUE_TYPE},
-			new Object[] {vf.createLiteral(false), ValueIO.FALSE_TYPE},
-			new Object[] {vf.createLiteral((byte) 6), ValueIO.BYTE_TYPE},
-			new Object[] {vf.createLiteral((short) 7843), ValueIO.SHORT_TYPE},
-			new Object[] {vf.createLiteral(34), ValueIO.INT_TYPE},
-			new Object[] {vf.createLiteral(87.232), ValueIO.DOUBLE_TYPE},
-			new Object[] {vf.createLiteral(74234l), ValueIO.LONG_TYPE},
-			new Object[] {vf.createLiteral(4.809f), ValueIO.FLOAT_TYPE},
-			new Object[] {vf.createLiteral(BigInteger.valueOf(96)), ValueIO.SHORT_COMPRESSED_BIG_INT_TYPE},
-			new Object[] {vf.createLiteral(BigInteger.valueOf(Integer.MIN_VALUE)), ValueIO.INT_COMPRESSED_BIG_INT_TYPE},
-			new Object[] {vf.createLiteral(String.valueOf(Long.MAX_VALUE)+String.valueOf(Long.MAX_VALUE), XSD.INTEGER), ValueIO.BIG_INT_TYPE},
-			new Object[] {vf.createLiteral(BigDecimal.valueOf(856.03)), ValueIO.BIG_FLOAT_TYPE},
-			new Object[] {vf.createLiteral("z", XSD.INT), ValueIO.DATATYPE_LITERAL_TYPE},
-			new Object[] {vf.createIRI(RDF.NAMESPACE), ValueIO.NAMESPACE_HASH_TYPE},
-			new Object[] {vf.createLiteral("xyz", vf.createIRI(RDF.NAMESPACE)), ValueIO.DATATYPE_LITERAL_TYPE},
-			new Object[] {vf.createLiteral(new Date(946684800000l)), ValueIO.DATETIME_TYPE},  // "2000-01-01T00:00:00Z"^^xsd:dateTime
-			new Object[] {vf.createLiteral(LocalDateTime.of(1990, 6, 20, 0, 0, 0, 20005000)), ValueIO.DATETIME_TYPE},
-			new Object[] {vf.createLiteral("13:03:22", XSD.TIME), ValueIO.TIME_TYPE},
-			new Object[] {vf.createLiteral(LocalTime.of(13, 3, 22, 40030000)), ValueIO.TIME_TYPE},
-			new Object[] {vf.createLiteral("1980-02-14", XSD.DATE), ValueIO.DATE_TYPE},
-			new Object[] {vf.createLiteral("2022-09-09+03:00", XSD.DATE), ValueIO.DATE_TYPE},
-			new Object[] {vf.createLiteral("foo", vf.createIRI("urn:bar:1")), ValueIO.DATATYPE_LITERAL_TYPE},
-			new Object[] {vf.createLiteral("foo", "en-GB"), ValueIO.LANGUAGE_HASH_LITERAL_TYPE},
-			new Object[] {vf.createLiteral("bar", "zx-XY"), ValueIO.LANGUAGE_LITERAL_TYPE},
-			new Object[] {vf.createLiteral("漫画", "ja"), ValueIO.LANGUAGE_HASH_LITERAL_TYPE},
-			new Object[] {vf.createLiteral("POINT (139.81 35.6972)", GEO.WKT_LITERAL), ValueIO.WKT_LITERAL_TYPE},
-			new Object[] {vf.createLiteral("invalid still works (139.81 35.6972)", GEO.WKT_LITERAL), ValueIO.WKT_LITERAL_TYPE},
-			new Object[] {vf.createLiteral("<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\">bar</test>", RDF.XMLLITERAL), ValueIO.XML_TYPE},
-			new Object[] {vf.createLiteral("<invalid xml still works", RDF.XMLLITERAL), ValueIO.XML_TYPE},
-			new Object[] {vf.createLiteral("0000-06-20T00:00:00Z", XSD.DATETIME), ValueIO.DATATYPE_LITERAL_TYPE},
-			new Object[] {vf.createLiteral(longString("The cat slept on the mat.")), ValueIO.COMPRESSED_STRING_TYPE},
-			new Object[] {vf.createLiteral(longString("¿Dónde está el gato?"), "es"), ValueIO.LANGUAGE_HASH_LITERAL_TYPE},
-			new Object[] {vf.createIRI(HALYARD.VALUE_ID_NS.getName(), "eRg5UlsxjZuh-4meqlYQe3-J8X8"), ValueIO.ENCODED_IRI_TYPE},
-			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE, "400f9abd3fd761c62af23dbe8f8432158a6ce272"), ValueIO.ENCODED_IRI_TYPE},
-			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE, "invalid"), ValueIO.NAMESPACE_HASH_TYPE},
-			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE+"400f9abd3fd761c62af23dbe8f8432158a6ce272/"), ValueIO.END_SLASH_ENCODED_IRI_TYPE},
-			new Object[] {vf.createIRI(SEMOPENALEX.AUTHOR_POSITION_NAMESPACE+"W10986400A2001695"), ValueIO.ENCODED_IRI_TYPE},
-			new Object[] {vf.createIRI(SEMOPENALEX.COUNTS_BY_YEAR_NAMESPACE+"I10"), ValueIO.ENCODED_IRI_TYPE},
-			new Object[] {vf.createIRI("urn:uuid:8104c873-b648-44de-aaee-cb65f1dcafbb"), ValueIO.ENCODED_IRI_TYPE}
+			new Object[] {RDF.TYPE, HeaderBytes.IRI_HASH_TYPE},
+			new Object[] {vf.createLiteral("foo"), HeaderBytes.UNCOMPRESSED_STRING_TYPE},
+			new Object[] {vf.createBNode("__foobar__"), HeaderBytes.BNODE_TYPE},
+			new Object[] {vf.createIRI("test:/foo"), HeaderBytes.IRI_TYPE},
+			new Object[] {vf.createIRI("http://www.testmyiri.com"), HeaderBytes.COMPRESSED_IRI_TYPE},
+			new Object[] {vf.createIRI("https://www.testmyiri.com"), HeaderBytes.COMPRESSED_IRI_TYPE},
+			new Object[] {vf.createIRI("http://dx.doi.org/", "blah"), HeaderBytes.COMPRESSED_IRI_TYPE},
+			new Object[] {vf.createIRI("https://dx.doi.org/", "blah"), HeaderBytes.COMPRESSED_IRI_TYPE},
+			new Object[] {vf.createLiteral("5423"), HeaderBytes.UNCOMPRESSED_STRING_TYPE},
+			new Object[] {vf.createLiteral("\u98DF"), HeaderBytes.UNCOMPRESSED_STRING_TYPE},
+			new Object[] {vf.createLiteral(true), HeaderBytes.TRUE_TYPE},
+			new Object[] {vf.createLiteral(false), HeaderBytes.FALSE_TYPE},
+			new Object[] {vf.createLiteral((byte) 6), HeaderBytes.BYTE_TYPE},
+			new Object[] {vf.createLiteral((short) 7843), HeaderBytes.SHORT_TYPE},
+			new Object[] {vf.createLiteral(34), HeaderBytes.INT_TYPE},
+			new Object[] {vf.createLiteral(87.232), HeaderBytes.DOUBLE_TYPE},
+			new Object[] {vf.createLiteral(74234l), HeaderBytes.LONG_TYPE},
+			new Object[] {vf.createLiteral(4.809f), HeaderBytes.FLOAT_TYPE},
+			new Object[] {vf.createLiteral(BigInteger.valueOf(96)), HeaderBytes.SHORT_COMPRESSED_BIG_INT_TYPE},
+			new Object[] {vf.createLiteral(BigInteger.valueOf(Integer.MIN_VALUE)), HeaderBytes.INT_COMPRESSED_BIG_INT_TYPE},
+			new Object[] {vf.createLiteral(BigInteger.valueOf(Long.MAX_VALUE)), HeaderBytes.LONG_COMPRESSED_BIG_INT_TYPE},
+			new Object[] {vf.createLiteral(String.valueOf(Long.MAX_VALUE)+String.valueOf(Long.MAX_VALUE), XSD.INTEGER), HeaderBytes.BIG_INT_TYPE},
+			new Object[] {vf.createLiteral(BigDecimal.valueOf(856.03)), HeaderBytes.BIG_FLOAT_TYPE},
+			new Object[] {vf.createLiteral("z", XSD.INT), HeaderBytes.DATATYPE_LITERAL_TYPE},
+			new Object[] {vf.createIRI(RDF.NAMESPACE), HeaderBytes.NAMESPACE_HASH_TYPE},
+			new Object[] {vf.createLiteral("xyz", vf.createIRI(RDF.NAMESPACE)), HeaderBytes.DATATYPE_LITERAL_TYPE},
+			new Object[] {vf.createLiteral(new Date(946684800000l)), HeaderBytes.DATETIME_TYPE},  // "2000-01-01T00:00:00Z"^^xsd:dateTime
+			new Object[] {vf.createLiteral(LocalDateTime.of(1990, 6, 20, 0, 0, 0, 20005000)), HeaderBytes.DATETIME_TYPE},
+			new Object[] {vf.createLiteral("13:03:22", XSD.TIME), HeaderBytes.TIME_TYPE},
+			new Object[] {vf.createLiteral(LocalTime.of(13, 3, 22, 40030000)), HeaderBytes.TIME_TYPE},
+			new Object[] {vf.createLiteral("1980-02-14", XSD.DATE), HeaderBytes.DATE_TYPE},
+			new Object[] {vf.createLiteral("2022-09-09+03:00", XSD.DATE), HeaderBytes.DATE_TYPE},
+			new Object[] {vf.createLiteral("foo", vf.createIRI("urn:bar:1")), HeaderBytes.DATATYPE_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("foo", "en-GB"), HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("bar", "zx-XY"), HeaderBytes.LANGUAGE_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("漫画", "ja"), HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("POINT (139.81 35.6972)", GEO.WKT_LITERAL), HeaderBytes.WKT_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("invalid still works (139.81 35.6972)", GEO.WKT_LITERAL), HeaderBytes.WKT_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\">bar</test>", RDF.XMLLITERAL), HeaderBytes.XML_TYPE},
+			new Object[] {vf.createLiteral("<invalid xml still works", RDF.XMLLITERAL), HeaderBytes.XML_TYPE},
+			new Object[] {vf.createLiteral("0000-06-20T00:00:00Z", XSD.DATETIME), HeaderBytes.DATATYPE_LITERAL_TYPE},
+			new Object[] {vf.createLiteral(longString("The cat slept on the mat.")), HeaderBytes.COMPRESSED_STRING_TYPE},
+			new Object[] {vf.createLiteral(longString("¿Dónde está el gato?"), "es"), HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE},
+			new Object[] {vf.createIRI(HALYARD.VALUE_ID_NS.getName(), "eRg5UlsxjZuh-4meqlYQe3-J8X8"), HeaderBytes.ENCODED_IRI_TYPE},
+			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE, "400f9abd3fd761c62af23dbe8f8432158a6ce272"), HeaderBytes.ENCODED_IRI_TYPE},
+			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE, "invalid"), HeaderBytes.NAMESPACE_HASH_TYPE},
+			new Object[] {vf.createIRI(WIKIDATA.WDV_NAMESPACE+"400f9abd3fd761c62af23dbe8f8432158a6ce272/"), HeaderBytes.END_SLASH_ENCODED_IRI_TYPE},
+			new Object[] {vf.createIRI(SEMOPENALEX.AUTHOR_POSITION_NAMESPACE+"W10986400A2001695"), HeaderBytes.ENCODED_IRI_TYPE},
+			new Object[] {vf.createIRI(SEMOPENALEX.COUNTS_BY_YEAR_NAMESPACE+"I10"), HeaderBytes.ENCODED_IRI_TYPE},
+			new Object[] {vf.createIRI("urn:uuid:8104c873-b648-44de-aaee-cb65f1dcafbb"), HeaderBytes.ENCODED_IRI_TYPE}
 		);
 	}
 

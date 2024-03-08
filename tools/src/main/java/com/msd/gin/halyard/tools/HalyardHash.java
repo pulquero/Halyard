@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.tools;
 
-import com.msd.gin.halyard.common.Hashes;
+import com.msd.gin.halyard.common.ByteUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.ValueIO;
@@ -130,7 +130,7 @@ public final class HalyardHash extends AbstractHalyardTool {
 
 			if (rdfTerms.size() > 1) {
 				context.getCounter(Counters.ID_COLLISIONS).increment(1);
-				String msg = MessageFormat.format("Hash collision! {0} all have the ID {1}", rdfTerms, Hashes.encode(key.copyBytes()));
+				String msg = MessageFormat.format("Hash collision! {0} all have the ID {1}", rdfTerms, ByteUtils.encode(key.copyBytes()));
 				context.setStatus(msg);
 				LOG.error(msg);
 			} else {

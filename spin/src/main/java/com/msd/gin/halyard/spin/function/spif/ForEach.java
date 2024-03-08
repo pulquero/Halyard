@@ -24,7 +24,7 @@ import org.eclipse.rdf4j.model.vocabulary.SPIF;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 
 import com.google.common.collect.Iterators;
-import com.msd.gin.halyard.common.TupleLiteral;
+import com.msd.gin.halyard.model.TupleLiteral;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
 
 public class ForEach implements InverseMagicProperty {

@@ -20,7 +20,7 @@ import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
 import org.junit.Test;
 
-import com.msd.gin.halyard.vocab.SCHEMA_ORG;
+import com.msd.gin.halyard.model.vocabulary.SCHEMA_ORG;
 
 public class HRDFTest {
 	@Test

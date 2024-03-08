@@ -2,12 +2,12 @@ package com.msd.gin.halyard.sail.geosparql;
 
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.common.WKTLiteral;
+import com.msd.gin.halyard.model.WKTLiteral;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.sail.HBaseSearchTripleSource;
 import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.sail.search.SearchDocument;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
 import java.util.Arrays;

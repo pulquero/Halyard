@@ -21,6 +21,7 @@ import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.ModelTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
 import com.msd.gin.halyard.federation.HalyardFederatedService;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.query.BindingSetPipe;
@@ -29,7 +30,6 @@ import com.msd.gin.halyard.query.ValuePipe;
 import com.msd.gin.halyard.query.ValuePipeQueryValueEvaluationStep;
 import com.msd.gin.halyard.strategy.HalyardTupleExprEvaluation.QuadPattern;
 import com.msd.gin.halyard.strategy.HalyardValueExprEvaluation.ConvertingValuePipe;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
 import java.io.InputStream;

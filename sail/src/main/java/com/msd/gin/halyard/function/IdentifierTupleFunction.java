@@ -1,11 +1,11 @@
 package com.msd.gin.halyard.function;
 
-import com.msd.gin.halyard.common.Hashes;
+import com.msd.gin.halyard.common.ByteUtils;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.sail.HBaseTripleSource;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.Collections;
 import java.util.List;
@@ -52,7 +52,7 @@ public class IdentifierTupleFunction implements ExtendedTupleFunction {
 			}
 			ns = HALYARD.STATEMENT_ID_NS;
 			byte[] stmtId = rdfFactory.statementId((Resource) args[0], (IRI) args[1], args[2]);
-			id = Hashes.encode(stmtId);
+			id = ByteUtils.encode(stmtId);
 		} else {
 			throw new ValueExprEvaluationException(String.format("%s requires 1 or 3 arguments, got %d", getURI(), args.length));
 		}

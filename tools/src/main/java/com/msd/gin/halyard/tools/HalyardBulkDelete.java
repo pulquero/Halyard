@@ -25,7 +25,7 @@ import com.msd.gin.halyard.common.RDFContext;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.io.IOException;
 import java.text.MessageFormat;

@@ -19,7 +19,7 @@ package com.msd.gin.halyard.strategy;
 import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertTrue;
 
-import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.util.HashSet;
 import java.util.Set;

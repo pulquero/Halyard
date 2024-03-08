@@ -16,7 +16,7 @@
  */
 package com.msd.gin.halyard.sail;
 
-import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;

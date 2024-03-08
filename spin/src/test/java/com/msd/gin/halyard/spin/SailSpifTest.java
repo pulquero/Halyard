@@ -29,7 +29,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
-import com.msd.gin.halyard.common.TupleLiteral;
+import com.msd.gin.halyard.model.TupleLiteral;
 
 /**
  * Runs the spif test cases.

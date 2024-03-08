@@ -17,7 +17,7 @@
 package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.common.HalyardTableUtils;
-import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.io.IOException;
 import java.net.MalformedURLException;

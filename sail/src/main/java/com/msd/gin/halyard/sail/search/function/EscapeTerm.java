@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.sail.search.function;
 
 import com.google.common.collect.Sets;
-import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.util.Locale;
 import java.util.Set;

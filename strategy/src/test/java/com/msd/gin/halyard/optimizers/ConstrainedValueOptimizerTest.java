@@ -2,9 +2,9 @@ package com.msd.gin.halyard.optimizers;
 
 import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.StatementIndex;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.query.algebra.VarConstraint;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.math.BigInteger;
 

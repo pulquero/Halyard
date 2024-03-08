@@ -2,17 +2,13 @@ package com.msd.gin.halyard.common;
 
 import com.google.common.hash.Hashing;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.function.Function;
 
 public final class Hashes {
-	private static final Base64.Encoder ENCODER = Base64.getUrlEncoder().withoutPadding();
-	private static final Base64.Decoder DECODER = Base64.getUrlDecoder();
 
 	static MessageDigest getMessageDigest(String algorithm) {
         try {
@@ -74,32 +70,7 @@ public final class Hashes {
     	return Hashing.murmur3_32().hashBytes(key).asInt();
     }
 
-    /**
-     * Encode a byte array to a base-64 string.
-     * @param b array to encode.
-     * @return base-64 string.
-     */
-    public static String encode(byte b[]) {
-        return ENCODER.encodeToString(b);
-    }
-
-    /**
-     * Decode a base-64 string to a byte array.
-     * @param s string to decode.
-     * @return byte array.
-     */
-    public static byte[] decode(String s) {
-    	return DECODER.decode(s);
-    }
-
-    /**
-	 * NB: this alters the buffer.
-	 */
-	public static CharSequence encode(ByteBuffer b) {
-		return StandardCharsets.ISO_8859_1.decode(ENCODER.encode(b));
-	}
-
-	public static byte[] toBytes(String s) {
+    public static byte[] toBytes(String s) {
 		return s.getBytes(StandardCharsets.UTF_8);
 	}
 

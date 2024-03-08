@@ -1,8 +1,8 @@
 package com.msd.gin.halyard.sail.geosparql;
 
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.algebra.ExtendedTupleFunctionCall;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.ArrayList;
 import java.util.List;

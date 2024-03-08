@@ -1,8 +1,8 @@
 package com.msd.gin.halyard.common;
 
-import com.msd.gin.halyard.vocab.HALYARD;
-import com.msd.gin.halyard.vocab.SEMOPENALEX;
-import com.msd.gin.halyard.vocab.WIKIDATA;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.SEMOPENALEX;
+import com.msd.gin.halyard.model.vocabulary.WIKIDATA;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -57,6 +57,7 @@ public class IdValueFactoryExtendedTest {
 			vf.createLiteral(4.809f),
 			vf.createLiteral(BigInteger.valueOf(96)),
 			vf.createLiteral(BigInteger.valueOf(Integer.MIN_VALUE)),
+			vf.createLiteral(BigInteger.valueOf(Integer.MAX_VALUE)),
 			vf.createLiteral(String.valueOf(Long.MAX_VALUE)+String.valueOf(Long.MAX_VALUE), XSD.INTEGER),
 			vf.createLiteral(BigDecimal.valueOf(856.03)),
 			vf.createLiteral("z", XSD.INT),

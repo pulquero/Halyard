@@ -18,8 +18,8 @@ package com.msd.gin.halyard.tools;
 
 import static com.msd.gin.halyard.tools.HalyardBulkLoad.*;
 
+import com.msd.gin.halyard.common.ByteUtils;
 import com.msd.gin.halyard.common.HalyardTableUtils;
-import com.msd.gin.halyard.common.Hashes;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.repository.HBaseUpdate;
 import com.msd.gin.halyard.sail.ElasticSettings;
@@ -322,7 +322,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
     	if (queryName != null) {
     		byte[] uniquePart = new byte[4];
     		new Random().nextBytes(uniquePart);
-    		workdir += queryName + "-" + Hashes.encode(ByteBuffer.wrap(uniquePart));
+    		workdir += queryName + "-" + ByteUtils.encode(ByteBuffer.wrap(uniquePart));
     	} else {
         	workdir += UUID.randomUUID();
     	}

@@ -349,6 +349,6 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 
 	@Override
 	public String toString() {
-		return Hashes.encode(idBytes);
+		return ByteUtils.encode(idBytes);
 	}
 }

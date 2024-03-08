@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.strategy.aggregators;
 
-import com.msd.gin.halyard.common.TupleLiteral;
+import com.msd.gin.halyard.model.TupleLiteral;
 
 import java.util.Comparator;
 

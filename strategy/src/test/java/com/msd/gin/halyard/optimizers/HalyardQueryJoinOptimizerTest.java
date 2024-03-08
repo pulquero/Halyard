@@ -16,9 +16,9 @@
  */
 package com.msd.gin.halyard.optimizers;
 
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.query.algebra.StarJoin;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.ArrayList;
 import java.util.Arrays;

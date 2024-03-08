@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.common;
 
-import com.msd.gin.halyard.vocab.WIKIDATA;
+import com.msd.gin.halyard.model.vocabulary.AbstractIRIEncodingNamespace;
+import com.msd.gin.halyard.model.vocabulary.WIKIDATA;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;

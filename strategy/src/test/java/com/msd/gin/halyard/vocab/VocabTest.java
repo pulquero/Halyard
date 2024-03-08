@@ -16,6 +16,8 @@
  */
 package com.msd.gin.halyard.vocab;
 
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
+
 import org.junit.Test;
 
 /**

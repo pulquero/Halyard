@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.function;
 
-import static com.msd.gin.halyard.vocab.HALYARD.*;
+import static com.msd.gin.halyard.model.vocabulary.HALYARD.*;
 
 import com.msd.gin.halyard.common.Timestamped;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;

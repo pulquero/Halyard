@@ -16,7 +16,7 @@
  */
 package com.msd.gin.halyard.query.algebra.evaluation.function;
 
-import static com.msd.gin.halyard.vocab.HALYARD.PARALLEL_SPLIT_FUNCTION;
+import static com.msd.gin.halyard.model.vocabulary.HALYARD.PARALLEL_SPLIT_FUNCTION;
 
 import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;

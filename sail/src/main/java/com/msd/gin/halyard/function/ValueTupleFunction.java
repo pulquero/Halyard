@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.function;
 
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.kohsuke.MetaInfServices;

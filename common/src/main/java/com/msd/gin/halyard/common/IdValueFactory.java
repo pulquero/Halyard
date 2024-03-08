@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.IntLiteral;
+
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;

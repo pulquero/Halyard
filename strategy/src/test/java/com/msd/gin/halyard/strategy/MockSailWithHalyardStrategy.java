@@ -16,7 +16,6 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.federation.SailFederatedService;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
@@ -24,6 +23,7 @@ import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.query.algebra.evaluation.federation.SailFederatedService;
 
 import java.util.LinkedList;
 import java.util.Set;

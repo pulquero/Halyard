@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.impl.AdvancedValueFactory;
+
 import java.io.ObjectStreamException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
@@ -126,7 +128,7 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 
 	protected final int getEncodingType() {
 		ByteArray ser = cachedIV.ser;
-		return (ser != null) ? ser.get(0) : ValueIO.RESERVED_TYPE;
+		return (ser != null) ? ser.get(0) : HeaderBytes.RESERVED_TYPE;
 	}
 
 	private IdSer createIdSer(ValueIdentifier id, boolean makeId, ByteArray ser, @Nonnull RDFFactory rdfFactory) {

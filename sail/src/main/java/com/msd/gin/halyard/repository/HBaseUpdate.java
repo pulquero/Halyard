@@ -5,6 +5,7 @@ import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 import com.msd.gin.halyard.common.Timestamped;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.CloseableConsumer;
 import com.msd.gin.halyard.query.TimeLimitConsumer;
 import com.msd.gin.halyard.sail.HBaseSail;
@@ -13,7 +14,6 @@ import com.msd.gin.halyard.sail.TimestampedUpdateContext;
 import com.msd.gin.halyard.spin.SpinMagicPropertyInterpreter;
 import com.msd.gin.halyard.spin.SpinParser;
 import com.msd.gin.halyard.strategy.StrategyConfig;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
 import java.util.ArrayList;

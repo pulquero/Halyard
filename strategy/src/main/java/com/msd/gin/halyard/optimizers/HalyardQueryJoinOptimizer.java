@@ -16,8 +16,8 @@
  */
 package com.msd.gin.halyard.optimizers;
 
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.HashSet;
 import java.util.Map;

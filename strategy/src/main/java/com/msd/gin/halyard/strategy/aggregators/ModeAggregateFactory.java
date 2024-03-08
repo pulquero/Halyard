@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.strategy.aggregators;
 
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.strategy.QueryValueStepEvaluator;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

@@ -379,7 +379,7 @@ public final class RDFFactory {
 	}
 
 	public ValueIdentifier idFromString(String s) {
-		return id(Hashes.decode(s));
+		return id(ByteUtils.decode(s));
 	}
 
 	ByteArray getSerializedForm(Value v) {
@@ -396,7 +396,7 @@ public final class RDFFactory {
 	}
 
 	public ByteBuffer writeStatementId(Resource subj, IRI pred, Value obj, ByteBuffer buf) {
-		buf = ValueIO.ensureCapacity(buf, 3*idFormat.size);
+		buf = ByteUtils.ensureCapacity(buf, 3*idFormat.size);
 		id(subj).writeTo(buf);
 		id(pred).writeTo(buf);
 		id(obj).writeTo(buf);

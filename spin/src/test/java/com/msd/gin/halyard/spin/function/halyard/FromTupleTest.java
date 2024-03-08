@@ -12,7 +12,7 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.junit.jupiter.api.Test;
 
-import com.msd.gin.halyard.common.TupleLiteral;
+import com.msd.gin.halyard.model.TupleLiteral;
 import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 
 public class FromTupleTest {

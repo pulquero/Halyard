@@ -16,7 +16,7 @@
  */
 package com.msd.gin.halyard.tools;
 
-import static com.msd.gin.halyard.vocab.HALYARD.*;
+import static com.msd.gin.halyard.model.vocabulary.HALYARD.*;
 
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.repository.HBaseRepository;

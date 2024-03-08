@@ -2,7 +2,7 @@ package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.model.AbstractDataLiteral;
 import com.msd.gin.halyard.model.ObjectLiteral;
-import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -39,7 +39,7 @@ public class JavaObjectLiteral<T> extends AbstractDataLiteral implements ObjectL
 		} catch (IOException ioe) {
 			throw new RuntimeException(ioe);
 		}
-		return Hashes.encode(out.toByteArray());
+		return ByteUtils.encode(out.toByteArray());
 	}
 
 	@Override

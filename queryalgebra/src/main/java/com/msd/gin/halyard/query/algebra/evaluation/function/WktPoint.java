@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.query.algebra.evaluation.function;
 
-import com.msd.gin.halyard.common.WKTLiteral;
-import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.model.WKTLiteral;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;

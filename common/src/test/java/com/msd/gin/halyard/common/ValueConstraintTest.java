@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.common;
 
-import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.util.Date;
 

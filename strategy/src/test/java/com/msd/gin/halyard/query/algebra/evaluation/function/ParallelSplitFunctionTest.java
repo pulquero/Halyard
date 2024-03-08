@@ -16,12 +16,13 @@
  */
 package com.msd.gin.halyard.query.algebra.evaluation.function;
 
-import static com.msd.gin.halyard.vocab.HALYARD.PARALLEL_SPLIT_FUNCTION;
-
 import com.msd.gin.halyard.common.StatementIndex.Name;
 import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
+
+import static com.msd.gin.halyard.model.vocabulary.HALYARD.PARALLEL_SPLIT_FUNCTION;
+
 import com.msd.gin.halyard.common.ValueConstraint;
 
 import org.eclipse.rdf4j.model.Literal;

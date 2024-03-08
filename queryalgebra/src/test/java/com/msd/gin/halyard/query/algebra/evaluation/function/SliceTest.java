@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.query.algebra.evaluation.function;
 
-import com.msd.gin.halyard.common.TupleLiteral;
+import com.msd.gin.halyard.model.TupleLiteral;
 import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.function.Slice;
 

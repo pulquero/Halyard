@@ -3,6 +3,9 @@ package com.msd.gin.halyard.common;
 import com.google.common.collect.Sets;
 import com.ibm.icu.text.UnicodeCompressor;
 import com.ibm.icu.text.UnicodeDecompressor;
+import com.msd.gin.halyard.model.WKTLiteral;
+import com.msd.gin.halyard.model.XMLLiteral;
+import com.msd.gin.halyard.model.vocabulary.IRIEncodingNamespace;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInput;
@@ -36,7 +39,6 @@ import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
-import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 import org.eclipse.rdf4j.model.vocabulary.GEO;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
@@ -88,41 +90,6 @@ public class ValueIO {
 		return cal;
 	}
 
-	// reserved for method return values
-	static final byte RESERVED_TYPE = 0;
-	static final byte IRI_TYPE = '<';
-	static final byte COMPRESSED_IRI_TYPE = 'w';
-	static final byte IRI_HASH_TYPE = '#';
-	static final byte NAMESPACE_HASH_TYPE = ':';
-	static final byte ENCODED_IRI_TYPE = '{';
-	static final byte END_SLASH_ENCODED_IRI_TYPE = '}';
-	static final byte BNODE_TYPE = '_';
-	static final byte DATATYPE_LITERAL_TYPE = '\"';
-	static final byte LANGUAGE_LITERAL_TYPE = '@';
-	static final byte TRIPLE_TYPE = '*';
-	static final byte FALSE_TYPE = '0';
-	static final byte TRUE_TYPE = '1';
-	static final byte LANGUAGE_HASH_LITERAL_TYPE = 'a';
-	static final byte BYTE_TYPE = 'b';
-	static final byte SHORT_TYPE = 's';
-	static final byte INT_TYPE = 'i';
-	static final byte LONG_TYPE = 'l';
-	static final byte FLOAT_TYPE = 'f';
-	static final byte DOUBLE_TYPE = 'd';
-	static final byte COMPRESSED_STRING_TYPE = 'z';
-	static final byte UNCOMPRESSED_STRING_TYPE = 'Z';
-	static final byte SCSU_STRING_TYPE = 'U';
-	static final byte TIME_TYPE = 't';
-	static final byte DATE_TYPE = 'D';
-	static final byte BIG_FLOAT_TYPE = 'F';
-	static final byte BIG_INT_TYPE = 'I';
-	static final byte LONG_COMPRESSED_BIG_INT_TYPE = '8';
-	static final byte INT_COMPRESSED_BIG_INT_TYPE = '4';
-	static final byte SHORT_COMPRESSED_BIG_INT_TYPE = '2';
-	static final byte DATETIME_TYPE = 'T';
-	static final byte WKT_LITERAL_TYPE = 'W';
-	static final byte XML_TYPE = 'x';
-
 	// compressed IRI types
 	private static final byte HTTP_SCHEME = 'h';
 	private static final byte HTTPS_SCHEME = 's';
@@ -148,7 +115,7 @@ public class ValueIO {
 			subMillis = -1L;
 			extraBytes = 0;
 		}
-		b = ensureCapacity(b, 1 + Long.BYTES + extraBytes + Short.BYTES);
+		b = ByteUtils.ensureCapacity(b, 1 + Long.BYTES + extraBytes + Short.BYTES);
 		b.put(type).putLong(cal.toGregorianCalendar().getTimeInMillis());
 		if (subMillis > 0L) {
 			b.putLong(subMillis);
@@ -194,11 +161,11 @@ public class ValueIO {
 	private static String readString(ByteBuffer b) {
 		int type = b.get();
 		switch (type) {
-			case UNCOMPRESSED_STRING_TYPE:
+			case HeaderBytes.UNCOMPRESSED_STRING_TYPE:
 				return readUncompressedString(b);
-			case COMPRESSED_STRING_TYPE:
+			case HeaderBytes.COMPRESSED_STRING_TYPE:
 				return readCompressedString(b);
-			case SCSU_STRING_TYPE:
+			case HeaderBytes.SCSU_STRING_TYPE:
 				return readScsuString(b);
 			default:
 				throw new AssertionError(String.format("Unrecognized string type: %d", type));
@@ -217,7 +184,7 @@ public class ValueIO {
 		ByteBuffer uncompressed = writeUncompressedString(s);
 		int uncompressedLen = uncompressed.remaining();
 		ByteBuffer compressed = compress(uncompressed);
-		b = ensureCapacity(b, Integer.BYTES + compressed.remaining());
+		b = ByteUtils.ensureCapacity(b, Integer.BYTES + compressed.remaining());
 		return b.putInt(uncompressedLen).put(compressed);
 	}
 
@@ -253,7 +220,7 @@ public class ValueIO {
 		int totalCharsRead = 0;
 		do {
 			// ensure we have a decent amount of available buffer to write to
-			b = ensureCapacity(b, 512);
+			b = ByteUtils.ensureCapacity(b, 512);
 			int pos = b.position();
 			int bytesWritten = compressor.compress(chars, totalCharsRead, len, charsReadHolder, b.array(), b.arrayOffset() + pos, b.remaining());
 			b.position(pos + bytesWritten);
@@ -280,74 +247,6 @@ public class ValueIO {
 		} while (b.hasRemaining());
 		c.flip();
 		return c.toString();
-	}
-
-	private static final int MAX_LONG_STRING_LENGTH = Long.toString(Long.MAX_VALUE).length();
-
-	public static ByteBuffer writeCompressedInteger(String s, ByteBuffer b) {
-		BigInteger bigInt;
-		long x;
-		if (s.length() < MAX_LONG_STRING_LENGTH) {
-			x = XMLDatatypeUtil.parseLong(s);
-			bigInt = null;
-		} else {
-			bigInt = XMLDatatypeUtil.parseInteger(s);
-			double u = bigInt.doubleValue();
-			if (u >= Long.MIN_VALUE && u <= Long.MAX_VALUE) {
-				x = bigInt.longValueExact();
-				bigInt = null;
-			} else {
-				x = 0;
-			}
-		}
-		return writeCompressedInteger(bigInt, x, b);
-	}
-
-	private static ByteBuffer writeCompressedInteger(BigInteger bigInt, long x, ByteBuffer b) {
-		if (bigInt != null) {
-			byte[] bytes = bigInt.toByteArray();
-			b = ensureCapacity(b, 1 + bytes.length);
-			return b.put(BIG_INT_TYPE).put(bytes);
-		} else if (x >= Short.MIN_VALUE && x <= Short.MAX_VALUE) {
-			b = ensureCapacity(b, 1 + Short.BYTES);
-			return b.put(SHORT_COMPRESSED_BIG_INT_TYPE).putShort((short) x);
-		} else if (x >= Integer.MIN_VALUE && x <= Integer.MAX_VALUE) {
-			b = ensureCapacity(b, 1 + Integer.BYTES);
-			return b.put(INT_COMPRESSED_BIG_INT_TYPE).putInt((int) x);
-		} else {
-			b = ensureCapacity(b, 1 + Long.BYTES);
-			return b.put(LONG_COMPRESSED_BIG_INT_TYPE).putLong(x);
-		}
-	}
-
-	public static String readCompressedInteger(ByteBuffer b) {
-		int type = b.get();
-		switch (type) {
-			case SHORT_COMPRESSED_BIG_INT_TYPE:
-				return Short.toString(b.getShort());
-			case INT_COMPRESSED_BIG_INT_TYPE:
-				return Integer.toString(b.getInt());
-			case LONG_COMPRESSED_BIG_INT_TYPE:
-				return Long.toString(b.getLong());
-			case BIG_INT_TYPE:
-				byte[] bytes = new byte[b.remaining()];
-				b.get(bytes);
-				return new BigInteger(bytes).toString();
-			default:
-				throw new AssertionError(String.format("Unrecognized compressed integer type: %d", type));
-		}
-	}
-
-	public static ByteBuffer ensureCapacity(ByteBuffer b, int requiredSize) {
-		if (b.remaining() < requiredSize) {
-			// leave some spare capacity
-			ByteBuffer newb = ByteBuffer.allocate(3*b.capacity()/2 + 2*requiredSize);
-			b.flip();
-			newb.put(b);
-			return newb;
-		} else {
-			return b;
-		}
 	}
 
 	public static CharBuffer ensureCapacity(CharBuffer c, int requiredSize) {
@@ -423,17 +322,17 @@ public class ValueIO {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				boolean v = l.booleanValue();
-				b = ensureCapacity(b, 1);
-				return b.put(v ? TRUE_TYPE : FALSE_TYPE);
+				b = ByteUtils.ensureCapacity(b, 1);
+				return b.put(v ? HeaderBytes.TRUE_TYPE : HeaderBytes.FALSE_TYPE);
 			}
 		});
-		addByteReader(FALSE_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.FALSE_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(false);
 			}
 		});
-		addByteReader(TRUE_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.TRUE_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(true);
@@ -444,10 +343,10 @@ public class ValueIO {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				byte v = l.byteValue();
-				return ensureCapacity(b, 1 + Byte.BYTES).put(BYTE_TYPE).put(v);
+				return ByteUtils.ensureCapacity(b, 1 + Byte.BYTES).put(HeaderBytes.BYTE_TYPE).put(v);
 			}
 		});
-		addByteReader(BYTE_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.BYTE_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.get());
@@ -458,10 +357,10 @@ public class ValueIO {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				short v = l.shortValue();
-				return ensureCapacity(b, 1 + Short.BYTES).put(SHORT_TYPE).putShort(v);
+				return ByteUtils.ensureCapacity(b, 1 + Short.BYTES).put(HeaderBytes.SHORT_TYPE).putShort(v);
 			}
 		});
-		addByteReader(SHORT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.SHORT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.getShort());
@@ -472,10 +371,10 @@ public class ValueIO {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				int v = l.intValue();
-				return ensureCapacity(b, 1 + Integer.BYTES).put(INT_TYPE).putInt(v);
+				return ByteUtils.ensureCapacity(b, 1 + Integer.BYTES).put(HeaderBytes.INT_TYPE).putInt(v);
 			}
 		});
-		addByteReader(INT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.INT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.getInt());
@@ -486,10 +385,10 @@ public class ValueIO {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				long v = l.longValue();
-				return ensureCapacity(b, 1 + Long.BYTES).put(LONG_TYPE).putLong(v);
+				return ByteUtils.ensureCapacity(b, 1 + Long.BYTES).put(HeaderBytes.LONG_TYPE).putLong(v);
 			}
 		});
-		addByteReader(LONG_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.LONG_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.getLong());
@@ -500,10 +399,10 @@ public class ValueIO {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				float v = l.floatValue();
-				return ensureCapacity(b, 1 + Float.BYTES).put(FLOAT_TYPE).putFloat(v);
+				return ByteUtils.ensureCapacity(b, 1 + Float.BYTES).put(HeaderBytes.FLOAT_TYPE).putFloat(v);
 			}
 		});
-		addByteReader(FLOAT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.FLOAT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.getFloat());
@@ -514,10 +413,10 @@ public class ValueIO {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				double v = l.doubleValue();
-				return ensureCapacity(b, 1 + Double.BYTES).put(DOUBLE_TYPE).putDouble(v);
+				return ByteUtils.ensureCapacity(b, 1 + Double.BYTES).put(HeaderBytes.DOUBLE_TYPE).putDouble(v);
 			}
 		});
-		addByteReader(DOUBLE_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.DOUBLE_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.getDouble());
@@ -529,23 +428,17 @@ public class ValueIO {
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				BigInteger bigInt;
 				long x;
-				if (l.getLabel().length() < MAX_LONG_STRING_LENGTH) {
+				if (l.getLabel().length() < ByteUtils.MAX_LONG_STRING_LENGTH) {
 					x = l.longValue();
 					bigInt = null;
 				} else {
 					bigInt = l.integerValue();
-					double u = bigInt.doubleValue();
-					if (u >= Long.MIN_VALUE && u <= Long.MAX_VALUE) {
-						x = bigInt.longValueExact();
-						bigInt = null;
-					} else {
-						x = 0;
-					}
+					x = 0;
 				}
-				return writeCompressedInteger(bigInt, x, b);
+				return ByteUtils.writeCompressedInteger(bigInt, x, b);
 			}
 		});
-		addByteReader(BIG_INT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.BIG_INT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				byte[] bytes = new byte[b.remaining()];
@@ -553,7 +446,7 @@ public class ValueIO {
 				return vf.createLiteral(new BigInteger(bytes));
 			}
 		});
-		addByteReader(INT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.INT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int v = b.getInt();
@@ -564,7 +457,7 @@ public class ValueIO {
 				}
 			}
 		});
-		addByteReader(SHORT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.SHORT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int v = b.getShort();
@@ -575,7 +468,7 @@ public class ValueIO {
 				}
 			}
 		});
-		addByteReader(LONG_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.LONG_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				long v = b.getLong();
@@ -589,11 +482,11 @@ public class ValueIO {
 				BigDecimal x = l.decimalValue();
 				byte[] bytes = x.unscaledValue().toByteArray();
 				int scale = x.scale();
-				b = ensureCapacity(b, 1 + Integer.BYTES + bytes.length);
-				return b.put(BIG_FLOAT_TYPE).putInt(scale).put(bytes);
+				b = ByteUtils.ensureCapacity(b, 1 + Integer.BYTES + bytes.length);
+				return b.put(HeaderBytes.BIG_FLOAT_TYPE).putInt(scale).put(bytes);
 			}
 		});
-		addByteReader(BIG_FLOAT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.BIG_FLOAT_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int scale = b.getInt();
@@ -609,13 +502,13 @@ public class ValueIO {
 				return writeString(l.getLabel(), b);
 			}
 		});
-		addByteReader(COMPRESSED_STRING_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.COMPRESSED_STRING_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(readCompressedString(b));
 			}
 		});
-		addByteReader(UNCOMPRESSED_STRING_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.UNCOMPRESSED_STRING_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(readUncompressedString(b));
@@ -630,7 +523,7 @@ public class ValueIO {
 				return writeString(l.getLabel(), b, langTag);
 			}
 		});
-		addByteReader(LANGUAGE_HASH_LITERAL_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				b.mark();
@@ -639,12 +532,12 @@ public class ValueIO {
 				String lang = config.getWellKnownLanguageTag(langHash);
 				if (lang == null) {
 					b.limit(b.position()).reset();
-					throw new IllegalStateException(String.format("Unknown language tag hash: %s (%d) (label %s)", Hashes.encode(b), langHash, label));
+					throw new IllegalStateException(String.format("Unknown language tag hash: %s (%d) (label %s)", ByteUtils.encode(b), langHash, label));
 				}
 				return vf.createLiteral(label, lang);
 			}
 		});
-		addByteReader(LANGUAGE_LITERAL_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.LANGUAGE_LITERAL_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int originalLimit = b.limit();
@@ -660,10 +553,10 @@ public class ValueIO {
 		addByteWriter(XSD.TIME, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
-				return writeCalendar(TIME_TYPE, l.calendarValue(), b);
+				return writeCalendar(HeaderBytes.TIME_TYPE, l.calendarValue(), b);
 			}
 		});
-		addByteReader(TIME_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.TIME_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				XMLGregorianCalendar cal = readCalendar(b);
@@ -677,10 +570,10 @@ public class ValueIO {
 		addByteWriter(XSD.DATE, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
-				return writeCalendar(DATE_TYPE, l.calendarValue(), b);
+				return writeCalendar(HeaderBytes.DATE_TYPE, l.calendarValue(), b);
 			}
 		});
-		addByteReader(DATE_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.DATE_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				XMLGregorianCalendar cal = readCalendar(b);
@@ -695,10 +588,10 @@ public class ValueIO {
 		addByteWriter(XSD.DATETIME, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
-				return writeCalendar(DATETIME_TYPE, l.calendarValue(), b);
+				return writeCalendar(HeaderBytes.DATETIME_TYPE, l.calendarValue(), b);
 			}
 		});
-		addByteReader(DATETIME_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.DATETIME_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				XMLGregorianCalendar cal = readCalendar(b);
@@ -711,30 +604,30 @@ public class ValueIO {
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				try {
 					byte[] wkb = WKTLiteral.writeWKB(l);
-					b = ensureCapacity(b, 2 + wkb.length);
-					b.put(WKT_LITERAL_TYPE);
-					b.put(WKT_LITERAL_TYPE); // mark as valid
+					b = ByteUtils.ensureCapacity(b, 2 + wkb.length);
+					b.put(HeaderBytes.WKT_LITERAL_TYPE);
+					b.put(HeaderBytes.WKT_LITERAL_TYPE); // mark as valid
 					return b.put(wkb);
 				} catch (ParseException e) {
 					ByteBuffer wktBytes = writeUncompressedString(l.getLabel());
-					b = ensureCapacity(b, 2 + wktBytes.remaining());
-					b.put(WKT_LITERAL_TYPE);
-					b.put(UNCOMPRESSED_STRING_TYPE); // mark as invalid
+					b = ByteUtils.ensureCapacity(b, 2 + wktBytes.remaining());
+					b.put(HeaderBytes.WKT_LITERAL_TYPE);
+					b.put(HeaderBytes.UNCOMPRESSED_STRING_TYPE); // mark as invalid
 					return b.put(wktBytes);
 				}
 			}
 		});
-		addByteReader(WKT_LITERAL_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.WKT_LITERAL_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int wktType = b.get();
 				switch (wktType) {
-					case WKT_LITERAL_TYPE:
+					case HeaderBytes.WKT_LITERAL_TYPE:
 						// valid wkt
 						byte[] wkbBytes = new byte[b.remaining()];
 						b.get(wkbBytes);
 						return new WKTLiteral(wkbBytes);
-					case UNCOMPRESSED_STRING_TYPE:
+					case HeaderBytes.UNCOMPRESSED_STRING_TYPE:
 						// invalid xml
 						return vf.createLiteral(readUncompressedString(b), GEO.WKT_LITERAL);
 					default:
@@ -750,29 +643,29 @@ public class ValueIO {
 					ByteArrayOutputStream out = new ByteArrayOutputStream(1024);
 					XMLLiteral.writeInfoset(l.getLabel(), out);
 					byte[] xb = out.toByteArray();
-					b = ensureCapacity(b, 2 + xb.length);
-					b.put(XML_TYPE);
-					b.put(XML_TYPE); // mark xml as valid
+					b = ByteUtils.ensureCapacity(b, 2 + xb.length);
+					b.put(HeaderBytes.XML_TYPE);
+					b.put(HeaderBytes.XML_TYPE); // mark xml as valid
 					return b.put(xb);
 				} catch(TransformerException e) {
-					b = ensureCapacity(b, 2);
-					b.put(XML_TYPE);
-					b.put(COMPRESSED_STRING_TYPE); // mark xml as invalid
+					b = ByteUtils.ensureCapacity(b, 2);
+					b.put(HeaderBytes.XML_TYPE);
+					b.put(HeaderBytes.COMPRESSED_STRING_TYPE); // mark xml as invalid
 					return writeCompressedString(l.getLabel(), b);
 				}
 			}
 		});
-		addByteReader(XML_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.XML_TYPE, new ByteReader() {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int xmlType = b.get();
 				switch (xmlType) {
-					case XML_TYPE:
+					case HeaderBytes.XML_TYPE:
 						// valid xml
 						byte[] fiBytes = new byte[b.remaining()];
 						b.get(fiBytes);
 						return new XMLLiteral(fiBytes);
-					case COMPRESSED_STRING_TYPE:
+					case HeaderBytes.COMPRESSED_STRING_TYPE:
 						// invalid xml
 						return vf.createLiteral(readCompressedString(b), RDF.XMLLITERAL);
 					default:
@@ -788,10 +681,10 @@ public class ValueIO {
 		int sepPos = langTag.indexOf('-');
 		String lang = (sepPos != -1) ? langTag.substring(0, sepPos) : langTag;
 		if (estimatedByteSize < stringCompressionThreshold && SCSU_OPTIMAL_LANGS.contains(lang)) {
-			b.put(SCSU_STRING_TYPE);
+			b.put(HeaderBytes.SCSU_STRING_TYPE);
 			return writeScsuString(s, b);
 		} else {
-			b.put(COMPRESSED_STRING_TYPE);
+			b.put(HeaderBytes.COMPRESSED_STRING_TYPE);
 			return writeCompressedString(s, b);
 		}
 	}
@@ -809,22 +702,22 @@ public class ValueIO {
 			compressedLen = -1;
 		}
 		if (compressed != null && Integer.BYTES + compressedLen < uncompressedLen) {
-			b = ensureCapacity(b, 1 + Integer.BYTES + compressedLen);
-			return b.put(COMPRESSED_STRING_TYPE).putInt(uncompressedLen).put(compressed);
+			b = ByteUtils.ensureCapacity(b, 1 + Integer.BYTES + compressedLen);
+			return b.put(HeaderBytes.COMPRESSED_STRING_TYPE).putInt(uncompressedLen).put(compressed);
 		} else {
 			if (compressed != null && LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Ineffective compression of string of byte length %d", uncompressedLen);
 			}
-			b = ensureCapacity(b, 1 + uncompressedLen);
-			return b.put(UNCOMPRESSED_STRING_TYPE).put(uncompressed);
+			b = ByteUtils.ensureCapacity(b, 1 + uncompressedLen);
+			return b.put(HeaderBytes.UNCOMPRESSED_STRING_TYPE).put(uncompressed);
 		}
 	}
 
 	private ByteBuffer writeLanguagePrefix(String langTag, ByteBuffer b) {
 		Short hash = config.getWellKnownLanguageTagHash(langTag);
 		if (hash != null) {
-			b = ensureCapacity(b, 1+LANG_HASH_SIZE);
-			b.put(LANGUAGE_HASH_LITERAL_TYPE);
+			b = ByteUtils.ensureCapacity(b, 1+LANG_HASH_SIZE);
+			b.put(HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE);
 			b.putShort(hash);
 		} else {
 			if (langTag.length() > Short.MAX_VALUE) {
@@ -836,8 +729,8 @@ public class ValueIO {
 				langTag = langTag.substring(0, truncatePos);
 			}
 			ByteBuffer langBytes = writeUncompressedString(langTag);
-			b = ensureCapacity(b, 1+1+langBytes.remaining());
-			b.put(LANGUAGE_LITERAL_TYPE);
+			b = ByteUtils.ensureCapacity(b, 1+1+langBytes.remaining());
+			b.put(HeaderBytes.LANGUAGE_LITERAL_TYPE);
 			int langBytesLen = langBytes.remaining();
 			assert langBytesLen <= Byte.MAX_VALUE;
 			b.put((byte) langBytesLen);
@@ -865,8 +758,8 @@ public class ValueIO {
 		}
 
 		private ByteBuffer writeTriple(Triple t, ByteBuffer buf) {
-			buf = ensureCapacity(buf, 1);
-			buf.put(TRIPLE_TYPE);
+			buf = ByteUtils.ensureCapacity(buf, 1);
+			buf.put(HeaderBytes.TRIPLE_TYPE);
 			buf = writeValueWithSizeHeader(t.getSubject(), buf, Short.BYTES);
 			buf = writeValueWithSizeHeader(t.getPredicate(), buf, Short.BYTES);
 			buf = writeValueWithSizeHeader(t.getObject(), buf, Integer.BYTES);
@@ -874,7 +767,7 @@ public class ValueIO {
 		}
 
 		public ByteBuffer writeValueWithSizeHeader(Value v, ByteBuffer buf, int sizeHeaderBytes) {
-			buf = ValueIO.ensureCapacity(buf, sizeHeaderBytes);
+			buf = ByteUtils.ensureCapacity(buf, sizeHeaderBytes);
 			int sizePos = buf.position();
 			int startPos = buf.position() + sizeHeaderBytes;
 			buf.position(startPos);
@@ -944,8 +837,8 @@ public class ValueIO {
 		private ByteBuffer writeIRI(IRI iri, ByteBuffer b) {
 			Integer irihash = config.getWellKnownIRIHash(iri);
 			if (irihash != null) {
-				b = ensureCapacity(b, 1 + IRI_HASH_SIZE);
-				b.put(IRI_HASH_TYPE);
+				b = ByteUtils.ensureCapacity(b, 1 + IRI_HASH_SIZE);
+				b.put(HeaderBytes.IRI_HASH_TYPE);
 				b.putInt(irihash);
 				return b;
 			} else {
@@ -971,9 +864,9 @@ public class ValueIO {
 				if (nshash != null) {
 					IRIEncodingNamespace iriEncoder = !localName.isEmpty() ? config.getIRIEncodingNamespace(nshash) : null;
 					if (iriEncoder != null) {
-						b = ensureCapacity(b, 1 + NAMESPACE_HASH_SIZE);
+						b = ByteUtils.ensureCapacity(b, 1 + NAMESPACE_HASH_SIZE);
 						final int failsafeMark = b.position();
-						b.put(endSlashEncodable ? END_SLASH_ENCODED_IRI_TYPE : ENCODED_IRI_TYPE);
+						b.put(endSlashEncodable ? HeaderBytes.END_SLASH_ENCODED_IRI_TYPE : HeaderBytes.ENCODED_IRI_TYPE);
 						b.putShort(nshash);
 						try {
 							return iriEncoder.writeBytes(localName, b);
@@ -985,8 +878,8 @@ public class ValueIO {
 						}
 					}
 					ByteBuffer localBytes = writeUncompressedString(localName);
-					b = ensureCapacity(b, 1 + NAMESPACE_HASH_SIZE + localBytes.remaining());
-					b.put(NAMESPACE_HASH_TYPE);
+					b = ByteUtils.ensureCapacity(b, 1 + NAMESPACE_HASH_SIZE + localBytes.remaining());
+					b.put(HeaderBytes.NAMESPACE_HASH_TYPE);
 					b.putShort(nshash);
 					b.put(localBytes);
 					return b;
@@ -1022,13 +915,13 @@ public class ValueIO {
 					}
 					if (schemeType != 0) {
 						ByteBuffer restBytes = writeUncompressedString(s.substring(prefixLen));
-						b = ensureCapacity(b, 2+restBytes.remaining());
-						b.put(COMPRESSED_IRI_TYPE).put(schemeType);
+						b = ByteUtils.ensureCapacity(b, 2+restBytes.remaining());
+						b.put(HeaderBytes.COMPRESSED_IRI_TYPE).put(schemeType);
 						b.put(restBytes);
 					} else {
 						ByteBuffer iriBytes = writeUncompressedString(s);
-						b = ensureCapacity(b, 1+iriBytes.remaining());
-						b.put(IRI_TYPE);
+						b = ByteUtils.ensureCapacity(b, 1+iriBytes.remaining());
+						b.put(HeaderBytes.IRI_TYPE);
 						b.put(iriBytes);
 					}
 					return b;
@@ -1038,8 +931,8 @@ public class ValueIO {
 
 		private ByteBuffer writeBNode(BNode n, ByteBuffer b) {
 			ByteBuffer idBytes = writeUncompressedString(n.getID());
-			b = ensureCapacity(b, 1+idBytes.remaining());
-			b.put(BNODE_TYPE);
+			b = ByteUtils.ensureCapacity(b, 1+idBytes.remaining());
+			b.put(HeaderBytes.BNODE_TYPE);
 			b.put(idBytes);
 			return b;
 		}
@@ -1057,8 +950,8 @@ public class ValueIO {
 					b.position(failsafeMark);
 				}
 			}
-			b = ensureCapacity(b, 1 + Short.BYTES);
-			b.put(DATATYPE_LITERAL_TYPE);
+			b = ByteUtils.ensureCapacity(b, 1 + Short.BYTES);
+			b.put(HeaderBytes.DATATYPE_LITERAL_TYPE);
 			int sizePos = b.position();
 			int startPos = b.position()+2;
 			b.position(startPos);
@@ -1070,7 +963,7 @@ public class ValueIO {
 			b.putShort((short) datatypeLen);
 			b.position(endPos);
 			ByteBuffer labelBytes = writeUncompressedString(l.getLabel());
-			b = ensureCapacity(b, labelBytes.remaining());
+			b = ByteUtils.ensureCapacity(b, labelBytes.remaining());
 			b.put(labelBytes);
 			return b;
 		}
@@ -1131,9 +1024,9 @@ public class ValueIO {
 		public Value readValue(ByteBuffer b, ValueFactory vf) {
 			int type = b.get();
 			switch(type) {
-				case IRI_TYPE:
+				case HeaderBytes.IRI_TYPE:
 					return vf.createIRI(readUncompressedString(b));
-				case COMPRESSED_IRI_TYPE:
+				case HeaderBytes.COMPRESSED_IRI_TYPE:
 					{
 						int schemeType = b.get();
 						String prefix;
@@ -1156,18 +1049,18 @@ public class ValueIO {
 						String s = readUncompressedString(b);
 						return vf.createIRI(prefix + s);
 					}
-				case IRI_HASH_TYPE:
+				case HeaderBytes.IRI_HASH_TYPE:
 					{
 						b.mark();
 						int irihash = b.getInt(); // 32-bit hash
 						IRI iri = config.getWellKnownIRI(irihash);
 						if (iri == null) {
 							b.limit(b.position()).reset();
-							throw new IllegalStateException(String.format("Unknown IRI hash: %s (%d)", Hashes.encode(b), irihash));
+							throw new IllegalStateException(String.format("Unknown IRI hash: %s (%d)", ByteUtils.encode(b), irihash));
 						}
 						return iri;
 					}
-				case NAMESPACE_HASH_TYPE:
+				case HeaderBytes.NAMESPACE_HASH_TYPE:
 					{
 						b.mark();
 						short nshash = b.getShort(); // 16-bit hash
@@ -1175,37 +1068,37 @@ public class ValueIO {
 						String localName = readUncompressedString(b);
 						if (namespace == null) {
 							b.limit(b.position()).reset();
-							throw new IllegalStateException(String.format("Unknown namespace hash: %s (%d) (local name %s)", Hashes.encode(b), nshash, localName));
+							throw new IllegalStateException(String.format("Unknown namespace hash: %s (%d) (local name %s)", ByteUtils.encode(b), nshash, localName));
 						}
 						return vf.createIRI(namespace, localName);
 					}
-				case ENCODED_IRI_TYPE:
+				case HeaderBytes.ENCODED_IRI_TYPE:
 					{
 						b.mark();
 						short nshash = b.getShort(); // 16-bit hash
 						IRIEncodingNamespace iriEncoder = config.getIRIEncodingNamespace(nshash);
 						if (iriEncoder == null) {
 							b.limit(b.position()).reset();
-							throw new IllegalStateException(String.format("Unknown IRI encoder hash: %s (%d)", Hashes.encode(b), nshash));
+							throw new IllegalStateException(String.format("Unknown IRI encoder hash: %s (%d)", ByteUtils.encode(b), nshash));
 						}
 						return vf.createIRI(iriEncoder.getName(), iriEncoder.readBytes(b));
 					}
-				case END_SLASH_ENCODED_IRI_TYPE:
+				case HeaderBytes.END_SLASH_ENCODED_IRI_TYPE:
 					{
 						b.mark();
 						short nshash = b.getShort(); // 16-bit hash
 						IRIEncodingNamespace iriEncoder = config.getIRIEncodingNamespace(nshash);
 						if (iriEncoder == null) {
 							b.limit(b.position()).reset();
-							throw new IllegalStateException(String.format("Unknown IRI encoder hash: %s (%d)", Hashes.encode(b), nshash));
+							throw new IllegalStateException(String.format("Unknown IRI encoder hash: %s (%d)", ByteUtils.encode(b), nshash));
 						}
 						return vf.createIRI(iriEncoder.getName()+iriEncoder.readBytes(b)+'/');
 					}
-				case BNODE_TYPE:
+				case HeaderBytes.BNODE_TYPE:
 					return bnodeTransformer.apply(readUncompressedString(b), vf);
-				case TRIPLE_TYPE:
+				case HeaderBytes.TRIPLE_TYPE:
 					return readTriple(b, vf);
-				case DATATYPE_LITERAL_TYPE:
+				case HeaderBytes.DATATYPE_LITERAL_TYPE:
 					{
 						int originalLimit = b.limit();
 						int dtSize = b.getShort();
@@ -1227,23 +1120,23 @@ public class ValueIO {
 		public ValueType getValueType(ByteBuffer b) {
 			int type = b.get(b.position()); // peek
 			switch(type) {
-				case IRI_TYPE:
-				case COMPRESSED_IRI_TYPE:
-				case IRI_HASH_TYPE:
-				case NAMESPACE_HASH_TYPE:
-				case ENCODED_IRI_TYPE:
-				case END_SLASH_ENCODED_IRI_TYPE:
+				case HeaderBytes.IRI_TYPE:
+				case HeaderBytes.COMPRESSED_IRI_TYPE:
+				case HeaderBytes.IRI_HASH_TYPE:
+				case HeaderBytes.NAMESPACE_HASH_TYPE:
+				case HeaderBytes.ENCODED_IRI_TYPE:
+				case HeaderBytes.END_SLASH_ENCODED_IRI_TYPE:
 					return ValueType.IRI;
-				case BNODE_TYPE:
+				case HeaderBytes.BNODE_TYPE:
 					if (bnodeTransformer == DEFAULT_BNODE_TRANSFORMER) {
 						return ValueType.BNODE;
 					} else {
 						// unknown: BNode or skolem IRI
 						return null;
 					}
-				case TRIPLE_TYPE:
+				case HeaderBytes.TRIPLE_TYPE:
 					return ValueType.TRIPLE;
-				case DATATYPE_LITERAL_TYPE:
+				case HeaderBytes.DATATYPE_LITERAL_TYPE:
 					return ValueType.LITERAL;
 				default:
 					if (byteReaders.containsKey(type)) {

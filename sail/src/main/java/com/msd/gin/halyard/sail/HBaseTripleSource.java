@@ -28,12 +28,12 @@ import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.TimestampedValueFactory;
 import com.msd.gin.halyard.common.ValueConstraint;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
 import java.util.Arrays;

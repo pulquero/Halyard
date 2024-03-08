@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.strategy.aggregators;
 
-import com.msd.gin.halyard.common.TupleLiteral;
-import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.model.TupleLiteral;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.util.function.Function;
 

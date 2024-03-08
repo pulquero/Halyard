@@ -16,15 +16,16 @@
  */
 package com.msd.gin.halyard.tools;
 
+import com.msd.gin.halyard.common.ByteUtils;
 import com.msd.gin.halyard.common.Hashes;
 import com.msd.gin.halyard.common.Hashes.HashFunction;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.RDFPredicate;
 import com.msd.gin.halyard.common.RDFSubject;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.sail.HBaseSail;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -452,7 +453,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
 	                            write(sliceRPred, RDFS.LABEL, SVF.createLiteral("slice rdfs:range with cardinality " + cardinality));
 	                            write(sliceRPred, CARDINALITY, SVF.createLiteral(BigInteger.valueOf(cardinality)));
 	                        }
-	                        IRI generatedRoot = SVF.createIRI(NAMESPACE, Hashes.encode(keyHash.apply(key.copyBytes())));
+	                        IRI generatedRoot = SVF.createIRI(NAMESPACE, ByteUtils.encode(keyHash.apply(key.copyBytes())));
 	                        write(generatedRoot, slicePPred, firstKey);
 	                        write(generatedRoot, sliceDPred, SVF.createIRI(dis.readUTF()));
 	                        write(generatedRoot, sliceRPred, SVF.createIRI(dis.readUTF()));

@@ -9,3 +9,6 @@ com.msd.gin.halyard.spin.function.apf.ConcatTupleFunction
 com.msd.gin.halyard.spin.function.list.Member
 com.msd.gin.halyard.spin.function.list.Index
 com.msd.gin.halyard.spin.function.list.Length
+# halyard
+com.msd.gin.halyard.spin.function.halyard.FromTuple
+com.msd.gin.halyard.spin.function.halyard.XPathTupleFunction

@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.optimizers;
 
-import com.msd.gin.halyard.vocab.GEONAMES;
+import com.msd.gin.halyard.model.vocabulary.GEONAMES;
 import com.msd.gin.halyard.vocab.VOID_EXT;
 
 import java.util.Collection;

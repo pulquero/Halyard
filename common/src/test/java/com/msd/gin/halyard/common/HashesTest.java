@@ -36,6 +36,6 @@ public class HashesTest {
 
     @Test
     public void testEncode() {
-        assertEquals("AQIDBAU", Hashes.encode(new byte[]{1, 2, 3, 4, 5}));
+        assertEquals("AQIDBAU", ByteUtils.encode(new byte[]{1, 2, 3, 4, 5}));
     }
 }

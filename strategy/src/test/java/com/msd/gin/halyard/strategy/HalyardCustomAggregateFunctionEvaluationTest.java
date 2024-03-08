@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.common.TupleLiteral;
+import com.msd.gin.halyard.model.TupleLiteral;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.strategy.aggregators.ExtendedAggregateCollector;
 import com.msd.gin.halyard.strategy.aggregators.HIndexAggregateFactory;
 import com.msd.gin.halyard.strategy.aggregators.MaxWithAggregateFactory;
@@ -8,7 +9,6 @@ import com.msd.gin.halyard.strategy.aggregators.MinWithAggregateFactory;
 import com.msd.gin.halyard.strategy.aggregators.ModeAggregateFactory;
 import com.msd.gin.halyard.strategy.aggregators.ThreadSafeAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.TopNWithAggregateFactory;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
 import java.io.StringReader;

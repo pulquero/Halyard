@@ -23,9 +23,9 @@ import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.rio.TriGStarParser;
 import com.msd.gin.halyard.util.LRUCache;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.Closeable;
 import java.io.IOException;

@@ -6,7 +6,7 @@ import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.algebra.BGPCollector;
 import com.msd.gin.halyard.query.algebra.ExtendedTupleFunctionCall;
 import com.msd.gin.halyard.common.JavaObjectLiteral;
-import com.msd.gin.halyard.vocab.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.io.Serializable;
 import java.util.ArrayList;

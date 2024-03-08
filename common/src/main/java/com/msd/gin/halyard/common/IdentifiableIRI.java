@@ -35,6 +35,6 @@ public final class IdentifiableIRI extends IdentifiableValue implements IRI {
 	}
 
 	public boolean isWellKnown() {
-		return getEncodingType() == ValueIO.IRI_HASH_TYPE;
+		return getEncodingType() == HeaderBytes.IRI_HASH_TYPE;
 	}
 }

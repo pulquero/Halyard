@@ -19,9 +19,9 @@ package com.msd.gin.halyard.sail;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.msd.gin.halyard.common.RDFFactory;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.optimizers.SchemaBasedStatementPatternCardinalityCalculator;
 import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
-import com.msd.gin.halyard.vocab.HALYARD;
 import com.msd.gin.halyard.vocab.VOID_EXT;
 
 import java.io.IOException;

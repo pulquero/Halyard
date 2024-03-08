@@ -22,9 +22,9 @@ import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.SSLSettings;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.common.TupleLiteral;
+import com.msd.gin.halyard.model.TupleLiteral;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.sail.search.SearchDocument;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.Closeable;
 import java.io.IOException;

@@ -1,10 +1,10 @@
 package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.common.HalyardTableUtils;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.repository.HBaseRepositoryManager;
 import com.msd.gin.halyard.sail.HBaseSail.Ticker;
 import com.msd.gin.halyard.util.MBeanManager;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.net.MalformedURLException;
 import java.net.URL;

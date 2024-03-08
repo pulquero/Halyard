@@ -1,13 +1,13 @@
 package com.msd.gin.halyard.function;
 
-import com.msd.gin.halyard.common.Hashes;
+import com.msd.gin.halyard.common.ByteUtils;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueIdentifier;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.sail.HBaseTripleSource;
-import com.msd.gin.halyard.vocab.HALYARD;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -47,12 +47,12 @@ public abstract class AbstractReificationTupleFunction implements ExtendedTupleF
 		ValueIdentifier id;
 		if (HALYARD.STATEMENT_ID_NS.getName().equals(idIri.getNamespace())) {
 			int idSize = rdfFactory.getIdSize();
-			byte[] stmtId = Hashes.decode(idIri.getLocalName());
+			byte[] stmtId = ByteUtils.decode(idIri.getLocalName());
 			byte[] idBytes = new byte[idSize];
 			System.arraycopy(stmtId, statementPosition() * idSize, idBytes, 0, idSize);
 			id = rdfFactory.id(idBytes);
 		} else if (HALYARD.VALUE_ID_NS.getName().equals(idIri.getNamespace())) {
-			id = rdfFactory.id(Hashes.decode(idIri.getLocalName()));
+			id = rdfFactory.id(ByteUtils.decode(idIri.getLocalName()));
 		} else {
 			throw new ValueExprEvaluationException(String.format("%s requires an identifier IRI", getURI()));
 		}

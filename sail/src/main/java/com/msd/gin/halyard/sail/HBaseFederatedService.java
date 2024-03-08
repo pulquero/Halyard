@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.federation.HalyardFederatedService;
-import com.msd.gin.halyard.federation.SailFederatedService;
+import com.msd.gin.halyard.query.algebra.evaluation.federation.SailFederatedService;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 
 import java.util.Set;
