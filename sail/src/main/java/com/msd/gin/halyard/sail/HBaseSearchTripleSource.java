@@ -50,8 +50,8 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 	private final SearchClient searchClient;
 
 	public HBaseSearchTripleSource(KeyspaceConnection table, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory, HBaseSail.ScanSettings settings, SearchClient searchClient,
-			HBaseSail.Ticker ticker, int forkIndex, int forkCount) {
-		super(table, vf, stmtIndices, timeoutSecs, qpFactory, settings, ticker, forkIndex, forkCount);
+			HBaseSail.Ticker ticker, int forkIndex) {
+		super(table, vf, stmtIndices, timeoutSecs, qpFactory, settings, ticker, forkIndex);
 		this.searchClient = Objects.requireNonNull(searchClient);
 	}
 

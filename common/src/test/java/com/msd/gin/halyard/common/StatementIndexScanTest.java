@@ -251,7 +251,7 @@ public class StatementIndexScanTest {
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, 0, 0, new LiteralConstraint(XSD.STRING), null);
+        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, StatementIndices.NO_PARTITIONING, 0, new LiteralConstraint(XSD.STRING), null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
@@ -291,6 +291,31 @@ public class StatementIndexScanTest {
         assertSets(stringLiterals, actualTotal);
     }
 
+    /**
+     * Test scan is correct with a partitioned index and constraint if partitioning is turned off.
+     * @throws Exception
+     */
+    @Test
+    public void testScanStringLiteralPartitions_NoPartitioning_SPO() throws Exception {
+        Resource subj = vf.createIRI(SUBJ);
+        RDFSubject rdfSubj = rdfFactory.createSubject(subj);
+        RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
+
+        int nbits = 3;
+        Set<Literal> actualTotal = new HashSet<>();
+        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, StatementIndices.NO_PARTITIONING, nbits, new LiteralConstraint(XSD.STRING), null);
+        try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
+            Result r;
+            while ((r = rs.next()) != null) {
+                for (Statement stmt : parseStatements(rdfSubj, rdfPred, null, null, r)) {
+                    assertTrue(stmt.getObject().isLiteral(), "Not a literal: "+stmt.getObject());
+                    actualTotal.add((Literal) stmt.getObject());
+                }
+            }
+        }
+        assertSets(stringLiterals, actualTotal);
+    }
+
     @Test
     public void testScanNonStringLiterals_CSPO() throws Exception {
         Resource subj = vf.createIRI(SUBJ);
@@ -300,7 +325,7 @@ public class StatementIndexScanTest {
         RDFContext rdfCtx = rdfFactory.createContext(ctx);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(rdfCtx, rdfSubj, rdfPred, 0, 0, new LiteralConstraint(HALYARD.NON_STRING_TYPE));
+        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(rdfCtx, rdfSubj, rdfPred, StatementIndices.NO_PARTITIONING, 0, new LiteralConstraint(HALYARD.NON_STRING_TYPE));
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
@@ -349,7 +374,7 @@ public class StatementIndexScanTest {
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDFS.SEEALSO);
 
         Set<Triple> actual = new HashSet<>();
-        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, 0, 0, new ValueConstraint(ValueType.TRIPLE), null);
+        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(rdfSubj, rdfPred, StatementIndices.NO_PARTITIONING, 0, new ValueConstraint(ValueType.TRIPLE), null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
@@ -367,7 +392,7 @@ public class StatementIndexScanTest {
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDF.VALUE);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(rdfPred, 0, 0, new LiteralConstraint(XSD.STRING), null, null);
+        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(rdfPred, StatementIndices.NO_PARTITIONING, 0, new LiteralConstraint(XSD.STRING), null, null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
@@ -412,7 +437,7 @@ public class StatementIndexScanTest {
         RDFContext rdfCtx = rdfFactory.createContext(ctx);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getCPOSIndex().scanWithConstraint(rdfCtx, rdfPred, 0, 0, new LiteralConstraint(HALYARD.NON_STRING_TYPE), null);
+        Scan scan = stmtIndices.getCPOSIndex().scanWithConstraint(rdfCtx, rdfPred, StatementIndices.NO_PARTITIONING, 0, new LiteralConstraint(HALYARD.NON_STRING_TYPE), null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
@@ -430,7 +455,7 @@ public class StatementIndexScanTest {
         RDFPredicate rdfPred = rdfFactory.createPredicate(RDFS.SEEALSO);
 
         Set<Triple> actual = new HashSet<>();
-        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(rdfPred, 0, 0, new ValueConstraint(ValueType.TRIPLE), null, null);
+        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(rdfPred, StatementIndices.NO_PARTITIONING, 0, new ValueConstraint(ValueType.TRIPLE), null, null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
@@ -468,7 +493,7 @@ public class StatementIndexScanTest {
     @Test
     public void testScanStringLiterals_OSP() throws Exception {
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getOSPIndex().scanWithConstraint(0, 0, new LiteralConstraint(XSD.STRING), null, null, null);
+        Scan scan = stmtIndices.getOSPIndex().scanWithConstraint(StatementIndices.NO_PARTITIONING, 0, new LiteralConstraint(XSD.STRING), null, null, null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
@@ -487,7 +512,7 @@ public class StatementIndexScanTest {
         RDFContext rdfCtx = rdfFactory.createContext(ctx);
 
         Set<Literal> actual = new HashSet<>();
-        Scan scan = stmtIndices.getCOSPIndex().scanWithConstraint(rdfCtx, 0, 0, new LiteralConstraint(HALYARD.NON_STRING_TYPE), null, null);
+        Scan scan = stmtIndices.getCOSPIndex().scanWithConstraint(rdfCtx, StatementIndices.NO_PARTITIONING, 0, new LiteralConstraint(HALYARD.NON_STRING_TYPE), null, null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
@@ -503,7 +528,7 @@ public class StatementIndexScanTest {
     @Test
     public void testScanTriples_OSP() throws Exception {
         Set<Triple> actual = new HashSet<>();
-        Scan scan = stmtIndices.getOSPIndex().scanWithConstraint(0, 0, new ValueConstraint(ValueType.TRIPLE), null, null, null);
+        Scan scan = stmtIndices.getOSPIndex().scanWithConstraint(StatementIndices.NO_PARTITIONING, 0, new ValueConstraint(ValueType.TRIPLE), null, null, null);
         try (ResultScanner rs = keyspaceConn.getScanner(scan)) {
             Result r;
             while ((r = rs.next()) != null) {
@@ -520,7 +545,7 @@ public class StatementIndexScanTest {
     public void testScanByKeyFilter0_2() throws Exception {
         Resource subj = vf.createIRI(SUBJ);
         Resource ctx = vf.createIRI(CTX);
-        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(0, 0, null, rdfFactory.createObject(foobarLiteral), null, null);
+        Scan scan = stmtIndices.getPOSIndex().scanWithConstraint(StatementIndices.NO_PARTITIONING, 0, null, rdfFactory.createObject(foobarLiteral), null, null);
         Set<Statement> actual = getStatements(scan);
         assertSets(Collections.singleton(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx)), actual);
     }
@@ -529,7 +554,7 @@ public class StatementIndexScanTest {
     public void testScanByKeyFilter0_3() throws Exception {
         Resource subj = vf.createIRI(SUBJ);
         Resource ctx = vf.createIRI(CTX);
-        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(0, 0, null, null, rdfFactory.createObject(foobarLiteral), null);
+        Scan scan = stmtIndices.getSPOIndex().scanWithConstraint(StatementIndices.NO_PARTITIONING, 0, null, null, rdfFactory.createObject(foobarLiteral), null);
         Set<Statement> actual = getStatements(scan);
         assertSets(Collections.singleton(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx)), actual);
     }
@@ -538,7 +563,7 @@ public class StatementIndexScanTest {
     public void testScanByKeyFilter0_4() throws Exception {
         Resource subj = vf.createIRI(SUBJ);
         Resource ctx = vf.createIRI(CTX);
-        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(0, 0, null, null, null, rdfFactory.createObject(foobarLiteral));
+        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(StatementIndices.NO_PARTITIONING, 0, null, null, null, rdfFactory.createObject(foobarLiteral));
         Set<Statement> actual = getStatements(scan);
         Set<Statement> expected = new HashSet<>();
         expected.add(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx));
@@ -551,7 +576,7 @@ public class StatementIndexScanTest {
         Resource subj = vf.createIRI(SUBJ);
         Resource ctx = vf.createIRI(CTX);
         RDFContext rdfCtx = rdfFactory.createContext(ctx);
-        Scan scan = stmtIndices.getCPOSIndex().scanWithConstraint(rdfCtx, 0, 0, null, rdfFactory.createObject(foobarLiteral), null);
+        Scan scan = stmtIndices.getCPOSIndex().scanWithConstraint(rdfCtx, StatementIndices.NO_PARTITIONING, 0, null, rdfFactory.createObject(foobarLiteral), null);
         Set<Statement> actual = getStatements(scan);
         assertSets(Collections.singleton(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx)), actual);
     }
@@ -561,7 +586,7 @@ public class StatementIndexScanTest {
         Resource subj = vf.createIRI(SUBJ);
         Resource ctx = vf.createIRI(CTX);
         RDFContext rdfCtx = rdfFactory.createContext(ctx);
-        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(rdfCtx, 0, 0, null, null, rdfFactory.createObject(foobarLiteral));
+        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(rdfCtx, StatementIndices.NO_PARTITIONING, 0, null, null, rdfFactory.createObject(foobarLiteral));
         Set<Statement> actual = getStatements(scan);
         assertSets(Collections.singleton(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx)), actual);
     }
@@ -572,7 +597,7 @@ public class StatementIndexScanTest {
         Resource ctx = vf.createIRI(CTX);
         RDFSubject rdfSubj = rdfFactory.createSubject(subj);
         RDFContext rdfCtx = rdfFactory.createContext(ctx);
-        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(rdfCtx, rdfSubj, 0, 0, null, rdfFactory.createObject(foobarLiteral));
+        Scan scan = stmtIndices.getCSPOIndex().scanWithConstraint(rdfCtx, rdfSubj, StatementIndices.NO_PARTITIONING, 0, null, rdfFactory.createObject(foobarLiteral));
         Set<Statement> actual = getStatements(scan);
         assertSets(Collections.singleton(vf.createStatement(subj, RDF.VALUE, foobarLiteral, ctx)), actual);
     }

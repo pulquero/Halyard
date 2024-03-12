@@ -154,10 +154,6 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	static byte[] prefixWithPartition(int partition, int nbits, ByteSequence bseq) {
 		int nbytes = nbits/8;
 		int rem = nbits - 8*nbytes;
-		int numPartitions = (1 << nbits);
-		if (partition >= numPartitions) {
-			throw new IllegalArgumentException(String.format("Partition number %d must be less than %d (%d bits)", partition, numPartitions, nbits));
-		}
 		byte[] b = bseq.copyBytes();
 		if (b.length < nbytes + (rem > 0 ? 1 : 0)) {
 			throw new IllegalArgumentException(String.format("Byte array not long enough to hold %d bits", nbits));
@@ -410,7 +406,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		int cardinality = cardinality1*cardinality2*cardinality3*cardinality4;
 		ByteSequence start1 = role1.startKey();
 		ByteSequence stop1 = role1.stopKey();
-		if (nbits > 0) {
+		if (partition >= 0 && nbits > 0) {
 			start1 = new ByteArray(prefixWithPartition(partition, nbits, start1));
 			stop1 = new ByteArray(prefixWithPartition(partition, nbits, stop1));
 		}
@@ -448,7 +444,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		int cardinality = cardinality1*cardinality2*cardinality3;
 		ByteSequence start2 = role2.startKey();
 		ByteSequence stop2 = role2.stopKey();
-		if (nbits > 0) {
+		if (partition >= 0 && nbits > 0) {
 			start2 = new ByteArray(prefixWithPartition(partition, nbits, start2));
 			stop2 = new ByteArray(prefixWithPartition(partition, nbits, stop2));
 		}
@@ -494,7 +490,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		ByteSequence start3 = role3.startKey();
 		ByteSequence stop3 = role3.stopKey();
-		if (nbits > 0) {
+		if (partition >= 0 && nbits > 0) {
 			start3 = new ByteArray(prefixWithPartition(partition, nbits, start3));
 			stop3 = new ByteArray(prefixWithPartition(partition, nbits, stop3));
 		}
@@ -537,7 +533,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		ByteSequence start4 = role4.startKey();
 		ByteSequence stop4 = role4.stopKey();
-		if (nbits > 0) {
+		if (partition >= 0 && nbits > 0) {
 			start4 = new ByteArray(prefixWithPartition(partition, nbits, start4));
 			stop4 = new ByteArray(prefixWithPartition(partition, nbits, stop4));
 		}
@@ -643,6 +639,12 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
     }
 
     boolean isInPartition(RDFValue<?,?> val, RDFRole.Name roleName, int partition, int partitionBits) {
+    	if (partition < 0) {
+    		throw new IllegalArgumentException("Partition index must be greater than or equal to zero");
+    	}
+    	if (partitionBits <= 0) {
+    		throw new IllegalArgumentException("Number of partitions must be greater than zero");
+    	}
     	RDFRole<?> role = getRole(roleName);
 		byte[] start = prefixWithPartition(partition, partitionBits, role.startKey());
 		byte[] stop = prefixWithPartition(partition, partitionBits, role.stopKey());

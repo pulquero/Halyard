@@ -16,14 +16,10 @@
  */
 package com.msd.gin.halyard.sail;
 
-import com.msd.gin.halyard.query.algebra.Algebra;
-import com.msd.gin.halyard.query.algebra.ServiceRoot;
-import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
-import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
-import com.msd.gin.halyard.query.algebra.evaluation.impl.ExtendedEvaluationStrategy;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
+import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.Timestamped;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.optimizers.HalyardConstantOptimizer;
@@ -33,6 +29,10 @@ import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.query.CloseableConsumer;
 import com.msd.gin.halyard.query.TimeLimitConsumer;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.ServiceRoot;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.impl.ExtendedEvaluationStrategy;
 import com.msd.gin.halyard.sail.HBaseSail.SailConnectionFactory;
 import com.msd.gin.halyard.sail.geosparql.WithinDistanceInterpreter;
 import com.msd.gin.halyard.sail.search.SearchInterpreter;
@@ -114,7 +114,6 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	public static final String UPDATE_PART_BINDING = internalBinding("update_part");
 	private static final int NO_UPDATE_PARTS = -1;
 	public static final String FORK_INDEX_BINDING = internalBinding("fork_index");
-	public static final String FORK_COUNT_BINDING = internalBinding("fork_count");
 	private static final String CONNECTION_ID_ATTRIBUTE = "connectionId";
 
 	private final HBaseSail sail;
@@ -388,19 +387,10 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 		String sourceString = Literals.getLabel(bindings.getValue(SOURCE_STRING_BINDING), null);
 		int updatePart = Literals.getIntValue(bindings.getValue(UPDATE_PART_BINDING), NO_UPDATE_PARTS);
-		int forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), -1);
+		int forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), StatementIndices.NO_PARTITIONING);
 		BindingSet queryBindings = removeImplicitBindings(bindings);
-		// try bindings first
-		int forkCount = Literals.getIntValue(bindings.getValue(FORK_COUNT_BINDING), -1);
-		if (forkCount == -1) {
-			// if not then probe the query
-			forkCount = ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument(tupleExpr, queryBindings);
-		}
-		if (forkIndex >= forkCount) {
-			throw new QueryEvaluationException(String.format("Partition index %d must be less than partition count %d", forkIndex, forkCount));
-		}
 
-		RDFStarTripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred, forkIndex, forkCount);
+		RDFStarTripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred, forkIndex);
 		EvaluationStrategy strategy = createEvaluationStrategy(tripleSource, dataset);
 
 		TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);

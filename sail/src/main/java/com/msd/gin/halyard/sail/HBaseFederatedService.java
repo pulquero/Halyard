@@ -1,5 +1,6 @@
 package com.msd.gin.halyard.sail;
 
+import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.query.algebra.evaluation.federation.SailFederatedService;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
@@ -16,17 +17,15 @@ import org.eclipse.rdf4j.sail.SailConnection;
 public class HBaseFederatedService extends SailFederatedService implements HalyardFederatedService {
 	private final HBaseSail sail;
 	private final int forkIndex;
-	private final int forkCount;
 
 	HBaseFederatedService(HBaseSail sail) {
-		this(sail, -1, 0);
+		this(sail, StatementIndices.NO_PARTITIONING);
 	}
 
-	private HBaseFederatedService(HBaseSail sail, int forkIndex, int forkCount) {
+	private HBaseFederatedService(HBaseSail sail, int forkIndex) {
 		super(sail);
 		this.sail = sail;
 		this.forkIndex = forkIndex;
-		this.forkCount = forkCount;
 	}
 
 	@Override
@@ -40,16 +39,15 @@ public class HBaseFederatedService extends SailFederatedService implements Halya
 		}
 		ValueFactory vf = sail.getValueFactory();
 		bs.setBinding(HBaseSailConnection.SOURCE_STRING_BINDING, vf.createLiteral(queryString));
-		if (forkCount > 1) {
+		if (forkIndex >= 0) {
 			bs.setBinding(HBaseSailConnection.FORK_INDEX_BINDING, vf.createLiteral(forkIndex));
-			bs.setBinding(HBaseSailConnection.FORK_COUNT_BINDING, vf.createLiteral(forkCount));
 		}
 		return bs;
 	}
 
 	@Override
-	public FederatedService createEvaluationInstance(HalyardEvaluationStrategy strategy, int forkIndex, int forkCount) {
-		return new HBaseFederatedService(sail, forkIndex, forkCount) {
+	public FederatedService createEvaluationInstance(HalyardEvaluationStrategy strategy, int forkIndex) {
+		return new HBaseFederatedService(sail, forkIndex) {
 			@Override
 			protected SailConnection getConnection() {
 				return sail.getConnection(sail -> {

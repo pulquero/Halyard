@@ -53,6 +53,9 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
+		// validate parallel split function calls
+		ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument(tupleExpr, bindings);
+
 		tupleExpr.visit(new ConstraintScanner(dataset, bindings));
 	}
 
@@ -183,7 +186,7 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 		}
 
 		private void addExactConstraint(Var var, ValueType t, Filter filter) {
-			// TODO: replace SPARQL Filter with RowFilter using BinaryComponentComparator then can pass down the filter for removal
+			// TODO: replace SPARQL Filter with RowFilter using BinaryComponentComparator then the filter can be removed
 			addConstraint(var, new VarConstraint(t), null/*filter*/);
 		}
 
@@ -268,7 +271,7 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 				FunctionCall funcCall = (FunctionCall) condition;
 				List<ValueExpr> args = funcCall.getArgs();
 				if (HALYARD.PARALLEL_SPLIT_FUNCTION.stringValue().equals(funcCall.getURI()) && args.size() == 2 && args.get(0) instanceof ValueConstant && isVar(args.get(1))) {
-					int partitionCount = Literals.getIntValue(((ValueConstant) args.get(0)).getValue(), -1);
+					int partitionCount = Literals.getIntValue(((ValueConstant) args.get(0)).getValue(), 0);
 					if (partitionCount > 1) {
 						addExactConstraint((Var) args.get(1), ParallelSplitFunction.toActualForkCount(partitionCount), filter);
 					}

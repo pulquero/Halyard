@@ -32,6 +32,8 @@ import org.eclipse.rdf4j.model.ValueFactory;
 
 @ThreadSafe
 public final class StatementIndices {
+	public static final int NO_PARTITIONING = -1;
+
 	private static final int PREFIXES = 3;
 	private static final Statement[] EMPTY_STATEMENTS = new Statement[0];
 
@@ -482,17 +484,34 @@ public final class StatementIndices {
 		}
 	}
 
-	public Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, StatementIndex.Name indexToPartition, RDFRole.Name role, int partition, int partitionBits, ValueConstraint constraint) {
-    	if ((partition == -1 || partitionBits == 0) && constraint == null) {
+	/**
+	 * Performs a scan with optional partitioning and optional constraint.
+	 * @param subj
+	 * @param pred
+	 * @param obj
+	 * @param ctx
+	 * @param role
+	 * @param indexToPartition
+	 * @param partition -1 to disable partitioning
+	 * @param partitionBits
+	 * @param constraint
+	 * @return
+	 */
+	public Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, RDFRole.Name role, StatementIndex.Name indexToPartition, int partition, int partitionBits, ValueConstraint constraint) {
+		if (partitionBits > 0 && indexToPartition == null) {
+			throw new IllegalArgumentException("Index to partition must be specified");
+		} else if (partitionBits == 0 && indexToPartition != null) {
+			throw new IllegalArgumentException("No partitioning specified");
+		}
+
+		if ((partition == NO_PARTITIONING || partitionBits == 0) && constraint == null) {
 			return scan(subj, pred, obj, ctx);
     	} else {
     		StatementIndex<?,?,?,?> partitionedIndex = indices.get(indexToPartition);
     		RDFValue<?,?> constrainedValue = role.getValue(subj, pred, obj, ctx);
 			if (constrainedValue != null) {
 				// validate constraints if value is known ahead-of-time
-
-				// NB: index must be specified if partitioned
-				if (partitionBits != 0 && !partitionedIndex.isInPartition(constrainedValue, role, partition, partitionBits)) {
+				if (partition >= 0 && partitionedIndex != null && !partitionedIndex.isInPartition(constrainedValue, role, partition, partitionBits)) {
 					return null;
 				}
 				if (constraint != null && !constraint.test(constrainedValue.val)) {
@@ -504,6 +523,7 @@ public final class StatementIndices {
 				if (partitionedIndex != null) {
 					index = partitionedIndex;
 				} else {
+					// constraint only - no partitioning
 					StatementIndex.Name indexToUse = getIndexForConstraint(subj != null, pred != null, obj != null, ctx != null, role);
 					index = indices.get(indexToUse);
 				}

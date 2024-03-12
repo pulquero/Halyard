@@ -81,14 +81,12 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	private final HBaseSail.ScanSettings settings;
 	private final HBaseSail.Ticker ticker;
 	private final int forkIndex;
-	private final int forkCount;
 
 	public HBaseTripleSource(KeyspaceConnection keyspaceConn, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory) {
-		this(keyspaceConn, vf, stmtIndices, timeoutSecs, qpFactory, null, null, 0, 1);
+		this(keyspaceConn, vf, stmtIndices, timeoutSecs, qpFactory, null, null, StatementIndices.NO_PARTITIONING);
 	}
 
-	protected HBaseTripleSource(KeyspaceConnection keyspaceConn, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory, HBaseSail.ScanSettings settings, HBaseSail.Ticker ticker, int forkIndex,
-			int forkCount) {
+	protected HBaseTripleSource(KeyspaceConnection keyspaceConn, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory, HBaseSail.ScanSettings settings, HBaseSail.Ticker ticker, int forkIndex) {
 		this.keyspaceConn = keyspaceConn;
 		this.vf = vf;
 		this.stmtIndices = stmtIndices;
@@ -98,7 +96,6 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		this.settings = settings;
 		this.ticker = ticker;
 		this.forkIndex = forkIndex;
-		this.forkCount = forkCount;
 	}
 
 	@Override
@@ -109,11 +106,6 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	@Override
 	public int getPartitionIndex() {
 		return forkIndex;
-	}
-
-	@Override
-	public int getPartitionCount() {
-		return forkCount;
 	}
 
 	public KeyspaceConnection getKeyspaceConnection() {
@@ -235,15 +227,18 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	public TripleSource getTimestampedTripleSource() {
-		return new HBaseTripleSource(keyspaceConn, new TimestampedValueFactory(rdfFactory), stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker, forkIndex, forkCount);
+		return new HBaseTripleSource(keyspaceConn, new TimestampedValueFactory(rdfFactory), stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker, forkIndex);
 	}
 
 	@Override
-	public TripleSource partition(@Nullable StatementIndex.Name indexToUse, RDFRole.Name roleName, ValueConstraint constraint) {
-		return new HBaseTripleSource(keyspaceConn, vf, stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker, forkIndex, forkCount) {
+	public TripleSource partition(RDFRole.Name roleName, @Nullable StatementIndex.Name indexToUse, int partitionCount, ValueConstraint constraint) {
+		if (forkIndex >= partitionCount) {
+			throw new IllegalArgumentException(String.format("Partition number %d must be less than %d", forkIndex, partitionCount));
+		}
+		return new HBaseTripleSource(keyspaceConn, vf, stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker, forkIndex) {
 			@Override
 			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) throws IOException {
-				Scan scan = stmtIndices.scanWithConstraint(subj, pred, obj, ctx, indexToUse, roleName, forkIndex, ParallelSplitFunction.powerOf2BitCount(forkCount), constraint);
+				Scan scan = stmtIndices.scanWithConstraint(subj, pred, obj, ctx, roleName, indexToUse, forkIndex, ParallelSplitFunction.powerOf2BitCount(partitionCount), constraint);
 				applySettings(scan);
 				return scan;
 			}

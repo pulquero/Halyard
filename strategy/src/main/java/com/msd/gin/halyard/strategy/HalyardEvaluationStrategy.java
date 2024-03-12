@@ -16,10 +16,6 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.query.algebra.Algebra;
-import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
-import com.msd.gin.halyard.query.algebra.evaluation.ModelTripleSource;
-import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
 import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
@@ -28,6 +24,9 @@ import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.query.ValuePipe;
 import com.msd.gin.halyard.query.ValuePipeQueryValueEvaluationStep;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.ModelTripleSource;
 import com.msd.gin.halyard.strategy.HalyardTupleExprEvaluation.QuadPattern;
 import com.msd.gin.halyard.strategy.HalyardValueExprEvaluation.ConvertingValuePipe;
 
@@ -236,17 +235,17 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
      */
     @Override
     public FederatedService getService(String serviceUrl) throws QueryEvaluationException {
-    	return getService(serviceUrl, 0, 1);
+    	return getService(serviceUrl, -1);
     }
 
-    FederatedService getService(String serviceUrl, int forkIndex, int forkCount) throws QueryEvaluationException {
+    FederatedService getService(String serviceUrl, int forkIndex) throws QueryEvaluationException {
         if (serviceResolver == null) {
             throw new QueryEvaluationException("No Service Resolver set.");
         }
         return federatedServices.computeIfAbsent(serviceUrl, (endpoint) -> {
         	FederatedService fedService = serviceResolver.getService(serviceUrl);
         	if (fedService instanceof HalyardFederatedService) {
-        		fedService = ((HalyardFederatedService)fedService).createEvaluationInstance(this, forkIndex, forkCount);
+        		fedService = ((HalyardFederatedService)fedService).createEvaluationInstance(this, forkIndex);
         	}
         	return fedService;
         });

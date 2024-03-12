@@ -692,13 +692,13 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	}
 
 	HBaseTripleSource createTripleSource(KeyspaceConnection keyspaceConn, boolean includeInferred) {
-		return createTripleSource(keyspaceConn, includeInferred, 0, 1);
+		return createTripleSource(keyspaceConn, includeInferred, StatementIndices.NO_PARTITIONING);
 	}
 
-	HBaseTripleSource createTripleSource(KeyspaceConnection keyspaceConn, boolean includeInferred, int forkIndex, int forkCount) {
+	HBaseTripleSource createTripleSource(KeyspaceConnection keyspaceConn, boolean includeInferred, int forkIndex) {
 		QueryPreparer.Factory qpFactory = () -> new SailConnectionQueryPreparer(getConnection(), includeInferred, getValueFactory());
-		return getSearchClient().<HBaseTripleSource>map(sc -> new HBaseSearchTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), sc, ticker, forkIndex, forkCount))
-				.orElseGet(() -> new HBaseTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), ticker, forkIndex, forkCount));
+		return getSearchClient().<HBaseTripleSource>map(sc -> new HBaseSearchTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), sc, ticker, forkIndex))
+				.orElseGet(() -> new HBaseTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), ticker, forkIndex));
 	}
 
 	public RDFFactory getRDFFactory() {

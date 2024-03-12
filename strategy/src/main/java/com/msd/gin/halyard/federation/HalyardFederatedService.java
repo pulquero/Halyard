@@ -5,5 +5,5 @@ import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 
 public interface HalyardFederatedService extends FederatedService {
-	FederatedService createEvaluationInstance(HalyardEvaluationStrategy strategy, int forkIndex, int forkCount);
+	FederatedService createEvaluationInstance(HalyardEvaluationStrategy strategy, int forkIndex);
 }

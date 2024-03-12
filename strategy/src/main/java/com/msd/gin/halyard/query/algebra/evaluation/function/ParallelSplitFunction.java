@@ -18,6 +18,7 @@ package com.msd.gin.halyard.query.algebra.evaluation.function;
 
 import static com.msd.gin.halyard.model.vocabulary.HALYARD.PARALLEL_SPLIT_FUNCTION;
 
+import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
@@ -45,7 +46,7 @@ import org.kohsuke.MetaInfServices;
  */
 @MetaInfServices(Function.class)
 public final class ParallelSplitFunction implements Function {
-    @Override
+	@Override
     public String getURI() {
         return PARALLEL_SPLIT_FUNCTION.stringValue();
     }
@@ -76,17 +77,13 @@ public final class ParallelSplitFunction implements Function {
         if (ts instanceof PartitionableTripleSource) {
         	PartitionableTripleSource pts = (PartitionableTripleSource) ts;
         	forkIndex = pts.getPartitionIndex();
-        	int partitionCount = pts.getPartitionCount();
-        	if (partitionCount != forkCount) {
-				throw new ValueExprEvaluationException(String.format("The number of TripleStore partitions (%d) is not the same as the number of forks (%d)", partitionCount, forkCount));
-        	}
             if (forkIndex >= forkCount) {
             	throw new ValueExprEvaluationException(String.format("Fork index %d must be less than fork count %d", forkIndex, forkCount));
             }
         } else {
-        	forkIndex = -1;
+        	forkIndex = StatementIndices.NO_PARTITIONING;
         }
-        return ts.getValueFactory().createLiteral(forkIndex == -1 || forkCount == 1 || (Math.floorMod(Arrays.hashCode(args), forkCount) == forkIndex));
+        return ts.getValueFactory().createLiteral(forkIndex == StatementIndices.NO_PARTITIONING || forkCount == 1 || (Math.floorMod(Arrays.hashCode(args), forkCount) == forkIndex));
     }
 
 	@Override

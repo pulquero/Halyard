@@ -19,11 +19,11 @@ public final class VarConstraint implements Serializable, Cloneable {
 	private int partitionCount;
 
 	public VarConstraint(ValueType t) {
-		this(t, null, 1);
+		this(t, null, 0);
 	}
 
 	public VarConstraint(ValueType t, ValueExpr func, CompareOp op, ValueExpr value) {
-		this(t, new FunctionalConstraint(func, op, value), 1);
+		this(t, new FunctionalConstraint(func, op, value), 0);
 	}
 
 	public static VarConstraint partitionConstraint(int partitionCount) {
@@ -119,6 +119,9 @@ public final class VarConstraint implements Serializable, Cloneable {
 		return new VarConstraint(newVT.get().orElse(null), newFunc.get().orElse(null), newPC);
 	}
 
+	/**
+	 * Returns the non-null value.
+	 */
 	private static <E> Optional<Optional<E>> nonNull(E a, E b) {
 		if (a != null && b == null) {
 			return Optional.of(Optional.of(a));
@@ -132,6 +135,9 @@ public final class VarConstraint implements Serializable, Cloneable {
 		}
 	}
 
+	/**
+	 * Returns the non-zero value.
+	 */
 	private static int nonZero(int a, int b) {
 		if (a != 0 && b == 0) {
 			return a;

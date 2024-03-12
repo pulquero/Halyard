@@ -10,6 +10,5 @@ import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 
 public interface PartitionableTripleSource {
 	int getPartitionIndex();
-	int getPartitionCount();
-	TripleSource partition(@Nullable StatementIndex.Name indexToPartition, RDFRole.Name role, ValueConstraint constraint);
+	TripleSource partition(RDFRole.Name role, @Nullable StatementIndex.Name indexToPartition, int partitionCount, ValueConstraint constraint);
 }

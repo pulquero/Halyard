@@ -2,11 +2,11 @@ package com.msd.gin.halyard.strategy;
 
 import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.StatementIndex;
+import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueConstraint;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
 import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
-import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -39,14 +39,12 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
 	@Override
     protected NotifyingSailConnection getConnectionInternal() throws SailException {
         return new MemoryStoreConnection(this) {
-        	private int forkIndex = 0;
-        	private int forkCount = 1;
+        	private int forkIndex = StatementIndices.NO_PARTITIONING;
 
         	@Override
         	protected CloseableIteration<? extends BindingSet, QueryEvaluationException> evaluateInternal(TupleExpr tupleExpr,
         			Dataset dataset, BindingSet bindings, boolean includeInferred) throws SailException {
-        		forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), 0);
-        		forkCount = ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument(tupleExpr, bindings);
+        		forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), StatementIndices.NO_PARTITIONING);
         		return super.evaluateInternal(tupleExpr, dataset, bindings, includeInferred);
         	}
 
@@ -56,7 +54,7 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
             	Configuration conf = new Configuration();
             	conf.setInt(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_LIMIT, 0);
             	conf.setFloat(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_COST_RATIO, Float.MAX_VALUE);
-                HalyardEvaluationStrategy evalStrat = new HalyardEvaluationStrategy(conf, new MockTripleSource(tripleSource, forkIndex, forkCount), dataset, null, stats) {
+                HalyardEvaluationStrategy evalStrat = new HalyardEvaluationStrategy(conf, new MockTripleSource(tripleSource, forkIndex), dataset, null, stats) {
                 	@Override
                 	public QueryEvaluationStep precompile(TupleExpr expr) {
                 		return precompile(expr, new QueryEvaluationContext.Minimal(dataset, getValueFactory()));
@@ -73,22 +71,15 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
     static class MockTripleSource implements RDFStarTripleSource, PartitionableTripleSource {
         private final TripleSource tripleSource;
         private final int partitionIndex;
-        private final int partitionCount;
 
-        MockTripleSource(TripleSource tripleSource, int partitionIndex, int partitionCount) {
+        MockTripleSource(TripleSource tripleSource, int partitionIndex) {
             this.tripleSource = tripleSource;
             this.partitionIndex = partitionIndex;
-            this.partitionCount = partitionCount;
         }
 
         @Override
         public int getPartitionIndex() {
         	return partitionIndex;
-        }
-
-        @Override
-        public int getPartitionCount() {
-        	return partitionCount;
         }
 
         @Override
@@ -108,7 +99,7 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
 		}
 
 		@Override
-		public TripleSource partition(StatementIndex.Name indexToUse, RDFRole.Name role, ValueConstraint constraint) {
+		public TripleSource partition(RDFRole.Name role, StatementIndex.Name indexToUse, int partitionCount, ValueConstraint constraint) {
 			return new TripleSource() {
 		        @Override
 		        public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
@@ -116,7 +107,7 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
 		                @Override
 		                protected boolean accept(Statement stmt) throws QueryEvaluationException {
 		                	Value v = role.getValue(stmt);
-		                    return (partitionCount == 0 || Math.floorMod(v.hashCode(), partitionCount) == partitionIndex)
+		                    return (partitionIndex == StatementIndices.NO_PARTITIONING || partitionCount == 0 || Math.floorMod(v.hashCode(), partitionCount) == partitionIndex)
 		                    	&& (constraint == null || constraint.test(v));
 		                }
 		            };

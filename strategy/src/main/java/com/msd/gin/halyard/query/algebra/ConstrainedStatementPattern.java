@@ -24,6 +24,8 @@ public final class ConstrainedStatementPattern extends StatementPattern {
 		super(scope, subject, predicate, object, context);
 		if (constraint.isPartitioned() && indexToPartition == null) {
 			throw new IllegalArgumentException("Index to partition must be specified");
+		} else if (!constraint.isPartitioned() && indexToPartition != null) {
+			throw new IllegalArgumentException("No partitioning specified");
 		}
 		this.indexToPartition = indexToPartition;
 		this.constrainedRole = constrainedRole;

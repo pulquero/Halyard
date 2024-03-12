@@ -19,6 +19,7 @@ package com.msd.gin.halyard.strategy;
 import com.google.common.collect.Sets;
 import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.LiteralConstraint;
+import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueConstraint;
 import com.msd.gin.halyard.common.ValueFactories;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
@@ -382,13 +383,21 @@ final class HalyardTupleExprEvaluation {
 	    			}
 	    		}
     		}
-    		if (varConstraint != null) {
-    			int partitionCount = varConstraint.getPartitionCount();
-    			if (partitionCount != pts.getPartitionCount()) {
-    				throw new IllegalStateException(String.format("Partition mis-match: query (%d) not compatible with triple store (%d)", partitionCount, pts.getPartitionCount()));
+    		int partitionCount;
+    		if (varConstraint != null && varConstraint.isPartitioned()) {
+    			partitionCount = varConstraint.getPartitionCount();
+    			if (csp.getIndexToPartition() == null) {
+    				// shouldn't be possible - ConstrainedStatementPattern has checks
+    				throw new AssertionError("Index to partition must be specified");
+    			}
+    		} else {
+    			partitionCount = 0;
+    			if (csp.getIndexToPartition() != null) {
+    				// shouldn't be possible - ConstrainedStatementPattern has checks
+        			throw new AssertionError("No partitioning specified");
     			}
     		}
-			return pts.partition(csp.getIndexToPartition(), csp.getConstrainedRole(), constraint);
+			return pts.partition(csp.getConstrainedRole(), csp.getIndexToPartition(), partitionCount, constraint);
     	}
     	return tripleSource;
     }
@@ -1790,28 +1799,25 @@ final class HalyardTupleExprEvaluation {
      */
     private BindingSetPipeEvaluationStep precompileService(Service service, QueryEvaluationContext evalContext) {
         int partitionIndex;
-        int partitionCount;
         if (tripleSource instanceof PartitionableTripleSource) {
         	PartitionableTripleSource partitionableTripleSource = (PartitionableTripleSource) tripleSource;
         	partitionIndex = partitionableTripleSource.getPartitionIndex();
-        	partitionCount = partitionableTripleSource.getPartitionCount();
         } else {
-        	partitionIndex = 0;
-        	partitionCount = 1;
+        	partitionIndex = StatementIndices.NO_PARTITIONING;
         }
 
         Var serviceRef = service.getServiceRef();
         Value serviceRefValue = serviceRef.getValue();
         if (serviceRefValue != null) {
         	// service endpoint known ahead of time
-        	FederatedService fs = parentStrategy.getService(serviceRefValue.stringValue(), partitionIndex, partitionCount);
+        	FederatedService fs = parentStrategy.getService(serviceRefValue.stringValue(), partitionIndex);
         	return (topPipe, bindings) -> evaluateService(topPipe, service, fs, bindings);
         } else {
 			return (topPipe, bindings) -> {
 				Value boundServiceRefValue = bindings.getValue(serviceRef.getName());
 			    if (boundServiceRefValue != null) {
 			        String serviceUri = boundServiceRefValue.stringValue();
-		        	FederatedService fs = parentStrategy.getService(serviceUri, partitionIndex, partitionCount);
+		        	FederatedService fs = parentStrategy.getService(serviceUri, partitionIndex);
 					evaluateService(topPipe, service, fs, bindings);
 			    } else {
 			        topPipe.handleException(new QueryEvaluationException(String.format("SERVICE variables must be bound at evaluation time - use a subselect to ensure %s is bound.", serviceRef.getName())));

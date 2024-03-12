@@ -158,7 +158,7 @@ public class ConstrainedValueStrategyTest {
     }
 
     @Test
-    public void testFilterTriples() {
+    public void testFilterNestedTriples() {
         ValueFactory vf = con.getValueFactory();
         con.add(vf.createIRI("http://whatever/a"), vf.createIRI("http://whatever/val"), vf.createTriple(vf.createIRI("http://whatever/b"), vf.createIRI("http://whatever/val"), vf.createLiteral(1)));
     	String q = "SELECT ?s { <http://whatever/a> <http://whatever/val> << ?s ?p ?o >> }";
@@ -230,6 +230,23 @@ public class ConstrainedValueStrategyTest {
 	        BindingSet bs = res.next();
 	        assertFalse(res.hasNext());
 	        assertEquals("a", ((IRI)bs.getValue("s")).getLocalName());
+        }
+    }
+
+    @Test
+    public void testParallelSplitAndFilter() {
+        ValueFactory vf = con.getValueFactory();
+        con.add(vf.createIRI("http://whatever/a"), vf.createIRI("http://whatever/val"), vf.createLiteral(1));
+        con.add(vf.createIRI("http://whatever/b"), vf.createIRI("http://whatever/val"), vf.createLiteral(10));
+    	String q ="PREFIX halyard: <"+HALYARD.NAMESPACE+">\n"
+    			+"SELECT ?s { ?s ?p ?o filter(halyard:forkAndFilterBy(2,?s)) filter (isiri(?s)) }";
+    	TupleQuery query = con.prepareTupleQuery(q);
+    	query.setBinding(MockSailWithConstraintsStrategy.FORK_INDEX_BINDING, vf.createLiteral(1));
+        try (TupleQueryResult res = query.evaluate()) {
+	        assertTrue(res.hasNext());
+	        BindingSet bs = res.next();
+	        assertFalse(res.hasNext());
+	        assertEquals("b", ((IRI)bs.getValue("s")).getLocalName());
         }
     }
 }

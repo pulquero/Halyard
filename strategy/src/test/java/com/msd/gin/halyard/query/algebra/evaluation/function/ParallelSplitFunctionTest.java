@@ -16,14 +16,12 @@
  */
 package com.msd.gin.halyard.query.algebra.evaluation.function;
 
-import com.msd.gin.halyard.common.StatementIndex.Name;
-import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
-import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
-import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
-
 import static com.msd.gin.halyard.model.vocabulary.HALYARD.PARALLEL_SPLIT_FUNCTION;
 
+import com.msd.gin.halyard.common.StatementIndex.Name;
 import com.msd.gin.halyard.common.ValueConstraint;
+import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
 
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -52,48 +50,48 @@ public class ParallelSplitFunctionTest {
 
     @Test(expected = ValueExprEvaluationException.class)
     public void testEvaluateNoArgs() {
-		TripleSource ts = new MockPartitionedTripleSource(1, 2);
+		TripleSource ts = new MockPartitionedTripleSource(1);
         new ParallelSplitFunction().evaluate(ts);
     }
 
     @Test(expected = ValueExprEvaluationException.class)
     public void testEvaluateNullArgs() {
-		TripleSource ts = new MockPartitionedTripleSource(1, 2);
+		TripleSource ts = new MockPartitionedTripleSource(1);
 		ValueFactory vf = ts.getValueFactory();
 		new ParallelSplitFunction().evaluate(ts, vf.createLiteral(10), null);
     }
 
     @Test(expected = ValueExprEvaluationException.class)
     public void testEvaluateSingleArg() {
-		TripleSource ts = new MockPartitionedTripleSource(1, 2);
+		TripleSource ts = new MockPartitionedTripleSource(1);
 		ValueFactory vf = ts.getValueFactory();
         new ParallelSplitFunction().evaluate(ts, vf.createLiteral(10));
     }
 
     @Test(expected = ValueExprEvaluationException.class)
     public void testEvaluateNegativeArg() {
-		TripleSource ts = new MockPartitionedTripleSource(1, 2);
+		TripleSource ts = new MockPartitionedTripleSource(1);
 		ValueFactory vf = ts.getValueFactory();
         new ParallelSplitFunction().evaluate(ts, vf.createLiteral(-1), vf.createLiteral("hello"));
     }
 
     @Test(expected = ValueExprEvaluationException.class)
     public void testEvaluateNANArg() {
-		TripleSource ts = new MockPartitionedTripleSource(1, 2);
+		TripleSource ts = new MockPartitionedTripleSource(1);
 		ValueFactory vf = ts.getValueFactory();
         new ParallelSplitFunction().evaluate(ts, vf.createLiteral("not a number"), vf.createLiteral("hello"));
     }
 
     @Test
     public void testEvaluatePartition0() {
-		TripleSource ts = new MockPartitionedTripleSource(0, 2);
+		TripleSource ts = new MockPartitionedTripleSource(0);
 		ValueFactory vf = ts.getValueFactory();
         assertTrue(((Literal)new ParallelSplitFunction().evaluate(ts, vf.createLiteral(3), vf.createLiteral("hello"))).booleanValue());
     }
 
     @Test
     public void testEvaluatePartition1() {
-		TripleSource ts = new MockPartitionedTripleSource(1, 2);
+		TripleSource ts = new MockPartitionedTripleSource(1);
 		ValueFactory vf = ts.getValueFactory();
         assertFalse(((Literal)new ParallelSplitFunction().evaluate(ts, vf.createLiteral(3), vf.createLiteral("hello"))).booleanValue());
     }
@@ -161,11 +159,9 @@ public class ParallelSplitFunctionTest {
 
     static class MockPartitionedTripleSource extends EmptyTripleSource implements PartitionableTripleSource {
     	private final int forkIndex;
-    	private final int forkCount;
 
-    	MockPartitionedTripleSource(int forkIndex, int forkCount) {
+    	MockPartitionedTripleSource(int forkIndex) {
     		this.forkIndex = forkIndex;
-    		this.forkCount = forkCount;
     	}
 
     	@Override
@@ -173,13 +169,8 @@ public class ParallelSplitFunctionTest {
     		return forkIndex;
 		}
 
-    	@Override
-		public int getPartitionCount() {
-    		return forkCount;
-		}
-
 		@Override
-		public TripleSource partition(Name indexToPartition, com.msd.gin.halyard.common.RDFRole.Name role, ValueConstraint constraint) {
+		public TripleSource partition(com.msd.gin.halyard.common.RDFRole.Name role, Name indexToPartition, int partitionCount, ValueConstraint constraint) {
 			return this;
 		}
     }
