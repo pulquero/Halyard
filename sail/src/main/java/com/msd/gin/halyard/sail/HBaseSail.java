@@ -43,6 +43,7 @@ import com.msd.gin.halyard.spin.SpinSail;
 import com.msd.gin.halyard.strategy.StrategyConfig;
 import com.msd.gin.halyard.util.MBeanDetails;
 import com.msd.gin.halyard.util.MBeanManager;
+import com.msd.gin.halyard.util.Version;
 
 import java.io.File;
 import java.io.IOException;
@@ -369,6 +370,11 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		trackBranchOperatorsOnly = evaluationConfig.trackBranchOperatorsOnly;
 		queryCache = new QueryCache(evaluationConfig.queryCacheSize);
 		statisticsCache = HalyardStatsBasedStatementPatternCardinalityCalculator.newStatisticsCache();
+	}
+
+	@Override
+	public String getVersion() {
+		return Version.getVersionString();
 	}
 
 	@Override

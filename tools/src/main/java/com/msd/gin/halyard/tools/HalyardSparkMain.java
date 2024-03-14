@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.tools;
 
+import com.msd.gin.halyard.util.Version;
+
 import java.io.PrintWriter;
 import java.util.Arrays;
 
@@ -14,7 +16,7 @@ public final class HalyardSparkMain {
     public static void main(String args[]) throws Exception {
         String first = args.length > 0 ? args[0] : null;
         if ("-v".equals(first) || "--version".equals(first)) {
-            System.out.println("halyardspark version " + AbstractHalyardTool.getVersion());
+            System.out.println("halyardspark version " + Version.getVersionString());
         } else {
             AbstractHalyardTool tools[] = new AbstractHalyardTool[] {
                 new HalyardSparkBulkLoad(),

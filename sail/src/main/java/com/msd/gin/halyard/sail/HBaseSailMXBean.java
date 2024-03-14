@@ -6,6 +6,7 @@ import com.msd.gin.halyard.sail.HBaseSail.ScanSettings;
 import java.util.List;
 
 public interface HBaseSailMXBean {
+	String getVersion();
 	String getTableName();
 	String getSnapshotName();
 	boolean isPushStrategyEnabled();

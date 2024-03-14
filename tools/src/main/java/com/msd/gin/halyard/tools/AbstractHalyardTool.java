@@ -22,27 +22,23 @@ import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.util.Version;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
-import java.util.jar.Attributes;
-import java.util.jar.Manifest;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.HelpFormatter;
@@ -360,22 +356,6 @@ public abstract class AbstractHalyardTool implements Tool {
 
     protected abstract int run(CommandLine cmd) throws Exception;
 
-    static String getVersion() throws IOException {
-    	for (Enumeration<URL> iter = AbstractHalyardTool.class.getClassLoader().getResources("META-INF/MANIFEST.MF"); iter.hasMoreElements(); ) {
-    		URL loc = iter.nextElement();
-    		try (InputStream in = loc.openStream()) {
-    			Manifest manifest = new Manifest(in);
-    			String vendor = manifest.getMainAttributes().getValue(Attributes.Name.IMPLEMENTATION_VENDOR);
-    			if ("halyard".equals(vendor)) {
-	    			String version = manifest.getMainAttributes().getValue(Attributes.Name.IMPLEMENTATION_VERSION);
-	    			String build = manifest.getMainAttributes().getValue("Implementation-Build");
-	    	        return version + " (" + build + ")";
-    			}
-    		}
-    	}
-    	return "unknown";
-    }
-
     @Override
     public final int run(String[] args) throws Exception {
         try {
@@ -392,7 +372,7 @@ public abstract class AbstractHalyardTool implements Tool {
                 return -1;
             }
             if (cmd.hasOption('v')) {
-                System.out.println("halyard " + name + " " + getVersion());
+                System.out.println("halyard " + name + " " + Version.getVersionString());
                 return 0;
             }
             if (!cmdMoreArgs && !cmd.getArgList().isEmpty()) {
@@ -402,7 +382,7 @@ public abstract class AbstractHalyardTool implements Tool {
                 String s[] = cmd.getOptionValues(opt);
                 if (s != null && s.length > 1)  throw new ParseException("Multiple values for option: " + opt);
             }
-            LOG.info("halyard {} {}", name, getVersion());
+            LOG.info("halyard {} {}", name, Version.getVersionString());
             return run(cmd);
         } catch (Exception exp) {
             System.out.println(exp.getMessage());
