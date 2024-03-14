@@ -146,7 +146,12 @@ public class ExtendedSPARQLProtocolSession extends SPARQLProtocolSession {
 				throw new RepositoryException("Request failed with status " + httpCode + ": "
 						+ method.getURI().toString());
 			}
-			return EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+			HttpEntity entity = response.getEntity();
+			if (entity != null) {
+				return EntityUtils.toString(entity, StandardCharsets.UTF_8);
+			} else {
+				return null;
+			}
 		} catch (RepositoryException | MalformedQueryException | QueryInterruptedException e) {
 			throw e;
 		} catch (RDF4JException e) {
