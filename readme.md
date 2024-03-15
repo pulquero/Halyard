@@ -38,6 +38,8 @@ See [Documentation](https://pulquero.github.io/Halyard) for usage examples, arch
  * `webapps` - a re-distribution of Eclipse RDF4J Web Applications (RDF4J-Server and RDF4J-Workbench), patched and enhanced to include Halyard as another RDF repository option
 
 ## Guides
+[JMX Console](/webapps/src/jmxConsole.md)
+
 [Elasticsearch Export](/tools/elasticsearch.md)
 
 ## Reference
