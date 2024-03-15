@@ -1,4 +1,4 @@
-package com.msd.gin.halyard.common;
+package com.msd.gin.halyard.model;
 
 import org.eclipse.rdf4j.model.Value;
 
@@ -8,7 +8,7 @@ public enum ValueType {
 	IRI,
 	BNODE;
 
-	static ValueType valueOf(Value v) {
+	public static ValueType valueOf(Value v) {
 		if (v.isIRI()) {
 			return IRI;
 		} else if (v.isLiteral()) {

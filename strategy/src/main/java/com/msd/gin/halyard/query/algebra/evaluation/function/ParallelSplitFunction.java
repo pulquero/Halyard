@@ -117,14 +117,7 @@ public final class ParallelSplitFunction implements Function {
     }
 
     private static int floorToPowerOf2(int i) {
-    	return (i > 0) ? 1<<powerOf2BitCount(i) : 0;
-    }
-
-    public static int powerOf2BitCount(int i) {
-    	if (i < 0) {
-    		throw new IllegalArgumentException(String.format("Must be a non-negative integer: %d", i));
-    	}
-    	return (i > 0) ? Integer.SIZE - 1 - Integer.numberOfLeadingZeros(i) : 0;
+    	return (i > 0) ? 1<<StatementIndices.powerOf2BitCount(i) : 0;
     }
 
 

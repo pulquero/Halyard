@@ -18,10 +18,10 @@ package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.RDFFactory;
-import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.SSLSettings;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.model.TermRole;
 import com.msd.gin.halyard.model.TupleLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.sail.search.SearchDocument;
@@ -130,8 +130,8 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
             if (index != lastIndex) {
             	lastIndex = index;
             	lastHash = new byte[0];
-            	hashOffset = index.getName().isQuadIndex() ? 1 + index.getRole(RDFRole.Name.CONTEXT).keyHashSize() : 1;
-                hashLen = index.getRole(RDFRole.Name.OBJECT).keyHashSize();
+            	hashOffset = index.getName().isQuadIndex() ? 1 + index.getRole(TermRole.CONTEXT).keyHashSize() : 1;
+                hashLen = index.getRole(TermRole.OBJECT).keyHashSize();
             }
 
             if (!Arrays.equals(key, hashOffset, hashOffset + hashLen, lastHash, 0, lastHash.length)) {

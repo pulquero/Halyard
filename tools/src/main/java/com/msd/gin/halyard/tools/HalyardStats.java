@@ -21,10 +21,10 @@ import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.RDFContext;
 import com.msd.gin.halyard.common.RDFFactory;
-import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueIO;
+import com.msd.gin.halyard.model.TermRole;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.repository.HBaseRepositoryConnection;
@@ -242,22 +242,22 @@ public final class HalyardStats extends AbstractHalyardTool {
                 switch (index.getName()) {
                     case SPO:
                     case CSPO:
-                        hashLen = index.getRole(RDFRole.Name.SUBJECT).keyHashSize();
-                        subhashLen = index.getRole(RDFRole.Name.PREDICATE).keyHashSize();
+                        hashLen = index.getRole(TermRole.SUBJECT).keyHashSize();
+                        subhashLen = index.getRole(TermRole.PREDICATE).keyHashSize();
                         subsetType = VOID_EXT.SUBJECT;
                         subsetDistinctType = VOID.PROPERTIES;
                         break;
                     case POS:
                     case CPOS:
-                        hashLen = index.getRole(RDFRole.Name.PREDICATE).keyHashSize();
-                        subhashLen = index.getRole(RDFRole.Name.OBJECT).keyHashSize();
+                        hashLen = index.getRole(TermRole.PREDICATE).keyHashSize();
+                        subhashLen = index.getRole(TermRole.OBJECT).keyHashSize();
                         subsetType = VOID.PROPERTY;
                         subsetDistinctType = VOID.DISTINCT_OBJECTS;
                         break;
                     case OSP:
                     case COSP:
-                        hashLen = index.getRole(RDFRole.Name.OBJECT).keyHashSize();
-                        subhashLen = index.getRole(RDFRole.Name.SUBJECT).keyHashSize();
+                        hashLen = index.getRole(TermRole.OBJECT).keyHashSize();
+                        subhashLen = index.getRole(TermRole.SUBJECT).keyHashSize();
                         subsetType = VOID_EXT.OBJECT;
                         subsetDistinctType = VOID.DISTINCT_SUBJECTS;
                         break;
@@ -265,7 +265,7 @@ public final class HalyardStats extends AbstractHalyardTool {
                         throw new IOException("Unknown index #" + index);
                 }
                 subsetThreshold = partitionThresholds.get(subsetType);
-            	int offset = index.getName().isQuadIndex() ? 1 + index.getRole(RDFRole.Name.CONTEXT).keyHashSize() : 1;
+            	int offset = index.getName().isQuadIndex() ? 1 + index.getRole(TermRole.CONTEXT).keyHashSize() : 1;
             	hashTracker = new HashTracker(offset, hashLen);
             	subhashTracker = new HashTracker(hashTracker.end, subhashLen);
             }

@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.TermRole;
+
 import javax.annotation.Nullable;
 
 import org.eclipse.rdf4j.model.Value;
@@ -13,6 +15,6 @@ public final class RDFObject extends RDFValue<Value, SPOC.O> {
 	}
 
 	private RDFObject(Value val, RDFFactory rdfFactory) {
-		super(RDFRole.Name.OBJECT, val, rdfFactory);
+		super(TermRole.OBJECT, val, rdfFactory);
 	}
 }

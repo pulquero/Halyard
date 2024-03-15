@@ -1,5 +1,11 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.LiteralConstraint;
+import com.msd.gin.halyard.model.TermRole;
+import com.msd.gin.halyard.model.ValueConstraint;
+import com.msd.gin.halyard.model.ValueType;
+import com.msd.gin.halyard.query.algebra.evaluation.IndexOrdering;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,7 +37,7 @@ import org.eclipse.rdf4j.model.ValueFactory;
  */
 @ThreadSafe
 public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 extends SPOC<?>,T4 extends SPOC<?>> {
-	public enum Name {
+	public enum Name implements IndexOrdering {
 		SPO(false), POS(false), OSP(false), CSPO(true), CPOS(true), COSP(true);
 
 		private final boolean isQuad;
@@ -49,7 +55,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 	private static final int OBJECT_VAR_CARDINALITY = 2000;  // usually more objects than subjects
 	private static final int CONTEXT_VAR_CARDINALITY = 3;
 
-	private static int getRoleCardinality(RDFRole.Name role) {
+	private static int getRoleCardinality(TermRole role) {
 		switch (role) {
 			case SUBJECT:
 				return SUBJECT_VAR_CARDINALITY;
@@ -220,7 +226,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		return name;
 	}
 
-	public RDFRole<?> getRole(RDFRole.Name name) {
+	public RDFRole<?> getRole(TermRole name) {
 		return spocRoles[name.ordinal()];
 	}
 
@@ -593,7 +599,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		filters.add(new MultiRowRangeFilter(ranges));
 	}
 
-	Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, RDFRole.Name role, int partition, int partitionBits, ValueConstraint constraint) {
+	Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, TermRole role, int partition, int partitionBits, ValueConstraint constraint) {
 		RDFValue<?,T1> v1 = role1.getValue(subj, pred, obj, ctx);
 		RDFValue<?,T2> v2 = role2.getValue(subj, pred, obj, ctx);
 		RDFValue<?,T3> v3 = role3.getValue(subj, pred, obj, ctx);
@@ -638,7 +644,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
         return res;
     }
 
-    boolean isInPartition(RDFValue<?,?> val, RDFRole.Name roleName, int partition, int partitionBits) {
+    boolean isInPartition(RDFValue<?,?> val, TermRole roleName, int partition, int partitionBits) {
     	if (partition < 0) {
     		throw new IllegalArgumentException("Partition index must be greater than or equal to zero");
     	}

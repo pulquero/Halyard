@@ -18,10 +18,10 @@ package com.msd.gin.halyard.strategy;
 
 import com.google.common.collect.Sets;
 import com.msd.gin.halyard.common.CachingValueFactory;
-import com.msd.gin.halyard.common.LiteralConstraint;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.common.ValueConstraint;
 import com.msd.gin.halyard.common.ValueFactories;
+import com.msd.gin.halyard.model.LiteralConstraint;
+import com.msd.gin.halyard.model.ValueConstraint;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.query.AbortConsumerException;
@@ -39,6 +39,7 @@ import com.msd.gin.halyard.query.algebra.StarJoin;
 import com.msd.gin.halyard.query.algebra.VarConstraint;
 import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.PartitionedIndex;
 import com.msd.gin.halyard.query.algebra.evaluation.federation.BindingSetConsumerFederatedService;
 import com.msd.gin.halyard.query.algebra.evaluation.federation.BindingSetPipeFederatedService;
 import com.msd.gin.halyard.query.algebra.evaluation.impl.TupleFunctionEvaluationStrategy;
@@ -383,21 +384,17 @@ final class HalyardTupleExprEvaluation {
 	    			}
 	    		}
     		}
-    		int partitionCount;
+    		PartitionedIndex partitionedIndex;
     		if (varConstraint != null && varConstraint.isPartitioned()) {
-    			partitionCount = varConstraint.getPartitionCount();
-    			if (csp.getIndexToPartition() == null) {
-    				// shouldn't be possible - ConstrainedStatementPattern has checks
-    				throw new AssertionError("Index to partition must be specified");
-    			}
+    			partitionedIndex = new PartitionedIndex(csp.getIndexToPartition(), varConstraint.getPartitionCount());
     		} else {
-    			partitionCount = 0;
     			if (csp.getIndexToPartition() != null) {
     				// shouldn't be possible - ConstrainedStatementPattern has checks
         			throw new AssertionError("No partitioning specified");
     			}
+    			partitionedIndex = null;
     		}
-			return pts.partition(csp.getConstrainedRole(), csp.getIndexToPartition(), partitionCount, constraint);
+			return pts.partition(csp.getConstrainedRole(), partitionedIndex, constraint);
     	}
     	return tripleSource;
     }

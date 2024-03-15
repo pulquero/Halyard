@@ -2,6 +2,8 @@ package com.msd.gin.halyard.common;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.msd.gin.halyard.model.TermRole;
+import com.msd.gin.halyard.model.ValueType;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -267,7 +269,7 @@ public final class RDFFactory {
 
 	RDFRole<SPOC.S> getSubjectRole(StatementIndex.Name index) {
 		return new RDFRole<>(
-			RDFRole.Name.SUBJECT,
+			TermRole.SUBJECT,
 			idFormat.size,
 			getKeySizes(index).subjectSize,
 			getSubjectShift(index), Short.BYTES,
@@ -293,7 +295,7 @@ public final class RDFFactory {
 
 	RDFRole<SPOC.P> getPredicateRole(StatementIndex.Name index) {
 		return new RDFRole<>(
-			RDFRole.Name.PREDICATE,
+			TermRole.PREDICATE,
 			idFormat.size,
 			getKeySizes(index).predicateSize,
 			getPredicateShift(index), Short.BYTES,
@@ -319,7 +321,7 @@ public final class RDFFactory {
 
 	RDFRole<SPOC.O> getObjectRole(StatementIndex.Name index) {
 		return new RDFRole<>(
-			RDFRole.Name.OBJECT,
+			TermRole.OBJECT,
 			idFormat.size,
 			getKeySizes(index).objectSize,
 			getObjectShift(index), Integer.BYTES,
@@ -345,7 +347,7 @@ public final class RDFFactory {
 
 	RDFRole<SPOC.C> getContextRole(StatementIndex.Name index) {
 		return new RDFRole<>(
-			RDFRole.Name.CONTEXT,
+			TermRole.CONTEXT,
 			idFormat.size,
 			getKeySizes(index).contextSize,
 			0, Short.BYTES,

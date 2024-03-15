@@ -6,10 +6,10 @@ import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.query.algebra.VarConstraint;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
-import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.common.ValueType;
+import com.msd.gin.halyard.model.TermRole;
+import com.msd.gin.halyard.model.ValueType;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.util.ArrayList;
@@ -81,28 +81,28 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 				if (o == null) {
 					Pair<VarConstraint,List<Filter>> constraintFilters = mergeConstraints(gpc.popConstraints(ovar));
 					if (constraintFilters != null) {
-						constrainStatementVar(ovar, RDFRole.Name.OBJECT, sp, s, p, o, c, constraintFilters);
+						constrainStatementVar(ovar, TermRole.OBJECT, sp, s, p, o, c, constraintFilters);
 						continue;
 					}
 				}
 				if (s == null) {
 					Pair<VarConstraint,List<Filter>> constraintFilters = mergeConstraints(gpc.popConstraints(svar));
 					if (constraintFilters != null) {
-						constrainStatementVar(svar, RDFRole.Name.SUBJECT, sp, s, p, o, c, constraintFilters);
+						constrainStatementVar(svar, TermRole.SUBJECT, sp, s, p, o, c, constraintFilters);
 						continue;
 					}
 				}
 				if (p == null) {
 					Pair<VarConstraint,List<Filter>> constraintFilters = mergeConstraints(gpc.popConstraints(pvar));
 					if (constraintFilters != null) {
-						constrainStatementVar(pvar, RDFRole.Name.PREDICATE, sp, s, p, o, c, constraintFilters);
+						constrainStatementVar(pvar, TermRole.PREDICATE, sp, s, p, o, c, constraintFilters);
 						continue;
 					}
 				}
 			}
 		}
 
-		private void constrainStatementVar(Var v, RDFRole.Name role, StatementPattern sp, Value s, Value p, Value o, Value c, Pair<VarConstraint,List<Filter>> constraintFilters) {
+		private void constrainStatementVar(Var v, TermRole role, StatementPattern sp, Value s, Value p, Value o, Value c, Pair<VarConstraint,List<Filter>> constraintFilters) {
 			if (sp instanceof ConstrainedStatementPattern) {
 				throw new IllegalArgumentException("Statement pattern is already constrained");
 			}

@@ -22,18 +22,17 @@ import com.msd.gin.halyard.common.RDFContext;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.RDFObject;
 import com.msd.gin.halyard.common.RDFPredicate;
-import com.msd.gin.halyard.common.RDFRole;
 import com.msd.gin.halyard.common.RDFSubject;
-import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.TimestampedValueFactory;
-import com.msd.gin.halyard.common.ValueConstraint;
+import com.msd.gin.halyard.model.TermRole;
+import com.msd.gin.halyard.model.ValueConstraint;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.PartitionedIndex;
 import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
-import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -44,8 +43,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-
-import javax.annotation.Nullable;
 
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
@@ -231,14 +228,14 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	@Override
-	public TripleSource partition(RDFRole.Name roleName, @Nullable StatementIndex.Name indexToUse, int partitionCount, ValueConstraint constraint) {
-		if (forkIndex >= partitionCount) {
-			throw new IllegalArgumentException(String.format("Partition number %d must be less than %d", forkIndex, partitionCount));
+	public TripleSource partition(TermRole roleName, PartitionedIndex partitionedIndex, ValueConstraint constraint) {
+		if (partitionedIndex != null && forkIndex >= partitionedIndex.getPartitionCount()) {
+			throw new IllegalArgumentException(String.format("Partition number %d must be less than %d", forkIndex, partitionedIndex.getPartitionCount()));
 		}
 		return new HBaseTripleSource(keyspaceConn, vf, stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker, forkIndex) {
 			@Override
 			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) throws IOException {
-				Scan scan = stmtIndices.scanWithConstraint(subj, pred, obj, ctx, roleName, indexToUse, forkIndex, ParallelSplitFunction.powerOf2BitCount(partitionCount), constraint);
+				Scan scan = stmtIndices.scanWithConstraint(subj, pred, obj, ctx, roleName, forkIndex, partitionedIndex, constraint);
 				applySettings(scan);
 				return scan;
 			}

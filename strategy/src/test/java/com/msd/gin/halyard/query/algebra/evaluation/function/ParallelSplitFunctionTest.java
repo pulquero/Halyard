@@ -18,10 +18,11 @@ package com.msd.gin.halyard.query.algebra.evaluation.function;
 
 import static com.msd.gin.halyard.model.vocabulary.HALYARD.PARALLEL_SPLIT_FUNCTION;
 
-import com.msd.gin.halyard.common.StatementIndex.Name;
-import com.msd.gin.halyard.common.ValueConstraint;
+import com.msd.gin.halyard.model.TermRole;
+import com.msd.gin.halyard.model.ValueConstraint;
 import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.PartitionedIndex;
 
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -170,7 +171,7 @@ public class ParallelSplitFunctionTest {
 		}
 
 		@Override
-		public TripleSource partition(com.msd.gin.halyard.common.RDFRole.Name role, Name indexToPartition, int partitionCount, ValueConstraint constraint) {
+		public TripleSource partition(com.msd.gin.halyard.model.TermRole role, PartitionedIndex partitionedIndex, ValueConstraint constraint) {
 			return this;
 		}
     }

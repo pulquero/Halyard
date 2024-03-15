@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.common;
 
 import com.google.common.collect.ImmutableMap;
+import com.msd.gin.halyard.model.ValueType;
 
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;

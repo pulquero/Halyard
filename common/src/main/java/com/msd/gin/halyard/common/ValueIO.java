@@ -3,6 +3,7 @@ package com.msd.gin.halyard.common;
 import com.google.common.collect.Sets;
 import com.ibm.icu.text.UnicodeCompressor;
 import com.ibm.icu.text.UnicodeDecompressor;
+import com.msd.gin.halyard.model.ValueType;
 import com.msd.gin.halyard.model.WKTLiteral;
 import com.msd.gin.halyard.model.XMLLiteral;
 import com.msd.gin.halyard.model.vocabulary.IRIEncodingNamespace;

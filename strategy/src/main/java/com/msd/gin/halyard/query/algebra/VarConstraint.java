@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.query.algebra;
 
-import com.msd.gin.halyard.common.ValueType;
+import com.msd.gin.halyard.model.ValueType;
 
 import java.io.Serializable;
 import java.util.Objects;

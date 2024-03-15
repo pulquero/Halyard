@@ -1,6 +1,4 @@
-package com.msd.gin.halyard.common;
-
-import com.msd.gin.halyard.model.vocabulary.HALYARD;
+package com.msd.gin.halyard.model;
 
 import java.util.Objects;
 
@@ -9,10 +7,17 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.model.vocabulary.XSD;
+
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 public final class LiteralConstraint extends ValueConstraint {
 	private final IRI datatype;
 	private final String lang;
+
+	public static boolean isString(IRI dt) {
+		return XSD.STRING.equals(dt) || RDF.LANGSTRING.equals(dt);
+	}
 
 	public LiteralConstraint(IRI datatype) {
 		this(ValueType.LITERAL, Objects.requireNonNull(datatype), null);
@@ -44,7 +49,7 @@ public final class LiteralConstraint extends ValueConstraint {
 		Literal l = (Literal) v;
 		IRI dt = l.getDatatype();
 		if (!dt.equals(datatype)
-			&& !(HALYARD.NON_STRING_TYPE.equals(datatype) && !ValueIdentifier.isString(dt))
+			&& !(HALYARD.NON_STRING_TYPE.equals(datatype) && !isString(dt))
 			&& !(HALYARD.ANY_NUMERIC_TYPE.equals(datatype) && XMLDatatypeUtil.isNumericDatatype(dt))) {
 			return false;
 		}

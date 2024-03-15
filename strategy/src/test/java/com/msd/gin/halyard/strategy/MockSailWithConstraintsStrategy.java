@@ -1,12 +1,12 @@
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.common.RDFRole;
-import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.common.ValueConstraint;
+import com.msd.gin.halyard.model.TermRole;
+import com.msd.gin.halyard.model.ValueConstraint;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
 import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.PartitionedIndex;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -99,7 +99,7 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
 		}
 
 		@Override
-		public TripleSource partition(RDFRole.Name role, StatementIndex.Name indexToUse, int partitionCount, ValueConstraint constraint) {
+		public TripleSource partition(TermRole role, PartitionedIndex partitionedIndex, ValueConstraint constraint) {
 			return new TripleSource() {
 		        @Override
 		        public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
@@ -107,6 +107,7 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
 		                @Override
 		                protected boolean accept(Statement stmt) throws QueryEvaluationException {
 		                	Value v = role.getValue(stmt);
+		                	int partitionCount = partitionedIndex != null ? partitionedIndex.getPartitionCount() : 0;
 		                    return (partitionIndex == StatementIndices.NO_PARTITIONING || partitionCount == 0 || Math.floorMod(v.hashCode(), partitionCount) == partitionIndex)
 		                    	&& (constraint == null || constraint.test(v));
 		                }

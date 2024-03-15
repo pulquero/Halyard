@@ -16,6 +16,11 @@
  */
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.LiteralConstraint;
+import com.msd.gin.halyard.model.TermRole;
+import com.msd.gin.halyard.model.ValueConstraint;
+import com.msd.gin.halyard.model.ValueType;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -260,7 +265,7 @@ public class HalyardTableUtilsScanTest {
         RDFObject obj = rdfFactory.createObject(o == null ? null : vf.createLiteral(o));
         RDFContext ctx = rdfFactory.createContext(c == null ? null : vf.createIRI(c));
         if (subj == null) {
-	        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraint(subj, pred, obj, ctx, RDFRole.Name.SUBJECT, null, StatementIndices.NO_PARTITIONING, 0, new ValueConstraint(ValueType.IRI)))) {
+	        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraint(subj, pred, obj, ctx, TermRole.SUBJECT, StatementIndices.NO_PARTITIONING, null, new ValueConstraint(ValueType.IRI)))) {
 	            Set<Statement> res = new HashSet<>();
 	            Result r;
 	            while ((r = rs.next()) != null) {
@@ -286,7 +291,7 @@ public class HalyardTableUtilsScanTest {
         RDFObject obj = rdfFactory.createObject(o == null ? null : vf.createLiteral(o));
         RDFContext ctx = rdfFactory.createContext(c == null ? null : vf.createIRI(c));
         if (pred == null) {
-	        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraint(subj, pred, obj, ctx, RDFRole.Name.PREDICATE, null, StatementIndices.NO_PARTITIONING, 0, new ValueConstraint(ValueType.IRI)))) {
+	        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraint(subj, pred, obj, ctx, TermRole.PREDICATE, StatementIndices.NO_PARTITIONING, null, new ValueConstraint(ValueType.IRI)))) {
 	            Set<Statement> res = new HashSet<>();
 	            Result r;
 	            while ((r = rs.next()) != null) {
@@ -312,7 +317,7 @@ public class HalyardTableUtilsScanTest {
         RDFObject obj = rdfFactory.createObject(o == null ? null : vf.createLiteral(o));
         RDFContext ctx = rdfFactory.createContext(c == null ? null : vf.createIRI(c));
         if (obj == null) {
-	        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraint(subj, pred, obj, ctx, RDFRole.Name.OBJECT, null, StatementIndices.NO_PARTITIONING, 0, new LiteralConstraint(XSD.STRING)))) {
+	        try (ResultScanner rs = table.getScanner(stmtIndices.scanWithConstraint(subj, pred, obj, ctx, TermRole.OBJECT, StatementIndices.NO_PARTITIONING, null, new LiteralConstraint(XSD.STRING)))) {
 	            Set<Statement> res = new HashSet<>();
 	            Result r;
 	            while ((r = rs.next()) != null) {

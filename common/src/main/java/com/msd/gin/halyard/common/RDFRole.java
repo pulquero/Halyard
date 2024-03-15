@@ -1,62 +1,15 @@
 package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.common.ValueIdentifier.Format;
+import com.msd.gin.halyard.model.TermRole;
 
 import java.nio.ByteBuffer;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.Value;
-
 @ThreadSafe
 public final class RDFRole<T extends SPOC<?>> {
-	public enum Name {
-		SUBJECT {
-			@Override
-			public <E> E getValue(E s, E p, E o, E c) {
-				return s;
-			}
-			@Override
-			public Value getValue(Statement s) {
-				return s.getSubject();
-			}
-		},
-		PREDICATE {
-			@Override
-			public <E> E getValue(E s, E p, E o, E c) {
-				return p;
-			}
-			@Override
-			public Value getValue(Statement s) {
-				return s.getPredicate();
-			}
-		},
-		OBJECT {
-			@Override
-			public <E> E getValue(E s, E p, E o, E c) {
-				return o;
-			}
-			@Override
-			public Value getValue(Statement s) {
-				return s.getObject();
-			}
-		},
-		CONTEXT {
-			@Override
-			public <E> E getValue(E s, E p, E o, E c) {
-				return c;
-			}
-			@Override
-			public Value getValue(Statement s) {
-				return s.getContext();
-			}
-		};
-
-		public abstract <E> E getValue(E s, E p, E o, E c);
-		public abstract Value getValue(Statement s);
-	}
-	private final Name name;
+	private final TermRole name;
 	private final int idSize;
 	private final int keyHashSize;
 	private final ByteSequence startKey;
@@ -64,7 +17,7 @@ public final class RDFRole<T extends SPOC<?>> {
 	private final int shift;
 	private final int sizeLength;
 
-	public RDFRole(Name name, int idSize, int keyHashSize, int shift, int sizeLength, boolean required) {
+	public RDFRole(TermRole name, int idSize, int keyHashSize, int shift, int sizeLength, boolean required) {
 		this.name = name;
 		this.idSize = idSize;
 		this.keyHashSize = keyHashSize;
@@ -74,7 +27,7 @@ public final class RDFRole<T extends SPOC<?>> {
 		this.sizeLength = sizeLength;
 	}
 
-	Name getName() {
+	TermRole getName() {
 		return name;
 	}
 

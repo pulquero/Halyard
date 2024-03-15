@@ -1,6 +1,8 @@
-package com.msd.gin.halyard.common;
+package com.msd.gin.halyard.model;
 
-import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Date;
 
@@ -9,34 +11,9 @@ import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
-public class ValueConstraintTest {
-
-	@Test
-	public void testIRIs() {
-		ValueFactory vf = SimpleValueFactory.getInstance();
-		ValueConstraint vc = new ValueConstraint(ValueType.IRI);
-		assertFalse(vc.test(vf.createLiteral(1)));
-		assertTrue(vc.test(vf.createIRI("urn:foo:bar")));
-	}
-
-	@Test
-	public void testBNodes() {
-		ValueFactory vf = SimpleValueFactory.getInstance();
-		ValueConstraint vc = new ValueConstraint(ValueType.BNODE);
-		assertTrue(vc.test(vf.createBNode()));
-		assertFalse(vc.test(vf.createIRI("urn:foo:bar")));
-	}
-
-	@Test
-	public void testAllLiterals() {
-		ValueFactory vf = SimpleValueFactory.getInstance();
-		ValueConstraint vc = new ValueConstraint(ValueType.LITERAL);
-		assertTrue(vc.test(vf.createLiteral(1)));
-		assertTrue(vc.test(vf.createLiteral("foobar")));
-		assertTrue(vc.test(vf.createLiteral("foo", "en")));
-	}
+public class LiteralConstraintTest {
 
 	@Test
 	public void testStringLiteral() {

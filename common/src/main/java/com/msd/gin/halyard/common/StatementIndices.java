@@ -1,6 +1,10 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.TermRole;
+import com.msd.gin.halyard.model.ValueConstraint;
+import com.msd.gin.halyard.model.ValueType;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.query.algebra.evaluation.PartitionedIndex;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -376,7 +380,7 @@ public final class StatementIndices {
 	    }
 	}
 
-	public static StatementIndex.Name getIndexForConstraint(boolean hasSubj, boolean hasPred, boolean hasObj, boolean hasCtx, RDFRole.Name constrainedRole) {
+	public static StatementIndex.Name getIndexForConstraint(boolean hasSubj, boolean hasPred, boolean hasObj, boolean hasCtx, TermRole constrainedRole) {
 		switch (constrainedRole) {
 			case SUBJECT:
 				if (hasSubj) {
@@ -491,27 +495,28 @@ public final class StatementIndices {
 	 * @param obj
 	 * @param ctx
 	 * @param role
-	 * @param indexToPartition
 	 * @param partition -1 to disable partitioning
-	 * @param partitionBits
+	 * @param partitionedIndex
 	 * @param constraint
 	 * @return
 	 */
-	public Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, RDFRole.Name role, StatementIndex.Name indexToPartition, int partition, int partitionBits, ValueConstraint constraint) {
-		if (partitionBits > 0 && indexToPartition == null) {
-			throw new IllegalArgumentException("Index to partition must be specified");
-		} else if (partitionBits == 0 && indexToPartition != null) {
-			throw new IllegalArgumentException("No partitioning specified");
-		}
-
-		if ((partition == NO_PARTITIONING || partitionBits == 0) && constraint == null) {
+	public Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, TermRole role, int partition, PartitionedIndex partitionedIndex, ValueConstraint constraint) {
+		if ((partition == NO_PARTITIONING || partitionedIndex == null) && constraint == null) {
 			return scan(subj, pred, obj, ctx);
     	} else {
-    		StatementIndex<?,?,?,?> partitionedIndex = indices.get(indexToPartition);
+    		StatementIndex<?,?,?,?> partitionedStmtIndex;
+    		int partitionCountBits;
+    		if (partitionedIndex != null) {
+    			partitionedStmtIndex = indices.get(partitionedIndex.getIndexOrdering());
+    			partitionCountBits = powerOf2BitCount(partitionedIndex.getPartitionCount());
+    		} else {
+    			partitionedStmtIndex = null;
+    			partitionCountBits = 0;
+    		}
     		RDFValue<?,?> constrainedValue = role.getValue(subj, pred, obj, ctx);
 			if (constrainedValue != null) {
 				// validate constraints if value is known ahead-of-time
-				if (partition >= 0 && partitionedIndex != null && !partitionedIndex.isInPartition(constrainedValue, role, partition, partitionBits)) {
+				if (partitionedIndex != null && !partitionedStmtIndex.isInPartition(constrainedValue, role, partition, partitionCountBits)) {
 					return null;
 				}
 				if (constraint != null && !constraint.test(constrainedValue.val)) {
@@ -519,18 +524,25 @@ public final class StatementIndices {
 				}
 				return scan(subj, pred, obj, ctx);
 			} else {
-				StatementIndex<?,?,?,?> index;
+				StatementIndex<?,?,?,?> indexToUse;
 				if (partitionedIndex != null) {
-					index = partitionedIndex;
+					indexToUse = partitionedStmtIndex;
 				} else {
 					// constraint only - no partitioning
-					StatementIndex.Name indexToUse = getIndexForConstraint(subj != null, pred != null, obj != null, ctx != null, role);
-					index = indices.get(indexToUse);
+					StatementIndex.Name indexToUseName = getIndexForConstraint(subj != null, pred != null, obj != null, ctx != null, role);
+					indexToUse = indices.get(indexToUseName);
 				}
-				return index.scanWithConstraint(subj, pred, obj, ctx, role, partition, partitionBits, constraint);
+				return indexToUse.scanWithConstraint(subj, pred, obj, ctx, role, partition, partitionCountBits, constraint);
 			}
 		}
 	}
+
+    public static int powerOf2BitCount(int i) {
+    	if (i < 0) {
+    		throw new IllegalArgumentException(String.format("Must be a non-negative integer: %d", i));
+    	}
+    	return (i > 0) ? Integer.SIZE - 1 - Integer.numberOfLeadingZeros(i) : 0;
+    }
 
 	/**
 	 * Parser method returning all Statements from a single HBase Scan Result
@@ -685,7 +697,7 @@ public final class StatementIndices {
 	}
 
 	public Resource getSubject(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
-		Scan scan = HalyardTableUtils.scanFirst(spo.scan(new RDFIdentifier<SPOC.S>(RDFRole.Name.SUBJECT, id)));
+		Scan scan = HalyardTableUtils.scanFirst(spo.scan(new RDFIdentifier<SPOC.S>(TermRole.SUBJECT, id)));
 		try (ResultScanner scanner = kc.getScanner(scan)) {
 			for (Result result : scanner) {
 				if(!result.isEmpty()) {
@@ -699,7 +711,7 @@ public final class StatementIndices {
 	}
 
 	public IRI getPredicate(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
-		Scan scan = HalyardTableUtils.scanFirst(pos.scan(new RDFIdentifier<SPOC.P>(RDFRole.Name.PREDICATE, id)));
+		Scan scan = HalyardTableUtils.scanFirst(pos.scan(new RDFIdentifier<SPOC.P>(TermRole.PREDICATE, id)));
 		try (ResultScanner scanner = kc.getScanner(scan)) {
 			for (Result result : scanner) {
 				if(!result.isEmpty()) {
@@ -713,7 +725,7 @@ public final class StatementIndices {
 	}
 
 	public Value getObject(KeyspaceConnection kc, ValueIdentifier id, ValueFactory vf) throws IOException {
-		Scan scan = HalyardTableUtils.scanFirst(osp.scan(new RDFIdentifier<SPOC.O>(RDFRole.Name.OBJECT, id)));
+		Scan scan = HalyardTableUtils.scanFirst(osp.scan(new RDFIdentifier<SPOC.O>(TermRole.OBJECT, id)));
 		try (ResultScanner scanner = kc.getScanner(scan)) {
 			for (Result result : scanner) {
 				if(!result.isEmpty()) {

@@ -1,5 +1,8 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.LiteralConstraint;
+import com.msd.gin.halyard.model.ValueConstraint;
+import com.msd.gin.halyard.model.ValueType;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.io.IOException;

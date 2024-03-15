@@ -1,6 +1,8 @@
 package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.common.Hashes.HashFunction;
+import com.msd.gin.halyard.model.LiteralConstraint;
+import com.msd.gin.halyard.model.ValueType;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -14,8 +16,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.vocabulary.RDF;
-import org.eclipse.rdf4j.model.vocabulary.XSD;
 
 /**
  * Immutable wrapper around a byte array identifier.
@@ -212,7 +212,7 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 			switch (type) {
 				case LITERAL:
 					typeBits = typeNibble.literalTypeBits;
-					dtBits = isString(datatype) ? typeNibble.stringDatatypeBits : typeNibble.nonstringDatatypeBits;
+					dtBits = LiteralConstraint.isString(datatype) ? typeNibble.stringDatatypeBits : typeNibble.nonstringDatatypeBits;
 					break;
 				case TRIPLE:
 					typeBits = typeNibble.tripleTypeBits;
@@ -264,10 +264,6 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 			}
 			return dest;
 		}
-	}
-
-	static boolean isString(IRI dt) {
-		return XSD.STRING.equals(dt) || RDF.LANGSTRING.equals(dt);
 	}
 
 	private final byte[] idBytes;

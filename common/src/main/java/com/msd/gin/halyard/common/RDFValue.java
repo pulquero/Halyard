@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.TermRole;
+
 import java.util.Objects;
 
 import org.eclipse.rdf4j.model.Value;
@@ -15,7 +17,7 @@ public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFId
 	}
 
 
-	protected RDFValue(RDFRole.Name role, V val, RDFFactory rdfFactory) {
+	protected RDFValue(TermRole role, V val, RDFFactory rdfFactory) {
 		super(role);
 		this.val = Objects.requireNonNull(val);
 		this.rdfFactory = Objects.requireNonNull(rdfFactory);

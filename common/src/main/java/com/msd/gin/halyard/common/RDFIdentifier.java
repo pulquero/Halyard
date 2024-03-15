@@ -1,21 +1,23 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.TermRole;
+
 import java.util.Objects;
 
 public class RDFIdentifier<T extends SPOC<?>> {
-	private final RDFRole.Name roleName;
+	private final TermRole roleName;
 	private ValueIdentifier id;
 
-	RDFIdentifier(RDFRole.Name role, ValueIdentifier id) {
+	RDFIdentifier(TermRole role, ValueIdentifier id) {
 		this(role);
 		this.id = Objects.requireNonNull(id);
 	}
 
-	protected RDFIdentifier(RDFRole.Name role) {
+	protected RDFIdentifier(TermRole role) {
 		this.roleName = role;
 	}
 
-	public final RDFRole.Name getRoleName() {
+	public final TermRole getRoleName() {
 		return roleName;
 	}
 

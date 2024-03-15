@@ -1,4 +1,4 @@
-package com.msd.gin.halyard.common;
+package com.msd.gin.halyard.model;
 
 import java.util.Objects;
 import java.util.function.Predicate;
