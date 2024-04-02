@@ -526,6 +526,8 @@ public final class HttpSparqlHandler implements HttpHandler {
             sparqlQuery.addNamedGraph(repository.getValueFactory().createIRI(value));
         } else if (TRACK_RESULT_SIZE_PARAM.equals(name)) {
         	sparqlQuery.trackResultSize = Boolean.valueOf(value);
+        } else if (MAP_REDUCE_PARAM.equals(name)) {
+        	sparqlQuery.mapReduce = Boolean.valueOf(value);
         } else if (TARGET_PARAM.equals(name)) {
         	sparqlQuery.target = value;
         } else {
