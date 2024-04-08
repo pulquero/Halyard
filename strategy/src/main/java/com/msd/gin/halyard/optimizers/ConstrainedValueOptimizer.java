@@ -1,16 +1,18 @@
 package com.msd.gin.halyard.optimizers;
 
+import com.msd.gin.halyard.common.StatementIndex;
+import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.model.LiteralConstraint;
+import com.msd.gin.halyard.model.TermRole;
+import com.msd.gin.halyard.model.ValueConstraint;
+import com.msd.gin.halyard.model.ValueType;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.algebra.BGPCollector;
 import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.query.algebra.VarConstraint;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
-import com.msd.gin.halyard.common.StatementIndex;
-import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.model.TermRole;
-import com.msd.gin.halyard.model.ValueType;
-import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.util.Literals;
@@ -319,5 +323,44 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 
 	private static boolean isVar(ValueExpr expr) {
 		return (expr instanceof Var);
+	}
+
+	public static ValueConstraint toValueConstraint(VarConstraint varConstraint, BindingSet bindings) throws InvalidConstraintException {
+		ValueConstraint constraint;
+		if (varConstraint.getValueType() != null) {
+			constraint = new ValueConstraint(varConstraint.getValueType());
+			VarConstraint.FunctionalConstraint funcConstraint = varConstraint.getFunctionalConstraint();
+			if (funcConstraint != null) {
+				ValueExpr constraintFunc = funcConstraint.getFunction();
+				Compare.CompareOp constraintOp = funcConstraint.getOp();
+				ValueExpr constraintValue = funcConstraint.getValue();
+				Value v = Algebra.evaluateConstant(constraintValue, bindings);
+				if (v != null) {
+					if (constraintOp == Compare.CompareOp.EQ) {
+						if (constraintFunc instanceof Datatype) {
+							if (!v.isIRI()) {
+								throw new InvalidConstraintException(String.format("Invalid datatype: %s", v));
+							}
+							IRI dt = (IRI) v;
+			    			constraint = new LiteralConstraint(dt);
+						} else if (constraintFunc instanceof Lang) {
+							if (!v.isLiteral()) {
+								throw new InvalidConstraintException(String.format("Invalid language tag: %s", v));
+							}
+							Literal langValue = (Literal) v;
+							String lang = langValue.getLabel();
+							if (!lang.isEmpty()) {
+				    			constraint = new LiteralConstraint(lang);
+							}
+						} else if ((constraintFunc instanceof IsNumeric) && BooleanLiteral.TRUE.equals(v)) {
+			    			constraint = new LiteralConstraint(HALYARD.ANY_NUMERIC_TYPE);
+						}
+					}
+    			}
+    		}
+		} else {
+			constraint = null;
+		}
+		return constraint;
 	}
 }

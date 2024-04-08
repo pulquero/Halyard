@@ -20,9 +20,10 @@ import com.google.common.collect.Sets;
 import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueFactories;
-import com.msd.gin.halyard.model.LiteralConstraint;
 import com.msd.gin.halyard.model.ValueConstraint;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.optimizers.ConstrainedValueOptimizer;
+import com.msd.gin.halyard.optimizers.InvalidConstraintException;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.query.AbortConsumerException;
 import com.msd.gin.halyard.query.BindingSetPipe;
@@ -101,13 +102,11 @@ import org.eclipse.rdf4j.common.iteration.LookAheadIteration;
 import org.eclipse.rdf4j.common.iteration.SingletonIteration;
 import org.eclipse.rdf4j.common.iteration.UnionIteration;
 import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDF4J;
 import org.eclipse.rdf4j.model.vocabulary.SESAME;
@@ -123,9 +122,7 @@ import org.eclipse.rdf4j.query.algebra.ArbitraryLengthPath;
 import org.eclipse.rdf4j.query.algebra.Avg;
 import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
-import org.eclipse.rdf4j.query.algebra.Compare;
 import org.eclipse.rdf4j.query.algebra.Count;
-import org.eclipse.rdf4j.query.algebra.Datatype;
 import org.eclipse.rdf4j.query.algebra.DescribeOperator;
 import org.eclipse.rdf4j.query.algebra.Difference;
 import org.eclipse.rdf4j.query.algebra.Distinct;
@@ -137,9 +134,7 @@ import org.eclipse.rdf4j.query.algebra.Group;
 import org.eclipse.rdf4j.query.algebra.GroupConcat;
 import org.eclipse.rdf4j.query.algebra.GroupElem;
 import org.eclipse.rdf4j.query.algebra.Intersection;
-import org.eclipse.rdf4j.query.algebra.IsNumeric;
 import org.eclipse.rdf4j.query.algebra.Join;
-import org.eclipse.rdf4j.query.algebra.Lang;
 import org.eclipse.rdf4j.query.algebra.LeftJoin;
 import org.eclipse.rdf4j.query.algebra.Max;
 import org.eclipse.rdf4j.query.algebra.Min;
@@ -345,45 +340,14 @@ final class HalyardTupleExprEvaluation {
     	return (parent, bindings) -> evaluateStatementPattern(parent, sp, sp, bindings);
     }
 
-    TripleSource getTripleSource(StatementPattern sp, BindingSet bindings) {
+    TripleSource getTripleSource(StatementPattern sp, BindingSet bindings) throws InvalidConstraintException {
     	if ((sp instanceof ConstrainedStatementPattern) && (tripleSource instanceof PartitionableTripleSource)) {
     		ConstrainedStatementPattern csp = (ConstrainedStatementPattern) sp;
     		PartitionableTripleSource pts = (PartitionableTripleSource) tripleSource;
 
-    		ValueConstraint constraint = null;
     		VarConstraint varConstraint = csp.getConstraint();
-    		if (varConstraint != null && varConstraint.getValueType() != null) {
-    			constraint = new ValueConstraint(varConstraint.getValueType());
-				VarConstraint.FunctionalConstraint funcConstraint = varConstraint.getFunctionalConstraint();
-				if (funcConstraint != null) {
-					ValueExpr constraintFunc = funcConstraint.getFunction();
-					Compare.CompareOp constraintOp = funcConstraint.getOp();
-					ValueExpr constraintValue = funcConstraint.getValue();
-					Value v = Algebra.evaluateConstant(constraintValue, bindings);
-					if (v != null) {
-						if (constraintOp == Compare.CompareOp.EQ) {
-							if (constraintFunc instanceof Datatype) {
-								if (!v.isIRI()) {
-									return null; // nothing to push
-								}
-								IRI dt = (IRI) v;
-				    			constraint = new LiteralConstraint(dt);
-							} else if (constraintFunc instanceof Lang) {
-								if (!v.isLiteral()) {
-									return null; // nothing to push
-								}
-								Literal langValue = (Literal) v;
-								String lang = langValue.getLabel();
-								if (!lang.isEmpty()) {
-					    			constraint = new LiteralConstraint(lang);
-								}
-							} else if ((constraintFunc instanceof IsNumeric) && BooleanLiteral.TRUE.equals(v)) {
-				    			constraint = new LiteralConstraint(HALYARD.ANY_NUMERIC_TYPE);
-							}
-						}
-	    			}
-	    		}
-    		}
+    		ValueConstraint constraint = ConstrainedValueOptimizer.toValueConstraint(varConstraint, bindings);
+
     		PartitionedIndex partitionedIndex;
     		if (varConstraint != null && varConstraint.isPartitioned()) {
     			partitionedIndex = new PartitionedIndex(csp.getIndexToPartition(), varConstraint.getPartitionCount());
@@ -410,15 +374,15 @@ final class HalyardTupleExprEvaluation {
     private void evaluateStatementPattern(final BindingSetPipe parent, final StatementPattern sp, final TupleExpr trackExpr, final BindingSet bindings) {
         QuadPattern nq = getQuadPattern(sp, bindings);
         if (nq != null) {
-    		TripleSource ts = getTripleSource(sp, bindings);
-    		if (ts != null) {
-    	        QueryEvaluationStep evalStep = evaluateStatementPattern(sp, nq, ts);
+    		try {
+    			TripleSource ts = getTripleSource(sp, bindings);
+    			QueryEvaluationStep evalStep = evaluateStatementPattern(sp, nq, ts);
         		try {
     				executor.pullPushAsync(parent, evalStep, trackExpr, bindings, parentStrategy);
                 } catch (QueryEvaluationException e) {
                     parent.handleException(e);
                 }
-    		} else {
+    		} catch (InvalidConstraintException constraintEx) {
     			parent.close(); // nothing to push
     		}
 		} else {
@@ -2127,14 +2091,7 @@ final class HalyardTupleExprEvaluation {
     private Pair<BindingSetPipe,BindingSet> wellDesignedLeftJoin(BindingSetPipe parentPipe, LeftJoin leftJoin, BindingSet bindings) {
     	// Check whether optional join is "well designed" as defined in section
         // 4.2 of "Semantics and Complexity of SPARQL", 2006, Jorge Pérez et al.
-        VarNameCollector optionalVarCollector = new VarNameCollector();
-        leftJoin.getRightArg().visit(optionalVarCollector);
-        if (leftJoin.hasCondition()) {
-            leftJoin.getCondition().visit(optionalVarCollector);
-        }
-        final Set<String> problemVars = new HashSet<>(optionalVarCollector.getVarNames());
-        problemVars.removeAll(leftJoin.getLeftArg().getBindingNames());
-        problemVars.retainAll(bindings.getBindingNames());
+        Set<String> problemVars = getProblemVars(leftJoin, bindings);
         if (!problemVars.isEmpty()) {
         	BindingSetPipe wellDesignedPipe = new BindingSetPipe(parentPipe) {
 	            //Handle badly designed left join
@@ -2172,7 +2129,27 @@ final class HalyardTupleExprEvaluation {
         }
     }
 
-	private static boolean isSameConstant(Var v1, Var v2) {
+    public static Set<String> getProblemVars(LeftJoin leftJoin, BindingSet bindings) {
+        final Set<String> problemVars;
+        if (!bindings.isEmpty()) {
+            VarNameCollector optionalVarCollector = new VarNameCollector();
+            leftJoin.getRightArg().visit(optionalVarCollector);
+            if (leftJoin.hasCondition()) {
+                leftJoin.getCondition().visit(optionalVarCollector);
+            }
+
+            problemVars = new HashSet<>(optionalVarCollector.getVarNames());
+	        problemVars.removeAll(leftJoin.getLeftArg().getBindingNames());
+	        // intersection with provided bindings
+	        problemVars.retainAll(bindings.getBindingNames());
+        } else {
+        	// intersection will be empty
+        	problemVars = Collections.emptySet();
+        }
+        return problemVars;
+    }
+
+    private static boolean isSameConstant(Var v1, Var v2) {
 		return v1.isConstant() && v2.isConstant() && v1.getValue().equals(v2.getValue());
 	}
 

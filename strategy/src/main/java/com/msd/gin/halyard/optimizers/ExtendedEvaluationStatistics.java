@@ -5,6 +5,7 @@ import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.query.algebra.NAryUnion;
 import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.query.algebra.StarJoin;
+import com.msd.gin.halyard.query.algebra.VarConstraint;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -222,8 +223,9 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
 			double card = spcalc.getStatementCardinality(sp.getSubjectVar(), sp.getPredicateVar(), sp.getObjectVar(), sp.getContextVar(), boundVars);
 			if (sp instanceof ConstrainedStatementPattern) {
 				ConstrainedStatementPattern csp = (ConstrainedStatementPattern) sp;
-				if (csp.getConstraint() != null && csp.getConstraint().isPartitioned()) {
-					card /= csp.getConstraint().getPartitionCount();
+				VarConstraint varConstraint = csp.getConstraint();
+				if (varConstraint.isPartitioned()) {
+					card /= varConstraint.getPartitionCount();
 				}
 			}
 			return card;

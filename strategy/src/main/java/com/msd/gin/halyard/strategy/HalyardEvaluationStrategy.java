@@ -19,6 +19,7 @@ package com.msd.gin.halyard.strategy;
 import com.msd.gin.halyard.federation.HalyardFederatedService;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
+import com.msd.gin.halyard.optimizers.InvalidConstraintException;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
@@ -358,8 +359,8 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	boolean hasStatement(StatementPattern sp, BindingSet bindings) throws QueryEvaluationException {
 		QuadPattern nq = tupleEval.getQuadPattern(sp, bindings);
 		if (nq != null) {
-			ExtendedTripleSource tripleSource = (ExtendedTripleSource) tupleEval.getTripleSource(sp, bindings);
-			if (tripleSource != null) {
+			try {
+				ExtendedTripleSource tripleSource = (ExtendedTripleSource) tupleEval.getTripleSource(sp, bindings);
 				if (nq.isAllNamedContexts()) {
 					// can't optimize for this
 				    try (CloseableIteration<?, QueryEvaluationException> stmtIter = tupleEval.getStatements(nq, tripleSource)) {
@@ -368,9 +369,12 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 				} else {
 					return tripleSource.hasStatement(nq.subj, nq.pred, nq.obj, nq.ctxs);
 				}
+			} catch (InvalidConstraintException constraintEx) {
+				return false;
 			}
+		} else {
+			return false;
 		}
-		return false;
 	}
 
 	@Override

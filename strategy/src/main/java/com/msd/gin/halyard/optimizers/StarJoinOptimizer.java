@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.tuple.Triple;
-import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.Join;
@@ -38,11 +37,11 @@ public class StarJoinOptimizer implements QueryOptimizer {
 		tupleExpr.visit(new StarJoinFinder());
 	}
 
-	final class StarJoinFinder extends SkipVarsQueryModelVisitor<RDF4JException> {
+	final class StarJoinFinder extends SkipVarsQueryModelVisitor<RuntimeException> {
 
 		@Override
-		public void meet(Join node) throws RDF4JException {
-			BGPCollector<RDF4JException> collector = new BGPCollector<>(this);
+		public void meet(Join node) {
+			BGPCollector<RuntimeException> collector = new BGPCollector<>(this);
 			node.visit(collector);
 			if(!collector.getStatementPatterns().isEmpty()) {
 				Parent parent = Parent.wrap(node);

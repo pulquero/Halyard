@@ -490,14 +490,14 @@ public final class StatementIndices {
 
 	/**
 	 * Performs a scan with optional partitioning and optional constraint.
-	 * @param subj
-	 * @param pred
-	 * @param obj
-	 * @param ctx
-	 * @param role
+	 * @param subj can be null
+	 * @param pred can be null
+	 * @param obj can be null
+	 * @param ctx can be null
+	 * @param role non null
 	 * @param partition -1 to disable partitioning
-	 * @param partitionedIndex
-	 * @param constraint
+	 * @param partitionedIndex can be null
+	 * @param constraint can be null
 	 * @return
 	 */
 	public Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, TermRole role, int partition, PartitionedIndex partitionedIndex, ValueConstraint constraint) {

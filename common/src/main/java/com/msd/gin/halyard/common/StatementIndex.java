@@ -585,18 +585,27 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
 		List<RowRange> ranges;
 		if (stopPrefix == null) {
-			ranges = new ArrayList<>(typeSaltSize);
-			for (int i=0; i<typeSaltSize; i++) {
-				byte[] startRow = concat(false, prefix, rdfFactory.writeSaltAndType(i, type, dt, startKey), trailingStartKeys); // inclusive
-				byte[] stopRow = concat(true, prefix, rdfFactory.writeSaltAndType(i, type, dt, stopKey), trailingStopKeys); // exclusive
-				ranges.add(new RowRange(startRow, true, stopRow, false));
+			if (typeSaltSize > 1) {
+				ranges = new ArrayList<>(typeSaltSize);
+				for (int i=0; i<typeSaltSize; i++) {
+					RowRange range = createRowRange(prefix, prefix, i, i, type, dt, startKey, stopKey, trailingStartKeys, trailingStopKeys);
+					ranges.add(range);
+				}
+			} else {
+				RowRange range = createRowRange(prefix, prefix, 0, 0, type, dt, startKey, stopKey, trailingStartKeys, trailingStopKeys);
+				ranges = Collections.singletonList(range);
 			}
 		} else {
-			byte[] startRow = concat(false, prefix, rdfFactory.writeSaltAndType(0, type, dt, startKey), trailingStartKeys); // inclusive
-			byte[] stopRow = concat(true, stopPrefix, rdfFactory.writeSaltAndType(typeSaltSize-1, type, dt, stopKey), trailingStopKeys); // exclusive
-			ranges = Collections.<RowRange>singletonList(new RowRange(startRow, true, stopRow, false));
+			RowRange range = createRowRange(prefix, stopPrefix, 0, typeSaltSize-1, type, dt, startKey, stopKey, trailingStartKeys, trailingStopKeys);
+			ranges = Collections.singletonList(range);
 		}
 		filters.add(new MultiRowRangeFilter(ranges));
+	}
+
+	private RowRange createRowRange(ByteSequence startPrefix, ByteSequence stopPrefix, int startSalt, int stopSalt, ValueType type, IRI dt, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys) {
+		byte[] startRow = concat(false, startPrefix, rdfFactory.writeSaltAndType(startSalt, type, dt, startKey), trailingStartKeys); // inclusive
+		byte[] stopRow = concat(true, stopPrefix, rdfFactory.writeSaltAndType(stopSalt, type, dt, stopKey), trailingStopKeys); // exclusive
+		return new RowRange(startRow, true, stopRow, false);
 	}
 
 	Scan scanWithConstraint(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx, TermRole role, int partition, int partitionBits, ValueConstraint constraint) {

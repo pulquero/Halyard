@@ -1,10 +1,10 @@
 package com.msd.gin.halyard.query.algebra;
 
 import com.msd.gin.halyard.model.ValueType;
+import com.msd.gin.halyard.util.TriOptional;
 
 import java.io.Serializable;
 import java.util.Objects;
-import java.util.Optional;
 
 import javax.annotation.Nonnull;
 
@@ -104,34 +104,34 @@ public final class VarConstraint implements Serializable, Cloneable {
 	}
 
 	public static VarConstraint merge(VarConstraint a, VarConstraint b) {
-		Optional<Optional<ValueType>> newVT = nonNull(a.valueType, b.valueType);
-		if (newVT.isEmpty()) {
+		TriOptional<ValueType> newVT = nonNull(a.valueType, b.valueType);
+		if (newVT.isInvalid()) {
 			return null;
 		}
-		Optional<Optional<FunctionalConstraint>> newFunc = nonNull(a.functionalConstraint, b.functionalConstraint);
-		if (newFunc.isEmpty()) {
+		TriOptional<FunctionalConstraint> newFunc = nonNull(a.functionalConstraint, b.functionalConstraint);
+		if (newFunc.isInvalid()) {
 			return null;
 		}
 		int newPC = nonZero(a.partitionCount, b.partitionCount);
 		if (newPC == -1) {
 			return null;
 		}
-		return new VarConstraint(newVT.get().orElse(null), newFunc.get().orElse(null), newPC);
+		return new VarConstraint(newVT.orElse(null), newFunc.orElse(null), newPC);
 	}
 
 	/**
 	 * Returns the non-null value.
 	 */
-	private static <E> Optional<Optional<E>> nonNull(E a, E b) {
+	private static <E> TriOptional<E> nonNull(E a, E b) {
 		if (a != null && b == null) {
-			return Optional.of(Optional.of(a));
+			return TriOptional.of(a);
 		} else if (a == null && b != null) {
-			return Optional.of(Optional.of(b));
+			return TriOptional.of(b);
 		} else if (Objects.equals(a, b)) {
-			return Optional.of(Optional.ofNullable(a));
+			return TriOptional.ofNullable(a);
 		} else {
 			// not compatible
-			return Optional.empty();
+			return TriOptional.invalid();
 		}
 	}
 
