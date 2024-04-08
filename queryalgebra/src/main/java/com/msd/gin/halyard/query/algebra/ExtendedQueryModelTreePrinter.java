@@ -65,10 +65,18 @@ public class ExtendedQueryModelTreePrinter extends AbstractQueryModelVisitor<Run
 		String humanReadbleString;
 		if (number == Double.POSITIVE_INFINITY) {
 			humanReadbleString = "∞";
-		} else if (number > 1_000_000) {
-			humanReadbleString = Math.round(number / 100_000) / 10.0 + "M";
-		} else if (number > 1_000) {
-			humanReadbleString = Math.round(number / 100) / 10.0 + "K";
+		} else if (number > 1e18) {
+			humanReadbleString = Math.round(number / 1e17) / 10.0 + "E";
+		} else if (number > 1e15) {
+			humanReadbleString = Math.round(number / 1e14) / 10.0 + "P";
+		} else if (number > 1e12) {
+			humanReadbleString = Math.round(number / 1e11) / 10.0 + "T";
+		} else if (number > 1e9) {
+			humanReadbleString = Math.round(number / 1e8) / 10.0 + "G";
+		} else if (number > 1e6) {
+			humanReadbleString = Math.round(number / 1e5) / 10.0 + "M";
+		} else if (number > 1e3) {
+			humanReadbleString = Math.round(number / 1e2) / 10.0 + "k";
 		} else if (number >= 0) {
 			humanReadbleString = Math.round(number) + "";
 		} else {
