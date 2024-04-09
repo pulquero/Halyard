@@ -1,5 +1,11 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.ValueConstraint;
+import com.msd.gin.halyard.model.ValueType;
+import com.msd.gin.halyard.model.vocabulary.SCHEMA_ORG;
+
+import org.apache.hadoop.hbase.client.Scan;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -35,5 +41,22 @@ public class StatementIndexTest {
 		assertThrows(IllegalArgumentException.class, () ->
 			StatementIndex.prefixWithPartition(500, 10, bseq)
 		);
+	}
+
+	@Test
+	public void testScanRange() {
+		StatementIndices indices = StatementIndices.create();
+		StatementIndex<SPOC.P,SPOC.O,SPOC.S,SPOC.C> pos = indices.getPOSIndex();
+		RDFFactory rdfFactory = indices.getRDFFactory();
+		int emptyScanCount = 0;
+		int numPartitions = 64;
+		int nbits = StatementIndices.powerOf2BitCount(numPartitions);
+		for (int i=0; i<numPartitions; i++) {
+			Scan scan = pos.scanWithConstraint(rdfFactory.createPredicate(RDF.TYPE), rdfFactory.createObject(SCHEMA_ORG.PERSON), i, nbits, new ValueConstraint(ValueType.IRI), null);
+			if (scan == null) {
+				emptyScanCount++;
+			}
+		}
+		assertEquals(48, emptyScanCount);
 	}
 }

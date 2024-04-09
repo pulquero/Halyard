@@ -412,7 +412,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		int cardinality = cardinality1*cardinality2*cardinality3*cardinality4;
 		ByteSequence start1 = role1.startKey();
 		ByteSequence stop1 = role1.stopKey();
-		if (partition >= 0 && nbits > 0) {
+		boolean isPartitioned = partition >= 0 && nbits > 0;
+		if (isPartitioned) {
 			start1 = new ByteArray(prefixWithPartition(partition, nbits, start1));
 			stop1 = new ByteArray(prefixWithPartition(partition, nbits, stop1));
 		}
@@ -424,11 +425,13 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		);
 		List<Filter> filters = new ArrayList<>();
 		if (constraint1 != null) {
-			appendValueConstraintFilters(ByteSequence.EMPTY, null,
+			if (!appendValueConstraintFilters(ByteSequence.EMPTY, null,
 				start1, stop1,
 				concat3(role2.startKey(), role3.startKey(), role4.startKey()),
 				concat3(role2.stopKey(),  role3.stopKey(),  role4.stopKey()),
-				constraint1, filters);
+				constraint1, filters, isPartitioned)) {
+				return null;
+			}
 		}
 		if (k2 != null) {
 			filters.add(createKeyFilter(role2.keyHash(k2.getId(), idFormat), 1 + role1.keyHashSize()));
@@ -450,7 +453,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		int cardinality = cardinality1*cardinality2*cardinality3;
 		ByteSequence start2 = role2.startKey();
 		ByteSequence stop2 = role2.stopKey();
-		if (partition >= 0 && nbits > 0) {
+		boolean isPartitioned = partition >= 0 && nbits > 0;
+		if (isPartitioned) {
 			start2 = new ByteArray(prefixWithPartition(partition, nbits, start2));
 			stop2 = new ByteArray(prefixWithPartition(partition, nbits, stop2));
 		}
@@ -463,11 +467,13 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		List<Filter> filters = new ArrayList<>();
 		filters.add(new ColumnPrefixFilter(qualifier(k1, null, null, null)));
 		if (constraint2 != null) {
-			appendValueConstraintFilters(kb, null,
+			if (!appendValueConstraintFilters(kb, null,
 				start2, stop2,
 				concat2(role3.startKey(), role4.startKey()),
 				concat2(role3.stopKey(),  role4.stopKey()),
-				constraint2, filters);
+				constraint2, filters, isPartitioned)) {
+				return null;
+			}
 		}
 		if (k3 != null) {
 			filters.add(createKeyFilter(role3.keyHash(k3.getId(), idFormat), 1 + role1.keyHashSize() + role2.keyHashSize()));
@@ -496,7 +502,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		ByteSequence start3 = role3.startKey();
 		ByteSequence stop3 = role3.stopKey();
-		if (partition >= 0 && nbits > 0) {
+		boolean isPartitioned = partition >= 0 && nbits > 0;
+		if (isPartitioned) {
 			start3 = new ByteArray(prefixWithPartition(partition, nbits, start3));
 			stop3 = new ByteArray(prefixWithPartition(partition, nbits, stop3));
 		}
@@ -509,10 +516,12 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		List<Filter> filters = new ArrayList<>();
 		filters.add(new ColumnPrefixFilter(qualifier(k1, k2, null, null)));
 		if (constraint3 != null) {
-			appendValueConstraintFilters(concat2(k1b, k2b), k2 == null ? concat2(k1b, stop2) : null,
+			if (!appendValueConstraintFilters(concat2(k1b, k2b), k2 == null ? concat2(k1b, stop2) : null,
 				start3, stop3,
 				role4.startKey(), role4.stopKey(),
-				constraint3, filters);
+				constraint3, filters, isPartitioned)) {
+				return null;
+			}
 		}
 		if (name.isQuadIndex() && k4 != null) {
 			filters.add(createKeyFilter(role4.keyHash(k4.getId(), idFormat), 1 + role1.keyHashSize() + role2.keyHashSize() + role3.keyHashSize()));
@@ -539,7 +548,8 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 		ByteSequence start4 = role4.startKey();
 		ByteSequence stop4 = role4.stopKey();
-		if (partition >= 0 && nbits > 0) {
+		boolean isPartitioned = partition >= 0 && nbits > 0;
+		if (isPartitioned) {
 			start4 = new ByteArray(prefixWithPartition(partition, nbits, start4));
 			stop4 = new ByteArray(prefixWithPartition(partition, nbits, stop4));
 		}
@@ -552,11 +562,13 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		List<Filter> filters = new ArrayList<>();
 		filters.add(new ColumnPrefixFilter(qualifier(k1, k2, k3, null)));
 		if (constraint4 != null) {
-			appendValueConstraintFilters(concat3(k1b, k2b, k3b), k3 == null ? concat3(k1b, k2b, stop3) : null,
+			if (!appendValueConstraintFilters(concat3(k1b, k2b, k3b), k3 == null ? concat3(k1b, k2b, stop3) : null,
 				start4, stop4,
 				ByteSequence.EMPTY,
 				ByteSequence.EMPTY,
-				constraint4, filters);
+				constraint4, filters, isPartitioned)) {
+				return null;
+			}
 		}
 		addFilters(scan, filters);
 		return scan;
@@ -575,7 +587,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		).setFilter(new ColumnPrefixFilter(qualifier(k1, k2, k3, k4)));
 	}
 
-	private void appendValueConstraintFilters(ByteSequence prefix, @Nullable ByteSequence stopPrefix, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys, ValueConstraint constraint, List<Filter> filters) {
+	private boolean appendValueConstraintFilters(ByteSequence prefix, @Nullable ByteSequence stopPrefix, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys, ValueConstraint constraint, List<Filter> filters, boolean checkRange) {
 		ValueType type = constraint.getValueType();
 		IRI dt = null;
 		if ((constraint instanceof LiteralConstraint)) {
@@ -588,23 +600,36 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			if (typeSaltSize > 1) {
 				ranges = new ArrayList<>(typeSaltSize);
 				for (int i=0; i<typeSaltSize; i++) {
-					RowRange range = createRowRange(prefix, prefix, i, i, type, dt, startKey, stopKey, trailingStartKeys, trailingStopKeys);
-					ranges.add(range);
+					RowRange range = createRowRange(prefix, prefix, i, i, type, dt, startKey, stopKey, trailingStartKeys, trailingStopKeys, checkRange);
+					if (range != null) {
+						ranges.add(range);
+					}
 				}
 			} else {
-				RowRange range = createRowRange(prefix, prefix, 0, 0, type, dt, startKey, stopKey, trailingStartKeys, trailingStopKeys);
-				ranges = Collections.singletonList(range);
+				RowRange range = createRowRange(prefix, prefix, 0, 0, type, dt, startKey, stopKey, trailingStartKeys, trailingStopKeys, checkRange);
+				ranges = (range != null) ? Collections.singletonList(range) : Collections.emptyList();
 			}
 		} else {
-			RowRange range = createRowRange(prefix, stopPrefix, 0, typeSaltSize-1, type, dt, startKey, stopKey, trailingStartKeys, trailingStopKeys);
-			ranges = Collections.singletonList(range);
+			RowRange range = createRowRange(prefix, stopPrefix, 0, typeSaltSize-1, type, dt, startKey, stopKey, trailingStartKeys, trailingStopKeys, checkRange);
+			ranges = (range != null) ? Collections.singletonList(range) : Collections.emptyList();
 		}
-		filters.add(new MultiRowRangeFilter(ranges));
+		if (!ranges.isEmpty()) {
+			filters.add(new MultiRowRangeFilter(ranges));
+			return true;
+		} else {
+			return false;
+		}
 	}
 
-	private RowRange createRowRange(ByteSequence startPrefix, ByteSequence stopPrefix, int startSalt, int stopSalt, ValueType type, IRI dt, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys) {
-		byte[] startRow = concat(false, startPrefix, rdfFactory.writeSaltAndType(startSalt, type, dt, startKey), trailingStartKeys); // inclusive
-		byte[] stopRow = concat(true, stopPrefix, rdfFactory.writeSaltAndType(stopSalt, type, dt, stopKey), trailingStopKeys); // exclusive
+	private RowRange createRowRange(ByteSequence startPrefix, ByteSequence stopPrefix, int startSalt, int stopSalt, ValueType type, IRI dt, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys, boolean checkRange) {
+		ByteSequence saltedAndTypedStartKey = rdfFactory.writeSaltAndType(startSalt, type, dt, startKey);
+		ByteSequence saltedAndTypedStopKey = rdfFactory.writeSaltAndType(stopSalt, type, dt, stopKey);
+		if (checkRange && (Bytes.compareTo(saltedAndTypedStopKey.copyBytes(), startKey.copyBytes()) < 0 || Bytes.compareTo(saltedAndTypedStartKey.copyBytes(), stopKey.copyBytes()) > 0)) {
+			// row range is outside scan range
+			return null;
+		}
+		byte[] startRow = concat(false, startPrefix, saltedAndTypedStartKey, trailingStartKeys); // inclusive
+		byte[] stopRow = concat(true, stopPrefix, saltedAndTypedStopKey, trailingStopKeys); // exclusive
 		return new RowRange(startRow, true, stopRow, false);
 	}
 
