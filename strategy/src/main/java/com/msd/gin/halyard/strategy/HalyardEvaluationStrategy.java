@@ -86,6 +86,8 @@ import org.eclipse.rdf4j.rio.RDFHandlerException;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Provides an efficient asynchronous parallel push {@code EvaluationStrategy} implementation for query evaluation in Halyard. This is the default strategy
@@ -93,6 +95,8 @@ import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
  * @author Adam Sotona (MSD)
  */
 public class HalyardEvaluationStrategy implements EvaluationStrategy {
+	private static final Logger LOGGER = LoggerFactory.getLogger(HalyardEvaluationStrategy.class);
+
 	private final StrategyConfig config;
 	/**
 	 * Used to allow queries across more than one Halyard datasets
@@ -370,6 +374,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 					return tripleSource.hasStatement(nq.subj, nq.pred, nq.obj, nq.ctxs);
 				}
 			} catch (InvalidConstraintException constraintEx) {
+    			LOGGER.warn("Invalid constraint", constraintEx);
 				return false;
 			}
 		} else {

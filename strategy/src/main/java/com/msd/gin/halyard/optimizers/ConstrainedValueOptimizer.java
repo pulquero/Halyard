@@ -15,6 +15,7 @@ import com.msd.gin.halyard.query.algebra.VarConstraint;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +74,9 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 		}
 
 		private void processGraphPattern(ConstraintCollector gpc) {
-			for (StatementPattern sp: gpc.getStatementPatterns()) {
+			List<StatementPattern> sps = gpc.getStatementPatterns();
+			sps.sort(UnboundVarComparator.INSTANCE);
+			for (StatementPattern sp: sps) {
 				Var svar = sp.getSubjectVar();
 				Var pvar = sp.getPredicateVar();
 				Var ovar = sp.getObjectVar();
@@ -362,5 +365,31 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 			constraint = null;
 		}
 		return constraint;
+	}
+
+	static final class UnboundVarComparator implements Comparator<StatementPattern> {
+		static final UnboundVarComparator INSTANCE = new UnboundVarComparator();
+
+		@Override
+		public int compare(StatementPattern o1, StatementPattern o2) {
+			return unknownCount(o1) - unknownCount(o2);
+		}
+
+		static int unknownCount(StatementPattern sp) {
+			int count = 0;
+			if (!sp.getSubjectVar().hasValue()) {
+				count++;
+			}
+			if (!sp.getPredicateVar().hasValue()) {
+				count++;
+			}
+			if (!sp.getObjectVar().hasValue()) {
+				count++;
+			}
+			if (sp.getContextVar() == null || !sp.getContextVar().hasValue()) {
+				count++;
+			}
+			return count;
+		}
 	}
 }

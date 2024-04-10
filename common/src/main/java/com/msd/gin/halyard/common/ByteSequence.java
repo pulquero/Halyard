@@ -39,4 +39,38 @@ public abstract class ByteSequence {
 	public String toString() {
 		return Arrays.toString(copyBytes());
 	}
+
+
+	public static ByteSequence concat(ByteSequence b1, ByteSequence b2) {
+		return new ByteSequence() {
+			@Override
+			public ByteBuffer writeTo(ByteBuffer bb) {
+				b1.writeTo(bb);
+				b2.writeTo(bb);
+				return bb;
+			}
+
+			@Override
+			public int size() {
+				return b1.size() + b2.size();
+			}
+		};
+	}
+
+	public static ByteSequence concat(ByteSequence b1, ByteSequence b2, ByteSequence b3) {
+		return new ByteSequence() {
+			@Override
+			public ByteBuffer writeTo(ByteBuffer bb) {
+				b1.writeTo(bb);
+				b2.writeTo(bb);
+				b3.writeTo(bb);
+				return bb;
+			}
+
+			@Override
+			public int size() {
+				return b1.size() + b2.size() + b3.size();
+			}
+		};
+	}
 }

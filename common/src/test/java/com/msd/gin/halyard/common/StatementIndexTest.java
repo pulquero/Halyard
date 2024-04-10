@@ -1,11 +1,14 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.LiteralConstraint;
 import com.msd.gin.halyard.model.ValueConstraint;
 import com.msd.gin.halyard.model.ValueType;
 import com.msd.gin.halyard.model.vocabulary.SCHEMA_ORG;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.model.vocabulary.RDFS;
+import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,7 +47,24 @@ public class StatementIndexTest {
 	}
 
 	@Test
-	public void testScanRange() {
+	public void testScanRange_pNxx() {
+		StatementIndices indices = StatementIndices.create();
+		StatementIndex<SPOC.P,SPOC.O,SPOC.S,SPOC.C> pos = indices.getPOSIndex();
+		RDFFactory rdfFactory = indices.getRDFFactory();
+		int emptyScanCount = 0;
+		int numPartitions = 64;
+		int nbits = StatementIndices.powerOf2BitCount(numPartitions);
+		for (int i=0; i<numPartitions; i++) {
+			Scan scan = pos.scanWithConstraint(rdfFactory.createPredicate(RDFS.LABEL), i, nbits, new LiteralConstraint(XSD.STRING), null, null);
+			if (scan == null) {
+				emptyScanCount++;
+			}
+		}
+		assertEquals(48, emptyScanCount);
+	}
+
+	@Test
+	public void testScanRange_poNx() {
 		StatementIndices indices = StatementIndices.create();
 		StatementIndex<SPOC.P,SPOC.O,SPOC.S,SPOC.C> pos = indices.getPOSIndex();
 		RDFFactory rdfFactory = indices.getRDFFactory();
@@ -53,6 +73,40 @@ public class StatementIndexTest {
 		int nbits = StatementIndices.powerOf2BitCount(numPartitions);
 		for (int i=0; i<numPartitions; i++) {
 			Scan scan = pos.scanWithConstraint(rdfFactory.createPredicate(RDF.TYPE), rdfFactory.createObject(SCHEMA_ORG.PERSON), i, nbits, new ValueConstraint(ValueType.IRI), null);
+			if (scan == null) {
+				emptyScanCount++;
+			}
+		}
+		assertEquals(48, emptyScanCount);
+	}
+
+	@Test
+	public void testScanRange_pxNx() {
+		StatementIndices indices = StatementIndices.create();
+		StatementIndex<SPOC.P,SPOC.O,SPOC.S,SPOC.C> pos = indices.getPOSIndex();
+		RDFFactory rdfFactory = indices.getRDFFactory();
+		int emptyScanCount = 0;
+		int numPartitions = 64;
+		int nbits = StatementIndices.powerOf2BitCount(numPartitions);
+		for (int i=0; i<numPartitions; i++) {
+			Scan scan = pos.scanWithConstraint(rdfFactory.createPredicate(RDF.TYPE), null, i, nbits, new ValueConstraint(ValueType.TRIPLE), null);
+			if (scan == null) {
+				emptyScanCount++;
+			}
+		}
+		assertEquals(0, emptyScanCount);
+	}
+
+	@Test
+	public void testScanRange_oNpx() {
+		StatementIndices indices = StatementIndices.create();
+		StatementIndex<SPOC.O,SPOC.S,SPOC.P,SPOC.C> osp = indices.getOSPIndex();
+		RDFFactory rdfFactory = indices.getRDFFactory();
+		int emptyScanCount = 0;
+		int numPartitions = 64;
+		int nbits = StatementIndices.powerOf2BitCount(numPartitions);
+		for (int i=0; i<numPartitions; i++) {
+			Scan scan = osp.scanWithConstraint(rdfFactory.createObject(SCHEMA_ORG.PERSON), i, nbits, new ValueConstraint(ValueType.BNODE), rdfFactory.createPredicate(RDF.TYPE), null);
 			if (scan == null) {
 				emptyScanCount++;
 			}

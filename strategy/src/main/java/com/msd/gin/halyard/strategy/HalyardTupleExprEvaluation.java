@@ -383,6 +383,7 @@ final class HalyardTupleExprEvaluation {
                     parent.handleException(e);
                 }
     		} catch (InvalidConstraintException constraintEx) {
+    			LOGGER.warn("Invalid constraint", constraintEx);
     			parent.close(); // nothing to push
     		}
 		} else {

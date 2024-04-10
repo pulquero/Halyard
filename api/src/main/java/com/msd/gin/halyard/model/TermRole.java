@@ -9,6 +9,8 @@ package com.msd.gin.halyard.model;
 
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.query.algebra.StatementPattern;
+import org.eclipse.rdf4j.query.algebra.Var;
 
 public enum TermRole {
 	SUBJECT {
@@ -20,6 +22,10 @@ public enum TermRole {
 		public Value getValue(Statement s) {
 			return s.getSubject();
 		}
+		@Override
+		public Var getVar(StatementPattern sp) {
+			return sp.getSubjectVar();
+		}
 	},
 	PREDICATE {
 		@Override
@@ -29,6 +35,10 @@ public enum TermRole {
 		@Override
 		public Value getValue(Statement s) {
 			return s.getPredicate();
+		}
+		@Override
+		public Var getVar(StatementPattern sp) {
+			return sp.getPredicateVar();
 		}
 	},
 	OBJECT {
@@ -40,6 +50,10 @@ public enum TermRole {
 		public Value getValue(Statement s) {
 			return s.getObject();
 		}
+		@Override
+		public Var getVar(StatementPattern sp) {
+			return sp.getObjectVar();
+		}
 	},
 	CONTEXT {
 		@Override
@@ -50,8 +64,13 @@ public enum TermRole {
 		public Value getValue(Statement s) {
 			return s.getContext();
 		}
+		@Override
+		public Var getVar(StatementPattern sp) {
+			return sp.getContextVar();
+		}
 	};
 
 	public abstract <E> E getValue(E s, E p, E o, E c);
 	public abstract Value getValue(Statement s);
+	public abstract Var getVar(StatementPattern sp);
 }

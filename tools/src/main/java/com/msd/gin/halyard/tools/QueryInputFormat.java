@@ -16,7 +16,26 @@
  */
 package com.msd.gin.halyard.tools;
 
+import com.msd.gin.halyard.common.IdValueFactory;
+import com.msd.gin.halyard.common.RDFContext;
+import com.msd.gin.halyard.common.RDFFactory;
+import com.msd.gin.halyard.common.RDFObject;
+import com.msd.gin.halyard.common.RDFPredicate;
+import com.msd.gin.halyard.common.RDFSubject;
+import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.model.ValueConstraint;
+import com.msd.gin.halyard.optimizers.ConstrainedValueOptimizer;
+import com.msd.gin.halyard.optimizers.InvalidConstraintException;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.BGPCollector;
+import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
+import com.msd.gin.halyard.query.algebra.ExtendedQueryRoot;
+import com.msd.gin.halyard.query.algebra.ExtendedTupleFunctionCall;
+import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.VarConstraint;
+import com.msd.gin.halyard.query.algebra.evaluation.PartitionedIndex;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ParallelSplitFunction;
+import com.msd.gin.halyard.strategy.HalyardQueryOptimizerPipeline;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -24,6 +43,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.IntPredicate;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -41,16 +61,38 @@ import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.util.StringUtils;
+import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.Dataset;
+import org.eclipse.rdf4j.query.QueryLanguage;
+import org.eclipse.rdf4j.query.algebra.Extension;
+import org.eclipse.rdf4j.query.algebra.Filter;
+import org.eclipse.rdf4j.query.algebra.Join;
+import org.eclipse.rdf4j.query.algebra.Modify;
+import org.eclipse.rdf4j.query.algebra.Projection;
+import org.eclipse.rdf4j.query.algebra.QueryModelNode;
+import org.eclipse.rdf4j.query.algebra.QueryRoot;
+import org.eclipse.rdf4j.query.algebra.StatementPattern;
+import org.eclipse.rdf4j.query.algebra.TupleExpr;
+import org.eclipse.rdf4j.query.algebra.UpdateExpr;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
+import org.eclipse.rdf4j.query.parser.ParsedQuery;
+import org.eclipse.rdf4j.query.parser.ParsedUpdate;
+import org.eclipse.rdf4j.query.parser.QueryParserUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
 final class QueryInputFormat extends InputFormat<NullWritable, Void> {
+	private static final Logger LOGGER = LoggerFactory.getLogger(QueryInputFormat.class);
 
-    public static final String QUERIES = "mapreduce.input.queryinputformat.queries";
-    public static final String PREFIX = "mapreduce.input.queryinputformat.";
+    public static final String PREFIX =  "mapreduce.input.queryinputformat.";
+    public static final String QUERIES = PREFIX + "queries";
+    public static final String STAGE = PREFIX + "stage";
     public static final String QUERY_SUFFIX = ".query";
     public static final String REPEAT_SUFFIX = ".repeat";
 
@@ -109,13 +151,22 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
 
     @Override
     public List<InputSplit> getSplits(JobContext context) throws IOException, InterruptedException {
-        ArrayList<InputSplit> splits = new ArrayList<>();
+        List<InputSplit> splits = new ArrayList<>();
         Configuration conf = context.getConfiguration();
+        RDFFactory rdfFactory = RDFFactory.create(conf);
+        StatementIndices stmtIndices = new StatementIndices(conf, rdfFactory);
+        int stage = conf.getInt(STAGE, -1);
         for (String qName : conf.getStringCollection(QUERIES)) {
             int repeatCount = conf.getInt(PREFIX + qName + REPEAT_SUFFIX, 1);
             String query = conf.get(PREFIX + qName + QUERY_SUFFIX);
+
+        	BindingSet bindings = AbstractHalyardTool.getBindings(conf, new IdValueFactory(rdfFactory));
+            IntPredicate indexFilter = getIndexFilter(qName, query, stage, stmtIndices, bindings);
+
             for (int i=0; i<repeatCount; i++) {
-                splits.add(new QueryInputSplit(qName, query , i));
+            	if (indexFilter == null || indexFilter.test(i)) {
+            		splits.add(new QueryInputSplit(qName, query, i));
+            	}
             }
         }
         return splits;
@@ -215,5 +266,128 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
             query = in.readUTF();
             repeatIndex = in.readInt();
         }
+    }
+
+    private static IntPredicate getIndexFilter(String queryName, String query, int stage, StatementIndices stmtIndices, BindingSet bindings) {
+        TupleExpr where;
+        Dataset dataset;
+        if (stage >= 0) {
+            ParsedUpdate pu = QueryParserUtil.parseUpdate(QueryLanguage.SPARQL, query, null);
+            UpdateExpr expr = pu.getUpdateExprs().get(stage);
+            if (expr instanceof Modify) {
+            	where = ((Modify)expr).getWhereExpr();
+            	dataset = pu.getDatasetMapping().get(expr);
+            } else {
+            	where = null;
+            	dataset = null;
+            }
+        } else {
+            ParsedQuery pq = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, query, null);
+            where = pq.getTupleExpr();
+            dataset = pq.getDataset();
+        }
+
+        IntPredicate indexFilter = null;
+        if (where != null) {
+        	where = new ExtendedQueryRoot(where);
+        	for (QueryOptimizer optimizer : HalyardQueryOptimizerPipeline.getConstraintValueOptimizerPipeline()) {
+        		optimizer.optimize(where, dataset, bindings);
+        	}
+			LOGGER.info("Query {}:\n{}", queryName, where);
+
+        	List<ConstrainedStatementPattern> partitionedCSPs = new ArrayList<>();
+        	where.visit(new SkipVarsQueryModelVisitor<RuntimeException>() {
+        		@Override
+        		public void meet(Join node) {
+        			BGPCollector<RuntimeException> collector = new BGPCollector<>(this);
+        			node.visit(collector);
+        			for (StatementPattern sp : collector.getStatementPatterns()) {
+        				if (sp instanceof ConstrainedStatementPattern) {
+        					ConstrainedStatementPattern csp = (ConstrainedStatementPattern) sp;
+        					VarConstraint varConstraint = csp.getConstraint();
+        					if (varConstraint.isPartitioned() && varConstraint.getValueType() != null) {
+        						partitionedCSPs.add(csp);
+        					}
+        				}
+        			}
+        		}
+
+        		@Override
+        		public void meet(QueryRoot node) {
+        			node.getArg().visit(this);
+        		}
+
+        		@Override
+        		public void meet(Projection node) {
+        			node.getArg().visit(this);
+        		}
+
+        		@Override
+        		public void meet(Filter node) {
+        			node.getArg().visit(this);
+        		}
+
+        		@Override
+        		public void meet(Extension node) {
+        			node.getArg().visit(this);
+        		}
+
+        		@Override
+        		public void meet(ExtendedTupleFunctionCall node) {
+        			node.getDependentExpression().visit(this);
+        		}
+
+        		@Override
+        		protected void meetNode(QueryModelNode node) {
+        			// stop visiting
+        		}
+        	});
+
+        	if (!partitionedCSPs.isEmpty()) {
+        		RDFFactory rdfFactory = stmtIndices.getRDFFactory();
+        		IntPredicate[] subFilters = new IntPredicate[partitionedCSPs.size()];
+        		for (int i=0; i<subFilters.length; i++) {
+        			ConstrainedStatementPattern csp = partitionedCSPs.get(i);
+					VarConstraint varConstraint = csp.getConstraint();
+	        		PartitionedIndex partitionedIndex = new PartitionedIndex(csp.getIndexToPartition(), varConstraint.getPartitionCount());
+	        		try {
+	        			ValueConstraint constraint = ConstrainedValueOptimizer.toValueConstraint(varConstraint, bindings);
+	            		RDFSubject subj = rdfFactory.createSubject((Resource) Algebra.getVarValue(csp.getSubjectVar(), bindings));
+	            		RDFPredicate pred = rdfFactory.createPredicate((IRI) Algebra.getVarValue(csp.getPredicateVar(), bindings));
+	            		RDFObject obj = rdfFactory.createObject(Algebra.getVarValue(csp.getPredicateVar(), bindings));
+	            		RDFContext ctx = rdfFactory.createContext((Resource) Algebra.getVarValue(csp.getPredicateVar(), bindings));
+	            		subFilters[i] = idx ->
+		            		stmtIndices.scanWithConstraint(subj, pred, obj, ctx,
+		            		csp.getConstrainedRole(), idx, partitionedIndex, constraint) != null;
+	        		} catch (InvalidConstraintException constraintEx) {
+	        			LOGGER.warn("Invalid constraint", constraintEx);
+	        			indexFilter = idx -> false;
+	        			break;
+	        		}
+        		}
+        		if (indexFilter == null) {
+        			indexFilter = (subFilters.length > 1) ? new AndIntPredicate(subFilters) : subFilters[0];
+        		}
+        	}
+        }
+        return indexFilter;
+    }
+
+    static class AndIntPredicate implements IntPredicate {
+    	final IntPredicate[] preds;
+
+    	AndIntPredicate(IntPredicate... preds) {
+    		this.preds = preds;
+    	}
+
+    	@Override
+    	public boolean test(int x) {
+			for (int i=0; i<preds.length; i++) {
+				if (!preds[i].test(i)) {
+					return false;
+				}
+			}
+			return true;
+    	}
     }
 }

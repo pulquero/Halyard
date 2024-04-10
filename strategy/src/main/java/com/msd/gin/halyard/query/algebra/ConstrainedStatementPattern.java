@@ -5,6 +5,9 @@ import com.msd.gin.halyard.model.TermRole;
 
 import java.util.Objects;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.Var;
 
@@ -12,9 +15,9 @@ public final class ConstrainedStatementPattern extends StatementPattern {
 
 	private static final long serialVersionUID = -1551292826547140642L;
 
-	private StatementIndex.Name indexToPartition;
-	private TermRole constrainedRole;
-	private VarConstraint constraint;
+	private @Nullable StatementIndex.Name indexToPartition;
+	private @Nonnull TermRole constrainedRole;
+	private @Nonnull VarConstraint constraint;
 
 	public ConstrainedStatementPattern(StatementPattern sp, StatementIndex.Name indexToPartition, TermRole constrainedRole, VarConstraint constraint) {
 		this(sp.getScope(), sp.getSubjectVar().clone(), sp.getPredicateVar().clone(), sp.getObjectVar().clone(), sp.getContextVar() != null ? sp.getContextVar().clone() : null, indexToPartition, constrainedRole, constraint);
@@ -40,14 +43,17 @@ public final class ConstrainedStatementPattern extends StatementPattern {
 		return constrainedRole;
 	}
 
+	public Var getConstrainedVar() {
+		return constrainedRole.getVar(this);
+	}
+
 	public VarConstraint getConstraint() {
 		return constraint;
 	}
 
 	@Override
 	public String getSignature() {
-		Var constrainedVar = constrainedRole.getValue(this.getSubjectVar(), this.getPredicateVar(), this.getObjectVar(), this.getContextVar());
-		return super.getSignature() + " [" + (indexToPartition!=null ? indexToPartition+" " : "") + "?" + constrainedVar.getName() + " is " + constraint + "]";
+		return super.getSignature() + " [" + (indexToPartition!=null ? indexToPartition+" " : "") + "?" + getConstrainedVar().getName() + " is " + constraint + "]";
 	}
 
 	@Override

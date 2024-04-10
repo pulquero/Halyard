@@ -94,7 +94,6 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
     private static final String TOOL_NAME = "bulkupdate";
 
     private static final String TABLE_NAME_PROPERTY = confProperty(TOOL_NAME, "table.name");
-    private static final String STAGE_PROPERTY = confProperty(TOOL_NAME, "update.stage");
     private static final int MAX_STATUS_UPDATE_INTERVAL = 10000;
 
     enum Counters {
@@ -124,7 +123,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
             Configuration conf = context.getConfiguration();
             tableName = conf.get(TABLE_NAME_PROPERTY);
             timestamp = conf.getLong(TIMESTAMP_PROPERTY, System.currentTimeMillis());
-            stage = conf.getInt(STAGE_PROPERTY, 0);
+            stage = conf.getInt(QueryInputFormat.STAGE, 0);
             final QueryInputFormat.QueryInputSplit qis = (QueryInputFormat.QueryInputSplit)context.getInputSplit();
             final String query = qis.getQuery();
             queryName = qis.getQueryName();
@@ -352,7 +351,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         int stages = 1;
         for (int stage = 0; stage < stages; stage++) {
             Job job = Job.getInstance(conf, "HalyardBulkUpdate -> " + workdir + " -> " + source + " stage #" + stage);
-            job.getConfiguration().setInt(STAGE_PROPERTY, stage);
+            job.getConfiguration().setInt(QueryInputFormat.STAGE, stage);
             job.setJarByClass(HalyardBulkUpdate.class);
             job.setMapperClass(SPARQLUpdateMapper.class);
             job.setMapOutputKeyClass(ImmutableBytesWritable.class);
@@ -377,7 +376,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                         if (updates > stages) {
                             stages = updates;
                         }
-                        LOG.info("{} contains {} stages of the update sequence.", qis.getQueryName(), updates);
+                        LOG.info("{} split {} contains {} stages of the update sequence.", qis.getQueryName(), qis.getRepeatIndex(), updates);
                     }
                     LOG.info("Bulk Update will process {} MapReduce stages.", stages);
                 }

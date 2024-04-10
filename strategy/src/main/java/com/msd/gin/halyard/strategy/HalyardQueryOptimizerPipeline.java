@@ -40,6 +40,8 @@ import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.StandardQueryOptimiz
 * @author Adam Sotona
 */
 public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeline {
+	private final static ConstrainedValueOptimizer CONSTRAINED_VALUE_OPTIMIZER = new ConstrainedValueOptimizer();
+
 	private final ExtendedEvaluationStatistics statistics;
 	private final EvaluationStrategy strategy;
 	private final ValueFactory valueFactory;
@@ -78,7 +80,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 			StandardQueryOptimizerPipeline.UNION_SCOPE_CHANGE_OPTIMIZER,
 			StandardQueryOptimizerPipeline.QUERY_MODEL_NORMALIZER,
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
-			new ConstrainedValueOptimizer(),
+			CONSTRAINED_VALUE_OPTIMIZER,
 			starJoinOptimizer,
 			(statistics instanceof HalyardEvaluationStatistics) ? new HalyardQueryJoinOptimizer((HalyardEvaluationStatistics) statistics) : new QueryJoinOptimizer(statistics),
 			naryUnionOptimizer,
@@ -87,5 +89,20 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 			StandardQueryOptimizerPipeline.ORDER_LIMIT_OPTIMIZER,
 			joinAlgoOptimizer
 		));
+	}
+
+	public static Iterable<QueryOptimizer> getConstraintValueOptimizerPipeline() {
+		return Arrays.asList(
+			ExtendedQueryOptimizerPipeline.BINDING_ASSIGNER,
+			StandardQueryOptimizerPipeline.BINDING_SET_ASSIGNMENT_INLINER,
+			StandardQueryOptimizerPipeline.COMPARE_OPTIMIZER,
+			StandardQueryOptimizerPipeline.CONJUNCTIVE_CONSTRAINT_SPLITTER,
+			StandardQueryOptimizerPipeline.DISJUNCTIVE_CONSTRAINT_OPTIMIZER,
+			StandardQueryOptimizerPipeline.SAME_TERM_FILTER_OPTIMIZER,
+			StandardQueryOptimizerPipeline.UNION_SCOPE_CHANGE_OPTIMIZER,
+			StandardQueryOptimizerPipeline.QUERY_MODEL_NORMALIZER,
+			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
+			CONSTRAINED_VALUE_OPTIMIZER
+		);
 	}
 }
