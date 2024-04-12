@@ -506,7 +506,7 @@ public final class StatementIndices {
     	} else {
     		StatementIndex<?,?,?,?> partitionedStmtIndex;
     		int partitionCountBits;
-    		if (partitionedIndex != null) {
+    		if (partition != NO_PARTITIONING && partitionedIndex != null) {
     			partitionedStmtIndex = indices.get(partitionedIndex.getIndexOrdering());
     			partitionCountBits = powerOf2BitCount(partitionedIndex.getPartitionCount());
     		} else {
@@ -516,7 +516,7 @@ public final class StatementIndices {
     		RDFValue<?,?> constrainedValue = role.getValue(subj, pred, obj, ctx);
 			if (constrainedValue != null) {
 				// validate constraints if value is known ahead-of-time
-				if (partitionedIndex != null && !partitionedStmtIndex.isInPartition(constrainedValue, role, partition, partitionCountBits)) {
+				if (partitionedStmtIndex != null && !partitionedStmtIndex.isInPartition(constrainedValue, role, partition, partitionCountBits)) {
 					return null;
 				}
 				if (constraint != null && !constraint.test(constrainedValue.val)) {
@@ -525,7 +525,7 @@ public final class StatementIndices {
 				return scan(subj, pred, obj, ctx);
 			} else {
 				StatementIndex<?,?,?,?> indexToUse;
-				if (partitionedIndex != null) {
+				if (partitionedStmtIndex != null) {
 					indexToUse = partitionedStmtIndex;
 				} else {
 					// constraint only - no partitioning

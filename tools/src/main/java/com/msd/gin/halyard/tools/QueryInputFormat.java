@@ -293,7 +293,6 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
         	for (QueryOptimizer optimizer : HalyardQueryOptimizerPipeline.getConstraintValueOptimizerPipeline()) {
         		optimizer.optimize(where, dataset, bindings);
         	}
-			LOGGER.info("Query {}:\n{}", queryName, where);
 
         	List<ConstrainedStatementPattern> partitionedCSPs = new ArrayList<>();
         	where.visit(new SkipVarsQueryModelVisitor<RuntimeException>() {
@@ -354,8 +353,8 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
 	        			ValueConstraint constraint = ConstrainedValueOptimizer.toValueConstraint(varConstraint, bindings);
 	            		RDFSubject subj = rdfFactory.createSubject((Resource) Algebra.getVarValue(csp.getSubjectVar(), bindings));
 	            		RDFPredicate pred = rdfFactory.createPredicate((IRI) Algebra.getVarValue(csp.getPredicateVar(), bindings));
-	            		RDFObject obj = rdfFactory.createObject(Algebra.getVarValue(csp.getPredicateVar(), bindings));
-	            		RDFContext ctx = rdfFactory.createContext((Resource) Algebra.getVarValue(csp.getPredicateVar(), bindings));
+	            		RDFObject obj = rdfFactory.createObject(Algebra.getVarValue(csp.getObjectVar(), bindings));
+	            		RDFContext ctx = rdfFactory.createContext((Resource) Algebra.getVarValue(csp.getContextVar(), bindings));
 	            		subFilters[i] = idx ->
 		            		stmtIndices.scanWithConstraint(subj, pred, obj, ctx,
 		            		csp.getConstrainedRole(), idx, partitionedIndex, constraint) != null;

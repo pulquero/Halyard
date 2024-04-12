@@ -581,42 +581,46 @@ public final class HttpSparqlHandler implements HttpHandler {
      * @throws GeneralSecurityException 
      */
     private void evaluateQuery(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
-    	if (sparqlQuery.target != null) {
-    		if (sparqlQuery.mapReduce) {
-                validateMapReduce(sparqlQuery);
-                if (!(repository instanceof HBaseRepository)) {
-                	throw new InvalidRequestException(String.format("MapReduce is not supported on %s", repository.getClass().getName()));
-                }
-        		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
-        		List<HalyardBulkExport.JsonInfo> infos = HalyardBulkExport.executeExport(sail.getConfiguration(), sail.getTableName(), sparqlQuery.getQuery(), sparqlQuery.target, sparqlQuery.bindings);
-        		sendMapReduceResults(exchange, infos);
-    		} else {
+		if (sparqlQuery.mapReduce) {
+	    	if (sparqlQuery.target != null) {
+	            validateMapReduce(sparqlQuery);
+	            if (!(repository instanceof HBaseRepository)) {
+	            	throw new InvalidRequestException(String.format("MapReduce is not supported on %s", repository.getClass().getName()));
+	            }
+	    		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
+	    		List<HalyardBulkExport.JsonInfo> infos = HalyardBulkExport.executeExport(sail.getConfiguration(), sail.getTableName(), sparqlQuery.getQuery(), sparqlQuery.target, sparqlQuery.bindings);
+	    		sendMapReduceResults(exchange, infos);
+	    	} else {
+	    		throw new InvalidRequestException("Map-reduce without a target is currently not supported");
+	    	}
+		} else {
+			if (sparqlQuery.target != null) {
     			List<JsonExportInfo> infos = executeExport(sparqlQuery);
     			sendResults(exchange, infos);
-    		}
-    	} else {
-    		QueryEvaluator<?,?,?> evaluator = getQueryEvaluator(sparqlQuery.getQuery(), exchange);
-            OutputStream response;
-            try(SailRepositoryConnection connection = repository.getConnection()) {
-            	connection.begin();
-    	        SailQuery query = connection.prepareQuery(QueryLanguage.SPARQL, sparqlQuery.getQuery(), null);
-    	        addBindings(query, sparqlQuery.getBindings());
-    	        Dataset dataset = sparqlQuery.getDataset();
-    	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
-    	            // This will include default graphs and named graphs from  the request parameters but default graphs and
-    	            // named graphs contained in the string query will be ignored
-    	            query.getParsedQuery().setDataset(dataset);
-    	        }
-
-    	        evaluator.setContentType(exchange);
-                exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
-                response = new BufferedOutputStream(exchange.getResponseBody());
-	            LOGGER.info("Evaluating query:\nBindings: {}\n{}", sparqlQuery.getBindings(), sparqlQuery.getQuery());
-    	        evaluator.evaluate(query, response);
-    	        connection.commit();
-        	}
-            // commit the response *after* closing the connection
-            response.close();
+			} else {
+	    		QueryEvaluator<?,?,?> evaluator = getQueryEvaluator(sparqlQuery.getQuery(), exchange);
+	            OutputStream response;
+	            try(SailRepositoryConnection connection = repository.getConnection()) {
+	            	connection.begin();
+	    	        SailQuery query = connection.prepareQuery(QueryLanguage.SPARQL, sparqlQuery.getQuery(), null);
+	    	        addBindings(query, sparqlQuery.getBindings());
+	    	        Dataset dataset = sparqlQuery.getDataset();
+	    	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
+	    	            // This will include default graphs and named graphs from  the request parameters but default graphs and
+	    	            // named graphs contained in the string query will be ignored
+	    	            query.getParsedQuery().setDataset(dataset);
+	    	        }
+	
+	    	        evaluator.setContentType(exchange);
+	                exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
+	                response = new BufferedOutputStream(exchange.getResponseBody());
+		            LOGGER.info("Evaluating query:\nBindings: {}\n{}", sparqlQuery.getBindings(), sparqlQuery.getQuery());
+	    	        evaluator.evaluate(query, response);
+	    	        connection.commit();
+	        	}
+	            // commit the response *after* closing the connection
+	            response.close();
+			}
     	}
        	LOGGER.info("Query successfully processed");
     }
