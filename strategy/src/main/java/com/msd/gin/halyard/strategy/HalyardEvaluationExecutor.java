@@ -325,7 +325,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
         @Override
         protected void handleClose() throws QueryEvaluationException {
             super.handleClose();
-            pipe.stoppedPolling();
+            pipe.close();
         }
 
         @Override

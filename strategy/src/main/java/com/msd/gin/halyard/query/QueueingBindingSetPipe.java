@@ -41,7 +41,7 @@ public final class QueueingBindingSetPipe extends BindingSetPipe {
 				}, pollTimeout, unit);
 			}
 		} finally {
-			stoppedPolling();
+			sendMore = false;
 		}
 	}
 
@@ -86,10 +86,6 @@ public final class QueueingBindingSetPipe extends BindingSetPipe {
 		}
 		return recvds;
     }
-
-	public void stoppedPolling() {
-		sendMore = false;
-	}
 
 	private boolean addToQueue(Object bs) {
 		if (!sendMore) {
