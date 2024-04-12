@@ -330,12 +330,13 @@ class HalyardValueExprEvaluation {
         if (value != null) {
 	    	return new ConstantValuePipeEvaluationStep(value);
         } else {
+        	String varName = var.getName();
 	    	return (parent, bindings) -> {
-		        Value bvalue = bindings.getValue(var.getName());
+		        Value bvalue = bindings.getValue(varName);
 		        if (bvalue != null) {
 		        	parent.push(bvalue);
 		        } else {
-		            parent.handleValueError(String.format("Var %s has no value (%s)", var.getName(), bindings));
+		            parent.handleValueError(String.format("Var %s has no value (%s)", varName, bindings));
 		        }
 	    	};
         }

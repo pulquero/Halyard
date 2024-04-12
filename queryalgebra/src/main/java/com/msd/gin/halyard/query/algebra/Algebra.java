@@ -9,6 +9,7 @@ import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.SingletonSet;
+import org.eclipse.rdf4j.query.algebra.SubQueryValueOperator;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.UnaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.Union;
@@ -104,6 +105,19 @@ public final class Algebra {
 
 	public static boolean isFree(Var var) {
 		return !var.isAnonymous() && !var.hasValue();
+	}
+
+	public static boolean isPartOfSubQuery(QueryModelNode node) {
+		if (node instanceof SubQueryValueOperator) {
+			return true;
+		}
+
+		QueryModelNode parent = node.getParentNode();
+		if (parent == null) {
+			return false;
+		} else {
+			return isPartOfSubQuery(parent);
+		}
 	}
 
 	/**

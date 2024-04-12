@@ -956,12 +956,27 @@ final class HalyardTupleExprEvaluation {
      */
     private BindingSetPipeEvaluationStep precompileFilter(final Filter filter, QueryEvaluationContext evalContext) {
         BindingSetPipeEvaluationStep argStep = precompileTupleExpr(filter.getArg(), evalContext);
-        ValuePipeQueryValueEvaluationStep conditionStep = parentStrategy.precompile(filter.getCondition(), evalContext);
+        ValuePipeQueryValueEvaluationStep conditionStep;
+        try {
+        	conditionStep = parentStrategy.precompile(filter.getCondition(), evalContext);
+        } catch (QueryEvaluationException ex) {
+        	return (parent, bindings) -> {
+        		parent = parentStrategy.track(parent, filter);
+    			parent.close(); // nothing to push
+        	};
+        }
+        Function<BindingSet,BindingSet> retain;
+        if (!Algebra.isPartOfSubQuery(filter)) {
+        	retain = buildRetainFunction(filter);
+        } else {
+        	retain = Function.identity();
+        }
         return (parent, bindings) -> {
 	        argStep.evaluate(new PipeJoin(parentStrategy.track(parent, filter)) {
 	            @Override
 	            protected boolean next(BindingSet bs) {
                     startSecondaryPipe();
+                    BindingSet scopeBindings = retain.apply(bs);
                     parentStrategy.isTrue(conditionStep, new BindingSetValuePipe(parent) {
 	            		@Override
 	            		protected void next(Value v) {
@@ -977,7 +992,7 @@ final class HalyardTupleExprEvaluation {
 	            			// ignore - failed to evaluate condition
 	            			endSecondaryPipe();
 	            		}
-	            	}, bs);
+	            	}, scopeBindings);
 	            	return !parent.isClosed();
 	            }
 	            @Override
@@ -987,6 +1002,20 @@ final class HalyardTupleExprEvaluation {
 	        }, bindings);
 	    };
     }
+
+    private static Function<BindingSet, BindingSet> buildRetainFunction(Filter filter) {
+		final Set<String> bindingNames = filter.getBindingNames();
+		return (bs) -> {
+			QueryBindingSet nbs = new QueryBindingSet(bindingNames.size()+1);
+			for (String bindingName : bindingNames) {
+				Value v = bs.getValue(bindingName);
+				if (v != null) {
+					nbs.setBinding(bindingName, v);
+				}
+			}
+			return nbs;
+		};
+	}
 
     /**
      * Precompile {@link DescribeOperator} query model nodes
