@@ -22,6 +22,7 @@ import com.msd.gin.halyard.optimizers.HalyardConstantOptimizer;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.HalyardQueryJoinOptimizer;
 import com.msd.gin.halyard.optimizers.JoinAlgorithmOptimizer;
+import com.msd.gin.halyard.optimizers.LeftStarJoinOptimizer;
 import com.msd.gin.halyard.optimizers.NAryUnionOptimizer;
 import com.msd.gin.halyard.optimizers.QueryJoinOptimizer;
 import com.msd.gin.halyard.optimizers.StarJoinOptimizer;
@@ -46,6 +47,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 	private final EvaluationStrategy strategy;
 	private final ValueFactory valueFactory;
 	private final StarJoinOptimizer starJoinOptimizer;
+	private final LeftStarJoinOptimizer leftStarJoinOptimizer;
 	private final NAryUnionOptimizer naryUnionOptimizer;
 	private final JoinAlgorithmOptimizer joinAlgoOptimizer;
 
@@ -53,8 +55,10 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 		this.strategy = strategy;
 		this.valueFactory = valueFactory;
 		this.statistics = statistics;
-		int minJoins = strategy.getConfig().starJoinMinJoins;
-		this.starJoinOptimizer = new StarJoinOptimizer(minJoins);
+		int sjMinJoins = strategy.getConfig().starJoinMinJoins;
+		this.starJoinOptimizer = new StarJoinOptimizer(sjMinJoins);
+		int lsjMinJoins = strategy.getConfig().leftStarJoinMinJoins;
+		this.leftStarJoinOptimizer = new LeftStarJoinOptimizer(lsjMinJoins);
 		int minUnions = strategy.getConfig().naryUnionMinUnions;
 		this.naryUnionOptimizer = new NAryUnionOptimizer(minUnions);
 		int hashJoinLimit = strategy.getConfig().hashJoinLimit;
@@ -82,6 +86,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
 			CONSTRAINED_VALUE_OPTIMIZER,
 			starJoinOptimizer,
+			leftStarJoinOptimizer,
 			(statistics instanceof HalyardEvaluationStatistics) ? new HalyardQueryJoinOptimizer((HalyardEvaluationStatistics) statistics) : new QueryJoinOptimizer(statistics),
 			naryUnionOptimizer,
 			ExtendedQueryOptimizerPipeline.ITERATIVE_EVALUATION_OPTIMIZER,

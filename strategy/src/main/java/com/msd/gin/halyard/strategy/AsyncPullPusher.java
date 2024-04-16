@@ -6,6 +6,7 @@ import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -62,12 +63,13 @@ final class AsyncPullPusher implements PullPusher {
      * @param evalStep query step to evaluate
      * @param node an implementation of any {@TupleExpr} sub-type
      * @param bs binding set
-     * @param strategy
+     * @param trackerFactory
      */
 	@Override
 	public void pullPush(BindingSetPipe pipe,
 			QueryEvaluationStep evalStep,
-			TupleExpr node, BindingSet bs, HalyardEvaluationStrategy strategy) {
+			TupleExpr node, BindingSet bs,
+			Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
 		double sizeEstimate = node.getResultSizeEstimate();
 		if (sizeEstimate == -1) {
 			// if unknown assume it is very large
@@ -78,9 +80,9 @@ final class AsyncPullPusher implements PullPusher {
 		}
 		Runnable task;
 		if (sizeEstimate <= asyncPullPushAllLimit) {
-			task = new IterateAllAndPipeTask(pipe, evalStep, node, bs, strategy);
+			task = new IterateAllAndPipeTask(pipe, evalStep, node, bs, trackerFactory);
 		} else {
-			task = new IterateSingleAndPipeTask(pipe, evalStep, node, bs, strategy);
+			task = new IterateSingleAndPipeTask(pipe, evalStep, node, bs, trackerFactory);
 		}
 		executor.execute(task);
     }
@@ -139,7 +141,7 @@ final class AsyncPullPusher implements PullPusher {
 	final class IterateSingleAndPipeTask extends PrioritizedTask {
         private final BindingSetPipe pipe;
         private final QueryEvaluationStep evalStep;
-        private final HalyardEvaluationStrategy strategy;
+        private final Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory;
         private int pushPriority = MIN_SUB_PRIORITY;
         private CloseableIteration<BindingSet, QueryEvaluationException> iter;
 
@@ -149,22 +151,23 @@ final class AsyncPullPusher implements PullPusher {
          * @param evalStep The query step to evaluation
          * @param expr
          * @param bs
-         * @param strategy
+         * @param trackerFactory
          */
 		IterateSingleAndPipeTask(BindingSetPipe pipe,
 				QueryEvaluationStep evalStep,
-				TupleExpr expr, BindingSet bs, HalyardEvaluationStrategy strategy) {
+				TupleExpr expr, BindingSet bs,
+				Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
 			super(expr, bs);
             this.pipe = pipe;
             this.evalStep = evalStep;
-            this.strategy = strategy;
+            this.trackerFactory = trackerFactory;
         }
 
 		boolean pushNext() {
         	try {
             	if (!pipe.isClosed()) {
             		if (iter == null) {
-                        iter = strategy.track(evalStep.evaluate(bindingSet), queryNode);
+                        iter = trackerFactory.apply(evalStep.evaluate(bindingSet));
             		}
                 	if(iter.hasNext()) {
                         BindingSet bs = iter.next();
@@ -207,7 +210,7 @@ final class AsyncPullPusher implements PullPusher {
     final class IterateAllAndPipeTask extends PrioritizedTask {
         private final BindingSetPipe pipe;
         private final QueryEvaluationStep evalStep;
-        private final HalyardEvaluationStrategy strategy;
+        private final Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory;
 
         /**
          * Constructor for the class with the supplied variables
@@ -215,20 +218,21 @@ final class AsyncPullPusher implements PullPusher {
          * @param evalStep The query step to evaluation
          * @param expr
          * @param bs
-         * @param strategy
+         * @param trackerFactory
          */
 		IterateAllAndPipeTask(BindingSetPipe pipe,
 				QueryEvaluationStep evalStep,
-				TupleExpr expr, BindingSet bs, HalyardEvaluationStrategy strategy) {
+				TupleExpr expr, BindingSet bs,
+				Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
 			super(expr, bs);
             this.pipe = pipe;
             this.evalStep = evalStep;
-            this.strategy = strategy;
+            this.trackerFactory = trackerFactory;
         }
 
 		@Override
     	public void run() {
-			SyncPullPusher.pullPushAll(pipe, evalStep, queryNode, bindingSet, strategy);
+			SyncPullPusher.pullPushAll(pipe, evalStep, queryNode, bindingSet, trackerFactory);
     	}
     }
 }

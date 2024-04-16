@@ -2,6 +2,7 @@ package com.msd.gin.halyard.optimizers;
 
 import com.google.common.collect.Iterables;
 import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
+import com.msd.gin.halyard.query.algebra.LeftStarJoin;
 import com.msd.gin.halyard.query.algebra.NAryUnion;
 import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.query.algebra.StarJoin;
@@ -321,6 +322,8 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
     			meet((TupleFunctionCall)node);
     		} else if (node instanceof StarJoin) {
     			meet((StarJoin)node);
+    		} else if (node instanceof LeftStarJoin) {
+    			meet((LeftStarJoin)node);
     		} else if (node instanceof NAryUnion) {
     			meet((NAryUnion)node);
     		} else {
@@ -345,19 +348,37 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
         	double card = cardinality;
 
         	int n = node.getArgCount();
-        	if (n > 1) {
-	        	double rightCard = 0.0;
-	            Set<String> newBoundVars = new HashSet<>(boundVars);
-	            newBoundVars.addAll(sp.getBindingNames());
-	        	for (int i=1; i<n; i++) {
-	        		sp = node.getArg(i);
-	        		meetJoinRight(sp, newBoundVars);
-	        		rightCard = Math.max(rightCard, cardinality);
-	        	}
-	        	card *= rightCard;
+        	double rightCard = 0.0;
+            Set<String> newBoundVars = new HashSet<>(boundVars);
+            newBoundVars.addAll(sp.getBindingNames());
+        	for (int i=1; i<n; i++) {
+        		sp = node.getArg(i);
+        		meetJoinRight(sp, newBoundVars);
+        		rightCard += cardinality;
         	}
+        	card *= rightCard/n; // account for cheaper cost
 
             cardinality = card;
+            updateMap(node);
+        }
+
+        public void meet(LeftStarJoin node) {
+        	TupleExpr sp = node.getArg(0);
+        	sp.visit(this);
+        	double card = cardinality;
+
+        	int n = node.getArgCount();
+        	double rightCard = 0.0;
+            Set<String> newBoundVars = new HashSet<>(boundVars);
+            newBoundVars.addAll(sp.getBindingNames());
+        	for (int i=1; i<n; i++) {
+        		sp = node.getArg(i);
+        		meetJoinRight(sp, newBoundVars);
+        		rightCard += cardinality;
+        	}
+        	card *= rightCard/n; // account for cheaper cost
+
+            cardinality = card * COMPLETENESS_FACTOR;
             updateMap(node);
         }
 

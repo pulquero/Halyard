@@ -126,6 +126,7 @@ public class MockSailWithHalyardStrategy extends MemoryStore {
         	conf.setInt(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_LIMIT, optHashJoinLimit);
         	conf.setFloat(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_COST_RATIO, cardinalityRatio);
         	conf.setInt(StrategyConfig.HALYARD_EVALUATION_STAR_JOIN_MIN_JOINS, minJoins);
+        	conf.setInt(StrategyConfig.HALYARD_EVALUATION_LEFT_STAR_JOIN_MIN_JOINS, minJoins);
         	conf.setInt(StrategyConfig.HALYARD_EVALUATION_NARY_UNION_MIN_UNIONS, minUnions);
         	conf.setInt(StrategyConfig.HALYARD_EVALUATION_PULL_PUSH_ASYNC_ALL_LIMIT, pullAllLimit);
         	HalyardEvaluationStrategy evalStrat = new HalyardEvaluationStrategy(conf, new MockTripleSource(tripleSource), dataset, getFederatedServiceResolver(), stats) {

@@ -35,6 +35,7 @@ import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.algebra.Algorithms;
 import com.msd.gin.halyard.query.algebra.ConstrainedStatementPattern;
 import com.msd.gin.halyard.query.algebra.ExtendedTupleFunctionCall;
+import com.msd.gin.halyard.query.algebra.LeftStarJoin;
 import com.msd.gin.halyard.query.algebra.NAryUnion;
 import com.msd.gin.halyard.query.algebra.StarJoin;
 import com.msd.gin.halyard.query.algebra.VarConstraint;
@@ -86,11 +87,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nullable;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -273,6 +277,8 @@ final class HalyardTupleExprEvaluation {
         	return precompileBinaryTupleOperator((BinaryTupleOperator) expr, evalContext);
         } else if (expr instanceof StarJoin) {
         	return precompileStarJoin((StarJoin) expr, evalContext);
+        } else if (expr instanceof LeftStarJoin) {
+        	return precompileLeftStarJoin((LeftStarJoin) expr, evalContext);
         } else if (expr instanceof NAryUnion) {
         	return precompileNAryUnion((NAryUnion) expr, evalContext);
         } else if (expr instanceof SingletonSet) {
@@ -372,13 +378,19 @@ final class HalyardTupleExprEvaluation {
      * results of the evaluation of this statement pattern
      */
     private void evaluateStatementPattern(final BindingSetPipe parent, final StatementPattern sp, final TupleExpr trackExpr, final BindingSet bindings) {
+    	evaluateStatementPattern(parent, sp, trackExpr, bindings, iter -> parentStrategy.track(iter, trackExpr));
+    }
+
+    private void evaluateStatementPattern(final BindingSetPipe parent, final StatementPattern sp, final TupleExpr priorityExpr,
+    		final BindingSet bindings,
+			Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
         QuadPattern nq = getQuadPattern(sp, bindings);
         if (nq != null) {
     		try {
     			TripleSource ts = getTripleSource(sp, bindings);
     			QueryEvaluationStep evalStep = evaluateStatementPattern(sp, nq, ts);
         		try {
-    				executor.pullPushAsync(parent, evalStep, trackExpr, bindings, parentStrategy);
+    				executor.pullPushAsync(parent, evalStep, priorityExpr, bindings, trackerFactory);
                 } catch (QueryEvaluationException e) {
                     parent.handleException(e);
                 }
@@ -773,7 +785,7 @@ final class HalyardTupleExprEvaluation {
 							}
 						};
 					};
-					executor.pullPushAsync(parent, evalStep, tripleRef, bindings, parentStrategy);
+					pullPushAsync(parent, evalStep, tripleRef, bindings);
 				}
 			};
 		} else {
@@ -873,7 +885,7 @@ final class HalyardTupleExprEvaluation {
 						}
 					};
 				};
-				executor.pullPushAsync(parent, evalStep, tripleRef, bindings, parentStrategy);
+				pullPushAsync(parent, evalStep, tripleRef, bindings);
 			};
 		}
 	}
@@ -1024,8 +1036,8 @@ final class HalyardTupleExprEvaluation {
     private BindingSetPipeEvaluationStep precompileDescribeOperator(DescribeOperator operator, QueryEvaluationContext evalContext) {
 		BindingSetPipeQueryEvaluationStep argStep = precompile(operator.getArg(), evalContext);
 		return (parent, bindings) -> {
-			executor.pullPushAsync(parent, bs -> new DescribeIteration(argStep.evaluate(bs), parentStrategy,
-				operator.getBindingNames(), bs), operator, bindings, parentStrategy);
+			pullPushAsync(parent, bs -> new DescribeIteration(argStep.evaluate(bs), parentStrategy,
+				operator.getBindingNames(), bs), operator, bindings);
         };
     }
 
@@ -1898,7 +1910,7 @@ final class HalyardTupleExprEvaluation {
 		            		}
 		            	}
 	            	};
-		            executor.pullPushAsync(topPipe, evalStep, service, fsBindings, parentStrategy);
+		            pullPushAsync(topPipe, evalStep, service, fsBindings);
 		        }
 	        }
 	    } catch (Throwable e) {
@@ -2023,81 +2035,103 @@ final class HalyardTupleExprEvaluation {
 
     private BindingSetPipeEvaluationStep precompileNestedLoopsLeftJoin(LeftJoin leftJoin, QueryEvaluationContext evalContext) {
     	leftJoin.setAlgorithm(Algorithms.NESTED_LOOPS);
-        BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(leftJoin.getLeftArg(), evalContext);
-        BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(leftJoin.getRightArg(), evalContext);
+    	TupleExpr leftArg = leftJoin.getLeftArg();
+    	TupleExpr rightArg = leftJoin.getRightArg();
+    	ValueExpr condition = leftJoin.getCondition();
+        BindingSetPipeEvaluationStep leftStep = precompileTupleExpr(leftArg, evalContext);
+        BindingSetPipeEvaluationStep rightStep = precompileTupleExpr(rightArg, evalContext);
+
+        Pair<TupleExpr,TupleExpr> wellDesignedData = Pair.of(leftArg, rightArg);
+
+        org.apache.commons.lang3.tuple.Triple<ValueExpr,ValuePipeQueryValueEvaluationStep,Set<String>> conditionData;
+        if (condition != null) {
+        	ValuePipeQueryValueEvaluationStep conditionStep = parentStrategy.precompile(condition, evalContext);
+        	Set<String> scopeBindingNames = leftJoin.getBindingNames();
+        	conditionData = org.apache.commons.lang3.tuple.Triple.of(condition, conditionStep, scopeBindingNames);
+        } else {
+        	conditionData = null;
+        }
+        return precompileNestedLoopsLeftJoin(leftStep, rightStep, wellDesignedData, conditionData, leftJoin);
+    }
+
+    private BindingSetPipeEvaluationStep precompileNestedLoopsLeftJoin(BindingSetPipeEvaluationStep outerStep, BindingSetPipeEvaluationStep innerStep, Pair<TupleExpr,TupleExpr> wellDesignedData, org.apache.commons.lang3.tuple.Triple<ValueExpr,ValuePipeQueryValueEvaluationStep,Set<String>> conditionData, TupleExpr trackExpr) {
         final class NestedLoopsLeftPipeJoin extends PipeJoin {
         	final BindingSetPipeEvaluationStep joinStep;
 
         	NestedLoopsLeftPipeJoin(BindingSetPipe parent) {
 				super(parent);
-				if (leftJoin.hasCondition()) {
-			        ValuePipeQueryValueEvaluationStep conditionStep = parentStrategy.precompile(leftJoin.getCondition(), evalContext);
-			        final Set<String> scopeBindingNames = leftJoin.getBindingNames();
-					joinStep = (pipe, leftBindings) -> {
-		                rightStep.evaluate(new BindingSetPipe(pipe) {
-		                    private final AtomicBoolean hasResults = new AtomicBoolean();
-		                    @Override
-		                    protected boolean next(BindingSet rightBindings) {
-                                // Limit the bindings to the ones that are in scope for
-                                // this filter
-                                QueryBindingSet scopeBindings = new QueryBindingSet(rightBindings);
-                                scopeBindings.retainAll(scopeBindingNames);
-                                parentStrategy.isTrue(conditionStep, new BindingSetValuePipe(parent) {
-                                	@Override
-                                	protected void next(Value v) {
-                                		if (parentStrategy.isTrue(v)) {
-		                                    hasResults.set(true);
-		                                    if (!pushToParent(rightBindings)) {
-		                                    	parent.close();
-		                                    }
-                                		}
-                                	}
-                                	@Override
-                                	public void handleValueError(String msg) {
-                                		// ignore
-                                	}
-                                }, scopeBindings);
-		                        return !parent.isClosed();
-		                    }
-		                    @Override
-		    				protected void doClose() {
-		                        if (!hasResults.get()) {
-		                            // Join failed, return left arg's bindings
-		                        	pushToParent(leftBindings);
-		                        }
-		                        endSecondaryPipe();
-		                    }
-		                    @Override
-		                    public String toString() {
-		                    	return "LeftJoinBindingSetPipe(right,withCondition)";
-		                    }
-		                }, leftBindings);
-		            };
+				if (conditionData != null) {
+					joinStep = createJoinStepWithCondition(conditionData.getMiddle(), conditionData.getRight());
 				} else {
-					joinStep = (pipe, leftBindings) -> {
-		                rightStep.evaluate(new BindingSetPipe(pipe) {
-		                    private volatile boolean hasResults = false;
-		                    @Override
-		                    protected boolean next(BindingSet rightBindings) {
-                                hasResults = true;
-                                return pushToParent(rightBindings);
-		                    }
-		                    @Override
-		    				protected void doClose() {
-		                        if (!hasResults) {
-		                            // Join failed, return left arg's bindings
-		                        	pushToParent(leftBindings);
-		                        }
-		                        endSecondaryPipe();
-		                    }
-		                    @Override
-		                    public String toString() {
-		                    	return "LeftJoinBindingSetPipe(right,withoutCondition)";
-		                    }
-		                }, leftBindings);
-		            };
+					joinStep = createJoinStepWithoutCondition();
 				}
 			}
+        	private BindingSetPipeEvaluationStep createJoinStepWithCondition(ValuePipeQueryValueEvaluationStep conditionStep, Set<String> scopeBindingNames) {
+				return (pipe, leftBindings) -> {
+	                innerStep.evaluate(new BindingSetPipe(pipe) {
+	                    private final AtomicBoolean hasResults = new AtomicBoolean();
+	                    @Override
+	                    protected boolean next(BindingSet rightBindings) {
+                            // Limit the bindings to the ones that are in scope for
+                            // this filter
+                            QueryBindingSet scopeBindings = new QueryBindingSet(rightBindings);
+                            scopeBindings.retainAll(scopeBindingNames);
+                            parentStrategy.isTrue(conditionStep, new BindingSetValuePipe(parent) {
+                            	@Override
+                            	protected void next(Value v) {
+                            		if (parentStrategy.isTrue(v)) {
+	                                    hasResults.set(true);
+	                                    if (!pushToParent(rightBindings)) {
+	                                    	parent.close();
+	                                    }
+                            		}
+                            	}
+                            	@Override
+                            	public void handleValueError(String msg) {
+                            		// ignore
+                            	}
+                            }, scopeBindings);
+	                        return !parent.isClosed();
+	                    }
+	                    @Override
+	    				protected void doClose() {
+	                        if (!hasResults.get()) {
+	                            // Join failed, return left arg's bindings
+	                        	pushToParent(leftBindings);
+	                        }
+	                        endSecondaryPipe();
+	                    }
+	                    @Override
+	                    public String toString() {
+	                    	return "LeftJoinBindingSetPipe(right,withCondition)";
+	                    }
+	                }, leftBindings);
+	            };
+        	}
+        	private BindingSetPipeEvaluationStep createJoinStepWithoutCondition() {
+				return (pipe, leftBindings) -> {
+	                innerStep.evaluate(new BindingSetPipe(pipe) {
+	                    private volatile boolean hasResults = false;
+	                    @Override
+	                    protected boolean next(BindingSet rightBindings) {
+                            hasResults = true;
+                            return pushToParent(rightBindings);
+	                    }
+	                    @Override
+	    				protected void doClose() {
+	                        if (!hasResults) {
+	                            // Join failed, return left arg's bindings
+	                        	pushToParent(leftBindings);
+	                        }
+	                        endSecondaryPipe();
+	                    }
+	                    @Override
+	                    public String toString() {
+	                    	return "LeftJoinBindingSetPipe(right,withoutCondition)";
+	                    }
+	                }, leftBindings);
+	            };
+        	}
         	@Override
             protected boolean next(final BindingSet leftBindings) {
         		startSecondaryPipe();
@@ -2110,18 +2144,22 @@ final class HalyardTupleExprEvaluation {
             }
         }
     	return (parentPipe, bindings) -> {
-	        parentPipe = parentStrategy.track(parentPipe, leftJoin);
-	        Pair<BindingSetPipe, BindingSet> wellDesignedData = wellDesignedLeftJoin(parentPipe, leftJoin, bindings);
-	        parentPipe = wellDesignedData.getLeft();
-	        bindings = wellDesignedData.getRight();
-	        leftStep.evaluate(new NestedLoopsLeftPipeJoin(parentPipe), bindings);
+    		if (trackExpr != null) {
+    			parentPipe = parentStrategy.track(parentPipe, trackExpr);
+    		}
+    		if (wellDesignedData != null) {
+		        Pair<BindingSetPipe, BindingSet> wellDesignedPipe = wellDesignedLeftJoin(parentPipe, wellDesignedData.getLeft(), wellDesignedData.getRight(), (conditionData != null) ? conditionData.getLeft() : null, bindings);
+		        parentPipe = wellDesignedPipe.getLeft();
+		        bindings = wellDesignedPipe.getRight();
+    		}
+	        outerStep.evaluate(new NestedLoopsLeftPipeJoin(parentPipe), bindings);
     	};
     }
 
-    private Pair<BindingSetPipe,BindingSet> wellDesignedLeftJoin(BindingSetPipe parentPipe, LeftJoin leftJoin, BindingSet bindings) {
+    private Pair<BindingSetPipe,BindingSet> wellDesignedLeftJoin(BindingSetPipe parentPipe, TupleExpr outerArg, TupleExpr innerArg, @Nullable ValueExpr condition, BindingSet bindings) {
     	// Check whether optional join is "well designed" as defined in section
         // 4.2 of "Semantics and Complexity of SPARQL", 2006, Jorge Pérez et al.
-        Set<String> problemVars = getProblemVars(leftJoin, bindings);
+        Set<String> problemVars = getProblemVars(outerArg, innerArg, condition, bindings);
         if (!problemVars.isEmpty()) {
         	BindingSetPipe wellDesignedPipe = new BindingSetPipe(parentPipe) {
 	            //Handle badly designed left join
@@ -2159,17 +2197,17 @@ final class HalyardTupleExprEvaluation {
         }
     }
 
-    public static Set<String> getProblemVars(LeftJoin leftJoin, BindingSet bindings) {
+    public static Set<String> getProblemVars(TupleExpr outerArg, TupleExpr innerArg, @Nullable ValueExpr condition, BindingSet bindings) {
         final Set<String> problemVars;
         if (!bindings.isEmpty()) {
             VarNameCollector optionalVarCollector = new VarNameCollector();
-            leftJoin.getRightArg().visit(optionalVarCollector);
-            if (leftJoin.hasCondition()) {
-                leftJoin.getCondition().visit(optionalVarCollector);
+            innerArg.visit(optionalVarCollector);
+            if (condition != null) {
+                condition.visit(optionalVarCollector);
             }
 
             problemVars = new HashSet<>(optionalVarCollector.getVarNames());
-	        problemVars.removeAll(leftJoin.getLeftArg().getBindingNames());
+	        problemVars.removeAll(outerArg.getBindingNames());
 	        // intersection with provided bindings
 	        problemVars.retainAll(bindings.getBindingNames());
         } else {
@@ -2455,7 +2493,7 @@ final class HalyardTupleExprEvaluation {
 
 		@Override
 		public void evaluate(BindingSetPipe parent, BindingSet bindings) {
-	        Pair<BindingSetPipe, BindingSet> wellDesignedData = wellDesignedLeftJoin(parent, leftJoin, bindings);
+	        Pair<BindingSetPipe, BindingSet> wellDesignedData = wellDesignedLeftJoin(parent, leftJoin.getLeftArg(), leftJoin.getRightArg(), leftJoin.getCondition(), bindings);
 	        super.evaluate(wellDesignedData.getLeft(), wellDesignedData.getRight());
 		}
 
@@ -2754,18 +2792,10 @@ final class HalyardTupleExprEvaluation {
 
     private BindingSetPipeEvaluationStep precompileStarJoin(StarJoin starJoin, QueryEvaluationContext evalContext) {
     	if (starJoin.getScope() == StatementPattern.Scope.DEFAULT_CONTEXTS) {
-	    	StatementPattern[] sps = new StatementPattern[starJoin.getArgCount()];
-	    	for (int i=0; i<sps.length; i++) {
-	    		TupleExpr te = starJoin.getArg(i);
-	    		if (te instanceof StatementPattern) {
-	    			sps[i] = (StatementPattern) te;
-	    		} else {
-	    			break;
-	    		}
-	    	}
+	    	StatementPattern[] sps = getStatementPatterns(starJoin.getArgs(), 0);
 	    	Var commonVar = starJoin.getCommonVar();
 	    	Var ctxVar = starJoin.getContextVar();
-	    	boolean allAreStmts = (sps[sps.length-1] != null);
+	    	boolean allAreStmts = (sps != null);
 	    	if (allAreStmts) {
 	        	starJoin.setAlgorithm(Algorithms.STAR_JOIN);
 		    	return (parent, bindings) -> {
@@ -2774,80 +2804,36 @@ final class HalyardTupleExprEvaluation {
 		        	boolean isCtxBound = (ctxVar != null) && (ctxVar.hasValue() || bindings.hasBinding(ctxVar.getName()));
 		        	boolean isPrebound = isCommonBound && (ctxVar == null || isCtxBound);
 		        	int startIndex = isPrebound ? 0 : 1;
-	
-		        	boolean getFullSubject = false;
-		    		IRI[] preds = new IRI[sps.length];
-		        	for (int i=0; i<sps.length; i++) {
-		       			StatementPattern sp = sps[i];
-		        		Value pred = Algebra.getVarValue(sp.getPredicateVar(), bindings);
-		        		if (pred == null) {
-		        			getFullSubject = true;
-		        			break;
-		        		} else if (!pred.isIRI()) {
-		        			parent.close();
-		        			return;
-		        		} else {
-		        			preds[i] = (IRI) pred;
-		        		}
-		        	}
-		        	getFullSubject = true; // TODO currently only support getFullSubject mode
-		        	if (getFullSubject || !(tripleSource instanceof ExtendedTripleSource)) {
-		        		if (sps.length-startIndex > 1) {
-		        			// multiple statement patterns
-		        			QueryEvaluationStep evalStep = evalBindings -> {
-			        			List<BindingSet>[] resultsPerSp = (List<BindingSet>[]) new List<?>[sps.length];
-			    	        	Resource common = (Resource) Algebra.getVarValue(commonVar, evalBindings);
-			    	        	Resource ctx = (Resource) Algebra.getVarValue(ctxVar, evalBindings);
-			        			Resource[] ctxs = (ctxVar != null) ? new Resource[] {ctx} : ALL_CONTEXTS;
-			        			CloseableIteration<? extends Statement, QueryEvaluationException> iter = tripleSource.getStatements(common, null, null, ctxs);
-								while (iter.hasNext()) {
-									Statement stmt = iter.next();
-									for (int i=startIndex; i<sps.length; i++) {
-										StatementPattern sp = sps[i];
-										Value pred = Algebra.getVarValue(sp.getPredicateVar(), evalBindings);
-										Value obj = Algebra.getVarValue(sp.getObjectVar(), evalBindings);
-										if ((pred == null || pred.equals(stmt.getPredicate())) && (obj == null || obj.equals(stmt.getObject()))) {
-											QuadPattern nq = getQuadPattern(sp, evalBindings);
-											if (filterStatement(sp, stmt, nq)) {
-												BindingSet spBs = convertStatement(sp, stmt, evalBindings);
-												List<BindingSet> bsList = resultsPerSp[i];
-												if (bsList == null) {
-													resultsPerSp[i] = Collections.singletonList(spBs);
-												} else if (bsList.size() == 1) {
-													List<BindingSet> newBsList = new ArrayList<>(2);
-													newBsList.add(bsList.get(0));
-													newBsList.add(spBs);
-													resultsPerSp[i] = newBsList;
-												} else {
-													bsList.add(spBs);
-												}
-											}
-										}
-									}
-								}
-								List<BindingSet> results = resultsPerSp[startIndex];
+	        		if (sps.length-startIndex > 1) {
+	        			// multiple statement patterns
+	        			BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher = getStatementFetcher(sps, startIndex, bindings);
+	        			if (stmtFetcher == null) {
+	        				parent.close();
+	        				return;
+	        			}
+	        			QueryEvaluationStep evalStep = evalBindings -> {
+		        			List<BindingSet>[] resultsPerSp = applyStatementPatterns(commonVar, ctxVar, sps, startIndex, stmtFetcher, evalBindings);
+		        			if (resultsPerSp == null) {
+								return new EmptyIteration<>();
+		        			}
+							List<BindingSet> results = resultsPerSp[startIndex];
+							if (results == null) {
+								return new EmptyIteration<>();
+							}
+							for (int i=startIndex+1; i<resultsPerSp.length; i++) {
+								List<BindingSet> bsList = resultsPerSp[i];
+								results = join(results, bsList);
 								if (results == null) {
 									return new EmptyIteration<>();
 								}
-								for (int i=startIndex+1; i<resultsPerSp.length; i++) {
-									List<BindingSet> bsList = resultsPerSp[i];
-									results = join(results, bsList);
-									if (results == null) {
-										return new EmptyIteration<>();
-									}
-								}
-								return new CloseableIteratorIteration<>(results.iterator());
-			        		};
-			        		step = (p, stepBindings) -> executor.pullPushAsync(p, evalStep, starJoin, stepBindings, parentStrategy);
-		        		} else {
-		        			// single statement pattern
-		        			step = (p, stepBindings) -> evaluateStatementPattern(p, sps[startIndex], starJoin, stepBindings);
-		        		}
-		        	} else {
-		        		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
-		        		// TODO: getStatements(Resource subj, Set<IRI> preds, Resource... ctxs)
-		        		throw new AssertionError();
-		        	}
+							}
+							return new CloseableIteratorIteration<>(results.iterator());
+		        		};
+		        		step = (p, stepBindings) -> pullPushAsync(p, evalStep, starJoin, stepBindings);
+	        		} else {
+	        			// single statement pattern
+	        			step = (p, stepBindings) -> evaluateStatementPattern(p, sps[startIndex], starJoin, stepBindings);
+	        		}
 	
 		    		if (!isPrebound) {
 			    		BindingSetPipeEvaluationStep firstStep = precompileTupleExpr(sps[0], evalContext);
@@ -2859,12 +2845,150 @@ final class HalyardTupleExprEvaluation {
     	}
 
     	starJoin.setAlgorithm(Algorithms.NESTED_LOOPS);
-    	int i = starJoin.getArgCount() - 1;
-    	BindingSetPipeEvaluationStep step = precompileTupleExpr(starJoin.getArg(i), evalContext);
-    	for (i--; i>=0; i--) {
-    		step = precompileNestedLoopsJoin(precompileTupleExpr(starJoin.getArg(i), evalContext), step, (i==0) ? starJoin : null);
+    	int n = starJoin.getArgCount();
+    	BindingSetPipeEvaluationStep step = precompileTupleExpr(starJoin.getArg(0), evalContext);
+    	for (int i=1; i<n; i++) {
+        	BindingSetPipeEvaluationStep nextStep = precompileTupleExpr(starJoin.getArg(i), evalContext);
+    		step = precompileNestedLoopsJoin(step, nextStep, (i==n-1) ? starJoin : null);
     	}
         return step;
+    }
+
+    private BindingSetPipeEvaluationStep precompileLeftStarJoin(LeftStarJoin leftStarJoin, QueryEvaluationContext evalContext) {
+    	if (leftStarJoin.getScope() == StatementPattern.Scope.DEFAULT_CONTEXTS) {
+	    	StatementPattern[] sps = getStatementPatterns(leftStarJoin.getArgs(), 1);
+	    	Var commonVar = leftStarJoin.getCommonVar();
+	    	Var ctxVar = leftStarJoin.getContextVar();
+	    	boolean allAreStmts = (sps != null);
+	    	if (allAreStmts) {
+	        	leftStarJoin.setAlgorithm(Algorithms.STAR_JOIN);
+	        	return (parent, bindings) -> {
+	        		BindingSetPipeEvaluationStep stmtsStep;
+	        		if (sps.length > 1) {
+	        			BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher = getStatementFetcher(sps, 0, bindings);
+	        			if (stmtFetcher == null) {
+	        				parent.close();
+	        				return;
+	        			}
+	        			QueryEvaluationStep evalStep = evalBindings -> {
+		        			List<BindingSet>[] resultsPerSp = applyStatementPatterns(commonVar, ctxVar, sps, 0, stmtFetcher, evalBindings);
+		        			if (resultsPerSp == null) {
+								return new EmptyIteration<>();
+		        			}
+							List<BindingSet> results = resultsPerSp[0];
+							for (int i=1; i<resultsPerSp.length; i++) {
+								List<BindingSet> bsList = resultsPerSp[i];
+								results = leftJoin(results, bsList);
+							}
+							if (results == null) {
+								return new EmptyIteration<>();
+							}
+							return new CloseableIteratorIteration<>(results.iterator());
+		        		};
+						stmtsStep = (p, stepBindings) -> executor.pullPushAsync(p, evalStep, leftStarJoin, stepBindings, Function.identity());
+	        		} else {
+	        			// single statement pattern
+	        			stmtsStep = (p, stepBindings) -> evaluateStatementPattern(p, sps[0], leftStarJoin, stepBindings, Function.identity());
+	        		}
+					BindingSetPipeEvaluationStep baseStep = precompileTupleExpr(leftStarJoin.getBaseArg(), evalContext);
+					BindingSetPipeEvaluationStep step = precompileNestedLoopsLeftJoin(baseStep, stmtsStep, null, null, leftStarJoin);
+					step.evaluate(parent, bindings);
+	        	};
+	    	}
+    	}
+
+    	leftStarJoin.setAlgorithm(Algorithms.NESTED_LOOPS);
+    	int n = leftStarJoin.getArgCount();
+    	BindingSetPipeEvaluationStep step = precompileTupleExpr(leftStarJoin.getArg(0), evalContext);
+    	for (int i=1; i<n; i++) {
+    		BindingSetPipeEvaluationStep nextStep = precompileTupleExpr(leftStarJoin.getArg(i), evalContext);
+    		step = precompileNestedLoopsLeftJoin(step, nextStep, null, null, (i==n-1) ? leftStarJoin : null);
+    	}
+        return step;
+    }
+
+    private StatementPattern[] getStatementPatterns(List<? extends TupleExpr> args, int startIndex) {
+    	StatementPattern[] sps = new StatementPattern[args.size()-startIndex];
+    	for (int i=0; i<sps.length; i++) {
+    		TupleExpr te = args.get(i+startIndex);
+    		// currently, StatementPattern subclasses aren't supported
+    		if (te.getClass() == StatementPattern.class) {
+    			sps[i] = (StatementPattern) te;
+    		} else {
+    			return null;
+    		}
+    	}
+    	return sps;
+    }
+
+    private BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> getStatementFetcher(StatementPattern[] sps, int startIndex, BindingSet bindings) {
+    	boolean getFullSubject = false;
+		IRI[] preds = new IRI[sps.length];
+    	for (int i=startIndex; i<sps.length; i++) {
+   			StatementPattern sp = sps[i];
+    		Value pred = Algebra.getVarValue(sp.getPredicateVar(), bindings);
+    		if (pred == null) {
+    			getFullSubject = true;
+    			break;
+    		} else if (!pred.isIRI()) {
+    			return null;
+    		} else {
+    			preds[i] = (IRI) pred;
+    		}
+    	}
+
+    	BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher;
+    	getFullSubject = true; // TODO currently only support getFullSubject mode
+    	if (getFullSubject || !(tripleSource instanceof ExtendedTripleSource)) {
+    		stmtFetcher = (common, ctxs) -> tripleSource.getStatements(common, null, null, ctxs);
+    	} else {
+    		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+    		// TODO: getStatements(Resource subj, Set<IRI> preds, Resource... ctxs)
+    		//stmtFetcher = (common, ctxs) -> extTripleSource.getStatements(common, preds, null, ctxs);
+    		throw new AssertionError();
+    	}
+    	return stmtFetcher;
+    }
+
+    private List<BindingSet>[] applyStatementPatterns(Var commonVar, Var ctxVar, StatementPattern[] sps, int startIndex, BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher, BindingSet bindings) {
+    	Value common = Algebra.getVarValue(commonVar, bindings);
+    	if (common != null && !(common instanceof Resource)) {
+    		return null;
+    	}
+    	Value ctx = Algebra.getVarValue(ctxVar, bindings);
+    	if (ctx != null && !(ctx instanceof Resource)) {
+    		return null;
+    	}
+		Resource[] ctxs = (ctxVar != null) ? new Resource[] {(Resource) ctx} : ALL_CONTEXTS;
+		List<BindingSet>[] resultsPerSp = (List<BindingSet>[]) new List<?>[sps.length];
+		try (CloseableIteration<? extends Statement, QueryEvaluationException> iter = stmtFetcher.apply((Resource)common, ctxs)) {
+			while (iter.hasNext()) {
+				Statement stmt = iter.next();
+				for (int i=startIndex; i<sps.length; i++) {
+					StatementPattern sp = sps[i];
+					Value pred = Algebra.getVarValue(sp.getPredicateVar(), bindings);
+					Value obj = Algebra.getVarValue(sp.getObjectVar(), bindings);
+					if ((pred == null || pred.equals(stmt.getPredicate())) && (obj == null || obj.equals(stmt.getObject()))) {
+						QuadPattern nq = getQuadPattern(sp, bindings);
+						if (filterStatement(sp, stmt, nq)) {
+							BindingSet spBs = convertStatement(sp, stmt, bindings);
+							List<BindingSet> bsList = resultsPerSp[i];
+							if (bsList == null) {
+								resultsPerSp[i] = Collections.singletonList(spBs);
+							} else if (bsList.size() == 1) {
+								List<BindingSet> newBsList = new ArrayList<>(2);
+								newBsList.add(bsList.get(0));
+								newBsList.add(spBs);
+								resultsPerSp[i] = newBsList;
+							} else {
+								bsList.add(spBs);
+							}
+						}
+					}
+				}
+			}
+		}
+		return resultsPerSp;
     }
 
     private BindingSetPipeEvaluationStep precompileNAryUnion(NAryUnion naryUnion, QueryEvaluationContext evalContext) {
@@ -2886,6 +3010,25 @@ final class HalyardTupleExprEvaluation {
     private static List<BindingSet> join(List<BindingSet> left, List<BindingSet> right) {
     	if (left == null || right == null) {
     		return null;
+    	} else {
+	    	List<BindingSet> result = new ArrayList<>(left.size()*right.size());
+	    	for (BindingSet l : left) {
+	    		for (BindingSet r : right) {
+	    			BindingSet bs = tryJoin(l, r);
+	    			if (bs != null) {
+	    				result.add(bs);
+	    			}
+	    		}
+	    	}
+	    	return result;
+    	}
+    }
+
+    private static List<BindingSet> leftJoin(List<BindingSet> left, List<BindingSet> right) {
+    	if (left == null) {
+    		return right;
+    	} else if (right == null) {
+    		return left;
     	} else {
 	    	List<BindingSet> result = new ArrayList<>(left.size()*right.size());
 	    	for (BindingSet l : left) {
@@ -3079,7 +3222,7 @@ final class HalyardTupleExprEvaluation {
             alpStrategy.setTrackResultSize(parentStrategy.isTrackResultSize());
             alpStrategy.setTrackTime(parentStrategy.isTrackTime());
 	        try {
-	        	executor.pullPushAsync(parent, bs -> new PathIteration(alpStrategy, scope, subjectVar, pathExpression, objVar, contextVar, minLength, bs), alp, bindings, parentStrategy);
+	        	pullPushAsync(parent, bs -> new PathIteration(alpStrategy, scope, subjectVar, pathExpression, objVar, contextVar, minLength, bs), alp, bindings);
 	        } catch (QueryEvaluationException e) {
 	            parent.handleException(e);
 	        }
@@ -3209,6 +3352,12 @@ final class HalyardTupleExprEvaluation {
 			};
 		}
 	}
+
+	private void pullPushAsync(BindingSetPipe pipe,
+			QueryEvaluationStep evalStep,
+			TupleExpr node, BindingSet bs) {
+		executor.pullPushAsync(pipe, evalStep, node, bs, iter -> parentStrategy.track(iter, node));
+    }
 
 	/**
 	 * Returns the limit of the current variable bindings before any further

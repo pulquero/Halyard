@@ -2,6 +2,7 @@ package com.msd.gin.halyard.optimizers;
 
 import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.LeftStarJoin;
 import com.msd.gin.halyard.query.algebra.NAryTupleOperator;
 import com.msd.gin.halyard.query.algebra.Parent;
 import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
@@ -158,6 +159,11 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			});
         	node.setArgs(orderedArgs);
         	parent.replaceWith(node);
+        }
+
+        @Override
+        public void meet(LeftStarJoin leftJoin) {
+			leftJoin.getBaseArg().visit(this);
         }
 
 

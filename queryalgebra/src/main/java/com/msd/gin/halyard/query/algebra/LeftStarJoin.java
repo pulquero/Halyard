@@ -16,6 +16,7 @@
  */
 package com.msd.gin.halyard.query.algebra;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -25,28 +26,30 @@ import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryModelVisitor;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.StatementPattern.Scope;
+import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
 
 /**
- * Collection of joins (incl. filters) that share a common subject var and context var (if present), e.g. ?s :p1 ?o1; :p2 ?o2; :p3 ?o3.
- * In some cases, it is faster to evaluate these as ?s ?p ?o and then filter the results (?s can be determined at evaluation time, either from the available bindings or by evaluating the first argument).
+ * Collection of left joins.
  */
-public class StarJoin extends NAryTupleOperator {
-	private static final long serialVersionUID = -4523270958311045771L;
+public class LeftStarJoin extends NAryTupleOperator {
+	private static final long serialVersionUID = -2918969614574374511L;
 
 	private StatementPattern.Scope scope;
 	private Var commonVar;
 	private Var contextVar;
 
-	public StarJoin(Var commonVar, @Nullable Var contextVar, List<StatementPattern> exprs) {
-		this(StatementPattern.Scope.DEFAULT_CONTEXTS, commonVar, contextVar, exprs);
+	public LeftStarJoin(Var commonVar, @Nullable Var contextVar, TupleExpr base, List<StatementPattern> stmts) {
+		this(StatementPattern.Scope.DEFAULT_CONTEXTS, commonVar, contextVar, base, stmts);
 	}
 
-	public StarJoin(StatementPattern.Scope scope, Var commonVar, @Nullable Var contextVar, List<StatementPattern> exprs) {
-		assert exprs.size() > 1;
+	public LeftStarJoin(StatementPattern.Scope scope, Var commonVar, @Nullable Var contextVar, TupleExpr base, List<StatementPattern> stmts) {
 		this.scope = scope;
 		setCommonVar(commonVar);
 		setContextVar(contextVar);
+		List<TupleExpr> exprs = new ArrayList<>(1 + stmts.size());
+		exprs.add(base);
+		exprs.addAll(stmts);
 		setArgs(exprs);
 	}
 
@@ -72,6 +75,10 @@ public class StarJoin extends NAryTupleOperator {
 
 	public @Nullable Var getContextVar() {
 		return contextVar;
+	}
+
+	public TupleExpr getBaseArg() {
+		return getArg(0);
 	}
 
 	@Override
@@ -106,8 +113,8 @@ public class StarJoin extends NAryTupleOperator {
 
 	@Override
 	public boolean equals(Object other) {
-		if (other instanceof StarJoin) {
-			StarJoin o = (StarJoin) other;
+		if (other instanceof LeftStarJoin) {
+			LeftStarJoin o = (LeftStarJoin) other;
 			return commonVar.equals(o.commonVar)
 					&& Objects.equals(contextVar, o.contextVar)
 					&& scope.equals(o.getScope())
@@ -122,8 +129,8 @@ public class StarJoin extends NAryTupleOperator {
 	}
 
 	@Override
-	public StarJoin clone() {
-		StarJoin clone = (StarJoin) super.clone();
+	public LeftStarJoin clone() {
+		LeftStarJoin clone = (LeftStarJoin) super.clone();
 
 		clone.setCommonVar(commonVar.clone());
 		if (contextVar != null) {

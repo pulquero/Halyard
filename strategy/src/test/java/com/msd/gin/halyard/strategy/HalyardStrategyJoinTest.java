@@ -2,6 +2,7 @@ package com.msd.gin.halyard.strategy;
 
 import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
 import com.msd.gin.halyard.query.algebra.Algorithms;
+import com.msd.gin.halyard.query.algebra.LeftStarJoin;
 import com.msd.gin.halyard.query.algebra.NAryTupleOperator;
 import com.msd.gin.halyard.query.algebra.StarJoin;
 
@@ -160,6 +161,18 @@ public class HalyardStrategyJoinTest {
     }
 
     @Test
+    public void testLeftStarJoin() throws Exception {
+        String q = "prefix : <http://example/> select * where {?x :p ?u. OPTIONAL {?x :r ?v}}";
+        joinTest(q, "/test-cases/left-star-join-results.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
+    }
+
+    @Test
+    public void testLeftStarJoin2() throws Exception {
+        String q = "prefix : <http://example/> select * where {?x :p ?u. OPTIONAL {?x :r ?v} OPTIONAL {?x :q ?w}}";
+        joinTest(q, "/test-cases/join-data.ttl", "/test-cases/left-star-join-results-2.srx", starJoinMin == 1 ? 1 : 2, starJoinMin == 1 ? new String[] {Algorithms.STAR_JOIN} : new String[] {expectedAlgo(), expectedAlgo()});
+    }
+
+    @Test
 	public void testJoin_unbound_value() throws Exception {
 		String q = "prefix : <http://example/> "
 				+ "select ?x ?y where { "
@@ -173,37 +186,37 @@ public class HalyardStrategyJoinTest {
     @Test
     public void testLeftJoinOn1Var() throws Exception {
         String q = "prefix : <http://example/> select ?s ?t where {?s :r ?k. optional {?k :s ?t} }";
-        joinTest(q, "/test-cases/left-join-results-1.srx", 1, expectedAlgo());
+        joinTest(q, "/test-cases/left-join-results-1.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
     public void testLeftJoinOn2Var() throws Exception {
         String q = "prefix : <http://example/> select ?x ?y where {?x :p ?y. optional {?x :t ?y} }";
-        joinTest(q, "/test-cases/left-join-results-2.srx", 1, expectedAlgo());
+        joinTest(q, "/test-cases/left-join-results-2.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
     public void testLeftJoinOn0Var() throws Exception {
         String q = "prefix : <http://example/> select * where {?s :r ?t. optional {?x :s ?y} }";
-        joinTest(q, "/test-cases/left-join-results-0.srx", 1, expectedAlgo());
+        joinTest(q, "/test-cases/left-join-results-0.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
     public void testLeftJoinOn0Var_empty() throws Exception {
         String q = "prefix : <http://example/> select * where {:x1 :q \"a\". optional {?x :p ?y} }";
-        joinTest(q, "/test-cases/left-join-results-empty-0.srx", 1, expectedAlgo());
+        joinTest(q, "/test-cases/left-join-results-empty-0.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
     public void testLeftJoinOn0Var_empty_swapped() throws Exception {
         String q = "prefix : <http://example/> select * where {?x :p ?y. optional {:x1 :q \"a\"} }";
-        joinTest(q, "/test-cases/left-join-results-empty-0.srx", 1, expectedAlgo());
+        joinTest(q, "/test-cases/left-join-results-empty-0.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
     @Test
     public void testLeftJoin_not_exists() throws Exception {
         String q = "prefix : <http://example/> select * where {?x :p ?y. optional {?x :notexists []} }";
-        joinTest(q, "/test-cases/left-join-results-empty-0.srx", 1, expectedAlgo());
+        joinTest(q, "/test-cases/left-join-results-empty-0.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
     }
 
 	@Test
@@ -215,7 +228,7 @@ public class HalyardStrategyJoinTest {
 				+ "    ?x :p ?y "
 				+ "  }"
 				+ "}";
-		joinTest(q, "/test-cases/left-join-results-unbound-value.srx", 1, expectedAlgo());
+		joinTest(q, "/test-cases/left-join-results-unbound-value.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
 	}
 
 
@@ -287,6 +300,11 @@ public class HalyardStrategyJoinTest {
 			}
         	@Override
         	public void meet(StarJoin node) {
+				joins.add(node);
+				super.meet(node);
+        	}
+        	@Override
+        	public void meet(LeftStarJoin node) {
 				joins.add(node);
 				super.meet(node);
         	}

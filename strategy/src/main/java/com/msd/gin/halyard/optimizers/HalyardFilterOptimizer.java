@@ -17,6 +17,7 @@
 package com.msd.gin.halyard.optimizers;
 
 import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.LeftStarJoin;
 import com.msd.gin.halyard.query.algebra.NAryUnion;
 import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
 import com.msd.gin.halyard.query.algebra.StarJoin;
@@ -194,6 +195,16 @@ public final class HalyardFilterOptimizer implements QueryOptimizer {
 		public void meet(TripleRef tr) {
 			if (tr.getBindingNames().containsAll(filterVars)) {
 				relocate(filter, tr);
+			}
+		}
+
+		// Halyard
+		@Override
+		public void meet(LeftStarJoin leftJoin) {
+			if (leftJoin.getBaseArg().getBindingNames().containsAll(filterVars)) {
+				leftJoin.getBaseArg().visit(this);
+			} else {
+				relocate(filter, leftJoin);
 			}
 		}
 

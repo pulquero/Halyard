@@ -6,6 +6,7 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.Join;
+import org.eclipse.rdf4j.query.algebra.LeftJoin;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.SingletonSet;
@@ -57,6 +58,13 @@ public final class Algebra {
 			} else {
 				throw new IllegalArgumentException(String.format("Corrupt join: %s", join));
 			}
+		} else if (parent instanceof LeftJoin) {
+			LeftJoin leftJoin = (LeftJoin) parent;
+			if (leftJoin.getRightArg() == expr) {
+				leftJoin.replaceWith(leftJoin.getLeftArg());
+			} else {
+				throw new IllegalArgumentException(String.format("Cannot remove %s from %s", expr.getSignature(), parent.getSignature()));
+			}
 		} else if (parent instanceof Union) {
 			Union union = (Union) parent;
 			if (union.getLeftArg() == expr) {
@@ -68,7 +76,7 @@ public final class Algebra {
 			}
 		} else if (parent instanceof UnaryTupleOperator) {
 			expr.replaceWith(new SingletonSet());
-		} else if (parent instanceof NAryTupleOperator) {
+		} else if (parent instanceof StarJoin || parent instanceof NAryUnion) {
 			NAryTupleOperator op = (NAryTupleOperator) parent;
 			op.removeChildNode(expr);
 			if (op.getArgCount() == 1) {

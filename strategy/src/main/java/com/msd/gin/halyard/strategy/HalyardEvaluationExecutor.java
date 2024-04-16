@@ -16,10 +16,10 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
-import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.QueueingBindingSetPipe;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.util.MBeanDetails;
 import com.msd.gin.halyard.util.MBeanManager;
 import com.msd.gin.halyard.util.RateTracker;
@@ -35,6 +35,7 @@ import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -181,13 +182,14 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
      * @param evalStep query step to evaluate
      * @param node an implementation of any {@TupleExpr} sub-type
      * @param bs binding set
-     * @param strategy
+     * @param trackerFactory
      */
 	void pullPushAsync(BindingSetPipe pipe,
 			QueryEvaluationStep evalStep,
-			TupleExpr node, BindingSet bs, HalyardEvaluationStrategy strategy) {
+			TupleExpr node, BindingSet bs,
+			Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
 		BindingSetPipe childPipe = new CountingBindingSetPipe(pipe, incomingBindingsCount);
-		pullPusher.pullPush(childPipe, evalStep, node, bs, strategy);
+		pullPusher.pullPush(childPipe, evalStep, node, bs, trackerFactory);
     }
 
     /**
@@ -195,7 +197,6 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
      * @param evalStep query step to evaluate
      * @param node an implementation of any {@TupleExpr} sub-type
      * @param bs binding set
-     * @param strategy
      * @return iteration of binding sets to pull from.
      */
 	CloseableIteration<BindingSet, QueryEvaluationException> pushPullAsync(BindingSetPipeEvaluationStep evalStep, TupleExpr node, BindingSet bs) {

@@ -3,6 +3,7 @@ package com.msd.gin.halyard.strategy;
 import com.msd.gin.halyard.query.BindingSetPipe;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -16,10 +17,11 @@ final class SyncPullPusher implements PullPusher {
 	@Override
 	public void pullPush(BindingSetPipe pipe,
 			QueryEvaluationStep evalStep,
-			TupleExpr node, BindingSet bs, HalyardEvaluationStrategy strategy) {
+			TupleExpr node, BindingSet bs,
+			Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
 		active.incrementAndGet();
 		try {
-			pullPushAll(pipe, evalStep, node, bs, strategy);
+			pullPushAll(pipe, evalStep, node, bs, trackerFactory);
 		} finally {
 			active.decrementAndGet();
 		}
@@ -41,10 +43,11 @@ final class SyncPullPusher implements PullPusher {
 
 	static void pullPushAll(BindingSetPipe pipe,
 			QueryEvaluationStep evalStep,
-			TupleExpr expr, BindingSet bindingSet, HalyardEvaluationStrategy strategy) {
+			TupleExpr expr, BindingSet bindingSet,
+			Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
 		if (!pipe.isClosed()) {
 			try {
-				CloseableIteration<BindingSet, QueryEvaluationException> iter = strategy.track(evalStep.evaluate(bindingSet), expr);
+				CloseableIteration<BindingSet, QueryEvaluationException> iter = trackerFactory.apply(evalStep.evaluate(bindingSet));
 				boolean doNext = true;
 				while (doNext && !pipe.isClosed()) {
 		    		try {
