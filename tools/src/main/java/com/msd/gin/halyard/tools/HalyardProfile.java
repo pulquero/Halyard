@@ -51,6 +51,7 @@ import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
+import org.eclipse.rdf4j.query.algebra.VariableScopeChange;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
@@ -136,12 +137,27 @@ public final class HalyardProfile extends AbstractHalyardTool {
 		                final StringBuilder buf = new StringBuilder(256);
 		                buf.append(msg).append(System.lineSeparator());
 		                expr.visit(new AbstractExtendedQueryModelVisitor<RuntimeException>() {
+		                	private final String INDENT = "    ";
 		                    private int indentLevel = 0;
 		                    @Override
 		                    protected void meetNode(QueryModelNode node) {
-		                        for (int i = 0; i < indentLevel; i++) {
-		                                buf.append("    ");
-		                        }
+		                    	if (node instanceof VariableScopeChange && ((VariableScopeChange)node).isVariableScopeChange()) {
+		                    		writeScopeChange(node);
+		                    	} else {
+		                    		writeNode(node);
+		                    	}
+		                    }
+		                    private void writeScopeChange(QueryModelNode node) {
+		                    	writeIndent();
+		                    	buf.append("{").append(System.lineSeparator());
+		                        indentLevel++;
+		                        writeNode(node);
+		                        indentLevel--;
+		                    	writeIndent();
+		                    	buf.append("}").append(System.lineSeparator());
+		                    }
+		                    private void writeNode(QueryModelNode node) {
+		                    	writeIndent();
 		                        buf.append(node.getSignature());
 		                        StringBuilder statsBuf = new StringBuilder(100);
 		                        Double card = cardMap.get(node);
@@ -172,6 +188,11 @@ public final class HalyardProfile extends AbstractHalyardTool {
 		                        indentLevel++;
 		                        super.meetNode(node);
 		                        indentLevel--;
+		                    }
+		                    private void writeIndent() {
+		                        for (int i = 0; i < indentLevel; i++) {
+	                                buf.append(INDENT);
+		                        }
 		                    }
 		                });
 		                return buf.toString();
