@@ -1,9 +1,9 @@
 package com.msd.gin.halyard.strategy;
 
 import com.msd.gin.halyard.optimizers.ExtendedEvaluationStatistics;
-import com.msd.gin.halyard.optimizers.HalyardBindingAssignerOptimizer;
-import com.msd.gin.halyard.optimizers.HalyardFilterOptimizer;
-import com.msd.gin.halyard.optimizers.HalyardIterativeEvaluationOptimizer;
+import com.msd.gin.halyard.optimizers.ExtendedBindingAssignerOptimizer;
+import com.msd.gin.halyard.optimizers.ExtendedFilterOptimizer;
+import com.msd.gin.halyard.optimizers.ExtendedIterativeEvaluationOptimizer;
 import com.msd.gin.halyard.optimizers.QueryJoinOptimizer;
 
 import java.util.ArrayList;
@@ -21,9 +21,9 @@ import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.StandardQueryOptimiz
 
 public class ExtendedQueryOptimizerPipeline implements QueryOptimizerPipeline {
 	private static boolean assertsEnabled = false;
-	static final HalyardBindingAssignerOptimizer BINDING_ASSIGNER = new HalyardBindingAssignerOptimizer();
-	static final HalyardFilterOptimizer FILTER_OPTIMIZER = new HalyardFilterOptimizer();
-	static final HalyardIterativeEvaluationOptimizer ITERATIVE_EVALUATION_OPTIMIZER = new HalyardIterativeEvaluationOptimizer();
+	static final ExtendedBindingAssignerOptimizer BINDING_ASSIGNER = new ExtendedBindingAssignerOptimizer();
+	static final ExtendedFilterOptimizer FILTER_OPTIMIZER = new ExtendedFilterOptimizer();
+	static final ExtendedIterativeEvaluationOptimizer ITERATIVE_EVALUATION_OPTIMIZER = new ExtendedIterativeEvaluationOptimizer();
 
 	static {
 		assert assertsEnabled = true;

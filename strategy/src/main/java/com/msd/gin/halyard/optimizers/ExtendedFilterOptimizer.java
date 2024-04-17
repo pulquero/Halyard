@@ -52,7 +52,7 @@ import org.eclipse.rdf4j.query.algebra.helpers.collectors.VarNameCollector;
  *
  * @author Adam Sotona (MSD)
  */
-public final class HalyardFilterOptimizer implements QueryOptimizer {
+public final class ExtendedFilterOptimizer implements QueryOptimizer {
 	public static final QueryOptimizer DECOMPOSE = new QueryOptimizer() {
 	    @Override
 	    public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {

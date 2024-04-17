@@ -15,7 +15,7 @@ import org.eclipse.rdf4j.query.algebra.Union;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
 
-public final class HalyardIterativeEvaluationOptimizer implements QueryOptimizer {
+public final class ExtendedIterativeEvaluationOptimizer implements QueryOptimizer {
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {

@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class HalyardIterativeEvaluationOptimizerTest {
+public class ExtendedIterativeEvaluationOptimizerTest {
 	private StatementPattern createStatementPattern(String s, String o) {
 		return new StatementPattern(new Var("s"), TupleExprs.createConstVar(RDF.VALUE), new Var("o"));
 	}
@@ -37,7 +37,7 @@ public class HalyardIterativeEvaluationOptimizerTest {
 		union.setResultSizeEstimate(union.getLeftArg().getResultSizeEstimate() + union.getRightArg().getResultSizeEstimate());
 		QueryRoot root = new QueryRoot(union);
 		double total = union.getResultSizeEstimate();
-		new HalyardIterativeEvaluationOptimizer().optimize(root, null, null);
+		new ExtendedIterativeEvaluationOptimizer().optimize(root, null, null);
 		assertEquals(total, root.getArg().getResultSizeEstimate(), root.toString());
 		assertEquals(sp2.getResultSizeEstimate() + sp3.getResultSizeEstimate(), union.getResultSizeEstimate(), root.toString());
 	}
@@ -62,7 +62,7 @@ public class HalyardIterativeEvaluationOptimizerTest {
 		union.setResultSizeEstimate(union.getArgs().stream().mapToDouble(QueryModelNode::getResultSizeEstimate).sum());
 		QueryRoot root = new QueryRoot(union);
 		double total = union.getResultSizeEstimate();
-		new HalyardIterativeEvaluationOptimizer().optimize(root, null, null);
+		new ExtendedIterativeEvaluationOptimizer().optimize(root, null, null);
 		assertEquals(total, root.getArg().getResultSizeEstimate(), root.toString());
 		assertEquals(sp2.getResultSizeEstimate() + sp3.getResultSizeEstimate() + sp4.getResultSizeEstimate(), union.getResultSizeEstimate(), root.toString());
 	}
