@@ -27,6 +27,7 @@ import java.util.Set;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.FunctionCall;
+import org.eclipse.rdf4j.query.algebra.Projection;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
@@ -47,16 +48,34 @@ public final class HalyardQueryJoinOptimizer extends QueryJoinOptimizer {
     @Override
     public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
 		// Halyard - find bindings required for parallel split function
-        final Set<String> parallelSplitBindings = getParallelSplitBindings(tupleExpr);
         tupleExpr.visit(new QueryJoinOptimizer.JoinVisitor() {
-			@Override
-			protected void updateCardinalityMap(TupleExpr tupleExpr, Map<TupleExpr,Double> cardinalityMap) {
-				statistics.updateCardinalityMap(tupleExpr, boundVars, parallelSplitBindings, cardinalityMap, true);
+        	Set<String> parallelSplitBindings = null;
+
+        	private Set<String> getParallelSplitBindings() {
+        		if (parallelSplitBindings == null) {
+            		parallelSplitBindings = findParallelSplitBindings(tupleExpr);
+        		}
+        		return parallelSplitBindings;
+        	}
+
+        	@Override
+        	public void meet(Projection node) {
+        		Set<String> currentParallelSplitBindings = parallelSplitBindings;
+        		if (node.isSubquery()) {
+        			parallelSplitBindings = findParallelSplitBindings(node.getArg());
+        		}
+        		super.meet(node);
+        		parallelSplitBindings = currentParallelSplitBindings;
+        	}
+
+        	@Override
+			protected void updateCardinalityMap(TupleExpr node, Map<TupleExpr,Double> cardinalityMap) {
+				statistics.updateCardinalityMap(node, boundVars, getParallelSplitBindings(), cardinalityMap, true);
 			}
 		});
 	}
 
-	private Set<String> getParallelSplitBindings(TupleExpr tupleExpr) {
+	private static Set<String> findParallelSplitBindings(TupleExpr tupleExpr) {
         final Set<String> parallelSplitBindings = new HashSet<>();
         tupleExpr.visit(new SkipVarsQueryModelVisitor<RuntimeException>() {
         	/**
@@ -87,6 +106,14 @@ public final class HalyardQueryJoinOptimizer extends QueryJoinOptimizer {
                 }
                 super.meet(node);
             }
+
+            @Override
+        	public void meet(Projection node) {
+            	// respect variable scoping
+        		if (!node.isSubquery()) {
+        			super.meet(node);
+        		}
+        	}
         });
         return parallelSplitBindings;
 	}

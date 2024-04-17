@@ -73,6 +73,26 @@ public class HalyardQueryJoinOptimizerTest {
     }
 
     @Test
+    public void testQueryJoinOptimizerWithSplitFunctionOutsideSubquery() {
+        final TupleExpr expr = new SPARQLParser().parseQuery("select * where {?a a \"1\";?b ?d. filter (<" + HALYARD.PARALLEL_SPLIT_FUNCTION + ">(10, ?d)) { select * {?d a ?type; rdfs:label ?l} }}", BASE_URI).getTupleExpr();
+        new HalyardQueryJoinOptimizer(createStatistics()).optimize(expr, null, null);
+        JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
+        assertEquals(expr.toString(), "type", joinOrder.list.get(0).getObjectVar().getName());
+        double expected = SimpleStatementPatternCardinalityCalculator.SUBJECT_VAR_CARDINALITY*SimpleStatementPatternCardinalityCalculator.OBJECT_VAR_CARDINALITY;
+        assertEquals(expr.toString(), expected, joinOrder.list.get(0).getResultSizeEstimate(), 0.0);
+    }
+
+    @Test
+    public void testQueryJoinOptimizerWithSplitFunctionInsideSubquery() {
+        final TupleExpr expr = new SPARQLParser().parseQuery("select * where { ?d a ?type; rdfs:label ?l { select * {?a a \"1\";?b ?d. filter (<" + HALYARD.PARALLEL_SPLIT_FUNCTION + ">(10, ?d))} }}", BASE_URI).getTupleExpr();
+        new HalyardQueryJoinOptimizer(createStatistics()).optimize(expr, null, null);
+        JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
+        assertEquals(expr.toString(), "d", joinOrder.list.get(0).getObjectVar().getName());
+        double expected = SimpleStatementPatternCardinalityCalculator.SUBJECT_VAR_CARDINALITY*SimpleStatementPatternCardinalityCalculator.PREDICATE_VAR_CARDINALITY*SimpleStatementPatternCardinalityCalculator.OBJECT_VAR_CARDINALITY/HalyardEvaluationStatistics.PRIORITY_VAR_FACTOR;
+        assertEquals(expr.toString(), expected, joinOrder.list.get(0).getResultSizeEstimate(), 0.0);
+    }
+
+    @Test
     public void testQueryJoinOptimizerWithBind() {
         final TupleExpr expr = new SPARQLParser().parseQuery("SELECT * WHERE { BIND (<http://whatever/obj> AS ?b)  ?a <http://whatever/pred> ?b, \"whatever\" .}", BASE_URI).getTupleExpr();
         new HalyardQueryJoinOptimizer(createStatistics()).optimize(expr, null, null);
