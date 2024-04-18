@@ -97,7 +97,7 @@ public class HalyardStrategyJoinTest {
     @Test
     public void testJoinOn1Var_bound() throws Exception {
         String q = "prefix : <http://example/> select ?s ?t where {values ?x {:y2 :y3 :y3a} ?s :r ?x. ?x :s ?t}";
-        joinTest(q, "/test-cases/join-data.ttl", "/test-cases/join-results-1.srx", 2, Algorithms.NESTED_LOOPS, expectedAlgo());
+        joinTest(q, "/test-cases/join-data.ttl", "/test-cases/join-results-1.srx", 2, expectedAlgo(), expectedAlgo());
     }
 
     @Test
@@ -158,6 +158,12 @@ public class HalyardStrategyJoinTest {
     public void testStarJoin() throws Exception {
         String q = "prefix : <http://example/> select * where {?x :p ?u. ?x :r ?v}";
         joinTest(q, "/test-cases/star-join-results.srx", 1, starJoinMin == 1 ? Algorithms.STAR_JOIN : expectedAlgo());
+    }
+
+    @Test
+    public void testStarJoin2() throws Exception {
+        String q = "prefix : <http://example/> select * where {?x :p ?u. ?x :r ?v. ?x :q ?w}";
+        joinTest(q, "/test-cases/join-data.ttl", "/test-cases/star-join-results-2.srx", starJoinMin == 1 ? 1 : 2, starJoinMin == 1 ? new String[] {Algorithms.STAR_JOIN} : new String[] {expectedAlgo(), expectedAlgo()});
     }
 
     @Test

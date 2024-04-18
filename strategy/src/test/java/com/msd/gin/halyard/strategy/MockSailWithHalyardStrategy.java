@@ -121,7 +121,7 @@ public class MockSailWithHalyardStrategy extends MemoryStore {
 
 		@Override
         protected EvaluationStrategy getEvaluationStrategy(Dataset dataset, final TripleSource tripleSource) {
-        	HalyardEvaluationStatistics stats = new HalyardEvaluationStatistics(SimpleStatementPatternCardinalityCalculator.FACTORY, null);
+        	HalyardEvaluationStatistics stats = new HalyardEvaluationStatistics(() -> new SimpleStatementPatternCardinalityCalculator(5, 5, 20, 1), null);
         	Configuration conf = new Configuration();
         	conf.setInt(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_LIMIT, optHashJoinLimit);
         	conf.setFloat(StrategyConfig.HALYARD_EVALUATION_HASH_JOIN_COST_RATIO, cardinalityRatio);
