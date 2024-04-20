@@ -179,6 +179,18 @@ public class HalyardStrategyJoinTest {
     }
 
     @Test
+    public void testSuperStarJoin() throws Exception {
+        String q = "prefix : <http://example/> select * where {?x :q ?u. ?x :r ?v. OPTIONAL {?x :t ?w}}";
+        joinTest(q, "/test-cases/join-data.ttl", "/test-cases/super-star-join-results.srx", 2, starJoinMin == 1 ? new String[] {Algorithms.SUPERSTAR_JOIN, Algorithms.SUPERSTAR_JOIN} : new String[] {expectedAlgo(), expectedAlgo()});
+    }
+
+    @Test
+    public void testSuperStarJoin_duplicate() throws Exception {
+        String q = "prefix : <http://example/> select * where {?x :q ?u. ?x :r ?v. OPTIONAL {?x :t ?v}}";
+        joinTest(q, "/test-cases/join-data.ttl", "/test-cases/super-star-join-results-duplicate.srx", 2, starJoinMin == 1 ? new String[] {Algorithms.SUPERSTAR_JOIN, Algorithms.SUPERSTAR_JOIN} : new String[] {expectedAlgo(), expectedAlgo()});
+    }
+
+    @Test
 	public void testJoin_unbound_value() throws Exception {
 		String q = "prefix : <http://example/> "
 				+ "select ?x ?y where { "

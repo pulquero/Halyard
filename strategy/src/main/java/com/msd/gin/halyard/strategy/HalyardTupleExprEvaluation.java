@@ -2793,54 +2793,12 @@ final class HalyardTupleExprEvaluation {
     private BindingSetPipeEvaluationStep precompileStarJoin(StarJoin starJoin, QueryEvaluationContext evalContext) {
     	if (starJoin.getScope() == StatementPattern.Scope.DEFAULT_CONTEXTS) {
 	    	StatementPattern[] sps = getStatementPatterns(starJoin.getArgs(), 0);
-	    	Var commonVar = starJoin.getCommonVar();
-	    	Var ctxVar = starJoin.getContextVar();
 	    	boolean allAreStmts = (sps != null);
 	    	if (allAreStmts) {
 	        	starJoin.setAlgorithm(Algorithms.STAR_JOIN);
-		    	return (parent, bindings) -> {
-		        	BindingSetPipeEvaluationStep step;
-		        	boolean isCommonBound = commonVar.hasValue() || bindings.hasBinding(commonVar.getName());
-		        	boolean isCtxBound = (ctxVar != null) && (ctxVar.hasValue() || bindings.hasBinding(ctxVar.getName()));
-		        	boolean isPrebound = isCommonBound && (ctxVar == null || isCtxBound);
-		        	int startIndex = isPrebound ? 0 : 1;
-	        		if (sps.length-startIndex > 1) {
-	        			// multiple statement patterns
-	        			BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher = getStatementFetcher(sps, startIndex, bindings);
-	        			if (stmtFetcher == null) {
-	        				parent.close();
-	        				return;
-	        			}
-	        			QueryEvaluationStep evalStep = evalBindings -> {
-		        			List<BindingSet>[] resultsPerSp = applyStatementPatterns(commonVar, ctxVar, sps, startIndex, stmtFetcher, evalBindings);
-		        			if (resultsPerSp == null) {
-								return new EmptyIteration<>();
-		        			}
-							List<BindingSet> results = resultsPerSp[startIndex];
-							if (results == null) {
-								return new EmptyIteration<>();
-							}
-							for (int i=startIndex+1; i<resultsPerSp.length; i++) {
-								List<BindingSet> bsList = resultsPerSp[i];
-								results = join(results, bsList);
-								if (results == null) {
-									return new EmptyIteration<>();
-								}
-							}
-							return new CloseableIteratorIteration<>(results.iterator());
-		        		};
-		        		step = (p, stepBindings) -> pullPushAsync(p, evalStep, starJoin, stepBindings);
-	        		} else {
-	        			// single statement pattern
-	        			step = (p, stepBindings) -> evaluateStatementPattern(p, sps[startIndex], starJoin, stepBindings);
-	        		}
-	
-		    		if (!isPrebound) {
-			    		BindingSetPipeEvaluationStep firstStep = precompileTupleExpr(sps[0], evalContext);
-		    			step = precompileNestedLoopsJoin(firstStep, step, null);	
-		    		}
-		    		step.evaluate(parent, bindings);
-		    	};
+		    	Var commonVar = starJoin.getCommonVar();
+		    	Var ctxVar = starJoin.getContextVar();
+		    	return precompileCombinedStarJoin(commonVar, ctxVar, sps, sps.length, starJoin, evalContext);
 	    	}
     	}
 
@@ -2854,46 +2812,118 @@ final class HalyardTupleExprEvaluation {
         return step;
     }
 
+    private BindingSetPipeEvaluationStep precompileCombinedStarJoin(Var commonVar, Var ctxVar, StatementPattern[] sps, int leftJoinStartIndex, TupleExpr trackExpr, QueryEvaluationContext evalContext) {
+    	return (parent, bindings) -> {
+        	BindingSetPipeEvaluationStep step;
+        	boolean isCommonBound = commonVar.hasValue() || bindings.hasBinding(commonVar.getName());
+        	boolean isCtxBound = (ctxVar != null) && (ctxVar.hasValue() || bindings.hasBinding(ctxVar.getName()));
+        	boolean isPrebound = isCommonBound && (ctxVar == null || isCtxBound);
+        	int startIndex = isPrebound ? 0 : 1;
+    		if (sps.length-startIndex > 1) {
+    			// multiple statement patterns
+				BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher = getStatementFetcher(sps, startIndex, bindings);
+				if (stmtFetcher == null) {
+					parent.close();
+					return;
+				}
+				QueryEvaluationStep evalStep = evalBindings -> {
+	    			List<BindingSet>[] resultsPerSp = applyStatementPatterns(commonVar, ctxVar, sps, startIndex, stmtFetcher, evalBindings);
+	    			if (resultsPerSp == null) {
+						return new EmptyIteration<>();
+	    			}
+	    			// joins
+					List<BindingSet> results = resultsPerSp[startIndex];
+					if (results == null) {
+						return new EmptyIteration<>();
+					}
+					for (int i=startIndex+1; i<leftJoinStartIndex; i++) {
+						List<BindingSet> bsList = resultsPerSp[i];
+						results = join(results, bsList);
+						if (results == null) {
+							return new EmptyIteration<>();
+						}
+					}
+					// left joins
+					for (int i=leftJoinStartIndex; i<resultsPerSp.length; i++) {
+						List<BindingSet> bsList = resultsPerSp[i];
+						results = leftJoin(results, bsList);
+					}
+					if (results == null) {
+						return new EmptyIteration<>();
+					}
+					return new CloseableIteratorIteration<>(results.iterator());
+	    		};
+	    		step = (p, stepBindings) -> pullPushAsync(p, evalStep, trackExpr, stepBindings);
+    		} else {
+    			// single statement pattern
+    			step = (p, stepBindings) -> evaluateStatementPattern(p, sps[startIndex], trackExpr, stepBindings);
+    		}
+
+    		if (!isPrebound) {
+	    		BindingSetPipeEvaluationStep firstStep = precompileTupleExpr(sps[0], evalContext);
+    			step = precompileNestedLoopsJoin(firstStep, step, null);	
+    		}
+    		step.evaluate(parent, bindings);
+    	};
+    }
+
     private BindingSetPipeEvaluationStep precompileLeftStarJoin(LeftStarJoin leftStarJoin, QueryEvaluationContext evalContext) {
     	if (leftStarJoin.getScope() == StatementPattern.Scope.DEFAULT_CONTEXTS) {
 	    	StatementPattern[] sps = getStatementPatterns(leftStarJoin.getArgs(), 1);
-	    	Var commonVar = leftStarJoin.getCommonVar();
-	    	Var ctxVar = leftStarJoin.getContextVar();
 	    	boolean allAreStmts = (sps != null);
 	    	if (allAreStmts) {
-	        	leftStarJoin.setAlgorithm(Algorithms.STAR_JOIN);
-	        	return (parent, bindings) -> {
-	        		BindingSetPipeEvaluationStep stmtsStep;
-	        		if (sps.length > 1) {
-	        			BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher = getStatementFetcher(sps, 0, bindings);
-	        			if (stmtFetcher == null) {
-	        				parent.close();
-	        				return;
-	        			}
-	        			QueryEvaluationStep evalStep = evalBindings -> {
-		        			List<BindingSet>[] resultsPerSp = applyStatementPatterns(commonVar, ctxVar, sps, 0, stmtFetcher, evalBindings);
-		        			if (resultsPerSp == null) {
-								return new EmptyIteration<>();
+    	    	Var commonVar = leftStarJoin.getCommonVar();
+    	    	Var ctxVar = leftStarJoin.getContextVar();
+    	    	TupleExpr baseArg = leftStarJoin.getBaseArg();
+	    		StatementPattern[] baseSps = null;
+	        	if (baseArg instanceof StarJoin) {
+		        	StarJoin starJoin = (StarJoin) baseArg;
+		        	if (starJoin.getScope() == leftStarJoin.getScope() && starJoin.getCommonVar().equals(leftStarJoin.getCommonVar()) && Objects.equals(starJoin.getContextVar(), leftStarJoin.getContextVar())) {
+		            	baseSps = getStatementPatterns(starJoin.getArgs(), 0);
+		        	}
+	        	}
+	    		if (baseSps != null) {
+	    	    	leftStarJoin.setAlgorithm(Algorithms.SUPERSTAR_JOIN);
+	    	    	((StarJoin)baseArg).setAlgorithm(Algorithms.SUPERSTAR_JOIN);
+	    	    	StatementPattern[] allSps = new StatementPattern[baseSps.length + sps.length];
+	    	    	System.arraycopy(baseSps, 0, allSps, 0, baseSps.length);
+	    	    	System.arraycopy(sps, 0, allSps, baseSps.length, sps.length);
+	    			return precompileCombinedStarJoin(commonVar, ctxVar, allSps, baseSps.length, leftStarJoin, evalContext);
+	    		} else {
+		        	leftStarJoin.setAlgorithm(Algorithms.STAR_JOIN);
+		        	return (parent, bindings) -> {
+		        		BindingSetPipeEvaluationStep stmtsStep;
+		        		if (sps.length > 1) {
+		        			BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher = getStatementFetcher(sps, 0, bindings);
+		        			if (stmtFetcher == null) {
+		        				parent.close();
+		        				return;
 		        			}
-							List<BindingSet> results = resultsPerSp[0];
-							for (int i=1; i<resultsPerSp.length; i++) {
-								List<BindingSet> bsList = resultsPerSp[i];
-								results = leftJoin(results, bsList);
-							}
-							if (results == null) {
-								return new EmptyIteration<>();
-							}
-							return new CloseableIteratorIteration<>(results.iterator());
-		        		};
-						stmtsStep = (p, stepBindings) -> executor.pullPushAsync(p, evalStep, leftStarJoin, stepBindings, Function.identity());
-	        		} else {
-	        			// single statement pattern
-	        			stmtsStep = (p, stepBindings) -> evaluateStatementPattern(p, sps[0], leftStarJoin, stepBindings, Function.identity());
-	        		}
-					BindingSetPipeEvaluationStep baseStep = precompileTupleExpr(leftStarJoin.getBaseArg(), evalContext);
-					BindingSetPipeEvaluationStep step = precompileNestedLoopsLeftJoin(baseStep, stmtsStep, null, null, leftStarJoin);
-					step.evaluate(parent, bindings);
-	        	};
+		        			QueryEvaluationStep evalStep = evalBindings -> {
+			        			List<BindingSet>[] resultsPerSp = applyStatementPatterns(commonVar, ctxVar, sps, 0, stmtFetcher, evalBindings);
+			        			if (resultsPerSp == null) {
+									return new EmptyIteration<>();
+			        			}
+								List<BindingSet> results = resultsPerSp[0];
+								for (int i=1; i<resultsPerSp.length; i++) {
+									List<BindingSet> bsList = resultsPerSp[i];
+									results = leftJoin(results, bsList);
+								}
+								if (results == null) {
+									return new EmptyIteration<>();
+								}
+								return new CloseableIteratorIteration<>(results.iterator());
+			        		};
+							stmtsStep = (p, stepBindings) -> executor.pullPushAsync(p, evalStep, leftStarJoin, stepBindings, Function.identity());
+		        		} else {
+		        			// single statement pattern
+		        			stmtsStep = (p, stepBindings) -> evaluateStatementPattern(p, sps[0], leftStarJoin, stepBindings, Function.identity());
+		        		}
+						BindingSetPipeEvaluationStep baseStep = precompileTupleExpr(baseArg, evalContext);
+						BindingSetPipeEvaluationStep step = precompileNestedLoopsLeftJoin(baseStep, stmtsStep, null, null, leftStarJoin);
+						step.evaluate(parent, bindings);
+		        	};
+	    		}
 	    	}
     	}
 
@@ -3033,7 +3063,7 @@ final class HalyardTupleExprEvaluation {
 	    	List<BindingSet> result = new ArrayList<>(left.size()*right.size());
 	    	for (BindingSet l : left) {
 	    		for (BindingSet r : right) {
-	    			BindingSet bs = tryJoin(l, r);
+	    			BindingSet bs = tryLeftJoin(l, r);
 	    			if (bs != null) {
 	    				result.add(bs);
 	    			}
@@ -3052,8 +3082,6 @@ final class HalyardTupleExprEvaluation {
     			Value lv = left.getValue(name);
     			if (!Objects.equals(lv, rv)) {
     				return null;
-    			} else if (result == null) {
-    				result = new QueryBindingSet(left);
     			}
     		} else {
     			if (rv != null) {
@@ -3064,7 +3092,32 @@ final class HalyardTupleExprEvaluation {
     			}
     		}
     	}
-    	return result;
+		if (result != null) {
+			return result;
+		} else {
+			return left;
+		}
+    }
+
+    private static BindingSet tryLeftJoin(BindingSet left, BindingSet right) {
+    	QueryBindingSet result = null;
+    	for (Binding b : right) {
+    		String name = b.getName();
+			Value rv = b.getValue();
+    		if (!left.hasBinding(name)) {
+    			if (rv != null) {
+    				if (result == null) {
+    					result = new QueryBindingSet(left);
+    				}
+    				result.setBinding(name, rv);
+    			}
+    		}
+    	}
+		if (result != null) {
+			return result;
+		} else {
+			return left;
+		}
     }
 
     /**
