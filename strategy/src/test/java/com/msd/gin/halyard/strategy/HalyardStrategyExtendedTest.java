@@ -20,11 +20,11 @@ import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertTrue;
 
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.SCHEMA_ORG;
 
 import java.util.HashSet;
 import java.util.Set;
 
-import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
@@ -131,9 +131,8 @@ public class HalyardStrategyExtendedTest {
     @Test
     public void testSES2154SubselectOptional() throws Exception {
         SimpleValueFactory vf = SimpleValueFactory.getInstance();
-        IRI person = vf.createIRI("http://schema.org/Person");
         for (char c = 'a'; c < 'k'; c++) {
-            con.add(vf.createIRI("http://example.com/" + c), RDF.TYPE, person);
+            con.add(vf.createIRI("http://example.com/" + c), RDF.TYPE, SCHEMA_ORG.PERSON);
         }
         String sparql = "PREFIX : <http://example.com/>\n" + "PREFIX schema: <http://schema.org/>\n" + "\n" + "SELECT (COUNT(*) AS ?count)\n" + "WHERE {\n" + "  {\n" + "    SELECT ?person\n" + "    WHERE {\n" + "      ?person a schema:Person .\n" + "    }\n" + "    LIMIT 5\n" + "  }\n" + "  OPTIONAL {\n" + "    [] :nonexistent [] .\n" + "  }\n" + "}";
         try (TupleQueryResult res = con.prepareTupleQuery(sparql).evaluate()) {
@@ -378,7 +377,42 @@ public class HalyardStrategyExtendedTest {
         assertEquals(total-graphSize, totalAfterDelete);
     }
 
-    private static int countDistinct(QueryResult<?> res) throws InterruptedException {
+    @Test
+    public void testFilterScoping1() throws Exception {
+        ValueFactory vf = con.getValueFactory();
+        con.add(vf.createIRI("http://example.com/a"), RDF.TYPE, SCHEMA_ORG.PERSON);
+        con.add(vf.createIRI("http://example.com/b"), RDF.TYPE, SCHEMA_ORG.PERSON);
+        con.add(vf.createIRI("http://example.com/b"), SCHEMA_ORG.NAME, vf.createLiteral("Claire"));
+        int total;
+        try (TupleQueryResult res = con.prepareTupleQuery("PREFIX s: <http://schema.org/>\nSELECT ?s {?s a s:Person FILTER EXISTS {?s s:name []} }").evaluate()) {
+	        total = count(res);
+        }
+        assertEquals(1, total);
+    }
+
+    @Test
+    public void testFilterScoping2() throws Exception {
+        ValueFactory vf = con.getValueFactory();
+        con.add(vf.createIRI("http://example.com/a"), RDF.TYPE, SCHEMA_ORG.PERSON);
+        con.add(vf.createIRI("http://example.com/b"), RDF.TYPE, SCHEMA_ORG.PERSON);
+        con.add(vf.createIRI("http://example.com/b"), SCHEMA_ORG.NAME, vf.createLiteral("Claire"));
+        int total;
+        try (TupleQueryResult res = con.prepareTupleQuery("PREFIX s: <http://schema.org/>\nSELECT ?s {?s a s:Person { FILTER EXISTS {?s s:name []} } }").evaluate()) {
+	        total = count(res);
+        }
+        assertEquals(2, total);
+    }
+
+    private static int count(QueryResult<?> res) {
+    	int n = 0;
+    	while (res.hasNext()) {
+    		res.next();
+    		n++;
+    	}
+    	return n;
+    }
+
+    private static int countDistinct(QueryResult<?> res) {
     	Set<Object> distinct = new HashSet<>();
     	while (res.hasNext()) {
     		distinct.add(res.next());
