@@ -195,7 +195,7 @@ public class ValueIO {
 	}
 
 	private static ByteBuffer compress(ByteBuffer b) {
-		LZ4Compressor compressor = LZ4.highCompressor();
+		LZ4Compressor compressor = LZ4.fastCompressor();
 		int maxLen = compressor.maxCompressedLength(b.remaining());
 		ByteBuffer compressed = ByteBuffer.allocate(maxLen);
 		compressor.compress(b, compressed);

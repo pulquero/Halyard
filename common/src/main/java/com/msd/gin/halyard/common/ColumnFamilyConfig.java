@@ -14,21 +14,23 @@ import org.apache.hadoop.hbase.util.BloomFilterUtil;
 import org.apache.hadoop.hbase.util.Bytes;
 
 public final class ColumnFamilyConfig {
+	public static final String COMPRESSION = "halyard.compression";
 	public static final String MAX_VERSIONS = "halyard.maxVersions";
 	public static final String BLOOM_FILTER_PREFIX_LENGTH = "halyard.bloomFilter.prefixLength";
 
 	static final byte[] CF_NAME = Bytes.toBytes("e");
 
 	private static final int DEFAULT_MAX_VERSIONS = 1;
-	private static final Compression.Algorithm DEFAULT_COMPRESSION_ALGORITHM = Compression.Algorithm.GZ;
+	private static final String DEFAULT_COMPRESSION_ALGORITHM = "lz4";
 	private static final DataBlockEncoding DEFAULT_DATABLOCK_ENCODING = DataBlockEncoding.PREFIX;
 
 	static ColumnFamilyDescriptor createColumnFamilyDesc(Configuration conf) {
+		String compression = conf.get(COMPRESSION, DEFAULT_COMPRESSION_ALGORITHM);
 		int maxVersions = conf.getInt(MAX_VERSIONS, DEFAULT_MAX_VERSIONS);
 		ColumnFamilyDescriptorBuilder builder = ColumnFamilyDescriptorBuilder.newBuilder(CF_NAME)
                 .setMaxVersions(maxVersions)
                 .setBlockCacheEnabled(true)
-                .setCompressionType(DEFAULT_COMPRESSION_ALGORITHM)
+                .setCompressionType(Compression.getCompressionAlgorithmByName(compression))
                 .setDataBlockEncoding(DEFAULT_DATABLOCK_ENCODING)
                 .setCacheDataOnWrite(true)
                 .setCacheIndexesOnWrite(true)
