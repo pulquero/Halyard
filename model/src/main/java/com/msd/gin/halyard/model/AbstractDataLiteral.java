@@ -2,6 +2,7 @@ package com.msd.gin.halyard.model;
 
 import java.util.Optional;
 
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.AbstractLiteral;
 
 /**
@@ -27,5 +28,21 @@ public abstract class AbstractDataLiteral extends AbstractLiteral {
 			hashCode = hc;
 		}
 		return hc;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+
+		if (o instanceof Literal) {
+			Literal other = (Literal) o;
+			// performance: avoid getting the label unnecessarily
+			if (getDatatype().equals(other.getDatatype())) {
+				return getLabel().equals(other.getLabel());
+			}
+		}
+		return false;
 	}
 }
