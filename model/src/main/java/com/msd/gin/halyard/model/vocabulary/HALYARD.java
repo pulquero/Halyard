@@ -129,7 +129,6 @@ public final class HALYARD implements Vocabulary {
 	public final static IRI TUPLE_TYPE = SVF.createIRI(NAMESPACE, "tuple");
 	public final static IRI ARRAY_TYPE = SVF.createIRI(NAMESPACE, "array");
 	public final static IRI MAP_TYPE = SVF.createIRI(NAMESPACE, "map");
-	public final static IRI JAVA_TYPE = SVF.createIRI(NAMESPACE, "javaObject");
 
 	public static final Namespace VALUE_ID_NS = new Base64Namespace("idv", "halyard:id:value:");
 	

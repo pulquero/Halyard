@@ -2,21 +2,18 @@ package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.model.AbstractDataLiteral;
 import com.msd.gin.halyard.model.ObjectLiteral;
-import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.util.Objects;
-import java.util.zip.GZIPOutputStream;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 
 public class JavaObjectLiteral<T> extends AbstractDataLiteral implements ObjectLiteral<T> {
 	private static final long serialVersionUID = -124780683447095687L;
 
 	private final T obj;
+	private final IRI datatype;
 
 	public static <T> JavaObjectLiteral<T> of(T o) {
 		return new JavaObjectLiteral<>(o);
@@ -24,6 +21,8 @@ public class JavaObjectLiteral<T> extends AbstractDataLiteral implements ObjectL
 
 	public JavaObjectLiteral(T o) {
 		this.obj = o;
+		Class<?> cls = (obj != null) ? obj.getClass() : Void.class;
+		this.datatype = SimpleValueFactory.getInstance().createIRI("java:", cls.getName());
 	}
 
 	@Override
@@ -33,18 +32,12 @@ public class JavaObjectLiteral<T> extends AbstractDataLiteral implements ObjectL
 
 	@Override
 	public String getLabel() {
-		ByteArrayOutputStream out = new ByteArrayOutputStream(512);
-		try (ObjectOutputStream objOut = new ObjectOutputStream(new GZIPOutputStream(out))) {
-			objOut.writeObject(obj);
-		} catch (IOException ioe) {
-			throw new RuntimeException(ioe);
-		}
-		return ByteUtils.encode(out.toByteArray());
+		return String.valueOf(obj);
 	}
 
 	@Override
 	public IRI getDatatype() {
-		return HALYARD.JAVA_TYPE;
+		return datatype;
 	}
 
 	@Override
