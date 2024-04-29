@@ -83,6 +83,7 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 import org.eclipse.rdf4j.query.AbstractTupleQueryResultHandler;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.BooleanQuery;
@@ -532,7 +533,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         	sparqlQuery.target = value;
         } else {
             if (name.startsWith("$")) {
-            	sparqlQuery.addBinding(name.substring(1), NTriplesUtil.parseValue(value, repository.getValueFactory()));
+            	sparqlQuery.addBinding(name.substring(1), parseValue(value));
             } else {
                 sparqlQuery.addParameter(name, value);
             }
@@ -554,11 +555,31 @@ public final class HttpSparqlHandler implements HttpHandler {
         	sparqlQuery.mapReduce = Boolean.valueOf(value);
         } else {
             if (name.startsWith("$")) {
-            	sparqlQuery.addBinding(name.substring(1), NTriplesUtil.parseValue(value, repository.getValueFactory()));
+            	sparqlQuery.addBinding(name.substring(1), parseValue(value));
             } else {
                 sparqlQuery.addParameter(name, value);
             }
         }
+    }
+
+    private Value parseValue(String value) {
+    	if (value.isEmpty()) {
+    		throw new IllegalArgumentException("Binding value cannot be empty");
+    	}
+    	ValueFactory vf = repository.getValueFactory();
+    	try {
+    		int n = XMLDatatypeUtil.parseInt(value);
+    		return vf.createLiteral(n);
+    	} catch (NumberFormatException nfe) {
+    		// ignore and try next block
+    	}
+    	try {
+    		double x = XMLDatatypeUtil.parseDouble(value);
+    		return vf.createLiteral(x);
+    	} catch (NumberFormatException nfe) {
+    		// ignore and try next block
+    	}
+    	return NTriplesUtil.parseValue(value, vf);
     }
 
     private void parseGraphStoreParameter(NameValuePair param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException, InvalidRequestException {
