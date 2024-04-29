@@ -102,19 +102,27 @@ public final class HalyardEvaluationStatistics extends ExtendedEvaluationStatist
 
         @Override
         protected double getCardinality(StatementPattern sp) {
-            //always prefer HALYARD.SEARCH_TYPE object literals to move such statements higher in the joins tree
+        	/* This is a bit hacky but we try to track the distinction
+        	   between cost and cardinality by temporarily stuffing the cost factor in the cost estimate.
+        	 */
+            // Always prefer HALYARD.SEARCH_TYPE object literals to move such statements higher in the joins tree
             Var objectVar = sp.getObjectVar();
             if (HalyardEvaluationStrategy.isSearchStatement(objectVar.getValue())) {
-                return 0.0001;
+            	double costFactor = 0.00000001;
+            	sp.setCostEstimate(-1.0-costFactor);
+            	double card = HalyardEvaluationStrategy.SEARCH_RESULT_SIZE;
+                return card * costFactor;
             }
-            double card = super.getCardinality(sp);
+            double costFactor = 1.0;
             for (Var v : sp.getVarList()) {
                 //decrease cardinality for each priority variable present
                 if (v != null && priorityVariables.contains(v.getName())) {
-                	card /= PRIORITY_VAR_FACTOR;
+                	costFactor /= PRIORITY_VAR_FACTOR;
                 }
             }
-            return card;
+            sp.setCostEstimate(-1.0-costFactor);
+            double card = super.getCardinality(sp);
+            return card * costFactor;
         }
 
         @Override

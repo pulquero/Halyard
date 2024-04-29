@@ -72,7 +72,17 @@ public final class HalyardQueryJoinOptimizer extends QueryJoinOptimizer {
 			protected void updateCardinalityMap(TupleExpr node, Map<TupleExpr,Double> cardinalityMap) {
 				statistics.updateCardinalityMap(node, boundVars, getParallelSplitBindings(), cardinalityMap, true);
 			}
-		});
+
+        	@Override
+        	protected void setResultSizeEstimate(TupleExpr node, double cardinality) {
+				// fix-up result size estimates - compensate for cost factor
+				double costFactor = -node.getCostEstimate() - 1.0;
+				if (costFactor > 0.0) {
+					cardinality /= costFactor;
+				}
+				super.setResultSizeEstimate(node, cardinality);
+        	}
+        });
 	}
 
 	private static Set<String> findParallelSplitBindings(TupleExpr tupleExpr) {

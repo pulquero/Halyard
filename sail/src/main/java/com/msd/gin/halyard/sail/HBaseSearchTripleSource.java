@@ -99,7 +99,7 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 							ArrayList<RDFObject> objList = new ArrayList<>();
 							SearchResponse<SearchDocument> response;
 							try {
-								response = searchClient.search(query, SearchClient.DEFAULT_RESULT_SIZE, SearchClient.DEFAULT_MIN_SCORE, SearchClient.DEFAULT_FUZZINESS, SearchClient.DEFAULT_PHRASE_SLOP);
+								response = searchClient.search(query, HalyardEvaluationStrategy.SEARCH_RESULT_SIZE, SearchClient.DEFAULT_MIN_SCORE, SearchClient.DEFAULT_FUZZINESS, SearchClient.DEFAULT_PHRASE_SLOP);
 							} catch (IOException ioe) {
 								throw new QueryEvaluationException(ioe);
 							}

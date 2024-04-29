@@ -88,8 +88,8 @@ public class HalyardQueryJoinOptimizerTest {
         new HalyardQueryJoinOptimizer(createStatistics()).optimize(expr, null, null);
         JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
         assertEquals(expr.toString(), "d", joinOrder.list.get(0).getObjectVar().getName());
-        double expected = SimpleStatementPatternCardinalityCalculator.SUBJECT_VAR_CARDINALITY*SimpleStatementPatternCardinalityCalculator.PREDICATE_VAR_CARDINALITY*SimpleStatementPatternCardinalityCalculator.OBJECT_VAR_CARDINALITY/HalyardEvaluationStatistics.PRIORITY_VAR_FACTOR;
-        assertEquals(expr.toString(), expected, joinOrder.list.get(0).getResultSizeEstimate(), 0.0);
+        double expected = SimpleStatementPatternCardinalityCalculator.SUBJECT_VAR_CARDINALITY*SimpleStatementPatternCardinalityCalculator.PREDICATE_VAR_CARDINALITY*SimpleStatementPatternCardinalityCalculator.OBJECT_VAR_CARDINALITY;
+        assertEquals(expr.toString(), expected, joinOrder.list.get(0).getResultSizeEstimate(), 0.01);
     }
 
     @Test

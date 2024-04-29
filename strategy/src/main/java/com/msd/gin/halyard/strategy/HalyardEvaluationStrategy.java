@@ -96,6 +96,7 @@ import org.slf4j.LoggerFactory;
  */
 public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HalyardEvaluationStrategy.class);
+	public static final int SEARCH_RESULT_SIZE = 10000;
 
 	private final StrategyConfig config;
 	/**

@@ -76,9 +76,13 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 				cardinalityMap.entrySet().stream().forEach(entry -> {
 					TupleExpr expr = entry.getKey();
 					double cardinality = entry.getValue();
-					expr.setResultSizeEstimate(cardinality);
+					setResultSizeEstimate(expr, cardinality);
 				});
 			}
+		}
+
+		protected void setResultSizeEstimate(TupleExpr node, double cardinality) {
+			node.setResultSizeEstimate(cardinality);
 		}
 
 		private void setResultSizeEstimate(TupleExpr tupleExpr) {
