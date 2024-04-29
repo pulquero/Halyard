@@ -390,6 +390,10 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		int forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), StatementIndices.NO_PARTITIONING);
 		BindingSet queryBindings = removeImplicitBindings(bindings);
 
+		if (forkIndex >= 0) {
+			LOGGER.info("Partition index is {}", forkIndex);
+		}
+
 		RDFStarTripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred, forkIndex);
 		EvaluationStrategy strategy = createEvaluationStrategy(tripleSource, dataset);
 

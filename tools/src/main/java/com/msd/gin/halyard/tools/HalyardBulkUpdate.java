@@ -148,7 +148,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 				}, new HBaseSail.SailConnectionFactory() {
 					@Override
 					public HBaseSailConnection createConnection(HBaseSail sail) throws IOException {
-						return new HBaseSailConnection(sail) {
+						HBaseSailConnection conn = new HBaseSailConnection(sail) {
 							private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
 
 							@Override
@@ -226,6 +226,10 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 								}
 							}
 						};
+						conn.setTrackResultSize(sail.isTrackResultSize());
+						conn.setTrackResultTime(sail.isTrackResultTime());
+						conn.setTrackBranchOperatorsOnly(sail.isTrackBranchOperatorsOnly());
+						return conn;
 					}
 				});
 				sail.setTrackResultSize(true);
@@ -240,7 +244,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
                         	upd.setBinding(binding.getKey(), NTriplesUtil.parseValue(binding.getValue(), rep.getValueFactory()));
                         }
                         context.setStatus(queryName);
-                        LOG.info("Executing update (partition {}):\n{}", partitionIndex, query);
+                        LOG.info("Executing update {}:\n{}", queryName, query);
                         upd.execute();
                     }
                 } finally {

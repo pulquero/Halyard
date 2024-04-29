@@ -97,7 +97,7 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
             int dot = name.indexOf('.');
             final String bName = dot > 0 ? name.substring(0, dot) : name;
             context.setStatus("Execution of: " + name);
-            LOG.info("Executing query {} (partition {}):\n{}", name, partitionIndex, query);
+            LOG.info("Executing query {}:\n{}", name, query);
             HalyardExport.StatusLog log = new HalyardExport.StatusLog() {
                 @Override
                 public void tick() {
