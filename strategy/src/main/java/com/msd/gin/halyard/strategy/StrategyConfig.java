@@ -15,6 +15,7 @@ public final class StrategyConfig {
 	public static final String HALYARD_EVALUATION_OFFER_TIMEOUT_MILLIS = "halyard.evaluation.offerTimeoutMillis";
 	public static final String HALYARD_EVALUATION_MAX_QUEUE_SIZE = "halyard.evaluation.maxQueueSize";
 	public static final String HALYARD_EVALUATION_THREADS = "halyard.evaluation.threads";
+	public static final String HALYARD_EVALUATION_TASK_QUEUE_MAX_SIZE = "halyard.evaluation.taskQueue.maxSize";
 	public static final String HALYARD_EVALUATION_BINDINGS_RATE_UPDATE_MILLIS = "halyard.evaluation.bindingsRate.updateMillis";
 	public static final String HALYARD_EVALUATION_BINDINGS_RATE_WINDOW_SIZE = "halyard.evaluation.bindingsRate.windowSize";
 	public static final String HALYARD_EVALUATION_TRACK_RESULT_SIZE_UPDATE_INTERVAL = "halyard.evaluation.trackResultSize.updateInterval";
@@ -27,8 +28,9 @@ public final class StrategyConfig {
 	static final int DEFAULT_NARY_UNION_MIN_UNIONS = 2;
 	static final int DEFAULT_MEMORY_THRESHOLD = 100000;
 	static final int DEFAULT_VALUE_CACHE_SIZE = 1000;
-	static final int DEFAULT_QUEUE_SIZE = 5000;
+	static final int DEFAULT_MAX_QUEUE_SIZE = 5000;
 	static final int DEFAULT_THREADS = 25;
+	static final int DEFAULT_TASK_QUEUE_MAX_SIZE = 10000;
 	static final int DEFAULT_PULL_PUSH_ASYNC_ALL_LIMIT = 50;
 	public static final String JMX_DOMAIN = "com.msd.gin.halyard";
 

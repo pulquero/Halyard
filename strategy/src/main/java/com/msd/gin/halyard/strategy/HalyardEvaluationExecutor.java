@@ -71,7 +71,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	}
 
 	private HalyardEvaluationExecutor(String name, Configuration conf, boolean asyncPullPush, Map<String,String> connAttrs) {
-	    maxQueueSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_QUEUE_SIZE, StrategyConfig.DEFAULT_QUEUE_SIZE);
+	    maxQueueSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_MAX_QUEUE_SIZE, StrategyConfig.DEFAULT_MAX_QUEUE_SIZE);
 		pollTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_POLL_TIMEOUT_MILLIS, Integer.MAX_VALUE);
 		offerTimeoutMillis = conf.getInt(StrategyConfig.HALYARD_EVALUATION_OFFER_TIMEOUT_MILLIS, conf.getInt("hbase.client.scanner.timeout.period", 60000));
 
@@ -162,18 +162,33 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	@Override
 	public void setAsyncPullPushAllLimit(int limit) {
 		if (pullPusher instanceof AsyncPullPusher) {
-			((AsyncPullPusher) pullPusher).setAsyncPullPushAllLimit(limit);
+			((AsyncPullPusher) pullPusher).setPullPushAllLimit(limit);
+		}
+	}
+
+	/**
+	 * @return -1 if infinite
+	 */
+	@Override
+	public int getAsyncPullPushAllLimit() {
+		return (pullPusher instanceof AsyncPullPusher) ? ((AsyncPullPusher) pullPusher).getPullPushAllLimit() : 0;
+	}
+
+	@Override
+	public void setAsyncTaskQueueMaxSize(int size) {
+		if (pullPusher instanceof AsyncPullPusher) {
+			((AsyncPullPusher) pullPusher).setTaskQueueMaxSize(size);
 		}
 	}
 
 	@Override
-	public int getAsyncPullPushAllLimit() {
-		return (pullPusher instanceof AsyncPullPusher) ? ((AsyncPullPusher) pullPusher).getAsyncPullPushAllLimit() : 0;
+	public int getAsyncTaskQueueMaxSize() {
+		return (pullPusher instanceof AsyncPullPusher) ? ((AsyncPullPusher) pullPusher).getTaskQueueMaxSize() : 0;
 	}
 
 	@Override
 	public TrackingThreadPoolExecutorMXBean getThreadPoolExecutor() {
-		return (pullPusher instanceof AsyncPullPusher) ? ((AsyncPullPusher) pullPusher).getThreadPoolExecutor() : null;
+		return (pullPusher instanceof AsyncPullPusher) ? ((AsyncPullPusher) pullPusher).getThreadPoolExecutorMXBean() : null;
 	}
 
 	/**

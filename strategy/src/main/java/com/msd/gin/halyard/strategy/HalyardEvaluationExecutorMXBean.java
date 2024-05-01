@@ -10,6 +10,9 @@ public interface HalyardEvaluationExecutorMXBean {
 	void setAsyncPullPushAllLimit(int limit);
 	int getAsyncPullPushAllLimit();
 
+	void setAsyncTaskQueueMaxSize(int size);
+	int getAsyncTaskQueueMaxSize();
+
 	float getIncomingBindingsRatePerSecond();
 	float getOutgoingBindingsRatePerSecond();
 

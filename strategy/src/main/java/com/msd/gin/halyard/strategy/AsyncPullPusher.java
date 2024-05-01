@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 final class AsyncPullPusher implements PullPusher {
 	private static final Logger LOGGER = LoggerFactory.getLogger(AsyncPullPusher.class);
 
-	private static TrackingThreadPoolExecutor createExecutor(String namePrefix, int threads) {
+	private static TrackingThreadPoolExecutor createExecutor(String namePrefix, int threads, int queueSize) {
 		AtomicInteger threadSeq = new AtomicInteger();
 		ThreadFactory tf = (r) -> {
 			Thread thr = new Thread(r, namePrefix+threadSeq.incrementAndGet());
@@ -29,32 +29,42 @@ final class AsyncPullPusher implements PullPusher {
 			return thr;
 		};
 		// fixed-size thread pool that can wind down when idle
-		TrackingThreadPoolExecutor executor = new TrackingThreadPoolExecutor(threads, threads, 60L, TimeUnit.SECONDS, new PriorityBlockingQueue<>(64), tf);
+		TrackingThreadPoolExecutor executor = new TrackingThreadPoolExecutor(threads, threads, 60L, TimeUnit.SECONDS, new PriorityBlockingQueue<>(queueSize), tf);
 		executor.allowCoreThreadTimeOut(true);
 		return executor;
 	}
 
 	private final TupleExprPriorityAssigner priorityAssigner = new TupleExprPriorityAssigner();
 	private final TrackingThreadPoolExecutor executor;
-	private double asyncPullPushAllLimit;
+	private int taskQueueMaxSize;
+	private double pullPushAllLimit;
 
 	AsyncPullPusher(String name, Configuration conf) {
 	    int threads = conf.getInt(StrategyConfig.HALYARD_EVALUATION_THREADS, StrategyConfig.DEFAULT_THREADS);
-		executor = createExecutor(name + " ", threads);
+	    taskQueueMaxSize = conf.getInt(StrategyConfig.HALYARD_EVALUATION_TASK_QUEUE_MAX_SIZE, StrategyConfig.DEFAULT_TASK_QUEUE_MAX_SIZE);
+		executor = createExecutor(name + " ", threads, taskQueueMaxSize);
 		int limit = conf.getInt(StrategyConfig.HALYARD_EVALUATION_PULL_PUSH_ASYNC_ALL_LIMIT, StrategyConfig.DEFAULT_PULL_PUSH_ASYNC_ALL_LIMIT);
-		setAsyncPullPushAllLimit(limit);
+		setPullPushAllLimit(limit);
 	}
 
-	TrackingThreadPoolExecutor getThreadPoolExecutor() {
+	TrackingThreadPoolExecutorMXBean getThreadPoolExecutorMXBean() {
 		return executor;
 	}
 
-	void setAsyncPullPushAllLimit(int limit) {
-		asyncPullPushAllLimit = (limit != -1) ? limit : Double.POSITIVE_INFINITY;
+	void setPullPushAllLimit(int limit) {
+		pullPushAllLimit = (limit != -1) ? limit : Double.POSITIVE_INFINITY;
 	}
 
-	int getAsyncPullPushAllLimit() {
-		return (asyncPullPushAllLimit != Double.POSITIVE_INFINITY) ? (int) asyncPullPushAllLimit : -1;
+	int getPullPushAllLimit() {
+		return (pullPushAllLimit != Double.POSITIVE_INFINITY) ? (int) pullPushAllLimit : -1;
+	}
+
+	void setTaskQueueMaxSize(int size) {
+		taskQueueMaxSize = size;
+	}
+
+	int getTaskQueueMaxSize() {
+		return taskQueueMaxSize;
 	}
 
 	/**
@@ -78,13 +88,15 @@ final class AsyncPullPusher implements PullPusher {
 			// it's an estimate so even zero may not be zero
 			sizeEstimate = 1;
 		}
-		Runnable task;
-		if (sizeEstimate <= asyncPullPushAllLimit) {
+		PrioritizedTask task;
+		if (sizeEstimate <= pullPushAllLimit) {
 			task = new IterateAllAndPipeTask(pipe, evalStep, node, bs, trackerFactory);
 		} else {
 			task = new IterateSingleAndPipeTask(pipe, evalStep, node, bs, trackerFactory);
 		}
-		executor.execute(task);
+		if (!submit(task)) {
+			task.run();
+		}
     }
 
 	@Override
@@ -100,6 +112,15 @@ final class AsyncPullPusher implements PullPusher {
 	@Override
 	public void close() {
 		executor.shutdownNow();
+	}
+
+	private boolean submit(PrioritizedTask task) {
+		if (executor.getQueueSize() <= taskQueueMaxSize) {
+			executor.execute(task);
+			return true;
+		} else {
+			return false;
+		}
 	}
 
 
@@ -171,7 +192,7 @@ final class AsyncPullPusher implements PullPusher {
             		}
                 	if(iter.hasNext()) {
                         BindingSet bs = iter.next();
-                        if (pipe.push(bs)) { //true indicates more data is expected from this binding set, put it on the queue
+                        if (pipe.push(bs)) { //true indicates more data is expected from this iterator
                             return true;
                         }
             		}
@@ -197,12 +218,15 @@ final class AsyncPullPusher implements PullPusher {
 
 		@Override
     	public void run() {
-        	if (pushNext()) {
+        	while (pushNext()) {
         		if (pushPriority < MAX_SUB_PRIORITY) {
         			pushPriority++;
         		}
         		setSubPriority(pushPriority);
-                executor.execute(this);
+        		// if successfully submitted for async execution
+                if (submit(this)) {
+                	return;
+                }
         	}
     	}
     }

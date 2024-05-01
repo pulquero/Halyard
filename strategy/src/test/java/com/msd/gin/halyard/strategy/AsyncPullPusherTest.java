@@ -27,15 +27,15 @@ public class AsyncPullPusherTest {
 
 	@Test
 	public void testThreadPool() {
-		int taskCount = pullPusher.getThreadPoolExecutor().getActiveCount();
+		int taskCount = pullPusher.getThreadPoolExecutorMXBean().getActiveCount();
 		assertEquals(0, taskCount);
-		assertEquals(taskCount, pullPusher.getThreadPoolExecutor().getThreadDump().length);
-		assertEquals(0, pullPusher.getThreadPoolExecutor().getQueueDump().length);
+		assertEquals(taskCount, pullPusher.getThreadPoolExecutorMXBean().getThreadDump().length);
+		assertEquals(0, pullPusher.getThreadPoolExecutorMXBean().getQueueDump().length);
 	}
 
 	@Test
 	public void testMXBean() throws JMException {
 		MBeanServer mbs = MBeanServerFactory.newMBeanServer();
-		mbs.registerMBean(pullPusher.getThreadPoolExecutor(), ObjectName.getInstance("foo:type=test"));
+		mbs.registerMBean(pullPusher.getThreadPoolExecutorMXBean(), ObjectName.getInstance("foo:type=test"));
 	}
 }
