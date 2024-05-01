@@ -3,6 +3,7 @@ name: Build and push Docker image
 on:
   workflow_run:
     workflows: [Halyard-star CI]
+    branches: ['v*']
     types:
     - completed
   workflow_dispatch:
