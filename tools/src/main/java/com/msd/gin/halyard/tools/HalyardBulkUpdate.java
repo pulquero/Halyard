@@ -108,6 +108,7 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
      */
     public static final class SPARQLUpdateMapper extends Mapper<NullWritable, Void, ImmutableBytesWritable, KeyValue> {
 
+    	private int statusUpdateCount = 0;
         private int statusUpdateInterval = 1;
         private String tableName;
         private long timestamp;
@@ -266,8 +267,13 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 			context.getCounter(Counters.REMOVED_KVS).setValue(_removedKvs);
             context.setStatus(String.format("%s - %d (%d) added %d (%d) removed", queryName, _addedStmts, _addedKvs, _removedStmts, _removedKvs));
             LOG.info("{} statements ({} KeyValues) added and {} ({} KeyValues) removed",     _addedStmts, _addedKvs, _removedStmts, _removedKvs);
+            statusUpdateCount++;
             if (statusUpdateInterval < MAX_STATUS_UPDATE_INTERVAL) {
-                statusUpdateInterval *= 10;
+                int nextUpdateInterval = statusUpdateInterval * 10;
+                if (statusUpdateCount >= nextUpdateInterval) {
+                	statusUpdateCount = 0;
+   	                statusUpdateInterval = nextUpdateInterval;
+                }
             }
 		}
     }
