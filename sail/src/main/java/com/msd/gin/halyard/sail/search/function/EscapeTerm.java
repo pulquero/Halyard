@@ -18,8 +18,8 @@ import org.kohsuke.MetaInfServices;
 
 @MetaInfServices(Function.class)
 public class EscapeTerm implements Function {
-	private static final Pattern RESERVED_CHARACTERS = Pattern.compile("[\\<\\>\\+\\-\\=\\!\\(\\)\\{\\}\\[\\]\\^\\\"\\~\\*\\?\\:\\\\\\/]|(\\&\\&)|(\\|\\|)|(AND)|(OR)|(NOT)|(TO)");
-	private static final Set<String> OPERATORS = Sets.newHashSet("AND", "OR", "NOT", "TO");
+	private static final Pattern RESERVED_CHARACTERS = Pattern.compile("[\\<\\>\\+\\-\\=\\!\\(\\)\\{\\}\\[\\]\\^\\\"\\~\\*\\?\\:\\\\\\/]|(\\&\\&)|(\\|\\|)|( AND )|( OR )|( NOT )|( TO )");
+	private static final Set<String> OPERATORS = Sets.newHashSet(" AND ", " OR ", " NOT ", " TO ");
 
 	@Override
 	public String getURI() {
@@ -33,7 +33,7 @@ public class EscapeTerm implements Function {
 		}
 
 		if (!args[0].isLiteral()) {
-			throw new QueryEvaluationException("Invalid value");
+			throw new QueryEvaluationException(String.format("Non-literal value: %s", args[0]));
 		}
 		String s = ((Literal) args[0]).stringValue();
 		StringBuilder buf = new StringBuilder(s.length());

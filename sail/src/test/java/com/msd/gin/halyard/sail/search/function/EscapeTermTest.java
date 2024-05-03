@@ -29,6 +29,12 @@ public class EscapeTermTest {
 	}
 
 	@Test
+	public void testIgnoreFakeOperator() {
+		Literal escaped = (Literal) new EscapeTerm().evaluate(vf, vf.createLiteral("fooANDbar"));
+		assertEquals("fooANDbar", escaped.stringValue());
+	}
+
+	@Test
 	public void testEscapeReserved1() {
 		Literal escaped = (Literal) new EscapeTerm().evaluate(vf, vf.createLiteral("f+oo!b/ar"));
 		assertEquals("f\\+oo\\!b\\/ar", escaped.stringValue());
