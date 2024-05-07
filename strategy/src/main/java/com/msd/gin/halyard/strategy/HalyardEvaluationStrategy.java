@@ -146,13 +146,15 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	 * @param serviceResolver {@code FederatedServiceResolver} resolver for any federated services (graphs) required for the evaluation
 	 * @param statistics statistics to use
 	 * @param executor executor to use
+	 * @param hasPartitionedIndex
 	 */
 	public HalyardEvaluationStrategy(StrategyConfig config, TripleSource tripleSource,
 			TupleFunctionRegistry tupleFunctionRegistry,
 			FunctionRegistry functionRegistry,
 			CustomAggregateFunctionRegistry aggregateFunctionRegistry,
 			Dataset dataset, FederatedServiceResolver serviceResolver,
-			HalyardEvaluationStatistics statistics, HalyardEvaluationExecutor executor) {
+			HalyardEvaluationStatistics statistics, HalyardEvaluationExecutor executor,
+			boolean hasPartitionedIndex) {
 		this.config = config;
 		this.tripleSource = tripleSource;
 		this.dataset = dataset;
@@ -163,7 +165,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		this.tupleFunctionRegistry = tupleFunctionRegistry;
 		this.tupleEval = new HalyardTupleExprEvaluation(this, tripleSource, dataset, executor);
 		this.valueEval = new HalyardValueExprEvaluation(this, tripleSource, executor.getQueuePollTimeoutMillis());
-		this.pipeline = new HalyardQueryOptimizerPipeline(this, tripleSource.getValueFactory(), statistics);
+		this.pipeline = new HalyardQueryOptimizerPipeline(this, tripleSource.getValueFactory(), statistics, hasPartitionedIndex);
 	}
 
 	HalyardEvaluationStrategy(Configuration conf, TripleSource tripleSource, Dataset dataset,
@@ -172,7 +174,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 			TupleFunctionRegistry.getInstance(),
 			FunctionRegistry.getInstance(),
 			CustomAggregateFunctionRegistry.getInstance(),
-			dataset, serviceResolver, statistics, new HalyardEvaluationExecutor(conf));
+			dataset, serviceResolver, statistics, new HalyardEvaluationExecutor(conf), false);
 	}
 
 	@Override

@@ -41,8 +41,6 @@ import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.StandardQueryOptimiz
 * @author Adam Sotona
 */
 public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeline {
-	private final static ConstrainedValueOptimizer CONSTRAINED_VALUE_OPTIMIZER = new ConstrainedValueOptimizer();
-
 	private final ExtendedEvaluationStatistics statistics;
 	private final EvaluationStrategy strategy;
 	private final ValueFactory valueFactory;
@@ -50,11 +48,13 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 	private final LeftStarJoinOptimizer leftStarJoinOptimizer;
 	private final NAryUnionOptimizer naryUnionOptimizer;
 	private final JoinAlgorithmOptimizer joinAlgoOptimizer;
+	private final boolean hasPartitionedIndex;
 
-	public HalyardQueryOptimizerPipeline(HalyardEvaluationStrategy strategy, ValueFactory valueFactory, ExtendedEvaluationStatistics statistics) {
+	public HalyardQueryOptimizerPipeline(HalyardEvaluationStrategy strategy, ValueFactory valueFactory, ExtendedEvaluationStatistics statistics, boolean hasPartitionedIndex) {
 		this.strategy = strategy;
 		this.valueFactory = valueFactory;
 		this.statistics = statistics;
+		this.hasPartitionedIndex = hasPartitionedIndex;
 		int sjMinJoins = strategy.getConfig().starJoinMinJoins;
 		this.starJoinOptimizer = new StarJoinOptimizer(sjMinJoins);
 		int lsjMinJoins = strategy.getConfig().leftStarJoinMinJoins;
@@ -84,7 +84,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 			ExtendedQueryOptimizerPipeline.UNION_SCOPE_CHANGE_OPTIMIZER,
 			ExtendedQueryOptimizerPipeline.QUERY_MODEL_NORMALIZER,
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
-			CONSTRAINED_VALUE_OPTIMIZER,
+			new ConstrainedValueOptimizer(hasPartitionedIndex),
 			starJoinOptimizer,
 			leftStarJoinOptimizer,
 			(statistics instanceof HalyardEvaluationStatistics) ? new HalyardQueryJoinOptimizer((HalyardEvaluationStatistics) statistics) : new QueryJoinOptimizer(statistics),
@@ -96,7 +96,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 		));
 	}
 
-	public static Iterable<QueryOptimizer> getConstraintValueOptimizerPipeline() {
+	public static Iterable<QueryOptimizer> getConstraintValueOptimizerPipeline(boolean hasPartitionedIndex) {
 		return Arrays.asList(
 			ExtendedQueryOptimizerPipeline.BINDING_ASSIGNER,
 			StandardQueryOptimizerPipeline.BINDING_SET_ASSIGNMENT_INLINER,
@@ -107,7 +107,7 @@ public final class HalyardQueryOptimizerPipeline implements QueryOptimizerPipeli
 			StandardQueryOptimizerPipeline.UNION_SCOPE_CHANGE_OPTIMIZER,
 			StandardQueryOptimizerPipeline.QUERY_MODEL_NORMALIZER,
 			StandardQueryOptimizerPipeline.PROJECTION_REMOVAL_OPTIMIZER, // Make sure this is after the UnionScopeChangeOptimizer
-			CONSTRAINED_VALUE_OPTIMIZER
+			new ConstrainedValueOptimizer(hasPartitionedIndex)
 		);
 	}
 }

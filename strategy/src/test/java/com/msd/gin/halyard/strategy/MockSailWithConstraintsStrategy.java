@@ -60,7 +60,7 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
                 		return precompile(expr, new QueryEvaluationContext.Minimal(dataset, getValueFactory()));
                 	}
                 };
-                evalStrat.setOptimizerPipeline(new HalyardQueryOptimizerPipeline(evalStrat, tripleSource.getValueFactory(), stats));
+                evalStrat.setOptimizerPipeline(new HalyardQueryOptimizerPipeline(evalStrat, tripleSource.getValueFactory(), stats, true));
                 return evalStrat;
             }
 

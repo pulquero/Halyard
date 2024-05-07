@@ -31,9 +31,9 @@ final class QueryCache {
 		cache = Caffeine.newBuilder().maximumSize(queryCacheMaxSize).expireAfterWrite(1L, TimeUnit.DAYS).build();
 	}
 
-	TupleExpr getOptimizedQuery(HBaseSailConnection conn, String sourceString, int updatePart, TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, final boolean includeInferred, TripleSource tripleSource,
+	TupleExpr getOptimizedQuery(HBaseSailConnection conn, String sourceString, int updatePart, TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred, boolean isPartitioned, TripleSource tripleSource,
 			EvaluationStrategy strategy) {
-		PreparedQueryKey pqkey = new PreparedQueryKey(sourceString, updatePart, dataset, bindings, includeInferred);
+		PreparedQueryKey pqkey = new PreparedQueryKey(sourceString, updatePart, dataset, bindings, includeInferred, isPartitioned);
 		PreparedQuery preparedQuery = cache.get(pqkey, key -> {
 			TupleExpr optimizedTupleExpr = conn.optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
 			return new PreparedQuery(optimizedTupleExpr);
@@ -56,6 +56,7 @@ final class QueryCache {
 		final Set<IRI> datasetRemoveGraphs;
 		final Map<String, Value> bindings;
 		final boolean includeInferred;
+		final boolean isPartitioned;
 
 		static <E> Set<E> copy(Set<E> set) {
 			switch (set.size()) {
@@ -85,7 +86,7 @@ final class QueryCache {
 			}
 		}
 
-		PreparedQueryKey(@Nonnull String sourceString, int updatePart, Dataset dataset, BindingSet bindings, boolean includeInferred) {
+		PreparedQueryKey(@Nonnull String sourceString, int updatePart, Dataset dataset, BindingSet bindings, boolean includeInferred, boolean isPartitioned) {
 			this.sourceString = sourceString;
 			this.updatePart = Integer.valueOf(updatePart);
 			this.datasetGraphs = dataset != null ? copy(dataset.getDefaultGraphs()) : null;
@@ -94,10 +95,11 @@ final class QueryCache {
 			this.datasetRemoveGraphs = dataset != null ? copy(dataset.getDefaultRemoveGraphs()) : null;
 			this.bindings = toMap(bindings);
 			this.includeInferred = includeInferred;
+			this.isPartitioned = isPartitioned;
 		}
 
 		private Object[] toArray() {
-			return new Object[] { sourceString, updatePart, bindings, includeInferred, datasetGraphs, datasetNamedGraphs, datasetInsertGraph, datasetRemoveGraphs };
+			return new Object[] { sourceString, updatePart, bindings, includeInferred, datasetGraphs, datasetNamedGraphs, datasetInsertGraph, datasetRemoveGraphs, isPartitioned };
 		}
 
 		@Override

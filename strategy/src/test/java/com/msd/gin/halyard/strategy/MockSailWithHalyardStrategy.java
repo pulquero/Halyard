@@ -140,7 +140,7 @@ public class MockSailWithHalyardStrategy extends MemoryStore {
         			return new JoinAlgorithmOptimizer(stats, evalHashJoinLimit, cardinalityRatio);
         		}
         	};
-            evalStrat.setOptimizerPipeline(new HalyardQueryOptimizerPipeline(evalStrat, tripleSource.getValueFactory(), stats));
+            evalStrat.setOptimizerPipeline(new HalyardQueryOptimizerPipeline(evalStrat, tripleSource.getValueFactory(), stats, false));
             evalStrat.setTrackResultSize(true);
             evalStrat.setTrackTime(true);
             return evalStrat;

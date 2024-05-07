@@ -78,8 +78,8 @@ public class HalyardMemoryStoreEndpointSailFactory implements EndpointSailFactor
 				CustomAggregateFunctionRegistry.getInstance(),
 				dataset, getFederatedServiceResolver(),
 				stats,
-				HalyardEvaluationExecutor.create("Halyard", conf, false, Collections.emptyMap()));
-			evalStrategy.setOptimizerPipeline(new HalyardQueryOptimizerPipeline(evalStrategy, tripleSource.getValueFactory(), stats));
+				HalyardEvaluationExecutor.create("Halyard", conf, false, Collections.emptyMap()), false);
+			evalStrategy.setOptimizerPipeline(new HalyardQueryOptimizerPipeline(evalStrategy, tripleSource.getValueFactory(), stats, false));
 			return evalStrategy;
 		}
 	}

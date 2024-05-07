@@ -33,7 +33,7 @@ public class ConstrainedValueOptimizerTest extends AbstractOptimizerTest {
 
 	@Override
 	protected QueryOptimizer getOptimizer() {
-		return new ConstrainedValueOptimizer();
+		return new ConstrainedValueOptimizer(true);
 	}
 
 	@Test

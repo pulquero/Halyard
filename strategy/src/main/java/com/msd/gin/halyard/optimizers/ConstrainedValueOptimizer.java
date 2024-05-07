@@ -55,22 +55,29 @@ import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 
 public class ConstrainedValueOptimizer implements QueryOptimizer {
+	private final boolean hasPartitionedIndex;
+
+	public ConstrainedValueOptimizer(boolean hasPartitionedIndex) {
+		this.hasPartitionedIndex = hasPartitionedIndex;
+	}
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
 		// validate parallel split function calls
 		ParallelSplitFunction.getNumberOfPartitionsFromFunctionArgument(tupleExpr, bindings);
 
-		tupleExpr.visit(new ConstraintScanner(dataset, bindings));
+		tupleExpr.visit(new ConstraintScanner(dataset, bindings, hasPartitionedIndex));
 	}
 
 	static final class ConstraintScanner extends SkipVarsQueryModelVisitor<RuntimeException> {
 		final Dataset dataset;
 		final BindingSet bindings;
+		final boolean hasPartitionedIndex;
 
-		ConstraintScanner(Dataset dataset, BindingSet bindings) {
+		ConstraintScanner(Dataset dataset, BindingSet bindings, boolean hasPartitionedIndex) {
 			this.dataset = dataset;
 			this.bindings = bindings;
+			this.hasPartitionedIndex = hasPartitionedIndex;
 		}
 
 		private void processGraphPattern(ConstraintCollector gpc) {
@@ -161,14 +168,14 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 
 		@Override
 		public void meet(Filter filter) {
-			ConstraintCollector collector = new ConstraintCollector(this, bindings);
+			ConstraintCollector collector = new ConstraintCollector(this, bindings, hasPartitionedIndex);
 			filter.visit(collector);
 			processGraphPattern(collector);
 		}
 
 		@Override
 		public void meet(Join join) {
-			ConstraintCollector collector = new ConstraintCollector(this, bindings);
+			ConstraintCollector collector = new ConstraintCollector(this, bindings, hasPartitionedIndex);
 			join.visit(collector);
 			processGraphPattern(collector);
 		}
@@ -178,10 +185,12 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 	static final class ConstraintCollector extends BGPCollector<RuntimeException> {
 		final Map<String,List<Pair<VarConstraint,Filter>>> varConstraints = new HashMap<>();
 		final BindingSet bindings;
+		final boolean hasPartitionedIndex;
 
-		ConstraintCollector(QueryModelVisitor<RuntimeException> visitor, BindingSet bindings) {
+		ConstraintCollector(QueryModelVisitor<RuntimeException> visitor, BindingSet bindings, boolean hasPartitionedIndex) {
 			super(visitor);
 			this.bindings = bindings;
+			this.hasPartitionedIndex = hasPartitionedIndex;
 		}
 
 		private void addConstraint(Var var, VarConstraint constraint, Filter filter) {
@@ -277,9 +286,9 @@ public class ConstrainedValueOptimizer implements QueryOptimizer {
 			} else if (condition instanceof FunctionCall) {
 				FunctionCall funcCall = (FunctionCall) condition;
 				List<ValueExpr> args = funcCall.getArgs();
-				if (HALYARD.PARALLEL_SPLIT_FUNCTION.stringValue().equals(funcCall.getURI()) && args.size() == 2 && args.get(0) instanceof ValueConstant && isVar(args.get(1))) {
-					int partitionCount = Literals.getIntValue(((ValueConstant) args.get(0)).getValue(), 0);
-					if (partitionCount > 1) {
+				if (HALYARD.PARALLEL_SPLIT_FUNCTION.stringValue().equals(funcCall.getURI())) {
+					if (args.size() == 2 && args.get(0) instanceof ValueConstant && isVar(args.get(1))) {
+						int partitionCount = hasPartitionedIndex ? Literals.getIntValue(((ValueConstant) args.get(0)).getValue(), 0) : 1;
 						addExactConstraint((Var) args.get(1), ParallelSplitFunction.toActualForkCount(partitionCount), filter);
 					}
 				}

@@ -290,7 +290,7 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
         IntPredicate indexFilter = null;
         if (where != null) {
         	where = new ExtendedQueryRoot(where);
-        	for (QueryOptimizer optimizer : HalyardQueryOptimizerPipeline.getConstraintValueOptimizerPipeline()) {
+        	for (QueryOptimizer optimizer : HalyardQueryOptimizerPipeline.getConstraintValueOptimizerPipeline(true)) {
         		optimizer.optimize(where, dataset, bindings);
         	}
 

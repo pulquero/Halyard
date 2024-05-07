@@ -230,12 +230,12 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
     }
 
-	private EvaluationStrategy createEvaluationStrategy(TripleSource source, Dataset dataset) {
+	private EvaluationStrategy createEvaluationStrategy(TripleSource source, Dataset dataset, boolean isPartitioned) {
 		EvaluationStrategy strategy;
 		HalyardEvaluationStatistics stats = sail.getStatistics();
 		if (usePush) {
 			strategy = new HalyardEvaluationStrategy(sail.getStrategyConfig(), source, sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), sail.getAggregateFunctionRegistry(), dataset, sail.getFederatedServiceResolver(), stats,
-					getExecutor());
+					getExecutor(), isPartitioned);
 		} else {
 			strategy = new ExtendedEvaluationStrategy(source, dataset, sail.getFederatedServiceResolver(), sail.getTupleFunctionRegistry(), sail.getFunctionRegistry(), 0L, stats);
 			strategy.setOptimizerPipeline(new ExtendedQueryOptimizerPipeline(strategy, source.getValueFactory(), stats));
@@ -288,14 +288,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		});
 	}
 
-	private TupleExpr getOptimizedQuery(String sourceString, int updatePart, TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, final boolean includeInferred, TripleSource tripleSource, EvaluationStrategy strategy) {
+	private TupleExpr getOptimizedQuery(String sourceString, int updatePart, TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred, boolean isPartitioned, TripleSource tripleSource,
+			EvaluationStrategy strategy) {
 		LOGGER.debug("Query tree before optimization:\n{}", tupleExpr);
 		TupleExpr optimizedTree;
 		if (tupleExpr instanceof ServiceRoot) {
 			optimizedTree = bindOptimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
 			LOGGER.debug("Query tree after optimization (binding-optimized):\n{}", optimizedTree);
 		} else if (sourceString != null && cloneTupleExpression) {
-			optimizedTree = sail.queryCache.getOptimizedQuery(this, sourceString, updatePart, tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
+			optimizedTree = sail.queryCache.getOptimizedQuery(this, sourceString, updatePart, tupleExpr, dataset, bindings, includeInferred, isPartitioned, tripleSource, strategy);
 			LOGGER.debug("Query tree after optimization (cached):\n{}", optimizedTree);
 		} else {
 			optimizedTree = optimize(tupleExpr, dataset, bindings, includeInferred, tripleSource, strategy);
@@ -390,14 +391,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		int forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), StatementIndices.NO_PARTITIONING);
 		BindingSet queryBindings = removeImplicitBindings(bindings);
 
-		if (forkIndex >= 0) {
+		boolean isPartitioned = (forkIndex >= 0);
+		if (isPartitioned) {
 			LOGGER.info("Partition index is {}", forkIndex);
 		}
 
 		RDFStarTripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred, forkIndex);
-		EvaluationStrategy strategy = createEvaluationStrategy(tripleSource, dataset);
+		EvaluationStrategy strategy = createEvaluationStrategy(tripleSource, dataset, isPartitioned);
 
-		TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, tripleSource, strategy);
+		TupleExpr optimizedTree = getOptimizedQuery(sourceString, updatePart, tupleExpr, dataset, queryBindings, includeInferred, isPartitioned, tripleSource, strategy);
 		QueryEvaluationContext evalContext = new QueryEvaluationContext.Minimal(dataset, tripleSource.getValueFactory());
 		QueryEvaluationStep step = strategy.precompile(optimizedTree, evalContext);
 		HBaseSail.QueryInfo queryInfo = sail.trackQuery(this, sourceString, tupleExpr, optimizedTree);
