@@ -16,6 +16,7 @@
  */
 package com.msd.gin.halyard.tools;
 
+import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.SSLSettings;
@@ -288,7 +289,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         TableMapReduceUtil.initCredentials(job);
 
         RDFFactory rdfFactory;
-        Keyspace keyspace = getKeyspace(source, snapshotPath);
+        Keyspace keyspace = HalyardTableUtils.getKeyspace(getConf(), source, snapshotPath);
         try {
        		rdfFactory = loadRDFFactory(keyspace);
 		} finally {

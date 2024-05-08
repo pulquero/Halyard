@@ -18,6 +18,7 @@ package com.msd.gin.halyard.tools;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.sail.ElasticSettings;
 import com.msd.gin.halyard.sail.HBaseSail;
@@ -45,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -53,6 +55,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -133,6 +136,7 @@ import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.RioSetting;
 import org.eclipse.rdf4j.rio.WriterConfig;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
+import org.eclipse.rdf4j.sail.SailConnection;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -167,11 +171,14 @@ public final class HttpSparqlHandler implements HttpHandler {
     private static final String MAP_REDUCE_PARAM = "map-reduce";
     private static final String TARGET_PARAM = "target";
 
+    private static final String PARTITION_THRESHOLD_PARAM = "partition-threshold";
+
     static final String JSON_CONTENT = "application/json";
     // Request content type (only for POST requests)
     static final String ENCODED_CONTENT = "application/x-www-form-urlencoded";
     static final String UNENCODED_QUERY_CONTENT = "application/sparql-query";
     static final String UNENCODED_UPDATE_CONTENT = "application/sparql-update";
+    static final String HALYARD_STATS_CONTENT = "application/x-halyard-stats";
 
     static final String JMX_ENDPOINT = "/_management/";
     static final String HEALTH_ENDPOINT = "/_health";
@@ -181,7 +188,6 @@ public final class HttpSparqlHandler implements HttpHandler {
     private final Properties storedQueries;
     private final WriterConfig writerConfig;
     private final Runnable stopAction;
-    private final String serviceDescriptionQuery;
 
     /**
      * @param rep              Sail repository
@@ -199,10 +205,9 @@ public final class HttpSparqlHandler implements HttpHandler {
             }
         }
         this.stopAction = stopAction;
-        this.serviceDescriptionQuery = getServiceDescriptionQuery();
     }
 
-    private String getServiceDescriptionQuery() {
+    private SparqlQuery getServiceDescriptionQuery() throws IOException {
         List<String> inputFormats = new ArrayList<>();
         for (RDFFormat rdfFormat : RDFParserRegistry.getInstance().getKeys()) {
         	if (rdfFormat.hasStandardURI()) {
@@ -225,39 +230,11 @@ public final class HttpSparqlHandler implements HttpHandler {
         		outputFormats.add(NTriplesUtil.toNTriplesString(qrFormat.getStandardURI()));
         	}
         }
-        return
-        		"PREFIX sd: <http://www.w3.org/ns/sparql-service-description#>"
-        		+ " PREFIX spin: <http://spinrdf.org/spin#>"
-        		+ " PREFIX halyard: <http://merck.github.io/Halyard/ns#>"
-        		+ " CONSTRUCT {"
-        		+ " ?sd a sd:Service; "
-        		+ " sd:endpoint ?endpoint; "
-        		+ " sd:extensionFunction ?func; "
-        		+ " sd:extensionAggregate ?aggr; "
-        		+ " sd:propertyFeature ?magicProp; "
-        		+ " sd:inputFormat ?inputFormat; "
-        		+ " sd:resultFormat ?resultFormat; "
-        		+ " sd:propertyFeature ?magicProp; "
-        		+ " sd:defaultDataset halyard:statsContext. "
-        		+ " ?func a sd:Function. "
-        		+ " ?aggr a sd:Aggregate. "
-        		+ " ?s ?p ?o"
-        		+ " }"
-        		+ " WHERE {"
-        		+ " {"
-        		+ " GRAPH halyard:statsContext {?s ?p ?o}"
-        		+ " } UNION {"
-        		+ " GRAPH halyard:functions {?func a sd:Function FILTER NOT EXISTS {?func rdfs:subClassOf <builtin:Functions>} }"
-        		+ " } UNION {"
-        		+ " GRAPH halyard:functions {?aggr a sd:Aggregate}"
-        		+ " } UNION {"
-        		+ " GRAPH halyard:functions {?magicProp a spin:MagicProperty}"
-        		+ " } UNION {"
-        		+ " VALUES ?inputFormat {" + String.join(" ", inputFormats) + "}"
-        		+ " } UNION {"
-        		+ " VALUES ?outputFormat {" + String.join(" ", outputFormats) + "}"
-        		+ " }"
-        		+ " }";
+		String query = IOUtils.resourceToString("/com/msd/gin/halyard/tools/endpoint-sd.rq", StandardCharsets.UTF_8);
+        SparqlQuery sparqlQuery = new SparqlQuery(query);
+        sparqlQuery.addParameter("inputFormats", String.join(" ", inputFormats));
+        sparqlQuery.addParameter("outputFormats", String.join(" ", outputFormats));
+        return sparqlQuery;
     }
 
     /**
@@ -319,7 +296,7 @@ public final class HttpSparqlHandler implements HttpHandler {
         		clearData(graphClear, exchange);
         	} else if (isServiceDescriptionRequest(exchange)) {
             	// service description
-            	SparqlQuery sparqlQuery = new SparqlQuery(serviceDescriptionQuery);
+            	SparqlQuery sparqlQuery = getServiceDescriptionQuery();
             	ValueFactory vf = repository.getValueFactory();
             	sparqlQuery.addBinding("sd", vf.createBNode());
             	InetSocketAddress serverAddr = exchange.getLocalAddress();
@@ -327,6 +304,8 @@ public final class HttpSparqlHandler implements HttpHandler {
             	int port = serverAddr.getPort();
             	sparqlQuery.addBinding("endpoint", vf.createIRI("http://" + server + ":" + port + exchange.getRequestURI().toString()));
             	evaluateQuery(sparqlQuery, exchange);
+        	} else if (isPostWithContentType(exchange, HALYARD_STATS_CONTENT)) {
+        		executeStats(exchange);
         	} else {
         		RDFFormat rdfFormat = getRdfDataFormat(exchange);
         		if (rdfFormat != null) {
@@ -369,6 +348,17 @@ public final class HttpSparqlHandler implements HttpHandler {
         String path = exchange.getRequestURI().getPath();
         String requestQueryRaw = exchange.getRequestURI().getRawQuery();
     	return "GET".equalsIgnoreCase(requestMethod) && (path == null || "/".equals(path)) && (requestQueryRaw == null);
+    }
+
+    private static boolean isPostWithContentType(HttpExchange exchange, String expectedType) throws InvalidRequestException {
+        String requestMethod = exchange.getRequestMethod();
+    	if ("POST".equalsIgnoreCase(requestMethod)) {
+            Headers headers = exchange.getRequestHeaders();
+            String baseType = getContentType(headers);
+        	return expectedType.equals(baseType);
+    	} else {
+    		return false;
+    	}
     }
 
     private static RDFFormat getRdfDataFormat(HttpExchange exchange) throws InvalidRequestException {
@@ -809,7 +799,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     		List<HalyardBulkUpdate.JsonInfo> infos = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlUpdate.bindings);
     		sendMapReduceResults(exchange, infos);
         } else {
-        	List<JsonUpdateInfo> infos = executeUpdate(sparqlUpdate);
+        	List<JsonUpdateInfo> infos = executeUpdate(sparqlUpdate, null);
         	if (infos != null) {
         		sendResults(exchange, infos);
 	        } else {
@@ -819,13 +809,16 @@ public final class HttpSparqlHandler implements HttpHandler {
        	LOGGER.info("Update successfully processed");
     }
 
-    private List<JsonUpdateInfo> executeUpdate(SparqlUpdate sparqlUpdate) throws IOException, InvalidRequestException {
+    private List<JsonUpdateInfo> executeUpdate(SparqlUpdate sparqlUpdate, Consumer<SailRepositoryConnection> connConfigurer) throws IOException, InvalidRequestException {
         String updateString = sparqlUpdate.getUpdate();
         Dataset dataset = sparqlUpdate.getDataset();
         ParsedUpdate parsedUpdate;
     	try(SailRepositoryConnection connection = repository.getConnection()) {
     		if (connection.getSailConnection() instanceof ResultTrackingSailConnection) {
     			((ResultTrackingSailConnection)connection.getSailConnection()).setTrackResultSize(sparqlUpdate.trackResultSize);
+    		}
+    		if (connConfigurer != null) {
+    			connConfigurer.accept(connection);
     		}
     		connection.begin();
 	        SailUpdate update = (SailUpdate) connection.prepareUpdate(QueryLanguage.SPARQL, updateString, null);
@@ -1068,7 +1061,58 @@ public final class HttpSparqlHandler implements HttpHandler {
 		}
 	}
 
-    private void sendManagementData(HttpExchange exchange) throws IOException, InvalidRequestException {
+	private void executeStats(HttpExchange exchange) throws Exception {
+		List<String> graphs = new ArrayList<>();
+		boolean isMapReduce = false;
+		int threshold = 1000;
+    	List<NameValuePair> queryParams = URLEncodedUtils.parse(IOUtils.toString(exchange.getRequestBody(), CHARSET), CHARSET);
+    	for (NameValuePair param : queryParams) {
+        	String name = param.getName();
+        	String value = param.getValue();
+        	if (GRAPH_PARAM.equals(name)) {
+                graphs.add(value);
+            } else if (MAP_REDUCE_PARAM.equals(name)) {
+            	isMapReduce = Boolean.valueOf(value);
+            } else if (PARTITION_THRESHOLD_PARAM.equals(name)) {
+            	threshold = Integer.parseInt(value);
+            }
+        }
+		if (isMapReduce) {
+    		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
+			int rc = HalyardStats.executeStats(sail.getConfiguration(), sail.getTableName(), graphs, threshold);
+			if (rc == 0) {
+		    	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
+			} else {
+				throw new IOException("Map reduce failed");
+			}
+		} else {
+			IRI statsContext = HALYARD.STATS_GRAPH_CONTEXT;
+			GraphClear clearStats = new GraphClear();
+			clearStats.setGraph(statsContext);
+			try (SailRepositoryConnection conn = repository.getConnection()) {
+				conn.clear(clearStats.getContexts());
+			}
+			ValueFactory vf = repository.getValueFactory();
+			String query = IOUtils.resourceToString("/com/msd/gin/halyard/tools/endpoint-stats.ru", StandardCharsets.UTF_8);
+			SparqlUpdate statsUpdate = new SparqlUpdate(query);
+			statsUpdate.addBinding("statsContext", statsContext);
+			statsUpdate.addBinding("now", vf.createLiteral(new Date()));
+			statsUpdate.addBinding("threshold", vf.createLiteral(threshold));
+        	executeUpdate(statsUpdate, conn -> {
+        		SailConnection sc = conn.getSailConnection();
+        		if (sc instanceof HBaseSailConnection) {
+        			HBaseSailConnection hc = (HBaseSailConnection) sc;
+        			hc.setDefaultGraphInsertMode(HBaseSailConnection.DefaultGraphMode.EXPLICIT);
+        			hc.setDefaultGraphDeleteMode(HBaseSailConnection.DefaultGraphMode.EXPLICIT);
+        			hc.setFlushWritesBeforeReadsEnabled(false);
+        		}
+        	});
+        	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
+        }
+       	LOGGER.info("Stats successfully calculated");
+	}
+
+	private void sendManagementData(HttpExchange exchange) throws IOException, InvalidRequestException {
         String path = exchange.getRequestURI().getPath();
         int indent = 0;
         for (NameValuePair queryParam : getQueryParams(exchange)) {

@@ -246,7 +246,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         HBaseConfiguration.addHbaseResources(getConf());
 
         RDFFactory rdfFactory;
-        Keyspace keyspace = getKeyspace(source, snapshotPath);
+        Keyspace keyspace = HalyardTableUtils.getKeyspace(getConf(), source, snapshotPath);
         try {
        		rdfFactory = loadRDFFactory(keyspace);
 		} finally {
@@ -308,7 +308,7 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
 		                	getConf().unset(SNAPSHOT_PATH);
 		                	keyspace.close();
 		                	keyspace.destroy();
-		                	keyspace = getKeyspace(target, null);
+		                	keyspace = HalyardTableUtils.getKeyspace(getConf(), target, null);
 		                }
 	                } else {
 	                	scans = Collections.emptyList();

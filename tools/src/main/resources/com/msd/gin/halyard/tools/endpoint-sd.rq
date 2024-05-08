@@ -1,0 +1,32 @@
+PREFIX sd: <http://www.w3.org/ns/sparql-service-description#>
+PREFIX spin: <http://spinrdf.org/spin#>
+PREFIX halyard: <http://merck.github.io/Halyard/ns#>
+
+CONSTRUCT {
+	?sd a sd:Service;
+	sd:endpoint ?endpoint;
+	sd:extensionFunction ?func;
+	sd:extensionAggregate ?aggr;
+	sd:propertyFeature ?magicProp;
+	sd:inputFormat ?inputFormat;
+	sd:resultFormat ?resultFormat;
+	sd:propertyFeature ?magicProp;
+	sd:defaultDataset halyard:statsContext.
+	?func a sd:Function.
+	?aggr a sd:Aggregate.
+	?s ?p ?o
+} WHERE {
+	{
+		GRAPH halyard:statsContext {?s ?p ?o}
+	} UNION {
+		GRAPH halyard:functions {?func a sd:Function FILTER NOT EXISTS {?func rdfs:subClassOf <builtin:Functions>} }
+	} UNION {
+		GRAPH halyard:functions {?aggr a sd:Aggregate}
+	} UNION {
+		GRAPH halyard:functions {?magicProp a spin:MagicProperty}
+	} UNION {
+		VALUES ?inputFormat {{{inputFormats}}}
+	} UNION {
+		VALUES ?outputFormat {{{outputFormats}}}
+	}
+}

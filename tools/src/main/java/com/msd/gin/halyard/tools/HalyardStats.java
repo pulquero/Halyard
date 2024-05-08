@@ -17,6 +17,7 @@
 package com.msd.gin.halyard.tools;
 
 import com.google.common.collect.Sets;
+import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.RDFContext;
@@ -40,6 +41,7 @@ import java.nio.ByteBuffer;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -87,8 +89,6 @@ import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.repository.sail.SailRepository;
-import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.RDFWriter;
@@ -783,26 +783,38 @@ public final class HalyardStats extends AbstractHalyardTool {
         configureLong(cmd, 'R', DEFAULT_GRAPH_THRESHOLD);
         configureLong(cmd, 'r', DEFAULT_PARTITION_THRESHOLD);
         configureLong(cmd, 'e', System.currentTimeMillis());
-        String source = getConf().get(SOURCE_NAME_PROPERTY);
-        String target = getConf().get(TARGET);
-        String statsGraph = getConf().get(STATS_GRAPH);
-        List<String> namedGraphs = Arrays.asList(getStrings(getConf(), NAMED_GRAPH_PROPERTY));
-        String snapshotPath = getConf().get(SNAPSHOT_PATH_PROPERTY);
+        return run(getConf());
+    }
+
+    static int executeStats(Configuration conf, String source, Collection<String> namedGraphs, int threshold) throws Exception {
+    	Configuration jobConf = new Configuration(conf);
+    	jobConf.set(SOURCE_NAME_PROPERTY, source);
+    	jobConf.setStrings(NAMED_GRAPH_PROPERTY, namedGraphs.toArray(new String[namedGraphs.size()]));
+    	jobConf.setInt(PARTITION_THRESHOLD, threshold);
+    	return run(jobConf);
+    }
+
+    private static int run(Configuration conf) throws Exception {
+        String source = conf.get(SOURCE_NAME_PROPERTY);
+        String target = conf.get(TARGET);
+        String statsGraph = conf.get(STATS_GRAPH);
+        List<String> namedGraphs = Arrays.asList(getStrings(conf, NAMED_GRAPH_PROPERTY));
+        String snapshotPath = conf.get(SNAPSHOT_PATH_PROPERTY);
 
         if (namedGraphs.size() == 1) {
     		String namedGraph = namedGraphs.get(0);
     		if (namedGraph.equals("CREATED")) {
-    			namedGraphs = getNewlyCreatedGraphs(source, statsGraph);
+    			namedGraphs = getNewlyCreatedGraphs(conf, source, statsGraph);
     			if (namedGraphs.isEmpty()) {
     	            LOG.info("No new named graphs found.");
     				return 0;
     			}
     			LOG.info("Found {} new named graphs: {}", namedGraphs.size(), namedGraphs);
-    			setStrings(getConf(), NAMED_GRAPH_PROPERTY, namedGraphs);
+    			setStrings(conf, NAMED_GRAPH_PROPERTY, namedGraphs);
     		}
     	}
 
-        TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
+        TableMapReduceUtil.addDependencyJarsForClasses(conf,
                NTriplesUtil.class,
                Rio.class,
                AbstractRDFHandler.class,
@@ -811,10 +823,10 @@ public final class HalyardStats extends AbstractHalyardTool {
                Table.class,
                HBaseConfiguration.class,
                AuthenticationProtos.class);
-        HBaseConfiguration.addHbaseResources(getConf());
-        Job job = Job.getInstance(getConf(), "HalyardStats " + source + (target == null ? " update" : " -> " + target));
+        HBaseConfiguration.addHbaseResources(conf);
+        Job job = Job.getInstance(conf, "HalyardStats " + source + (target == null ? " update" : " -> " + target));
         if (snapshotPath != null) {
-			FileSystem fs = CommonFSUtils.getRootDirFileSystem(getConf());
+			FileSystem fs = CommonFSUtils.getRootDirFileSystem(conf);
         	if (fs.exists(new Path(snapshotPath))) {
         		throw new IOException("Snapshot restore directory already exists");
         	}
@@ -823,13 +835,13 @@ public final class HalyardStats extends AbstractHalyardTool {
         TableMapReduceUtil.initCredentials(job);
 
         RDFFactory rdfFactory;
-        Keyspace keyspace = getKeyspace(source, snapshotPath);
+        Keyspace keyspace = HalyardTableUtils.getKeyspace(conf, source, snapshotPath);
         try {
        		rdfFactory = loadRDFFactory(keyspace);
 		} finally {
 			keyspace.close();
 		}
-        StatementIndices indices = new StatementIndices(getConf(), rdfFactory);
+        StatementIndices indices = new StatementIndices(conf, rdfFactory);
         List<Scan> scans;
         if (!namedGraphs.isEmpty()) {  //restricting stats to scan given graph context only
             scans = new ArrayList<>(3*namedGraphs.size() + 1);
@@ -875,8 +887,8 @@ public final class HalyardStats extends AbstractHalyardTool {
         }
     }
 
-    private List<String> getNewlyCreatedGraphs(String table, String statsGraph) {
-        Repository repo = new HBaseRepository(new HBaseSail(getConf(), table, false, 0, true, 0, null, null));
+    private static List<String> getNewlyCreatedGraphs(Configuration conf, String table, String statsGraph) {
+        Repository repo = new HBaseRepository(new HBaseSail(conf, table, false, 0, true, 0, null, null));
         repo.init();
         List<String> graphs = new ArrayList<>();
         try {

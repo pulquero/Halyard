@@ -40,20 +40,26 @@ import javax.xml.xpath.XPathFactory;
 
 import org.apache.commons.io.IOUtils;
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.model.vocabulary.SD;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
+import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.eclipse.rdf4j.sail.NotifyingSailConnection;
 import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.helpers.NotifyingSailConnectionWrapper;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import org.json.JSONObject;
+import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -125,14 +131,6 @@ public class HttpSparqlHandlerTest {
         });
         repository.init();
 
-        // Create repositoryConnection to the sail repository
-        try(RepositoryConnection repositoryConnection = repository.getConnection()) {
-	        // Add some test data
-	        repositoryConnection.add(factory.createStatement(SUBJ, PRED, OBJ, CONTEXT));
-	        repositoryConnection.add(factory.createStatement(SUBJ2, PRED2, OBJ2, CONTEXT2));
-	        repositoryConnection.add(factory.createStatement(SUBJ3, PRED3, OBJ3, CONTEXT3));
-        }
-
         // Provide stored query
         Properties storedQueries = new Properties();
         storedQueries.put("test_path", "ask {<{{test_parameter1}}> <{{test_parameter2}}> ?obj}");
@@ -149,6 +147,24 @@ public class HttpSparqlHandlerTest {
         server.createContext(SERVER_CONTEXT, handler);
         server.start();
         SERVER_URL = "http://localhost:" + server.getAddress().getPort();
+    }
+
+    @Before
+    public void before() {
+        // Create repositoryConnection to the sail repository
+        try(RepositoryConnection repositoryConnection = repository.getConnection()) {
+	        // Add some test data
+	        repositoryConnection.add(factory.createStatement(SUBJ, PRED, OBJ, CONTEXT));
+	        repositoryConnection.add(factory.createStatement(SUBJ2, PRED2, OBJ2, CONTEXT2));
+	        repositoryConnection.add(factory.createStatement(SUBJ3, PRED3, OBJ3, CONTEXT3));
+        }
+    }
+
+    @After
+    public void after() {
+        try(RepositoryConnection repositoryConnection = repository.getConnection()) {
+        	repositoryConnection.clear();
+        }
     }
 
     /**
@@ -682,7 +698,68 @@ public class HttpSparqlHandlerTest {
         urlConnection.setRequestProperty("Accept", TURTLE_CONTENT);
         assertEquals(HttpURLConnection.HTTP_OK, urlConnection.getResponseCode());
         assertEquals(TURTLE_CONTENT + CHARSET_SUFFIX, urlConnection.getContentType());
-        String sd = IOUtils.toString(urlConnection.getInputStream(), "UTF-8");
+        Model model;
+        try (InputStream in = urlConnection.getInputStream()) {
+        	model = Rio.parse(in, RDFFormat.TURTLE);
+        }
+        assertTrue(model.toString(), model.contains(null, RDF.TYPE, SD.SERVICE));
+    }
+
+    @Test
+    public void testStats() throws IOException {
+        URL url = new URL(SERVER_URL);
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.setDoOutput(true);
+        urlConnection.setRequestMethod("POST");
+        urlConnection.setRequestProperty("Content-Type", HttpSparqlHandler.HALYARD_STATS_CONTENT);
+        try (OutputStreamWriter out = new OutputStreamWriter(urlConnection.getOutputStream())) {
+        	out.write("partition-threshold=1");
+        }
+        assertEquals(HttpURLConnection.HTTP_NO_CONTENT, urlConnection.getResponseCode());
+
+        urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.setDoOutput(true);
+        urlConnection.setRequestMethod("POST");
+        urlConnection.setRequestProperty("Content-Type", HttpSparqlHandler.UNENCODED_QUERY_CONTENT);
+        try (OutputStreamWriter out = new OutputStreamWriter(urlConnection.getOutputStream())) {
+            out.write("PREFIX void: <http://rdfs.org/ns/void#> PREFIX halyard: <http://merck.github.io/Halyard/ns#> SELECT * FROM halyard:statsContext WHERE {?s void:triples ?count} ORDER BY ?s");
+        }
+        String result = IOUtils.toString(urlConnection.getInputStream(), "UTF-8");
+        // NB: as we are not testing with a HBaseSail (hidden halyard:statsContext) then we will see additional stats about stats
+		String expected = "s,count\r\n"
+			+ "\"halyard:dataset:http://carrot/,property,http%3A%2F%2Fcarrot%2Fpred2%2F\",1\r\n"
+			+ "\"halyard:dataset:http://ginger/,property,http%3A%2F%2Fginger%2Fpred%2F\",1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fpurl.org%2Fdc%2Fterms%2Fmodified\",5\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23classes\",2\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23properties\",5\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23property\",12\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23propertyPartition\",12\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23triples\",17\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23type\",27\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23defaultGraph\",1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23graph\",4\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23name\",4\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23namedGraph\",4\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fcarrot%2Fpred2%2F\",1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fginger%2Fpred%2F\",1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fpotato%2Fpred2%2F\",1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fpurl.org%2Fdc%2Fterms%2Fmodified\",5\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23classes\",2\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23properties\",5\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23triples\",5\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23type\",15\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23defaultGraph\",1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23graph\",4\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23name\",4\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23namedGraph\",4\r\n"
+			+ "\"halyard:dataset:http://potato/,property,http%3A%2F%2Fpotato%2Fpred2%2F\",1\r\n"
+			+ "http://carrot/,1\r\n"
+			+ "http://ginger/,1\r\n"
+			+ "http://merck.github.io/Halyard/ns#statsContext,8\r\n"
+			+ "http://merck.github.io/Halyard/ns#statsRoot,3\r\n"
+			+ "http://potato/,1\r\n"
+			+ "";
+        assertEquals(expected, result);
     }
 
     @Test

@@ -215,7 +215,7 @@ public final class HalyardKeys extends AbstractHalyardTool {
 		TableMapReduceUtil.initCredentials(job);
 
         RDFFactory rdfFactory;
-        Keyspace keyspace = getKeyspace(source, snapshotPath);
+        Keyspace keyspace = HalyardTableUtils.getKeyspace(getConf(), source, snapshotPath);
         try {
        		rdfFactory = loadRDFFactory(keyspace);
 		} finally {

@@ -17,6 +17,7 @@
 package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.common.ByteUtils;
+import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.Hashes;
 import com.msd.gin.halyard.common.Hashes.HashFunction;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
@@ -514,7 +515,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
         TableMapReduceUtil.initCredentials(job);
 
         RDFFactory rdfFactory;
-        Keyspace keyspace = getKeyspace(source, snapshotPath);
+        Keyspace keyspace = HalyardTableUtils.getKeyspace(getConf(), source, snapshotPath);
         try {
        		rdfFactory = loadRDFFactory(keyspace);
 		} finally {

@@ -391,11 +391,7 @@ public abstract class AbstractHalyardTool implements Tool {
         }
     }
 
-    final Keyspace getKeyspace(String source, String restorePath) throws IOException {
-        return HalyardTableUtils.getKeyspace(getConf(), source, restorePath);
-    }
-
-    final RDFFactory loadRDFFactory(Keyspace keyspace) throws IOException {
+    final static RDFFactory loadRDFFactory(Keyspace keyspace) throws IOException {
     	try (KeyspaceConnection kc = keyspace.getConnection()) {
     		return RDFFactory.create(kc);
     	}

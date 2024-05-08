@@ -44,11 +44,7 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 	@BeforeEach
 	public void setup() {
 		IRI graphNode = HALYARD.STATS_ROOT_NODE;
-		transformer = new HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer() {
-			protected String id(Value partitionId) {
-				return partitionId.stringValue();
-			}
-		};
+		transformer = HalyardStatsBasedStatementPatternCardinalityCalculator.createSimplePartitionIriTransformer();
 		Model model = new LinkedHashModel();
 		model.add(graphNode, VOID.TRIPLES, vf.createLiteral(TOTAL_TRIPLES), HALYARD.STATS_GRAPH_CONTEXT);
 		model.add(graphNode, VOID.DISTINCT_SUBJECTS, vf.createLiteral(3), HALYARD.STATS_GRAPH_CONTEXT);

@@ -25,6 +25,8 @@ import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
 import com.msd.gin.halyard.vocab.VOID_EXT;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -116,6 +118,14 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 		return new PartitionIriTransformer() {
 			protected String id(Value partitionId) {
 				return rdfFactory.id(partitionId).toString();
+			}
+		};
+	}
+
+	public static PartitionIriTransformer createSimplePartitionIriTransformer() {
+		return new PartitionIriTransformer() {
+			protected String id(Value partitionId) {
+				return URLEncoder.encode(partitionId.stringValue(), StandardCharsets.UTF_8);
 			}
 		};
 	}

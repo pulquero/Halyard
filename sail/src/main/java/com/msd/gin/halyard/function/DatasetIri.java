@@ -32,11 +32,17 @@ public class DatasetIri implements Function {
 		if (args.length != 3 || !args[0].isIRI() || !args[1].isIRI()) {
 			throw new ValueExprEvaluationException(String.format("%s requires a graph IRI, dataset type IRI and a value", getURI()));
 		}
-		HBaseTripleSource extTripleSource = (HBaseTripleSource) tripleSource;
-		StatementIndices indices = extTripleSource.getStatementIndices();
-		RDFFactory rdfFactory = indices.getRDFFactory();
 
-		HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer partitionIriTransformer = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIriTransformer(rdfFactory);
+		HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer partitionIriTransformer;
+		if (tripleSource instanceof HBaseTripleSource) {
+			HBaseTripleSource extTripleSource = (HBaseTripleSource) tripleSource;
+			StatementIndices indices = extTripleSource.getStatementIndices();
+			RDFFactory rdfFactory = indices.getRDFFactory();
+			partitionIriTransformer = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIriTransformer(rdfFactory);
+		} else {
+			partitionIriTransformer = HalyardStatsBasedStatementPatternCardinalityCalculator.createSimplePartitionIriTransformer();
+		}
+
 		return tripleSource.getValueFactory().createIRI(partitionIriTransformer.apply((IRI) args[0], (IRI) args[1], args[2]));
 	}
 }
