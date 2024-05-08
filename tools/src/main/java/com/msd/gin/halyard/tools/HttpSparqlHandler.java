@@ -299,6 +299,7 @@ public final class HttpSparqlHandler implements HttpHandler {
      */
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        String requestMethod = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
         boolean doStop = false;
         try {
@@ -310,27 +311,45 @@ public final class HttpSparqlHandler implements HttpHandler {
         	} else if (STOP_ENDPOINT.equals(path) && exchange.getLocalAddress().getAddress().isLoopbackAddress()) {
                 exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
                 doStop = true;
-        	} else if ("DELETE".equalsIgnoreCase(exchange.getRequestMethod())) {
-        		SparqlQuery sparqlQuery = new SparqlQuery();
+        	} else if ("DELETE".equalsIgnoreCase(requestMethod)) {
+        		GraphClear graphClear = new GraphClear();
             	for (NameValuePair nvp : getQueryParams(exchange)) {
-                    parseGraphStoreParameter(nvp, sparqlQuery);
+                    parseGraphStoreParameter(nvp, graphClear);
                 }
-        		clearData(sparqlQuery, exchange);
+        		clearData(graphClear, exchange);
+        	} else if (isServiceDescriptionRequest(exchange)) {
+            	// service description
+            	SparqlQuery sparqlQuery = new SparqlQuery(serviceDescriptionQuery);
+            	ValueFactory vf = repository.getValueFactory();
+            	sparqlQuery.addBinding("sd", vf.createBNode());
+            	InetSocketAddress serverAddr = exchange.getLocalAddress();
+            	String server = serverAddr.getHostName();
+            	int port = serverAddr.getPort();
+            	sparqlQuery.addBinding("endpoint", vf.createIRI("http://" + server + ":" + port + exchange.getRequestURI().toString()));
+            	evaluateQuery(sparqlQuery, exchange);
         	} else {
-	            SparqlQuery sparqlQuery = retrieveQuery(exchange);
-	            if (sparqlQuery.getFlatFileFormat() != null) {
-	            	if (sparqlQuery.getQuery() != null) {
-	            		executeQueryTemplate(sparqlQuery, exchange);
-	            	} else if (sparqlQuery.getUpdate() != null) {
-	            		executeUpdateTemplate(sparqlQuery, exchange);
+        		RDFFormat rdfFormat = getRdfDataFormat(exchange);
+        		if (rdfFormat != null) {
+                	GraphLoad graphLoad = new GraphLoad();
+                	for (NameValuePair nvp : getQueryParams(exchange)) {
+                        parseGraphStoreParameter(nvp, graphLoad);
+                    }
+            		graphLoad.setGraphFormat(rdfFormat);
+        			loadData(graphLoad, exchange);
+        		} else {
+		            SparqlOperation sparqlOp = retrieveQuery(exchange);
+		            if (sparqlOp.getFlatFileFormat() != null) {
+		            	if (sparqlOp instanceof SparqlQuery) {
+		            		executeQueryTemplate((SparqlQuery) sparqlOp, exchange);
+		            	} else if (sparqlOp instanceof SparqlUpdate) {
+		            		executeUpdateTemplate((SparqlUpdate) sparqlOp, exchange);
+		            	}
+		            } else if (sparqlOp instanceof SparqlQuery) {
+	        			evaluateQuery((SparqlQuery)sparqlOp, exchange);
+	        		} else if (sparqlOp instanceof SparqlUpdate) {
+	        			evaluateUpdate((SparqlUpdate)sparqlOp, exchange);
 	            	}
-        		} else if (sparqlQuery.getGraphFormat() != null) {
-        			loadData(sparqlQuery, exchange);
-        		} else if (sparqlQuery.getQuery() != null) {
-        			evaluateQuery(sparqlQuery, exchange);
-        		} else if (sparqlQuery.getUpdate() != null) {
-        			evaluateUpdate(sparqlQuery, exchange);
-        		}
+            	}
         	}
         } catch (InvalidRequestException | MalformedQueryException | RDFParseException e) {
             LOGGER.debug("Bad request", e);
@@ -345,38 +364,84 @@ public final class HttpSparqlHandler implements HttpHandler {
         }
     }
 
+    private static boolean isServiceDescriptionRequest(HttpExchange exchange) {
+        String requestMethod = exchange.getRequestMethod();
+        String path = exchange.getRequestURI().getPath();
+        String requestQueryRaw = exchange.getRequestURI().getRawQuery();
+    	return "GET".equalsIgnoreCase(requestMethod) && (path == null || "/".equals(path)) && (requestQueryRaw == null);
+    }
+
+    private static RDFFormat getRdfDataFormat(HttpExchange exchange) throws InvalidRequestException {
+        String requestMethod = exchange.getRequestMethod();
+    	if ("POST".equalsIgnoreCase(requestMethod)) {
+            Headers headers = exchange.getRequestHeaders();
+            String baseType = getContentType(headers);
+        	RDFFormat rdfFormat = Rio.getParserFormatForMIMEType(baseType).orElse(null);
+        	return rdfFormat;
+    	} else {
+    		return null;
+    	}
+    }
+
+    private static String getContentType(Headers headers) throws InvalidRequestException {
+        // Check for presence of the Content-Type header
+        if (!headers.containsKey("Content-Type")) {
+            throw new InvalidRequestException("POST request has to contain header \"Content-Type\"");
+        }
+
+        // Should not happen but better be safe than sorry
+        if (headers.get("Content-Type").size() != 1) {
+            throw new InvalidRequestException("POST request has to contain header \"Content-Type\" exactly once");
+        }
+
+        // Check Content-Type header content
+        MimeType mimeType;
+        try {
+            mimeType = new MimeType(headers.getFirst("Content-Type"));
+        } catch (MimeTypeParseException e) {
+            throw new InvalidRequestException("Illegal Content-Type header content");
+        }
+
+        String charset = mimeType.getParameter("charset");
+        if (charset != null && !charset.equalsIgnoreCase(CHARSET.name())) {
+            throw new InvalidRequestException("Illegal Content-Type charset. Only UTF-8 is supported");
+        }
+
+        String baseType = mimeType.getBaseType();
+        return baseType;
+    }
+
     /**
      * Retrieve SPARQL query from the HTTP request.
      *
      * @param exchange HTTP request
-     * @return SPARQL query
+     * @return SPARQL operation
      * @throws IOException              If an error occurs during reading the request
      * @throws InvalidRequestException If the request does not follow the SPARQL Protocol Operation specification
      */
-    private SparqlQuery retrieveQuery(HttpExchange exchange) throws IOException, InvalidRequestException {
+    private SparqlOperation retrieveQuery(HttpExchange exchange) throws IOException, InvalidRequestException {
         String requestMethod = exchange.getRequestMethod();
-        SparqlQuery sparqlQuery = new SparqlQuery();
+        String storedQuery;
         // Help variable for checking for multiple query parameters
         String path = exchange.getRequestURI().getPath();
         // retrieve query from stored queries based on non-root request URL path
         if (path != null && path.length() > 1) {
-            String query = storedQueries.getProperty(path.substring(1));
-            if (query == null) {
+            storedQuery = storedQueries.getProperty(path.substring(1));
+            if (storedQuery == null) {
                 //try to cut the extension
                 int i = path.lastIndexOf('.');
                 if (i > 0) {
-                    query = storedQueries.getProperty(path.substring(1, i));
+                    storedQuery = storedQueries.getProperty(path.substring(1, i));
                 }
             }
-            if (query == null) {
+            if (storedQuery == null) {
                 throw new InvalidRequestException("No stored query for path: " + path);
             }
-            if (isUpdate(query)) {
-            	sparqlQuery.setUpdate(query);
-            } else {
-            	sparqlQuery.setQuery(query);
-            }
+        } else {
+        	storedQuery = null;
         }
+
+        final SparqlOperation op;
         if ("GET".equalsIgnoreCase(requestMethod)) {
             try (InputStream requestBody = exchange.getRequestBody()) {
                 if (requestBody.available() > 0) {
@@ -386,6 +451,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 
             String requestQueryRaw = exchange.getRequestURI().getRawQuery();
             if (requestQueryRaw != null) {
+            	SparqlQuery sparqlQuery = new SparqlQuery(storedQuery);
             	for (NameValuePair nvp : getQueryParams(exchange)) {
                     parseQueryParameter(nvp, sparqlQuery);
                 }
@@ -394,119 +460,124 @@ public final class HttpSparqlHandler implements HttpHandler {
                 if (query == null) {
                     throw new InvalidRequestException("Missing parameter: query");
                 }
-            } else if (path == null || "/".equals(path)) {
-            	// service description
-            	sparqlQuery.setQuery(serviceDescriptionQuery);
-            	ValueFactory vf = repository.getValueFactory();
-            	sparqlQuery.addBinding("sd", vf.createBNode());
-            	InetSocketAddress serverAddr = exchange.getLocalAddress();
-            	String server = serverAddr.getHostName();
-            	int port = serverAddr.getPort();
-            	sparqlQuery.addBinding("endpoint", vf.createIRI("http://" + server + ":" + port + exchange.getRequestURI().toString()));
+                op = sparqlQuery;
+            } else if (storedQuery != null) {
+            	op = new SparqlQuery(storedQuery);
+            } else {
+            	throw new InvalidRequestException("Invalid query request");
             }
         } else if ("POST".equalsIgnoreCase(requestMethod)) {
             Headers headers = exchange.getRequestHeaders();
+            String baseType = getContentType(headers);
 
-            // Check for presence of the Content-Type header
-            if (!headers.containsKey("Content-Type")) {
-                throw new InvalidRequestException("POST request has to contain header \"Content-Type\"");
-            }
-
-            // Should not happen but better be safe than sorry
-            if (headers.get("Content-Type").size() != 1) {
-                throw new InvalidRequestException("POST request has to contain header \"Content-Type\" exactly once");
-            }
-
-            // Check Content-Type header content
-            try {
-                MimeType mimeType = new MimeType(headers.getFirst("Content-Type"));
-                String baseType = mimeType.getBaseType();
-                String charset = mimeType.getParameter("charset");
-                if (charset != null && !charset.equalsIgnoreCase(CHARSET.name())) {
-                    throw new InvalidRequestException("Illegal Content-Type charset. Only UTF-8 is supported");
-                }
-
-                // Request message body is processed based on the value of Content-Type property
-                if (baseType.equals(ENCODED_CONTENT)) {
-                    // Retrieve from the message body parameter query and optional parameters defaultGraphs and
-                    // namedGraphs
-                	List<NameValuePair> queryParams = URLEncodedUtils.parse(IOUtils.toString(exchange.getRequestBody(), CHARSET), CHARSET);
-                	for (NameValuePair nvp : queryParams) {
-                        parseQueryParameter(nvp, sparqlQuery);
-                        parseUpdateParameter(nvp, sparqlQuery);
-                    }
-
-                 	if (sparqlQuery.getQuery() == null && sparqlQuery.getUpdate() == null) {
-                        throw new InvalidRequestException("Missing parameter: query/update");
-                    }
-                } else if (baseType.equals(UNENCODED_QUERY_CONTENT)) {
-                    // Retrieve from the message body parameter query
-                    try (Scanner requestBodyScanner = new Scanner(exchange.getRequestBody(), CHARSET).useDelimiter("\\A")) {
-                        sparqlQuery.setQuery(requestBodyScanner.next());
-                    }
-                	for (NameValuePair nvp : getQueryParams(exchange)) {
-                        parseQueryParameter(nvp, sparqlQuery);
-                    }
-                } else if (baseType.equals(UNENCODED_UPDATE_CONTENT)) {
-                    // Retrieve from the message body parameter query
-                    try (Scanner requestBodyScanner = new Scanner(exchange.getRequestBody(), CHARSET).useDelimiter("\\A")) {
-                        sparqlQuery.setUpdate(requestBodyScanner.next());
-                    }
-                	for (NameValuePair nvp : getQueryParams(exchange)) {
-                        parseUpdateParameter(nvp, sparqlQuery);
-                    }
-                } else {
-                	for (NameValuePair nvp : getQueryParams(exchange)) {
-                        parseQueryParameter(nvp, sparqlQuery);
-                        parseUpdateParameter(nvp, sparqlQuery);
-                        parseGraphStoreParameter(nvp, sparqlQuery);
-                    }
-                	RDFFormat rdfFormat = Rio.getParserFormatForMIMEType(baseType).orElse(null);
-                	QueryResultFormat qrFormat = (rdfFormat == null) ? QueryResultIO.getParserFormatForMIMEType(baseType).orElse(null) : null;
-                	if (rdfFormat != null) {
-                		if (sparqlQuery.getQuery() != null || sparqlQuery.getUpdate() != null) {
-                			throw new InvalidRequestException("Unexpected query for RDF data");
-                		}
-                		sparqlQuery.setGraphFormat(rdfFormat);
-                	} else if (qrFormat != null) {
-                 		if (sparqlQuery.getQuery() == null && sparqlQuery.getUpdate() == null) {
-                			throw new InvalidRequestException("Missing query for flat file data");
-                		}
-                		sparqlQuery.setFlatFileFormat(qrFormat);
+            // Request message body is processed based on the value of Content-Type property
+            if (baseType.equals(ENCODED_CONTENT)) {
+                // Retrieve from the message body parameter query and optional parameters defaultGraphs and
+                // namedGraphs
+            	SparqlQuery sparqlQuery = new SparqlQuery();
+            	SparqlUpdate sparqlUpdate = new SparqlUpdate();
+            	if (storedQuery != null) {
+                	if (isUpdate(storedQuery)) {
+                    	sparqlUpdate.setUpdate(storedQuery);
                 	} else {
-                		List<String> supportedTypes = new ArrayList<>();
-                		supportedTypes.add(ENCODED_CONTENT);
-                		supportedTypes.add(UNENCODED_QUERY_CONTENT);
-                		supportedTypes.add(UNENCODED_UPDATE_CONTENT);
-                		RDFParserRegistry.getInstance().getKeys().stream().map(RDFFormat::getMIMETypes).flatMap(List::stream).forEach(supportedTypes::add);
-                		TupleQueryResultParserRegistry.getInstance().getKeys().stream().map(QueryResultFormat::getMIMETypes).flatMap(List::stream).forEach(supportedTypes::add);
-                		throw new InvalidRequestException("Content-Type of POST request has to be one of " + supportedTypes);
+                    	sparqlQuery.setQuery(storedQuery);
                 	}
+            	}
+            	List<NameValuePair> queryParams = URLEncodedUtils.parse(IOUtils.toString(exchange.getRequestBody(), CHARSET), CHARSET);
+            	for (NameValuePair nvp : queryParams) {
+                    parseQueryParameter(nvp, sparqlQuery);
+                    parseUpdateParameter(nvp, sparqlUpdate);
                 }
-            } catch (MimeTypeParseException e) {
-                throw new InvalidRequestException("Illegal Content-Type header content");
+
+            	if (sparqlQuery.getQuery() != null && sparqlUpdate.getUpdate() == null) {
+            		op = sparqlQuery;
+            	} else if (sparqlQuery.getQuery() == null && sparqlUpdate.getUpdate() != null) {
+            		op = sparqlUpdate;
+            	} else if (sparqlQuery.getQuery() != null && sparqlUpdate.getUpdate() != null) {
+                    throw new InvalidRequestException("Cannot specify both query and update");
+                } else {
+                    throw new InvalidRequestException("Missing parameter: query/update");
+                }
+            } else if (baseType.equals(UNENCODED_QUERY_CONTENT)) {
+            	SparqlQuery sparqlQuery;
+                // Retrieve from the message body parameter query
+                try (Scanner requestBodyScanner = new Scanner(exchange.getRequestBody(), CHARSET).useDelimiter("\\A")) {
+                    sparqlQuery = new SparqlQuery(requestBodyScanner.next());
+                }
+            	for (NameValuePair nvp : getQueryParams(exchange)) {
+                    parseQueryParameter(nvp, sparqlQuery);
+                }
+            	op = sparqlQuery;
+            } else if (baseType.equals(UNENCODED_UPDATE_CONTENT)) {
+            	SparqlUpdate sparqlUpdate;
+                // Retrieve from the message body parameter query
+                try (Scanner requestBodyScanner = new Scanner(exchange.getRequestBody(), CHARSET).useDelimiter("\\A")) {
+                    sparqlUpdate = new SparqlUpdate(requestBodyScanner.next());
+                }
+            	for (NameValuePair nvp : getQueryParams(exchange)) {
+                    parseUpdateParameter(nvp, sparqlUpdate);
+                }
+            	op = sparqlUpdate;
+            } else {
+            	SparqlQuery sparqlQuery = new SparqlQuery();
+            	SparqlUpdate sparqlUpdate = new SparqlUpdate();
+            	if (storedQuery != null) {
+                	if (isUpdate(storedQuery)) {
+                    	sparqlUpdate.setUpdate(storedQuery);
+                	} else {
+                    	sparqlQuery.setQuery(storedQuery);
+                	}
+            	}
+            	for (NameValuePair nvp : getQueryParams(exchange)) {
+                    parseQueryParameter(nvp, sparqlQuery);
+                    parseUpdateParameter(nvp, sparqlUpdate);
+                }
+            	QueryResultFormat qrFormat = QueryResultIO.getParserFormatForMIMEType(baseType).orElse(null);
+            	if (qrFormat != null) {
+                	if (sparqlQuery.getQuery() != null && sparqlUpdate.getUpdate() == null) {
+                		sparqlQuery.setFlatFileFormat(qrFormat);
+                		op = sparqlQuery;
+                	} else if (sparqlQuery.getQuery() == null && sparqlUpdate.getUpdate() != null) {
+                		sparqlUpdate.setFlatFileFormat(qrFormat);
+                		op = sparqlUpdate;
+                	} else if (sparqlQuery.getQuery() != null && sparqlUpdate.getUpdate() != null) {
+                        throw new InvalidRequestException("Cannot specify both query and update");
+                    } else {
+            			throw new InvalidRequestException("Missing query/update for flat file data");
+                    }
+            	} else {
+            		List<String> supportedTypes = new ArrayList<>();
+            		supportedTypes.add(ENCODED_CONTENT);
+            		supportedTypes.add(UNENCODED_QUERY_CONTENT);
+            		supportedTypes.add(UNENCODED_UPDATE_CONTENT);
+            		RDFParserRegistry.getInstance().getKeys().stream().map(RDFFormat::getMIMETypes).flatMap(List::stream).forEach(supportedTypes::add);
+            		TupleQueryResultParserRegistry.getInstance().getKeys().stream().map(QueryResultFormat::getMIMETypes).flatMap(List::stream).forEach(supportedTypes::add);
+            		throw new InvalidRequestException("Content-Type of POST request has to be one of " + supportedTypes);
+            	}
             }
         } else {
             throw new InvalidRequestException("Request method has to be only either GET or POST");
         }
 
-        String query = sparqlQuery.getQuery();
-        if (query != null) {
-            Matcher m = UNRESOLVED_PARAMETERS.matcher(query);
-            if (m.find()) {
-                throw new InvalidRequestException("Missing query parameter: " + m.group(1));
-            }
+        if (op instanceof SparqlQuery) {
+	        String query = ((SparqlQuery)op).getQuery();
+	        if (query != null) {
+	            Matcher m = UNRESOLVED_PARAMETERS.matcher(query);
+	            if (m.find()) {
+	                throw new InvalidRequestException("Missing query parameter: " + m.group(1));
+	            }
+	        }
+        } else if (op instanceof SparqlUpdate) {
+	        String update = ((SparqlUpdate)op).getUpdate();
+	        if (update != null) {
+	            Matcher m = UNRESOLVED_PARAMETERS.matcher(update);
+	            if (m.find()) {
+	                throw new InvalidRequestException("Missing update parameter: " + m.group(1));
+	            }
+	        }
         }
 
-        String update = sparqlQuery.getUpdate();
-        if (update != null) {
-            Matcher m = UNRESOLVED_PARAMETERS.matcher(update);
-            if (m.find()) {
-                throw new InvalidRequestException("Missing update parameter: " + m.group(1));
-            }
-        }
-
-        return sparqlQuery;
+        return op;
     }
 
     /**
@@ -525,8 +596,6 @@ public final class HttpSparqlHandler implements HttpHandler {
             sparqlQuery.addDefaultGraph(repository.getValueFactory().createIRI(value));
         } else if (NAMED_GRAPH_PARAM.equals(name)) {
             sparqlQuery.addNamedGraph(repository.getValueFactory().createIRI(value));
-        } else if (TRACK_RESULT_SIZE_PARAM.equals(name)) {
-        	sparqlQuery.trackResultSize = Boolean.valueOf(value);
         } else if (MAP_REDUCE_PARAM.equals(name)) {
         	sparqlQuery.mapReduce = Boolean.valueOf(value);
         } else if (TARGET_PARAM.equals(name)) {
@@ -540,24 +609,24 @@ public final class HttpSparqlHandler implements HttpHandler {
         }
     }
 
-    private void parseUpdateParameter(NameValuePair param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException, InvalidRequestException {
+    private void parseUpdateParameter(NameValuePair param, SparqlUpdate sparqlUpdate) throws UnsupportedEncodingException, InvalidRequestException {
     	String name = param.getName();
     	String value = param.getValue();
         if (UPDATE_PARAM.equals(name)) {
-            sparqlQuery.setUpdate(value);
+            sparqlUpdate.setUpdate(value);
         } else if (USING_GRAPH_URI_PARAM.equals(name)) {
-            sparqlQuery.addDefaultGraph(repository.getValueFactory().createIRI(value));
+            sparqlUpdate.addDefaultGraph(repository.getValueFactory().createIRI(value));
         } else if (USING_NAMED_GRAPH_PARAM.equals(name)) {
-            sparqlQuery.addNamedGraph(repository.getValueFactory().createIRI(value));
+            sparqlUpdate.addNamedGraph(repository.getValueFactory().createIRI(value));
         } else if (TRACK_RESULT_SIZE_PARAM.equals(name)) {
-        	sparqlQuery.trackResultSize = Boolean.valueOf(value);
+        	sparqlUpdate.trackResultSize = Boolean.valueOf(value);
         } else if (MAP_REDUCE_PARAM.equals(name)) {
-        	sparqlQuery.mapReduce = Boolean.valueOf(value);
+        	sparqlUpdate.mapReduce = Boolean.valueOf(value);
         } else {
             if (name.startsWith("$")) {
-            	sparqlQuery.addBinding(name.substring(1), parseValue(value));
+            	sparqlUpdate.addBinding(name.substring(1), parseValue(value));
             } else {
-                sparqlQuery.addParameter(name, value);
+                sparqlUpdate.addParameter(name, value);
             }
         }
     }
@@ -582,13 +651,13 @@ public final class HttpSparqlHandler implements HttpHandler {
     	return NTriplesUtil.parseValue(value, vf);
     }
 
-    private void parseGraphStoreParameter(NameValuePair param, SparqlQuery sparqlQuery) throws UnsupportedEncodingException, InvalidRequestException {
+    private void parseGraphStoreParameter(NameValuePair param, GraphOperation sparqlGraphOp) throws UnsupportedEncodingException, InvalidRequestException {
     	String name = param.getName();
     	String value = param.getValue();
     	if (DEFAULT_PARAM.equals(name)) {
-    		sparqlQuery.setDefaultGraph(true);
+    		sparqlGraphOp.setDefaultGraph(true);
     	} else if (GRAPH_PARAM.equals(name)) {
-            sparqlQuery.setGraph(repository.getValueFactory().createIRI(value));
+            sparqlGraphOp.setGraph(repository.getValueFactory().createIRI(value));
         }
     }
 
@@ -729,18 +798,18 @@ public final class HttpSparqlHandler implements HttpHandler {
         }
     }
 
-    private void evaluateUpdate(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
-        if (sparqlQuery.mapReduce) {
-            validateMapReduce(sparqlQuery);
-            String updateString = sparqlQuery.getUpdate();
+    private void evaluateUpdate(SparqlUpdate sparqlUpdate, HttpExchange exchange) throws Exception {
+        if (sparqlUpdate.mapReduce) {
+            validateMapReduce(sparqlUpdate);
+            String updateString = sparqlUpdate.getUpdate();
             if (!(repository instanceof HBaseRepository)) {
             	throw new InvalidRequestException(String.format("MapReduce is not supported on %s", repository.getClass().getName()));
             }
     		HBaseSail sail = (HBaseSail) ((HBaseRepository)repository).getSail();
-    		List<HalyardBulkUpdate.JsonInfo> infos = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlQuery.bindings);
+    		List<HalyardBulkUpdate.JsonInfo> infos = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlUpdate.bindings);
     		sendMapReduceResults(exchange, infos);
         } else {
-        	List<JsonUpdateInfo> infos = executeUpdate(sparqlQuery);
+        	List<JsonUpdateInfo> infos = executeUpdate(sparqlUpdate);
         	if (infos != null) {
         		sendResults(exchange, infos);
 	        } else {
@@ -750,17 +819,17 @@ public final class HttpSparqlHandler implements HttpHandler {
        	LOGGER.info("Update successfully processed");
     }
 
-    private List<JsonUpdateInfo> executeUpdate(SparqlQuery sparqlQuery) throws IOException, InvalidRequestException {
-        String updateString = sparqlQuery.getUpdate();
-        Dataset dataset = sparqlQuery.getDataset();
+    private List<JsonUpdateInfo> executeUpdate(SparqlUpdate sparqlUpdate) throws IOException, InvalidRequestException {
+        String updateString = sparqlUpdate.getUpdate();
+        Dataset dataset = sparqlUpdate.getDataset();
         ParsedUpdate parsedUpdate;
     	try(SailRepositoryConnection connection = repository.getConnection()) {
     		if (connection.getSailConnection() instanceof ResultTrackingSailConnection) {
-    			((ResultTrackingSailConnection)connection.getSailConnection()).setTrackResultSize(sparqlQuery.trackResultSize);
+    			((ResultTrackingSailConnection)connection.getSailConnection()).setTrackResultSize(sparqlUpdate.trackResultSize);
     		}
     		connection.begin();
 	        SailUpdate update = (SailUpdate) connection.prepareUpdate(QueryLanguage.SPARQL, updateString, null);
-	        addBindings(update, sparqlQuery.getBindings());
+	        addBindings(update, sparqlUpdate.getBindings());
 	    	parsedUpdate = update.getParsedUpdate();
 	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
 	            // This will include default graphs and named graphs from  the request parameters
@@ -771,12 +840,12 @@ public final class HttpSparqlHandler implements HttpHandler {
 	        		parsedUpdate.map(expr, dataset);
 	        	}
 	        }
-	        LOGGER.info("Executing update:\nBindings: {}\n{}", sparqlQuery.getBindings(), sparqlQuery.getUpdate());
+	        LOGGER.info("Executing update:\nBindings: {}\n{}", sparqlUpdate.getBindings(), sparqlUpdate.getUpdate());
 	        update.execute();
 	        connection.commit();
     	}
 
-    	if (sparqlQuery.trackResultSize) {
+    	if (sparqlUpdate.trackResultSize) {
     		List<JsonUpdateInfo> infos = new ArrayList<>();
 	    	for (UpdateExpr expr : parsedUpdate.getUpdateExprs()) {
 	    		infos.add(JsonUpdateInfo.from(expr));
@@ -787,8 +856,8 @@ public final class HttpSparqlHandler implements HttpHandler {
     	}
     }
 
-    private void validateMapReduce(SparqlQuery sparqlQuery) throws InvalidRequestException {
-        Dataset dataset = sparqlQuery.getDataset();
+    private void validateMapReduce(SparqlOperation sparqlOp) throws InvalidRequestException {
+        Dataset dataset = sparqlOp.getDataset();
         if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
         	throw new InvalidRequestException("Map-reduce doesn't support graph-uri parameters");
         }
@@ -822,12 +891,12 @@ public final class HttpSparqlHandler implements HttpHandler {
 		}
     }
 
-    private void loadData(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
+    private void loadData(GraphLoad graphLoad, HttpExchange exchange) throws Exception {
        	LOGGER.info("Loading data");
     	try(SailRepositoryConnection connection = repository.getConnection()) {
     		connection.begin();
     		try (InputStream in = exchange.getRequestBody()) {
-    			connection.add(in, sparqlQuery.getGraphFormat(), sparqlQuery.getContexts());
+    			connection.add(in, graphLoad.getGraphFormat(), graphLoad.getContexts());
     		}
     		connection.commit();
     	}
@@ -835,10 +904,10 @@ public final class HttpSparqlHandler implements HttpHandler {
     	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
     }
 
-    private void clearData(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
+    private void clearData(GraphClear graphClear, HttpExchange exchange) throws Exception {
        	LOGGER.info("Clearing data");
 		try (SailRepositoryConnection conn = repository.getConnection()) {
-			conn.clear(sparqlQuery.getContexts());
+			conn.clear(graphClear.getContexts());
 		}
        	LOGGER.info("Clear successful");
     	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
@@ -922,21 +991,21 @@ public final class HttpSparqlHandler implements HttpHandler {
 		}
     }
 
-    private void executeUpdateTemplate(SparqlQuery sparqlQuery, HttpExchange exchange) throws Exception {
-    	TupleQueryResultParser parser = QueryResultIO.createTupleParser(sparqlQuery.getFlatFileFormat(), repository.getValueFactory());
+    private void executeUpdateTemplate(SparqlUpdate sparqlUpdate, HttpExchange exchange) throws Exception {
+    	TupleQueryResultParser parser = QueryResultIO.createTupleParser(sparqlUpdate.getFlatFileFormat(), repository.getValueFactory());
     	List<JsonUpdateInfo> infos = new ArrayList<>();
     	try (SailRepositoryConnection conn = repository.getConnection()) {
     		if (conn.getSailConnection() instanceof ResultTrackingSailConnection) {
-    			((ResultTrackingSailConnection)conn.getSailConnection()).setTrackResultSize(sparqlQuery.trackResultSize);
+    			((ResultTrackingSailConnection)conn.getSailConnection()).setTrackResultSize(sparqlUpdate.trackResultSize);
     		}
     		if (conn.getSailConnection() instanceof HBaseSailConnection) {
     			((HBaseSailConnection)conn.getSailConnection()).setFlushWritesBeforeReadsEnabled(false);
     		}
     		conn.begin();
-	        SailUpdate update = (SailUpdate) conn.prepareUpdate(QueryLanguage.SPARQL, sparqlQuery.getUpdate(), null);
-	        addBindings(update, sparqlQuery.getBindings());
+	        SailUpdate update = (SailUpdate) conn.prepareUpdate(QueryLanguage.SPARQL, sparqlUpdate.getUpdate(), null);
+	        addBindings(update, sparqlUpdate.getBindings());
 	        ParsedUpdate parsedUpdate = update.getParsedUpdate();
-	        Dataset dataset = sparqlQuery.getDataset();
+	        Dataset dataset = sparqlUpdate.getDataset();
 	        if (!dataset.getDefaultGraphs().isEmpty() || !dataset.getNamedGraphs().isEmpty()) {
 	            // This will include default graphs and named graphs from  the request parameters
 	        	if (!parsedUpdate.getDatasetMapping().isEmpty()) {
@@ -957,7 +1026,7 @@ public final class HttpSparqlHandler implements HttpHandler {
 	    	}
 	    	conn.commit();
     	}
-    	if (sparqlQuery.trackResultSize) {
+    	if (sparqlUpdate.trackResultSize) {
 	        StringBuilderWriter buf = new StringBuilderWriter(128);
         	JsonGenerator json = new ObjectMapper().createGenerator(buf);
         	json.writeStartObject();
@@ -1179,88 +1248,35 @@ public final class HttpSparqlHandler implements HttpHandler {
     }
 
 
-    /**
-     * Help class for retrieving the whole SPARQL query, including optional parameters defaultGraphs and namedGraphs,
-     * from the HTTP request.
-     */
-    private static final class SparqlQuery {
-        // SPARQL query string, has to be exactly one
-        private String query, update;
+    private static class SparqlOperation {
         // SPARQL query template parameters for substitution
         private final Map<String,String> parameters = new HashMap<>();
-        private final Map<String,Value> bindings = new HashMap<>();
+        final Map<String,Value> bindings = new HashMap<>();
         private final Set<IRI> defaultGraphs = new HashSet<>();
         private final Set<IRI> namedGraphs = new HashSet<>();
-        private boolean defaultGraph;
-        private IRI graph;
-        private boolean trackResultSize;
-        private boolean mapReduce;
-        private String target;
-        private RDFFormat graphData;
         private QueryResultFormat flatData;
 
-        public String getQuery() {
-        	return replaceParameters(query);
-        }
-
-        public void setQuery(String query) throws InvalidRequestException {
-        	if (this.update != null) {
-                throw new InvalidRequestException("Unexpected update string encountered");
-        	}
-        	if (this.query != null) {
-                throw new InvalidRequestException("Multiple query strings encountered");
-        	}
-            this.query = query;
-        }
-
-        public String getUpdate() {
-        	return replaceParameters(update);
-        }
-
-        public void setUpdate(String update) throws InvalidRequestException {
-        	if (this.query != null) {
-                throw new InvalidRequestException("Unexpected query string encountered");
-        	}
-        	if (this.update != null) {
-                throw new InvalidRequestException("Multiple update strings encountered");
-        	}
-            this.update = update;
-        }
-
-        private String replaceParameters(String s) {
-            //replace all tokens matching {{parameterName}} inside the given SPARQL query with corresponding parameterValues
-            String[] tokens = new String[parameters.size()];
-            String[] values = new String[parameters.size()];
-            int i = 0;
-            for (Map.Entry<String,String> param : parameters.entrySet()) {
-                tokens[i] = "{{" + param.getKey() + "}}";
-                values[i] = param.getValue();
-                i++;
-            }
-            return StringUtils.replaceEach(s, tokens, values);
-        }
-
-        public void addDefaultGraph(IRI defaultGraph) {
-            defaultGraphs.add(defaultGraph);
-        }
-
-        public void addNamedGraph(IRI namedGraph) {
-            namedGraphs.add(namedGraph);
-        }
-
-        public void addParameter(String name, String value) {
+        public final void addParameter(String name, String value) {
             parameters.put(name, value);
         }
 
-        public void addBinding(String name, Value value) {
+        public final void addBinding(String name, Value value) {
         	bindings.put(name, value);
         }
 
-        public Map<String,Value> getBindings() {
+        public final Map<String,Value> getBindings() {
         	return Collections.unmodifiableMap(bindings);
         }
 
-        public Dataset getDataset() {
+        public final void addDefaultGraph(IRI defaultGraph) {
+            defaultGraphs.add(defaultGraph);
+        }
+
+        public final void addNamedGraph(IRI namedGraph) {
+            namedGraphs.add(namedGraph);
+        }
+
+        public final Dataset getDataset() {
         	return new Dataset() {
 				@Override
 				public IRI getDefaultInsertGraph() {
@@ -1283,6 +1299,87 @@ public final class HttpSparqlHandler implements HttpHandler {
 				}
         	};
         }
+
+        public final void setFlatFileFormat(QueryResultFormat format) {
+        	this.flatData = format;
+        }
+
+        public final QueryResultFormat getFlatFileFormat() {
+        	return flatData;
+        }
+
+        protected final String replaceParameters(String s) {
+            //replace all tokens matching {{parameterName}} inside the given SPARQL query with corresponding parameterValues
+            String[] tokens = new String[parameters.size()];
+            String[] values = new String[parameters.size()];
+            int i = 0;
+            for (Map.Entry<String,String> param : parameters.entrySet()) {
+                tokens[i] = "{{" + param.getKey() + "}}";
+                values[i] = param.getValue();
+                i++;
+            }
+            return StringUtils.replaceEach(s, tokens, values);
+        }
+    }
+
+
+    /**
+     * Help class for retrieving the whole SPARQL query, including optional parameters defaultGraphs and namedGraphs,
+     * from the HTTP request.
+     */
+    private static final class SparqlQuery extends SparqlOperation {
+        private String query;
+        private boolean mapReduce;
+        private String target;
+
+        SparqlQuery() {
+        }
+
+        SparqlQuery(String q) {
+        	this.query = q;
+        }
+
+        public String getQuery() {
+        	return replaceParameters(query);
+        }
+
+        public void setQuery(String query) throws InvalidRequestException {
+        	if (this.query != null) {
+                throw new InvalidRequestException("Multiple query strings encountered");
+        	}
+            this.query = query;
+        }
+    }
+
+
+    private static final class SparqlUpdate extends SparqlOperation {
+        private String update;
+        private boolean trackResultSize;
+        private boolean mapReduce;
+
+        SparqlUpdate() {
+        }
+
+        SparqlUpdate(String u) {
+        	this.update = u;
+        }
+
+        public String getUpdate() {
+        	return replaceParameters(update);
+        }
+
+        public void setUpdate(String update) throws InvalidRequestException {
+        	if (this.update != null) {
+                throw new InvalidRequestException("Multiple update strings encountered");
+        	}
+            this.update = update;
+        }
+    }
+
+
+    private static abstract class GraphOperation {
+        private boolean defaultGraph;
+        private IRI graph;
 
         public void setDefaultGraph(boolean f) throws InvalidRequestException {
         	if (this.defaultGraph) {
@@ -1307,6 +1404,11 @@ public final class HttpSparqlHandler implements HttpHandler {
         public Resource[] getContexts() {
         	return (graph != null) ? new Resource[] {graph} : new Resource[0];
         }
+    }
+
+
+    private static final class GraphLoad extends GraphOperation {
+        private RDFFormat graphData;
 
         public void setGraphFormat(RDFFormat format) {
         	this.graphData = format;
@@ -1315,14 +1417,10 @@ public final class HttpSparqlHandler implements HttpHandler {
         public RDFFormat getGraphFormat() {
         	return graphData;
         }
+    }
 
-        public void setFlatFileFormat(QueryResultFormat format) {
-        	this.flatData = format;
-        }
 
-        public QueryResultFormat getFlatFileFormat() {
-        	return flatData;
-        }
+    private static final class GraphClear extends GraphOperation {
     }
 
 
