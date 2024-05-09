@@ -25,6 +25,7 @@ import com.msd.gin.halyard.repository.HBaseUpdate;
 import com.msd.gin.halyard.sail.ElasticSettings;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
+import com.msd.gin.halyard.sail.KeyValueMapper;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -172,8 +173,8 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 							}
 
 							@Override
-							protected int insertStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
-								int insertedKvs = super.insertStatement(subj, pred, obj, ctx, timestamp);
+							protected int insertStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp, KeyValueMapper keyValueMapper) throws IOException {
+								int insertedKvs = super.insertStatement(subj, pred, obj, ctx, timestamp, keyValueMapper);
 								long _addedStmts = addedStmts.incrementAndGet();
 								addedKvs.addAndGet(insertedKvs);
 								if (_addedStmts % statusUpdateInterval == 0L) {
@@ -193,8 +194,8 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 							}
 
 							@Override
-							protected int deleteStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
-								int deletedKvs = super.deleteStatement(subj, pred, obj, ctx, timestamp);
+							protected int deleteStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp, KeyValueMapper keyValueMapper) throws IOException {
+								int deletedKvs = super.deleteStatement(subj, pred, obj, ctx, timestamp, keyValueMapper);
 								long _removedStmts = removedStmts.incrementAndGet();
 								removedKvs.addAndGet(deletedKvs);
 								if (_removedStmts % statusUpdateInterval == 0L) {

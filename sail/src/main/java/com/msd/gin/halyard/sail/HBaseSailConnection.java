@@ -116,7 +116,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	public static final String FORK_INDEX_BINDING = internalBinding("fork_index");
 	private static final String CONNECTION_ID_ATTRIBUTE = "connectionId";
 
+	public static enum DefaultGraphMode {
+		IMPLICIT, EXPLICIT
+	};
+
 	private final HBaseSail sail;
+	private final KeyValueMapper insertDefaultKeyValueMapper;
+	private final KeyValueMapper insertNonDefaultKeyValueMapper;
+	private final KeyValueMapper deleteDefaultKeyValueMapper;
+	private final KeyValueMapper deleteNonDefaultKeyValueMapper;
 	private final String id;
 	private final boolean usePush;
 	private boolean trackBranchOperatorsOnly;
@@ -126,6 +134,8 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	private BufferedMutator mutator;
 	private int pendingUpdateCount;
 	private boolean flushWritesBeforeReads = true;
+	private KeyValueMapper insertCurrentKeyValueMapper;
+	private KeyValueMapper deleteCurrentKeyValueMapper;
 	private long lastTimestamp = Long.MIN_VALUE;
 	private boolean lastUpdateWasDelete;
 	private long beginTimestamp = Timestamped.NOT_SET;
@@ -136,6 +146,12 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 	HBaseSailConnection(HBaseSail sail, HalyardEvaluationExecutor executor) throws IOException {
 		this.sail = sail;
+		this.insertDefaultKeyValueMapper = sail.getStatementIndices()::insertKeyValues;
+		this.insertNonDefaultKeyValueMapper = sail.getStatementIndices()::insertNonDefaultKeyValues;
+		this.deleteDefaultKeyValueMapper = sail.getStatementIndices()::deleteKeyValues;
+		this.deleteNonDefaultKeyValueMapper = sail.getStatementIndices()::deleteNonDefaultKeyValues;
+		this.insertCurrentKeyValueMapper = this.insertDefaultKeyValueMapper;
+		this.deleteCurrentKeyValueMapper = this.deleteDefaultKeyValueMapper;
 		this.id = MBeanManager.getId(this);
 		this.usePush = sail.pushStrategy;
 		this.executor = executor;
@@ -164,6 +180,38 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 	public void setFlushWritesBeforeReadsEnabled(boolean f) {
 		flushWritesBeforeReads = f;
+	}
+
+	public DefaultGraphMode getDefaultGraphInsertMode() {
+		if (insertCurrentKeyValueMapper == insertNonDefaultKeyValueMapper) {
+			return DefaultGraphMode.EXPLICIT;
+		} else {
+			return DefaultGraphMode.IMPLICIT;
+		}
+	}
+
+	public void setDefaultGraphInsertMode(DefaultGraphMode mode) {
+		if (mode == DefaultGraphMode.EXPLICIT) {
+			insertCurrentKeyValueMapper = insertNonDefaultKeyValueMapper;
+		} else {
+			insertCurrentKeyValueMapper = insertDefaultKeyValueMapper;
+		}
+	}
+
+	public DefaultGraphMode getDefaultGraphDeleteMode() {
+		if (deleteCurrentKeyValueMapper == deleteNonDefaultKeyValueMapper) {
+			return DefaultGraphMode.EXPLICIT;
+		} else {
+			return DefaultGraphMode.IMPLICIT;
+		}
+	}
+
+	public void setDefaultGraphDeleteMode(DefaultGraphMode mode) {
+		if (mode == DefaultGraphMode.EXPLICIT) {
+			deleteCurrentKeyValueMapper = deleteNonDefaultKeyValueMapper;
+		} else {
+			deleteCurrentKeyValueMapper = deleteDefaultKeyValueMapper;
+		}
 	}
 
 	private HalyardEvaluationExecutor getExecutor() {
@@ -663,13 +711,24 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     @Override
     public void addStatement(UpdateContext op, Resource subj, IRI pred, Value obj, Resource... contexts) throws SailException {
 		long timestamp = getTimestamp(op, false);
-        addStatementInternal(subj, pred, obj, contexts, timestamp);
+    	checkWritable();
+		if (contexts == null || contexts.length == 0) {
+			// if all contexts then insert into the default context
+			contexts = new Resource[] { null };
+		}
+        try {
+			for (Resource ctx : contexts) {
+				insertStatement(subj, pred, obj, ctx, timestamp, insertCurrentKeyValueMapper);
+			}
+        } catch (IOException e) {
+            throw new SailException(e);
+        }
     }
 
 	public void addSystemStatement(Resource subj, IRI pred, Value obj, Resource context, long timestamp) throws SailException {
 		checkWritable();
 		try {
-			insertSystemStatement(subj, pred, obj, context, timestamp);
+			insertStatement(subj, pred, obj, context, timestamp, insertNonDefaultKeyValueMapper);
 		} catch (IOException e) {
 			throw new SailException(e);
 		}
@@ -684,36 +743,15 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
     }
 
-	private void addStatementInternal(Resource subj, IRI pred, Value obj, Resource[] contexts, long timestamp) throws SailException {
-    	checkWritable();
-		if (contexts == null || contexts.length == 0) {
-			// if all contexts then insert into the default context
-			contexts = new Resource[] { null };
-		}
-        try {
-			for (Resource ctx : contexts) {
-				insertStatement(subj, pred, obj, ctx, timestamp);
-			}
-        } catch (IOException e) {
-            throw new SailException(e);
-        }
-    }
-
-	protected int insertStatement(Resource subj, IRI pred, Value obj, @Nullable Resource ctx, long timestamp) throws IOException {
+	protected int insertStatement(Resource subj, IRI pred, Value obj, @Nullable Resource ctx, long timestamp, KeyValueMapper keyValueMapper) throws IOException {
 		if (ctx != null && ctx.isTriple()) {
 			throw new SailException("context argument can not be of type Triple: " + ctx);
 		}
-		List<? extends KeyValue> kvs = sail.getStatementIndices().insertKeyValues(subj, pred, obj, ctx, timestamp);
+		List<? extends KeyValue> kvs = keyValueMapper.toKeyValues(subj, pred, obj, ctx, timestamp);
 		for (KeyValue kv : kvs) {
 			put(kv);
 		}
 		return kvs.size();
-	}
-
-	private void insertSystemStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
-		for (KeyValue kv : sail.getStatementIndices().insertNonDefaultKeyValues(subj, pred, obj, ctx, timestamp)) {
-			put(kv);
-		}
 	}
 
 	protected void put(KeyValue kv) throws IOException {
@@ -766,7 +804,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 					Resource subj = st.getSubject();
 					IRI pred = st.getPredicate();
 					Value obj = st.getObject();
-					deleteStatement(subj, pred, obj, st.getContext(), timestamp);
+					deleteStatement(subj, pred, obj, st.getContext(), timestamp, deleteCurrentKeyValueMapper);
 					if (subj.isTriple()) {
 						triples.add((Triple) subj);
 					}
@@ -790,7 +828,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			long timestamp = getTimestamp(op, true);
 			try {
 				for (Resource ctx : contexts) {
-					deleteStatement(subj, pred, obj, ctx, timestamp);
+					deleteStatement(subj, pred, obj, ctx, timestamp, deleteCurrentKeyValueMapper);
 				}
 				if (subj.isTriple()) {
 					removeTriple((Triple) subj, timestamp);
@@ -809,7 +847,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	public void removeSystemStatement(Resource subj, IRI pred, Value obj, Resource context, long timestamp) throws SailException {
 		checkWritable();
 		try {
-			deleteSystemStatement(subj, pred, obj, context, timestamp);
+			deleteStatement(subj, pred, obj, context, timestamp, deleteNonDefaultKeyValueMapper);
 		} catch (IOException e) {
 			throw new SailException(e);
 		}
@@ -819,7 +857,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		flush();
 		if (!sail.getStatementIndices().isTripleReferenced(keyspaceConn, t)) {
 			// orphaned so safe to remove
-			deleteSystemStatement(t.getSubject(), t.getPredicate(), t.getObject(), HALYARD.TRIPLE_GRAPH_CONTEXT, timestamp);
+			deleteStatement(t.getSubject(), t.getPredicate(), t.getObject(), HALYARD.TRIPLE_GRAPH_CONTEXT, timestamp, deleteNonDefaultKeyValueMapper);
 			if (t.getSubject().isTriple()) {
 				removeTriple((Triple) t.getSubject(), timestamp);
 			}
@@ -829,27 +867,23 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
 	}
 
-	protected int deleteStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
-		List<? extends KeyValue> kvs = sail.getStatementIndices().deleteKeyValues(subj, pred, obj, ctx, timestamp);
+	private void deleteSystemStatements(@Nullable Resource subj, @Nullable IRI pred, @Nullable Value obj, long timestamp, Resource... contexts) throws SailException {
+		try (CloseableIteration<? extends Statement, SailException> iter = getStatements(subj, pred, obj, true, contexts)) {
+			while (iter.hasNext()) {
+				Statement st = iter.next();
+				deleteStatement(st.getSubject(), st.getPredicate(), st.getObject(), st.getContext(), timestamp, deleteNonDefaultKeyValueMapper);
+			}
+		} catch (IOException e) {
+			throw new SailException(e);
+		}
+	}
+
+	protected int deleteStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp, KeyValueMapper keyValueMapper) throws IOException {
+		List<? extends KeyValue> kvs = keyValueMapper.toKeyValues(subj, pred, obj, ctx, timestamp);
 		for (KeyValue kv : kvs) {
 			delete(kv);
 		}
 		return kvs.size();
-	}
-
-	private void deleteSystemStatements(@Nullable Resource subj, @Nullable IRI pred, @Nullable Value obj, long timestamp, Resource... contexts) throws IOException {
-		try (CloseableIteration<? extends Statement, SailException> iter = getStatements(subj, pred, obj, true, contexts)) {
-			while (iter.hasNext()) {
-				Statement st = iter.next();
-				deleteSystemStatement(st.getSubject(), st.getPredicate(), st.getObject(), st.getContext(), timestamp);
-			}
-		}
-	}
-
-	private void deleteSystemStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws IOException {
-		for (KeyValue kv : sail.getStatementIndices().deleteNonDefaultKeyValues(subj, pred, obj, ctx, timestamp)) {
-			delete(kv);
-		}
 	}
 
 	protected void delete(KeyValue kv) throws IOException {
@@ -894,11 +928,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			for (Namespace ns : sail.getRDFFactory().getWellKnownNamespaces()) {
 				setNamespace(ns.getPrefix(), ns.getName());
 			}
-			try {
-				insertSystemStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.NAMED_GRAPH_CLASS, HALYARD.SYSTEM_GRAPH_CONTEXT, getDefaultTimestamp(false));
-			} catch (IOException ex) {
-				throw new SailException(ex);
-			}
+			addSystemStatement(HALYARD.SYSTEM_GRAPH_CONTEXT, RDF.TYPE, SD.NAMED_GRAPH_CLASS, HALYARD.SYSTEM_GRAPH_CONTEXT, getDefaultTimestamp(false));
 		}
 	}
 
@@ -935,12 +965,8 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
         ValueFactory vf = sail.getValueFactory();
 		Literal prefixValue = vf.createLiteral(prefix);
 		IRI namespaceIri = vf.createIRI(name);
-        try {
-			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, getDefaultTimestamp(true), new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
-			insertSystemStatement(namespaceIri, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, HALYARD.SYSTEM_GRAPH_CONTEXT, getDefaultTimestamp(false));
-        } catch (IOException e) {
-			throw new SailException("Namespace prefix could not be presisted due to an exception", e);
-        }
+		deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, getDefaultTimestamp(true), new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
+		addSystemStatement(namespaceIri, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, HALYARD.SYSTEM_GRAPH_CONTEXT, getDefaultTimestamp(false));
     }
 
     @Override
@@ -948,22 +974,14 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		checkWritable();
         ValueFactory vf = sail.getValueFactory();
 		long timestamp = getDefaultTimestamp(true);
-        try {
-			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
-        } catch (IOException e) {
-        	throw new SailException("Namespace prefix could not be removed due to an exception", e);
-        }
+		deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
     }
 
     @Override
     public void clearNamespaces() throws SailException {
 		checkWritable();
 		long timestamp = getDefaultTimestamp(true);
-        try {
-			deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, null, timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
-        } catch (IOException e) {
-        	throw new SailException("Namespaces could not be cleared due to an exception", e);
-        }
+		deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, null, timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
     }
 
 	@Override
