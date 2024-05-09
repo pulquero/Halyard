@@ -1,13 +1,13 @@
 package com.msd.gin.halyard.repository;
 
 import com.google.common.base.Stopwatch;
-import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
-import com.msd.gin.halyard.query.algebra.Algebra;
-import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 import com.msd.gin.halyard.common.Timestamped;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.CloseableConsumer;
 import com.msd.gin.halyard.query.TimeLimitConsumer;
+import com.msd.gin.halyard.query.algebra.AbstractExtendedQueryModelVisitor;
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
 import com.msd.gin.halyard.sail.TimestampedUpdateContext;
@@ -466,11 +466,14 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 	}
 
 	static final class StatementDeleter extends StatementModifier {
+		static final IRI[] DEFAULT_GRAPH = new IRI[] { null };
 		final StatementPattern deletePattern;
+		final IRI[] defaultRemoveGraphs;
 
 		StatementDeleter(HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, StatementPattern deletePattern, ModifyAction deleteInfo) {
-			super(conn, vf, uc, deleteInfo.getTupleFunctionCalls());
+			super(conn, vf, uc.getTimestamp(), deleteInfo.getTupleFunctionCalls());
 			this.deletePattern = deletePattern;
+			this.defaultRemoveGraphs = getDefaultRemoveGraphs(uc.getDataset());
 		}
 
 		boolean delete(BindingSet whereBinding) {
@@ -496,21 +499,28 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 			}
 
 			Statement toBeDeleted = (context != null) ? vf.createStatement(subject, predicate, object, context) : vf.createStatement(subject, predicate, object);
-			updateTimestamp(toBeDeleted, whereBinding);
+			long ts = getTimestamp(toBeDeleted, whereBinding);
 
 			if (context != null) {
 				if (RDF4J.NIL.equals(context) || SESAME.NIL.equals(context)) {
-					return deleteStatement(subject, predicate, object, (Resource) null);
+					return deleteStatement(subject, predicate, object, DEFAULT_GRAPH, ts);
 				} else {
-					return deleteStatement(subject, predicate, object, context);
+					return deleteStatement(subject, predicate, object, new Resource[] { context }, ts);
 				}
 			} else {
-				IRI[] removeCtxs = getDefaultRemoveGraphs(uc.getDataset());
-				return deleteStatement(subject, predicate, object, removeCtxs);
+				return deleteStatement(subject, predicate, object, defaultRemoveGraphs, ts);
 			}
 		}
 
-		private IRI[] getDefaultRemoveGraphs(Dataset dataset) {
+		private boolean deleteStatement(Resource s, IRI p, Value o, Resource[] ctxs, long ts) {
+			boolean isNew = isNew(s, p, o, ctxs, ts);
+			if (isNew) {
+				conn.removeStatement(s, p, o, ctxs, ts);
+			}
+			return isNew;
+		}
+
+		private static IRI[] getDefaultRemoveGraphs(Dataset dataset) {
 			if (dataset == null) {
 				return new IRI[0];
 			}
@@ -523,14 +533,6 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 			}
 
 			return set.toArray(new IRI[set.size()]);
-		}
-
-		private boolean deleteStatement(Resource s, IRI p, Value o, Resource... ctxs) {
-			boolean isNew = isNew(s, p, o, ctxs);
-			if (isNew) {
-				conn.removeStatement(uc, s, p, o, ctxs);
-			}
-			return isNew;
 		}
 	}
 
@@ -568,34 +570,35 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 
 	static final class StatementInserter extends StatementModifier {
 		final StatementPattern insertPattern;
+		final IRI defaultInsertGraph;
 
 		StatementInserter(HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, StatementPattern insertPattern, ModifyAction insertInfo) {
-			super(conn, vf, uc, insertInfo.getTupleFunctionCalls());
+			super(conn, vf, uc.getTimestamp(), insertInfo.getTupleFunctionCalls());
 			this.insertPattern = insertPattern;
+			this.defaultInsertGraph = uc.getDataset().getDefaultInsertGraph();
 		}
 
 		boolean insert(BindingSet whereBinding, MapBindingSet bnodeMapping) {
 			Statement toBeInserted = createStatementFromPattern(insertPattern, whereBinding, bnodeMapping);
 
 			if (toBeInserted != null) {
-				updateTimestamp(toBeInserted, whereBinding);
+				long ts = getTimestamp(toBeInserted, whereBinding);
 
-				IRI with = uc.getDataset().getDefaultInsertGraph();
-				if (with == null && toBeInserted.getContext() == null) {
-					return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject());
+				if (defaultInsertGraph == null && toBeInserted.getContext() == null) {
+					return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), null, ts);
 				} else if (toBeInserted.getContext() == null) {
-					return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), with);
+					return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), defaultInsertGraph, ts);
 				} else {
-					return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), toBeInserted.getContext());
+					return insertStatement(toBeInserted.getSubject(), toBeInserted.getPredicate(), toBeInserted.getObject(), toBeInserted.getContext(), ts);
 				}
 			}
 			return false;
 		}
 
-		private boolean insertStatement(Resource s, IRI p, Value o, Resource... ctxs) {
-			boolean isNew = isNew(s, p, o, ctxs);
+		private boolean insertStatement(Resource s, IRI p, Value o, Resource ctx, long ts) {
+			boolean isNew = isNew(s, p, o, new Resource[] { ctx }, ts);
 			if (isNew) {
-				conn.addStatement(uc, s, p, o, ctxs);
+				conn.addStatement(s, p, o, ctx, ts);
 			}
 			return isNew;
 		}
@@ -704,7 +707,6 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 	static abstract class StatementModifier {
 		final HBaseSailConnection conn;
 		final ValueFactory vf;
-		final TimestampedUpdateContext uc;
 		final List<TupleFunctionCall> timestampTfcs;
 		final long defaultTimestamp;
 		Resource prevSubj;
@@ -713,11 +715,10 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 		Resource[] prevCtxs;
 		long prevTimestamp;
 
-		StatementModifier(HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, List<TupleFunctionCall> tfcs) {
+		StatementModifier(HBaseSailConnection conn, ValueFactory vf, long initialTimestamp, List<TupleFunctionCall> tfcs) {
 			this.conn = conn;
 			this.vf = vf;
-			this.uc = uc;
-			this.defaultTimestamp = uc.getTimestamp();
+			this.defaultTimestamp = initialTimestamp;
 			timestampTfcs = new ArrayList<>(tfcs.size());
 			for (TupleFunctionCall tfc : tfcs) {
 				if (HALYARD.TIMESTAMP_PROPERTY.stringValue().equals(tfc.getURI())) {
@@ -726,8 +727,7 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 			}
 		}
 
-		final boolean isNew(Resource s, IRI p, Value o, Resource... ctxs) {
-			long ts = uc.getTimestamp();
+		final boolean isNew(Resource s, IRI p, Value o, Resource[] ctxs, long ts) {
 			if (s.equals(prevSubj) && p.equals(prevPred) && o.equals(prevObj) && Arrays.equals(ctxs, prevCtxs) && ts == prevTimestamp) {
 				return false;
 			}
@@ -739,7 +739,7 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 			return true;
 		}
 
-		final void updateTimestamp(Statement stmt, BindingSet bindings) {
+		final long getTimestamp(Statement stmt, BindingSet bindings) {
 			for (TupleFunctionCall tfc : timestampTfcs) {
 				List<ValueExpr> args = tfc.getArgs();
 				Resource tsSubj = (Resource) Algebra.getVarValue((Var) args.get(0), bindings);
@@ -757,14 +757,13 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 				if (stmt.equals(tsStmt)) {
 					Literal ts = (Literal) Algebra.getVarValue(tfc.getResultVars().get(0), bindings);
 					if (XSD.DATETIME.equals(ts.getDatatype())) {
-						uc.setTimestamp(ts.calendarValue().toGregorianCalendar().getTimeInMillis());
+						return ts.calendarValue().toGregorianCalendar().getTimeInMillis();
 					} else {
-						uc.setTimestamp(ts.longValue());
+						return ts.longValue();
 					}
-					return;
 				}
 			}
-			uc.setTimestamp(defaultTimestamp);
+			return defaultTimestamp;
 		}
 	}
 

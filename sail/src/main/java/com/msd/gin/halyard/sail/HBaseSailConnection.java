@@ -669,15 +669,16 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		return beginTimestamp != Timestamped.NOT_SET;
     }
 
-	protected long getTimestamp(UpdateContext op, boolean isDelete) {
-		long ts = Timestamped.NOT_SET;
-		if (op instanceof Timestamped) {
-			ts = ((Timestamped) op).getTimestamp();
-		}
+	private long getTimestamp(long updateTimestamp, boolean isDelete) {
+		long ts = updateTimestamp;
 		if (ts == Timestamped.NOT_SET) {
 			ts = getDefaultTimestamp(isDelete);
 		}
 		return ts;
+	}
+
+	private long getUpdateTimestamp(UpdateContext op) {
+		return (op instanceof Timestamped) ? ((Timestamped) op).getTimestamp() : Timestamped.NOT_SET;
 	}
 
 	/**
@@ -710,8 +711,8 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
     @Override
     public void addStatement(UpdateContext op, Resource subj, IRI pred, Value obj, Resource... contexts) throws SailException {
-		long timestamp = getTimestamp(op, false);
-    	checkWritable();
+		checkWritable();
+		long timestamp = getTimestamp(getUpdateTimestamp(op), false);
 		if (contexts == null || contexts.length == 0) {
 			// if all contexts then insert into the default context
 			contexts = new Resource[] { null };
@@ -725,10 +726,20 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
         }
     }
 
-	public void addSystemStatement(Resource subj, IRI pred, Value obj, Resource context, long timestamp) throws SailException {
+	public void addStatement(Resource subj, IRI pred, Value obj, Resource ctx, long updateTimestamp) throws SailException {
+		checkWritable();
+		long timestamp = getTimestamp(updateTimestamp, false);
+		try {
+			insertStatement(subj, pred, obj, ctx, timestamp, insertCurrentKeyValueMapper);
+		} catch (IOException e) {
+			throw new SailException(e);
+		}
+	}
+
+	public void addSystemStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp) throws SailException {
 		checkWritable();
 		try {
-			insertStatement(subj, pred, obj, context, timestamp, insertNonDefaultKeyValueMapper);
+			insertStatement(subj, pred, obj, ctx, timestamp, insertNonDefaultKeyValueMapper);
 		} catch (IOException e) {
 			throw new SailException(e);
 		}
@@ -761,16 +772,48 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	
 	@Override
 	public void removeStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws SailException {
-		checkWritable();
-		removeStatements(null, subj, pred, obj, contexts);
+		removeUnknownStatements(subj, pred, obj, contexts, Timestamped.NOT_SET);
 	}
 
-	private long removeStatements(UpdateContext op, Resource subjPattern, IRI predPattern, Value objPattern, Resource... contexts) throws SailException {
+	@Override
+	public void removeStatement(UpdateContext op, Resource subj, IRI pred, Value obj, Resource... contexts) throws SailException {
+		long updateTimestamp = getUpdateTimestamp(op);
+		removeStatement(subj, pred, obj, contexts, updateTimestamp);
+	}
+
+	public void removeStatement(Resource subj, IRI pred, Value obj, Resource[] contexts, long updateTimestamp) throws SailException {
+		if (subj != null && pred != null && obj != null && contexts != null && contexts.length > 0) {
+			removeKnownStatement(subj, pred, obj, contexts, updateTimestamp);
+		} else {
+			removeUnknownStatements(subj, pred, obj, contexts, updateTimestamp);
+		}
+	}
+
+	private void removeKnownStatement(Resource subj, IRI pred, Value obj, Resource[] contexts, long updateTimestamp) throws SailException {
+		checkWritable();
+		long timestamp = getTimestamp(updateTimestamp, true);
+		try {
+			for (Resource ctx : contexts) {
+				deleteStatement(subj, pred, obj, ctx, timestamp, deleteCurrentKeyValueMapper);
+			}
+			if (subj.isTriple()) {
+				removeTriple((Triple) subj, timestamp);
+			}
+			if (obj.isTriple()) {
+				removeTriple((Triple) obj, timestamp);
+			}
+		} catch (IOException e) {
+			throw new SailException(e);
+		}
+	}
+
+	private long removeUnknownStatements(@Nullable Resource subjPattern, @Nullable IRI predPattern, @Nullable Value objPattern, @Nullable Resource[] contexts, long updateTimestamp) throws SailException {
+		checkWritable();
 		if (subjPattern == null && predPattern == null && objPattern == null && (contexts == null || contexts.length == 0)) {
 			clearAllStatements();
 			return -1L;
 		} else {
-			final long timestamp = getTimestamp(op, true);
+			final long timestamp = getTimestamp(updateTimestamp, true);
 			long counter = 0L;
 
 			final class TripleSet {
@@ -821,38 +864,6 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
 	}
 
-	@Override
-	public void removeStatement(UpdateContext op, Resource subj, IRI pred, Value obj, Resource... contexts) throws SailException {
-		checkWritable();
-		if (subj != null && pred != null && obj != null && contexts != null && contexts.length > 0) {
-			long timestamp = getTimestamp(op, true);
-			try {
-				for (Resource ctx : contexts) {
-					deleteStatement(subj, pred, obj, ctx, timestamp, deleteCurrentKeyValueMapper);
-				}
-				if (subj.isTriple()) {
-					removeTriple((Triple) subj, timestamp);
-				}
-				if (obj.isTriple()) {
-					removeTriple((Triple) obj, timestamp);
-				}
-			} catch (IOException e) {
-				throw new SailException(e);
-			}
-		} else {
-			removeStatements(op, subj, pred, obj, contexts);
-		}
-	}
-
-	public void removeSystemStatement(Resource subj, IRI pred, Value obj, Resource context, long timestamp) throws SailException {
-		checkWritable();
-		try {
-			deleteStatement(subj, pred, obj, context, timestamp, deleteNonDefaultKeyValueMapper);
-		} catch (IOException e) {
-			throw new SailException(e);
-		}
-	}
-
 	private void removeTriple(Triple t, Long timestamp) throws IOException {
 		flush();
 		if (!sail.getStatementIndices().isTripleReferenced(keyspaceConn, t)) {
@@ -867,7 +878,16 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		}
 	}
 
-	private void deleteSystemStatements(@Nullable Resource subj, @Nullable IRI pred, @Nullable Value obj, long timestamp, Resource... contexts) throws SailException {
+	public void removeSystemStatement(Resource subj, IRI pred, Value obj, Resource context, long timestamp) throws SailException {
+		checkWritable();
+		try {
+			deleteStatement(subj, pred, obj, context, timestamp, deleteNonDefaultKeyValueMapper);
+		} catch (IOException e) {
+			throw new SailException(e);
+		}
+	}
+
+	private void deleteSystemStatements(@Nullable Resource subj, @Nullable IRI pred, @Nullable Value obj, Resource[] contexts, long timestamp) throws SailException {
 		try (CloseableIteration<? extends Statement, SailException> iter = getStatements(subj, pred, obj, true, contexts)) {
 			while (iter.hasNext()) {
 				Statement st = iter.next();
@@ -910,8 +930,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     }
 
 	public long clearGraph(UpdateContext op, Resource... contexts) throws SailException {
-		checkWritable();
-		return removeStatements(op, null, null, null, contexts);
+		return removeUnknownStatements(null, null, null, contexts, getUpdateTimestamp(op));
 	}
 
 	private void clearAllStatements() throws SailException {
@@ -965,7 +984,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
         ValueFactory vf = sail.getValueFactory();
 		Literal prefixValue = vf.createLiteral(prefix);
 		IRI namespaceIri = vf.createIRI(name);
-		deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, getDefaultTimestamp(true), new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
+		deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT }, getDefaultTimestamp(true));
 		addSystemStatement(namespaceIri, HALYARD.NAMESPACE_PREFIX_PROPERTY, prefixValue, HALYARD.SYSTEM_GRAPH_CONTEXT, getDefaultTimestamp(false));
     }
 
@@ -974,14 +993,14 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		checkWritable();
         ValueFactory vf = sail.getValueFactory();
 		long timestamp = getDefaultTimestamp(true);
-		deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
+		deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT }, timestamp);
     }
 
     @Override
     public void clearNamespaces() throws SailException {
 		checkWritable();
 		long timestamp = getDefaultTimestamp(true);
-		deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, null, timestamp, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
+		deleteSystemStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, null, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT }, timestamp);
     }
 
 	@Override
