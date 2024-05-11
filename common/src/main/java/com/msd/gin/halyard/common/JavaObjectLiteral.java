@@ -15,13 +15,12 @@ public class JavaObjectLiteral<T> extends AbstractDataLiteral implements ObjectL
 	private final T obj;
 	private final IRI datatype;
 
-	public static <T> JavaObjectLiteral<T> of(T o) {
-		return new JavaObjectLiteral<>(o);
+	public static <T> JavaObjectLiteral<T> of(T o, Class<T> cls) {
+		return new JavaObjectLiteral<>(o, cls);
 	}
 
-	public JavaObjectLiteral(T o) {
+	public JavaObjectLiteral(T o, Class<T> cls) {
 		this.obj = o;
-		Class<?> cls = (obj != null) ? obj.getClass() : Void.class;
 		this.datatype = SimpleValueFactory.getInstance().createIRI("java:", cls.getName());
 	}
 

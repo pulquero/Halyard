@@ -7,12 +7,17 @@
  */
 package com.msd.gin.halyard.sail.search;
 
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.msd.gin.halyard.common.IdentifiableValue;
 import com.msd.gin.halyard.common.RDFFactory;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -44,6 +49,20 @@ public class SearchDocument {
 	public String datatype;
 	@JsonProperty(GEOMETRY_FIELD)
 	public String geometry;
+	@JsonIgnore
+	private Map<String, Object> additionalFields;
+
+	public Object getAdditionalField(String name) {
+		return (additionalFields != null) ? additionalFields.get(name) : null;
+	}
+
+	@JsonAnySetter
+	public void setAdditionalField(String name, Object value) {
+		if (additionalFields == null) {
+			additionalFields = new HashMap<>();
+		}
+		additionalFields.put(name, value);
+	}
 
 	@Override
 	public String toString() {

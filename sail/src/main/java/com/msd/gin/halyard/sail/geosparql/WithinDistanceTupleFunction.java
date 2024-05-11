@@ -97,10 +97,11 @@ public class WithinDistanceTupleFunction implements ExtendedTupleFunction {
 		SearchClient searchClient = extTripleSource.getSearchClient();
 
 		try {
-			SearchResponse<SearchDocument> searchResults = searchClient.search(fromCoord.getY(), fromCoord.getX(), esDistLimit, esUnits);
-			return new ConvertingIteration<Hit<SearchDocument>, List<Value>, QueryEvaluationException>(new CloseableIteratorIteration<Hit<SearchDocument>, QueryEvaluationException>(searchResults.hits().hits().iterator())) {
+			SearchResponse<? extends SearchDocument> searchResults = searchClient.search(fromCoord.getY(), fromCoord.getX(), esDistLimit, esUnits);
+			return new ConvertingIteration<Hit<? extends SearchDocument>, List<Value>, QueryEvaluationException>(
+					new CloseableIteratorIteration<Hit<? extends SearchDocument>, QueryEvaluationException>(searchResults.hits().hits().iterator())) {
 				@Override
-				protected List<Value> convert(Hit<SearchDocument> doc) throws QueryEvaluationException {
+				protected List<Value> convert(Hit<? extends SearchDocument> doc) throws QueryEvaluationException {
 					Literal to = (Literal) doc.source().createValue(valueFactory, rdfFactory);
 					if (inclDistance) {
 						Coordinate toCoord = WKTLiteral.geometryValue(to).getCoordinate();

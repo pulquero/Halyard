@@ -90,6 +90,7 @@ public final class HALYARD implements Vocabulary {
     public final static IRI MATCHES_PROPERTY = SVF.createIRI(NAMESPACE, "matches");
     public final static IRI SCORE_PROPERTY = SVF.createIRI(NAMESPACE, "score");
     public final static IRI INDEX_PROPERTY = SVF.createIRI(NAMESPACE, "index");
+    public final static IRI FIELD_PROPERTY = SVF.createIRI(NAMESPACE, "field");
 
     public final static IRI SEARCH_FIELD_FUNCTION = SVF.createIRI(NAMESPACE, "searchField");
     public final static IRI ESCAPE_TERM_FUNCTION = SVF.createIRI(NAMESPACE, "escapeTerm");

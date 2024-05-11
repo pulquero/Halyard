@@ -2,11 +2,11 @@ package com.msd.gin.halyard.sail.search;
 
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
+import com.msd.gin.halyard.common.JavaObjectLiteral;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.algebra.BGPCollector;
 import com.msd.gin.halyard.query.algebra.ExtendedTupleFunctionCall;
-import com.msd.gin.halyard.common.JavaObjectLiteral;
-import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -16,9 +16,12 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.util.Literals;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.EmptySet;
@@ -33,7 +36,10 @@ import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 import org.eclipse.rdf4j.query.algebra.helpers.AbstractQueryModelVisitor;
 
 /**
- * [] a halyard:Query; halyard:query 'what'; halyard:limit 5; halyard:matches [rdf:value ?v; halyard:score ?score; halyard:index ?index]
+ * [] a halyard:Query;
+ * halyard:query 'what';
+ * halyard:limit 5;
+ * halyard:matches [rdf:value ?v; halyard:score ?score; halyard:index ?index; halyard:field [rdfs:label "field_name"; rdf:value ?value] ]
  */
 public class SearchInterpreter implements QueryOptimizer {
 
@@ -68,38 +74,65 @@ public class SearchInterpreter implements QueryOptimizer {
 						IRI queryPred = (IRI) querySP.getPredicateVar().getValue();
 						Var queryObjVar = querySP.getObjectVar();
 						if (HALYARD.QUERY_PROPERTY.equals(queryPred)) {
+							querySP.replaceWith(new SingletonSet());
 							searchCall.params.setQueryVar(queryObjVar);
-							querySP.replaceWith(new SingletonSet());
 						} else if (HALYARD.LIMIT_PROPERTY.equals(queryPred)) {
+							querySP.replaceWith(new SingletonSet());
 							searchCall.params.setLimitVar(queryObjVar);
-							querySP.replaceWith(new SingletonSet());
 						} else if (HALYARD.MIN_SCORE_PROPERTY.equals(queryPred)) {
+							querySP.replaceWith(new SingletonSet());
 							searchCall.params.setMinScoreVar(queryObjVar);
-							querySP.replaceWith(new SingletonSet());
 						} else if (HALYARD.FUZZINESS_PROPERTY.equals(queryPred)) {
+							querySP.replaceWith(new SingletonSet());
 							searchCall.params.setFuzzinessVar(queryObjVar);
-							querySP.replaceWith(new SingletonSet());
 						} else if (HALYARD.PHRASE_SLOP_PROPERTY.equals(queryPred)) {
+							querySP.replaceWith(new SingletonSet());
 							searchCall.params.setPhraseSlopVar(queryObjVar);
-							querySP.replaceWith(new SingletonSet());
 						} else if (HALYARD.MATCHES_PROPERTY.equals(queryPred)) {
-							SearchParams.MatchParams matchParams = searchCall.params.newMatchParams(Algebra.isFree(queryObjVar) ? queryObjVar.getName() : null);
 							querySP.replaceWith(new SingletonSet());
+							SearchParams.MatchParams matchParams = new SearchParams.MatchParams();
 							for (StatementPattern matchSP : stmtsBySubj.get(queryObjVar.getName())) {
 								IRI matchPred = (IRI) matchSP.getPredicateVar().getValue();
 								Var matchObjVar = matchSP.getObjectVar();
-								if (Algebra.isFree(matchObjVar)) {
-									if (RDF.VALUE.equals(matchPred)) {
+								if (RDF.VALUE.equals(matchPred)) {
+									matchSP.replaceWith(new SingletonSet());
+									if (Algebra.isFree(matchObjVar)) {
 										matchParams.valueVars.add(matchObjVar.getName());
-										matchSP.replaceWith(new SingletonSet());
-									} else if (HALYARD.SCORE_PROPERTY.equals(matchPred)) {
+									}
+								} else if (HALYARD.SCORE_PROPERTY.equals(matchPred)) {
+									matchSP.replaceWith(new SingletonSet());
+									if (Algebra.isFree(matchObjVar)) {
 										matchParams.scoreVars.add(matchObjVar.getName());
-										matchSP.replaceWith(new SingletonSet());
-									} else if (HALYARD.INDEX_PROPERTY.equals(matchPred)) {
+									}
+								} else if (HALYARD.INDEX_PROPERTY.equals(matchPred)) {
+									matchSP.replaceWith(new SingletonSet());
+									if (Algebra.isFree(matchObjVar)) {
 										matchParams.indexVars.add(matchObjVar.getName());
-										matchSP.replaceWith(new SingletonSet());
+									}
+								} else if (HALYARD.FIELD_PROPERTY.equals(matchPred)) {
+									matchSP.replaceWith(new SingletonSet());
+									SearchParams.MatchParams.FieldParams fieldParams = new SearchParams.MatchParams.FieldParams();
+									for (StatementPattern fieldSP : stmtsBySubj.get(matchObjVar.getName())) {
+										IRI fieldPred = (IRI) fieldSP.getPredicateVar().getValue();
+										Var fieldObjVar = fieldSP.getObjectVar();
+										if (RDFS.LABEL.equals(fieldPred)) {
+											fieldSP.replaceWith(new SingletonSet());
+											Value labelValue = fieldObjVar.getValue();
+											fieldParams.name = Literals.getLabel(labelValue, null);
+										} else if (RDF.VALUE.equals(fieldPred)) {
+											fieldSP.replaceWith(new SingletonSet());
+											if (Algebra.isFree(fieldObjVar)) {
+												fieldParams.valueVars.add(fieldObjVar.getName());
+											}
+										}
+									}
+									if (!Algebra.isFree(matchObjVar) && fieldParams.isValid()) {
+										matchParams.fields.add(fieldParams);
 									}
 								}
+							}
+							if (!Algebra.isFree(queryObjVar) && matchParams.isValid()) {
+								searchCall.params.matches.add(matchParams);
 							}
 						}
 					}
@@ -133,7 +166,7 @@ public class SearchInterpreter implements QueryOptimizer {
 		final SearchParams params = new SearchParams();
 
 		boolean initCall() {
-			if (params.invalid) {
+			if (!params.isValid()) {
 				return false;
 			}
 			tfc.addArg(params.queryVar != null ? params.queryVar.clone() : new ValueConstant(VF.createLiteral("")));
@@ -141,11 +174,8 @@ public class SearchInterpreter implements QueryOptimizer {
 			tfc.addArg(params.minScoreVar != null ? params.minScoreVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_MIN_SCORE)));
 			tfc.addArg(params.fuzzinessVar != null ? params.fuzzinessVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_FUZZINESS)));
 			tfc.addArg(params.phraseSlopVar != null ? params.phraseSlopVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_PHRASE_SLOP)));
-			tfc.addArg(new ValueConstant(JavaObjectLiteral.of(params.matches)));
+			tfc.addArg(new ValueConstant(JavaObjectLiteral.of(params.matches, Object.class)));
 			for (SearchParams.MatchParams matchParams : params.matches) {
-				if (matchParams.matchVar != null) {
-					tfc.addResultVar(new Var(matchParams.matchVar));
-				}
 				for (String valueVar : matchParams.valueVars) {
 					tfc.addResultVar(new Var(valueVar));
 				}
@@ -154,6 +184,11 @@ public class SearchInterpreter implements QueryOptimizer {
 				}
 				for (String indexVar : matchParams.indexVars) {
 					tfc.addResultVar(new Var(indexVar));
+				}
+				for (SearchParams.MatchParams.FieldParams fieldParams : matchParams.fields) {
+					for (String valueVar : fieldParams.valueVars) {
+						tfc.addResultVar(new Var(valueVar));
+					}
 				}
 			}
 			return true;
@@ -209,23 +244,20 @@ public class SearchInterpreter implements QueryOptimizer {
 			}
 		}
 
-		MatchParams newMatchParams(String var) {
-			MatchParams matchParams = new MatchParams(var);
-			matches.add(matchParams);
-			return matchParams;
+		boolean isValid() {
+			return !invalid && !matches.isEmpty();
 		}
-
 
 		static final class MatchParams implements Serializable {
 			private static final long serialVersionUID = -1524678402469442919L;
 
-			final String matchVar;
 			final List<String> valueVars = new ArrayList<>(1);
 			final List<String> scoreVars = new ArrayList<>(1);
 			final List<String> indexVars = new ArrayList<>(1);
+			final List<FieldParams> fields = new ArrayList<>(1);
 
-			MatchParams(String varName) {
-				this.matchVar = varName;
+			boolean isValid() {
+				return !valueVars.isEmpty() || !scoreVars.isEmpty() || !indexVars.isEmpty() || !fields.isEmpty();
 			}
 
 			@Override
@@ -235,7 +267,7 @@ public class SearchInterpreter implements QueryOptimizer {
 				}
 				if (o instanceof MatchParams) {
 					MatchParams other = (MatchParams) o;
-					return Objects.equals(matchVar, other.matchVar) && Objects.equals(valueVars, other.valueVars) && Objects.equals(scoreVars, other.scoreVars) && Objects.equals(indexVars, other.indexVars);
+					return Objects.equals(valueVars, other.valueVars) && Objects.equals(scoreVars, other.scoreVars) && Objects.equals(indexVars, other.indexVars);
 				} else {
 					return false;
 				}
@@ -243,7 +275,37 @@ public class SearchInterpreter implements QueryOptimizer {
 
 			@Override
 			public int hashCode() {
-				return Objects.hash(matchVar, valueVars, scoreVars, indexVars);
+				return Objects.hash(valueVars, scoreVars, indexVars);
+			}
+
+
+			static final class FieldParams implements Serializable {
+				private static final long serialVersionUID = -326151903390393152L;
+
+				String name;
+				final List<String> valueVars = new ArrayList<>(1);
+
+				boolean isValid() {
+					return (name != null) && !valueVars.isEmpty();
+				}
+
+				@Override
+				public boolean equals(Object o) {
+					if (o == this) {
+						return true;
+					}
+					if (o instanceof FieldParams) {
+						FieldParams other = (FieldParams) o;
+						return Objects.equals(name, other.name) && Objects.equals(valueVars, other.valueVars);
+					} else {
+						return false;
+					}
+				}
+
+				@Override
+				public int hashCode() {
+					return Objects.hash(name, valueVars);
+				}
 			}
 		}
 	}

@@ -97,13 +97,13 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 					if (objects == null) { // perform ES query and parse results
 						List<RDFObject> objectList = SEARCH_CACHE.get(literalSearchQuery, query -> {
 							ArrayList<RDFObject> objList = new ArrayList<>();
-							SearchResponse<SearchDocument> response;
+							SearchResponse<? extends SearchDocument> response;
 							try {
-								response = searchClient.search(query, HalyardEvaluationStrategy.SEARCH_RESULT_SIZE, SearchClient.DEFAULT_MIN_SCORE, SearchClient.DEFAULT_FUZZINESS, SearchClient.DEFAULT_PHRASE_SLOP);
+								response = searchClient.search(query, HalyardEvaluationStrategy.SEARCH_RESULT_SIZE, SearchClient.DEFAULT_MIN_SCORE, SearchClient.DEFAULT_FUZZINESS, SearchClient.DEFAULT_PHRASE_SLOP, false);
 							} catch (IOException ioe) {
 								throw new QueryEvaluationException(ioe);
 							}
-							for (Hit<SearchDocument> hit : response.hits().hits()) {
+							for (Hit<? extends SearchDocument> hit : response.hits().hits()) {
 								SearchDocument source = hit.source();
 								Value obj = source.createValue(vf, rdfFactory);
 								objList.add(rdfFactory.createObject(obj));

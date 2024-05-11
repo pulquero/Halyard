@@ -143,7 +143,7 @@ class HalyardValueExprEvaluation {
                         throw new ValueExprEvaluationException(flags);
                 }
             }
-            return JavaObjectLiteral.of(Pattern.compile(ptn, f));
+            return JavaObjectLiteral.of(Pattern.compile(ptn, f), Pattern.class);
 		}
 	}
 	private static final LoadingCache<Pair<String,String>,JavaObjectLiteral<Pattern>> REGEX_CACHE = Caffeine.newBuilder().maximumSize(100).expireAfterAccess(1L, TimeUnit.DAYS).build(new RegexCacheLoader());

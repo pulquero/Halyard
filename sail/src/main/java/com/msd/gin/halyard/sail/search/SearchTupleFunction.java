@@ -7,6 +7,7 @@ import com.msd.gin.halyard.model.ObjectLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 import com.msd.gin.halyard.sail.HBaseSearchTripleSource;
+import com.msd.gin.halyard.sail.search.SearchInterpreter.SearchParams;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import org.eclipse.rdf4j.common.iteration.ConvertingIteration;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.util.Values;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
@@ -51,7 +53,6 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 		}
 		int argPos = 0;
 		String query = ((Literal) args[argPos++]).getLabel();
-		int queryHash = query.hashCode();
 		int limit = ((Literal) args[argPos++]).intValue();
 		double minScore = ((Literal) args[argPos++]).doubleValue();
 		int fuzziness = ((Literal) args[argPos++]).intValue();
@@ -62,30 +63,35 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 		RDFFactory rdfFactory = indices.getRDFFactory();
 		SearchClient searchClient = extTripleSource.getSearchClient();
 
+		boolean hasAdditionalFields = false;
+		for (SearchInterpreter.SearchParams.MatchParams matchParams : matches) {
+			if (!matchParams.fields.isEmpty()) {
+				hasAdditionalFields = true;
+				break;
+			}
+		}
+
 		try {
-			SearchResponse<SearchDocument> searchResults = searchClient.search(query, limit, minScore, fuzziness, phraseSlop);
-			List<List<Hit<SearchDocument>>> results;
+			SearchResponse<? extends SearchDocument> searchResults = searchClient.search(query, limit, minScore, fuzziness, phraseSlop, hasAdditionalFields);
+			List<List<Hit<? extends SearchDocument>>> results;
 			final int numMatchValues = matches.size();
 			if (numMatchValues == 1) {
 				results = Lists.transform(searchResults.hits().hits(), doc -> Collections.singletonList(doc));
 			} else {
+				// in case anyone actually does this
 				results = Lists.cartesianProduct(Collections.nCopies(numMatchValues, searchResults.hits().hits()));
 			}
-			return new ConvertingIteration<List<Hit<SearchDocument>>, List<Value>, QueryEvaluationException>(
-					new CloseableIteratorIteration<List<Hit<SearchDocument>>, QueryEvaluationException>(results.iterator())) {
+			return new ConvertingIteration<List<Hit<? extends SearchDocument>>, List<Value>, QueryEvaluationException>(new CloseableIteratorIteration<List<Hit<? extends SearchDocument>>, QueryEvaluationException>(results.iterator())) {
 				int outputSize = 2;
 				@Override
-				protected List<Value> convert(List<Hit<SearchDocument>> matchValues) throws QueryEvaluationException {
+				protected List<Value> convert(List<Hit<? extends SearchDocument>> matchValues) throws QueryEvaluationException {
 					List<Value> values = new ArrayList<>(outputSize);
 					for (int i = 0; i < numMatchValues; i++) {
-						Hit<SearchDocument> matchValue = matchValues.get(i);
+						Hit<? extends SearchDocument> matchValue = matchValues.get(i);
+						SearchDocument doc = matchValue.source();
 						SearchInterpreter.SearchParams.MatchParams matchParams = matches.get(i);
-						if (matchParams.matchVar != null) {
-							String bnodeId = "es" + queryHash + "_" + matchValue.index() + "_" + matchValue.id();
-							values.add(valueFactory.createBNode(bnodeId));
-						}
 						if (!matchParams.valueVars.isEmpty()) {
-							Value value = matchValue.source().createValue(valueFactory, rdfFactory);
+							Value value = doc.createValue(valueFactory, rdfFactory);
 							for (int k = 0; k < matchParams.valueVars.size(); k++) {
 								values.add(value);
 							}
@@ -100,6 +106,13 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 							Literal index = valueFactory.createLiteral(matchValue.index());
 							for (int k = 0; k < matchParams.indexVars.size(); k++) {
 								values.add(index);
+							}
+						}
+						for (SearchParams.MatchParams.FieldParams fieldParams : matchParams.fields) {
+							Object v = doc.getAdditionalField(fieldParams.name);
+							Literal l = (v != null) ? Values.literal(valueFactory, v, false) : null;
+							for (int k = 0; k < fieldParams.valueVars.size(); k++) {
+								values.add(l);
 							}
 						}
 					}
