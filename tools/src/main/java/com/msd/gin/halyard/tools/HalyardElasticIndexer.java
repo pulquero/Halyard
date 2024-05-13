@@ -22,6 +22,7 @@ import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.SSLSettings;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.model.ArrayLiteral;
 import com.msd.gin.halyard.model.TermRole;
 import com.msd.gin.halyard.model.TupleLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
@@ -506,8 +507,10 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
 		   				} catch (NumberFormatException nfe) {
 		   	    			return l.getLabel();
 		   				}
+		    		} else if (HALYARD.ARRAY_TYPE.equals(l.getDatatype())) {
+		    			return ArrayLiteral.objectArray(l);
 		    		} else if (HALYARD.TUPLE_TYPE.equals(l.getDatatype())) {
-		    			Value[] varr = TupleLiteral.arrayValue(l, valueFactory);
+		    			Value[] varr = TupleLiteral.valueArray(l, valueFactory);
 		    			Object[] oarr = new Object[varr.length];
 		    			for (int i=0; i<varr.length; i++) {
 		    				oarr[i] = toObject(varr[i]);

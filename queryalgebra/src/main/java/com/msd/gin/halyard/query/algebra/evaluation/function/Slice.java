@@ -23,7 +23,7 @@ public final class Slice implements Function {
 		if (args.length != 3 || !TupleLiteral.isTupleLiteral(args[0]) || !args[1].isLiteral() || !args[2].isLiteral()) {
 			throw new ValueExprEvaluationException(String.format("%s requires a tuple, a 1-based start index and a length", getURI()));
 		}
-		Value[] arr = TupleLiteral.arrayValue((Literal) args[0], valueFactory);
+		Value[] arr = TupleLiteral.valueArray((Literal) args[0], valueFactory);
 		int startIndex0 = ((Literal) args[1]).intValue() - 1;
 		int len = ((Literal) args[2]).intValue();
 		if (startIndex0 < 0 || startIndex0 > arr.length) {

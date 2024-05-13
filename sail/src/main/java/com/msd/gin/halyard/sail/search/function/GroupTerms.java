@@ -1,7 +1,9 @@
 package com.msd.gin.halyard.sail.search.function;
 
+import com.msd.gin.halyard.model.ArrayLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
@@ -44,11 +46,24 @@ public class GroupTerms implements Function {
 			if (!arg.isLiteral()) {
 				throw new QueryEvaluationException("Invalid value");
 			}
-			String v = arg.stringValue();
-			if (!v.isEmpty()) {
-				buf.append(sep);
-				buf.append(v);
-				sep = operator;
+			Literal l = (Literal) arg;
+			if (HALYARD.ARRAY_TYPE.equals(l.getDatatype())) {
+				Object[] entries = ArrayLiteral.objectArray(l);
+				for (Object entry : entries) {
+					String s = entry.toString();
+					if (!s.isEmpty()) {
+						buf.append(sep);
+						buf.append(s);
+						sep = operator;
+					}
+				}
+			} else {
+				String s = arg.stringValue();
+				if (!s.isEmpty()) {
+					buf.append(sep);
+					buf.append(s);
+					sep = operator;
+				}
 			}
 		}
 		buf.append(")");

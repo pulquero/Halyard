@@ -29,6 +29,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
+import com.msd.gin.halyard.model.ArrayLiteral;
 import com.msd.gin.halyard.model.TupleLiteral;
 
 /**
@@ -169,6 +170,19 @@ public class SailSpifTest {
 		ValueFactory vf = conn.getValueFactory();
 		String tl = NTriplesUtil.toNTriplesString(new TupleLiteral(vf.createLiteral(2), vf.createLiteral(3)));
 		TupleQuery tq = conn.prepareTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> prefix halyard: <http://merck.github.io/Halyard/ns#> " + "select ?x where {?x spif:foreach (1 "+ tl + " 4)}");
+		try (TupleQueryResult tqr = tq.evaluate()) {
+			for (int i = 1; i <= 4; i++) {
+				BindingSet bs = tqr.next();
+				assertThat(((Literal) bs.getValue("x")).intValue()).isEqualTo(i);
+			}
+			assertFalse(tqr.hasNext());
+		}
+	}
+
+	@Test
+	public void testForEachArrayLiteral() throws Exception {
+		String al = NTriplesUtil.toNTriplesString(new ArrayLiteral(2, 3));
+		TupleQuery tq = conn.prepareTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> prefix halyard: <http://merck.github.io/Halyard/ns#> " + "select ?x where {?x spif:foreach (1 "+ al + " 4)}");
 		try (TupleQueryResult tqr = tq.evaluate()) {
 			for (int i = 1; i <= 4; i++) {
 				BindingSet bs = tqr.next();

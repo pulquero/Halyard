@@ -104,7 +104,21 @@ Creates a data URL with the given value.
 
 http://www.w3.org/2000/01/rdf-schema#Resource
 
+## http://merck.github.io/Halyard/ns#datasetIRI
+
+
+
+
+
+
 ## http://merck.github.io/Halyard/ns#escapeTerm
+
+
+
+
+
+
+## http://merck.github.io/Halyard/ns#forkAndFilterBy
 
 
 
@@ -4128,6 +4142,13 @@ http://www.w3.org/2001/XMLSchema#integer
 
 
 # Aggregate functions
+
+## http://merck.github.io/Halyard/ns#groupIntoArrays
+
+
+
+
+
 
 ## http://merck.github.io/Halyard/ns#groupIntoTuples
 

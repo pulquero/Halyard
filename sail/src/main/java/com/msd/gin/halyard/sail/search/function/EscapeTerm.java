@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.sail.search.function;
 
 import com.google.common.collect.Sets;
+import com.msd.gin.halyard.model.ArrayLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.util.Locale;
@@ -35,7 +36,25 @@ public class EscapeTerm implements Function {
 		if (!args[0].isLiteral()) {
 			throw new QueryEvaluationException(String.format("Non-literal value: %s", args[0]));
 		}
-		String s = ((Literal) args[0]).stringValue();
+		Literal l = (Literal) args[0];
+		if (HALYARD.ARRAY_TYPE.equals(l.getDatatype())) {
+			Object[] entries = ArrayLiteral.objectArray(l);
+			Object[] escaped = new Object[entries.length];
+			for (int i = 0; i < entries.length; i++) {
+				Object o = entries[i];
+				if (o instanceof String) {
+					o = escape((String) o);
+				}
+				escaped[i] = o;
+			}
+			return new ArrayLiteral(escaped);
+		} else {
+			String s = l.getLabel();
+			return valueFactory.createLiteral(escape(s));
+		}
+	}
+
+	private static String escape(String s) {
 		StringBuilder buf = new StringBuilder(s.length());
 		int end = 0;
 		Matcher matcher = RESERVED_CHARACTERS.matcher(s);
@@ -52,7 +71,6 @@ public class EscapeTerm implements Function {
 			}
 		}
 		buf.append(s.substring(end));
-		return valueFactory.createLiteral(buf.toString());
+		return buf.toString();
 	}
-
 }

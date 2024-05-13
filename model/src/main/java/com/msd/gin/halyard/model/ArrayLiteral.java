@@ -3,7 +3,11 @@ package com.msd.gin.halyard.model;
 import java.util.Arrays;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
+import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
+import org.eclipse.rdf4j.model.util.Values;
 import org.json.JSONArray;
 
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
@@ -11,15 +15,40 @@ import com.msd.gin.halyard.model.vocabulary.HALYARD;
 public final class ArrayLiteral extends AbstractDataLiteral implements ObjectLiteral<Object[]> {
 	private static final long serialVersionUID = -6399155325720068478L;
 
+	public static boolean isArrayLiteral(Value v) {
+		return v != null && v.isLiteral() && HALYARD.ARRAY_TYPE.equals(((Literal)v).getDatatype());
+	}
+
+	public static Object[] objectArray(Literal l) {
+		if (l instanceof ArrayLiteral) {
+			return ((ArrayLiteral)l).values;
+		} else {
+			return parse(l.getLabel());
+		}
+	}
+
+	public static Value[] toValues(Object[] oarr, ValueFactory vf) {
+		Value[] varr = new Value[oarr.length];
+		for (int i=0; i<oarr.length; i++) {
+			varr[i] = Values.literal(vf, oarr[i], false);
+		}
+		return varr;
+	}
+
+	private static Object[] parse(CharSequence s) {
+		JSONArray arr = new JSONArray(s.toString());
+		int len = arr.length();
+		Object[] values = new Object[len];
+		for (int i=0; i<len; i++) {
+			values[i] = arr.get(i);
+		}
+		return values;
+	}
+
 	private final Object[] values;
 
 	public ArrayLiteral(String s) {
-		JSONArray arr = new JSONArray(s);
-		int len = arr.length();
-		this.values = new Object[len];
-		for (int i=0; i<len; i++) {
-			this.values[i] = arr.get(i);
-		}
+		this.values = parse(s);
 	}
 
 	public ArrayLiteral(Object... values) {

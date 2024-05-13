@@ -113,6 +113,7 @@ public final class HALYARD implements Vocabulary {
     public final static IRI MODE_FUNCTION = SVF.createIRI(NAMESPACE, "mode");
     public final static IRI TOP_N_WITH_FUNCTION = SVF.createIRI(NAMESPACE, "topNWith");
     public final static IRI GROUP_INTO_TUPLES_FUNCTION = SVF.createIRI(NAMESPACE, "groupIntoTuples");
+    public final static IRI GROUP_INTO_ARRAYS_FUNCTION = SVF.createIRI(NAMESPACE, "groupIntoArrays");
     public final static IRI H_INDEX_FUNCTION = SVF.createIRI(NAMESPACE, "hIndex");
 
 	public final static IRI TIMESTAMP_PROPERTY = SVF.createIRI(NAMESPACE, "timestamp");

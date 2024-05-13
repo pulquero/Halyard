@@ -1,8 +1,8 @@
 package com.msd.gin.halyard.model;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.rdf4j.model.IRI;
@@ -27,7 +27,7 @@ public final class TupleLiteral extends AbstractDataLiteral implements ObjectLit
 		return (v instanceof TupleLiteral) ? (TupleLiteral) v : new TupleLiteral(((Literal)v).getLabel());
 	}
 
-	public static Value[] arrayValue(Literal l, ValueFactory vf) {
+	public static Value[] valueArray(Literal l, ValueFactory vf) {
 		if (l instanceof TupleLiteral) {
 			return ((TupleLiteral)l).values;
 		} else {
@@ -146,7 +146,7 @@ public final class TupleLiteral extends AbstractDataLiteral implements ObjectLit
 
 		if (o instanceof Literal) {
 			Literal other = (Literal) o;
-			return HALYARD.TUPLE_TYPE.equals(other.getDatatype()) && Arrays.equals(values, arrayValue(other, SimpleValueFactory.getInstance()));
+			return HALYARD.TUPLE_TYPE.equals(other.getDatatype()) && Arrays.equals(values, valueArray(other, SimpleValueFactory.getInstance()));
 		} else {
 			return super.equals(o);
 		}

@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.sail.search.function;
 
+import com.msd.gin.halyard.model.ArrayLiteral;
+
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
@@ -50,5 +52,11 @@ public class EscapeTermTest {
 	public void testEscapeUrl() {
 		Literal escaped = (Literal) new EscapeTerm().evaluate(vf, vf.createLiteral("http://www.com/path"));
 		assertEquals("http\\:\\/\\/www.com\\/path", escaped.stringValue());
+	}
+
+	@Test
+	public void testEscapeList() {
+		Literal escaped = (Literal) new EscapeTerm().evaluate(vf, new ArrayLiteral(":", "/"));
+		assertEquals(new ArrayLiteral("\\:", "\\/"), escaped);
 	}
 }

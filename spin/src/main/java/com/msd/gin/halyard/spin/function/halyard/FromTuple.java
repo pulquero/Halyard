@@ -28,7 +28,7 @@ public class FromTuple extends AbstractSpinFunction implements ExtendedTupleFunc
 		if (args.length != 1 || !TupleLiteral.isTupleLiteral(args[0])) {
 			throw new ValueExprEvaluationException(String.format("%s requires a tuple", getURI()));
 		}
-		Value[] elements = TupleLiteral.arrayValue((Literal)args[0], tripleSource.getValueFactory());
+		Value[] elements = TupleLiteral.valueArray((Literal)args[0], tripleSource.getValueFactory());
 		return new SingletonIteration<>(Arrays.asList(elements));
 	}
 }
