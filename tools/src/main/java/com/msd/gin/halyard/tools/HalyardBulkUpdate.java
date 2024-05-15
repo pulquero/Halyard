@@ -21,6 +21,8 @@ import static com.msd.gin.halyard.tools.HalyardBulkLoad.*;
 import com.msd.gin.halyard.common.ByteUtils;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
+import com.msd.gin.halyard.queryparser.SPARQLParser;
+import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.repository.HBaseUpdate;
 import com.msd.gin.halyard.sail.ElasticSettings;
 import com.msd.gin.halyard.sail.HBaseSail;
@@ -73,7 +75,6 @@ import org.eclipse.rdf4j.query.algebra.UpdateExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 import org.eclipse.rdf4j.query.parser.ParsedUpdate;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
-import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
@@ -130,115 +131,26 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
             final String query = qis.getQuery();
             queryName = qis.getQueryName();
             final int partitionIndex = qis.getRepeatIndex();
-            ParsedUpdate parsedUpdate = QueryParserUtil.parseUpdate(QueryLanguage.SPARQL, query, null);
-            if (parsedUpdate.getUpdateExprs().size() <= stage) {
+            ParsedUpdate sniffedUpdate = QueryParserUtil.parseUpdate(QueryLanguage.SPARQL, query, null);
+            if (sniffedUpdate.getUpdateExprs().size() <= stage) {
                 context.setStatus("Nothing to execute in: " + queryName + " for stage #" + stage);
             } else {
-                UpdateExpr ue = parsedUpdate.getUpdateExprs().get(stage);
-                ParsedUpdate singleUpdate = new ParsedUpdate(parsedUpdate.getSourceString(), parsedUpdate.getNamespaces());
-                singleUpdate.addUpdateExpr(ue);
-                Dataset d = parsedUpdate.getDatasetMapping().get(ue);
-                if (d != null) {
-                    singleUpdate.map(ue, d);
-                }
                 context.setStatus("Execution of: " + queryName + " stage #" + stage);
-				final HBaseSail sail = new HBaseSail(context.getConfiguration(), tableName, false, 0, true, 0, ElasticSettings.from(conf), new HBaseSail.Ticker() {
-                    @Override
-                    public void tick() {
-                        context.progress();
-                    }
-				}, new HBaseSail.SailConnectionFactory() {
-					@Override
-					public HBaseSailConnection createConnection(HBaseSail sail) throws IOException {
-						HBaseSailConnection conn = new HBaseSailConnection(sail) {
-							private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
-
-							@Override
-							protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr tupleExpr, QueryEvaluationStep step) {
-								HalyardEvaluationStatistics stats = sail.getStatistics();
-								final double estimate = stats.getCardinality(tupleExpr);
-								tupleExpr.setResultSizeEstimate(estimate);
-								LOG.info("Optimised query tree:\n{}", tupleExpr);
-								super.evaluateInternal(next -> {
-									qis.setProgress((float) ((double)tupleExpr.getResultSizeActual()/estimate));
-									// notify of progress
-									try {
-										context.nextKeyValue();
-									} catch (IOException | InterruptedException e) {
-										throw new QueryEvaluationException(e);
-									}
-									handler.accept(next);
-								}, tupleExpr, step);
-								LOG.info("Execution statistics:\n{}", tupleExpr);
-							}
-
-							@Override
-							protected int insertStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp, KeyValueMapper keyValueMapper) throws IOException {
-								int insertedKvs = super.insertStatement(subj, pred, obj, ctx, timestamp, keyValueMapper);
-								long _addedStmts = addedStmts.incrementAndGet();
-								addedKvs.addAndGet(insertedKvs);
-								if (_addedStmts % statusUpdateInterval == 0L) {
-									updateStatus(context);
-								}
-								return insertedKvs;
-							}
-
-							@Override
-							protected void put(KeyValue kv) throws IOException {
-								rowKey.set(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength());
-								try {
-									context.write(rowKey, kv);
-								} catch (InterruptedException ex) {
-									throw new IOException(ex);
-								}
-							}
-
-							@Override
-							protected int deleteStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp, KeyValueMapper keyValueMapper) throws IOException {
-								int deletedKvs = super.deleteStatement(subj, pred, obj, ctx, timestamp, keyValueMapper);
-								long _removedStmts = removedStmts.incrementAndGet();
-								removedKvs.addAndGet(deletedKvs);
-								if (_removedStmts % statusUpdateInterval == 0L) {
-									updateStatus(context);
-								}
-								return deletedKvs;
-							}
-
-							@Override
-							protected void delete(KeyValue kv) throws IOException {
-								rowKey.set(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength());
-								try {
-									context.write(rowKey, kv);
-								} catch (InterruptedException ex) {
-									throw new IOException(ex);
-								}
-							}
-
-							@Override
-							protected long getDefaultTimestamp(boolean delete) {
-								return timestamp;
-							}
-
-							@Override
-							public void removeStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws SailException {
-								try (CloseableIteration<? extends Statement, SailException> iter = getStatements(subj, pred, obj, true, contexts)) {
-									while (iter.hasNext()) {
-										Statement st = iter.next();
-										removeStatement(null, st.getSubject(), st.getPredicate(), st.getObject(), st.getContext());
-									}
-								}
-							}
-						};
-						conn.setTrackResultSize(sail.isTrackResultSize());
-						conn.setTrackResultTime(sail.isTrackResultTime());
-						conn.setTrackBranchOperatorsOnly(sail.isTrackBranchOperatorsOnly());
-						return conn;
-					}
-				});
+                HBaseSail sail = createSail(context);
 				sail.setTrackResultSize(true);
-                SailRepository rep = new SailRepository(sail);
+                HBaseRepository rep = new HBaseRepository(sail);
                 try {
                     rep.init();
+
+                    ParsedUpdate parsedUpdate = SPARQLParser.parseUpdate(query, null, rep.getValueFactory());
+                    UpdateExpr ue = parsedUpdate.getUpdateExprs().get(stage);
+                    ParsedUpdate singleUpdate = new ParsedUpdate(parsedUpdate.getSourceString(), parsedUpdate.getNamespaces());
+                    singleUpdate.addUpdateExpr(ue);
+                    Dataset d = parsedUpdate.getDatasetMapping().get(ue);
+                    if (d != null) {
+                        singleUpdate.map(ue, d);
+                    }
+
                     try(SailRepositoryConnection con = rep.getConnection()) {
                         Update upd = new HBaseUpdate(singleUpdate, sail, con);
     					upd.setBinding(HBaseSailConnection.FORK_INDEX_BINDING, rep.getValueFactory().createLiteral(partitionIndex));
@@ -258,7 +170,105 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
             }
         }
 
-		private void updateStatus(Context context) {
+        private HBaseSail createSail(Context context) {
+            Configuration conf = context.getConfiguration();
+            QueryInputFormat.QueryInputSplit qis = (QueryInputFormat.QueryInputSplit)context.getInputSplit();
+			return new HBaseSail(conf, tableName, false, 0, true, 0, ElasticSettings.from(conf), new HBaseSail.Ticker() {
+                @Override
+                public void tick() {
+                    context.progress();
+                }
+			}, new HBaseSail.SailConnectionFactory() {
+				@Override
+				public HBaseSailConnection createConnection(HBaseSail sail) throws IOException {
+					HBaseSailConnection conn = new HBaseSailConnection(sail) {
+						private final ImmutableBytesWritable rowKey = new ImmutableBytesWritable();
+
+						@Override
+						protected void evaluateInternal(Consumer<BindingSet> handler, TupleExpr tupleExpr, QueryEvaluationStep step) {
+							HalyardEvaluationStatistics stats = sail.getStatistics();
+							final double estimate = stats.getCardinality(tupleExpr);
+							tupleExpr.setResultSizeEstimate(estimate);
+							LOG.info("Optimised query tree:\n{}", tupleExpr);
+							super.evaluateInternal(next -> {
+								qis.setProgress((float) ((double)tupleExpr.getResultSizeActual()/estimate));
+								// notify of progress
+								try {
+									context.nextKeyValue();
+								} catch (IOException | InterruptedException e) {
+									throw new QueryEvaluationException(e);
+								}
+								handler.accept(next);
+							}, tupleExpr, step);
+							LOG.info("Execution statistics:\n{}", tupleExpr);
+						}
+
+						@Override
+						protected int insertStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp, KeyValueMapper keyValueMapper) throws IOException {
+							int insertedKvs = super.insertStatement(subj, pred, obj, ctx, timestamp, keyValueMapper);
+							long _addedStmts = addedStmts.incrementAndGet();
+							addedKvs.addAndGet(insertedKvs);
+							if (_addedStmts % statusUpdateInterval == 0L) {
+								updateStatus(context);
+							}
+							return insertedKvs;
+						}
+
+						@Override
+						protected void put(KeyValue kv) throws IOException {
+							rowKey.set(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength());
+							try {
+								context.write(rowKey, kv);
+							} catch (InterruptedException ex) {
+								throw new IOException(ex);
+							}
+						}
+
+						@Override
+						protected int deleteStatement(Resource subj, IRI pred, Value obj, Resource ctx, long timestamp, KeyValueMapper keyValueMapper) throws IOException {
+							int deletedKvs = super.deleteStatement(subj, pred, obj, ctx, timestamp, keyValueMapper);
+							long _removedStmts = removedStmts.incrementAndGet();
+							removedKvs.addAndGet(deletedKvs);
+							if (_removedStmts % statusUpdateInterval == 0L) {
+								updateStatus(context);
+							}
+							return deletedKvs;
+						}
+
+						@Override
+						protected void delete(KeyValue kv) throws IOException {
+							rowKey.set(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength());
+							try {
+								context.write(rowKey, kv);
+							} catch (InterruptedException ex) {
+								throw new IOException(ex);
+							}
+						}
+
+						@Override
+						protected long getDefaultTimestamp(boolean delete) {
+							return timestamp;
+						}
+
+						@Override
+						public void removeStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws SailException {
+							try (CloseableIteration<? extends Statement, SailException> iter = getStatements(subj, pred, obj, true, contexts)) {
+								while (iter.hasNext()) {
+									Statement st = iter.next();
+									removeStatement(null, st.getSubject(), st.getPredicate(), st.getObject(), st.getContext());
+								}
+							}
+						}
+					};
+					conn.setTrackResultSize(sail.isTrackResultSize());
+					conn.setTrackResultTime(sail.isTrackResultTime());
+					conn.setTrackBranchOperatorsOnly(sail.isTrackBranchOperatorsOnly());
+					return conn;
+				}
+			});
+        }
+
+        private void updateStatus(Context context) {
 			long _addedStmts = addedStmts.get();
 			long _removedStmts = removedStmts.get();
 			long _addedKvs = addedKvs.get();

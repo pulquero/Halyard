@@ -91,6 +91,27 @@ public class ValueIO {
 		return cal;
 	}
 
+	public static XMLGregorianCalendar parseCalendar(String label) {
+		XMLGregorianCalendar cal = DATATYPE_FACTORY.newXMLGregorianCalendar(label);
+		BigDecimal frac = cal.getFractionalSecond();
+		if (frac != null) {
+			cal.setFractionalSecond(frac.setScale(3));
+		}
+		return cal;
+	}
+
+	public static boolean parseBoolean(String label) {
+		label = label.trim();
+		if ("true".equals(label) || "1".equals(label)) {
+			return true;
+		} else if ("false".equals(label) || "0".equals(label)) {
+			return false;
+		} else {
+			throw new IllegalArgumentException("Invalid boolean value");
+		}
+	}
+
+
 	// compressed IRI types
 	private static final byte HTTP_SCHEME = 'h';
 	private static final byte HTTPS_SCHEME = 's';

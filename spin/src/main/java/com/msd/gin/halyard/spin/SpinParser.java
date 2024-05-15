@@ -52,7 +52,6 @@ import org.eclipse.rdf4j.model.vocabulary.SPL;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
-import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.algebra.AggregateOperator;
 import org.eclipse.rdf4j.query.algebra.And;
 import org.eclipse.rdf4j.query.algebra.ArbitraryLengthPath;
@@ -137,7 +136,6 @@ import org.eclipse.rdf4j.query.parser.ParsedOperation;
 import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 import org.eclipse.rdf4j.query.parser.ParsedUpdate;
-import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.eclipse.rdf4j.queryrender.sparql.SPARQLQueryRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -147,6 +145,8 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Sets;
 import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.ExtendedQueryRoot;
+import com.msd.gin.halyard.queryparser.SPARQLParser;
 import com.msd.gin.halyard.spin.function.FunctionParser;
 import com.msd.gin.halyard.spin.function.KnownFunctionParser;
 import com.msd.gin.halyard.spin.function.KnownTupleFunctionParser;
@@ -587,13 +587,13 @@ public class SpinParser {
 		}
 	}
 
-	private ParsedOperation parseText(Resource queryResource, IRI queryType, TripleSource store) throws RDF4JException {
+	private static ParsedOperation parseText(Resource queryResource, IRI queryType, TripleSource store) throws RDF4JException {
 		Value text = TripleSources.singleValue(queryResource, SP.TEXT_PROPERTY, store);
 		if (text != null) {
 			if (QUERY_TYPES.contains(queryType)) {
-				return QueryParserUtil.parseQuery(QueryLanguage.SPARQL, text.stringValue(), null);
+				return SPARQLParser.parseQuery(text.stringValue(), null, store.getValueFactory());
 			} else if (UPDATE_TYPES.contains(queryType)) {
-				return QueryParserUtil.parseUpdate(QueryLanguage.SPARQL, text.stringValue(), null);
+				return SPARQLParser.parseUpdate(text.stringValue(), null, store.getValueFactory());
 			} else {
 				throw new MalformedSpinException(String.format("Unrecognised command type: %s", queryType));
 			}
@@ -669,7 +669,7 @@ public class SpinParser {
 
 	private TupleExpr makeQueryRootIfNeeded(TupleExpr tupleExpr) {
 		if (!(tupleExpr instanceof QueryRoot)) {
-			return new QueryRoot(tupleExpr);
+			return new ExtendedQueryRoot(tupleExpr);
 		} else {
 			return tupleExpr;
 		}

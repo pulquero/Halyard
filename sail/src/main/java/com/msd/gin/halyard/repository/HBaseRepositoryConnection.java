@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.repository;
 
 import com.msd.gin.halyard.query.algebra.ExtendedQueryRoot;
+import com.msd.gin.halyard.queryparser.SPARQLParser;
 import com.msd.gin.halyard.sail.HBaseSail;
 import com.msd.gin.halyard.sail.HBaseSailConnection;
 
@@ -19,10 +20,11 @@ import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.impl.AbstractParserQuery;
 import org.eclipse.rdf4j.query.impl.AbstractParserUpdate;
+import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
+import org.eclipse.rdf4j.query.parser.ParsedGraphQuery;
 import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.ParsedTupleQuery;
 import org.eclipse.rdf4j.query.parser.ParsedUpdate;
-import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.sail.SailBooleanQuery;
 import org.eclipse.rdf4j.repository.sail.SailGraphQuery;
@@ -62,9 +64,40 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 		}
 	}
 
+	private SailQuery prepareQuery(String queryString, String baseURI) throws MalformedQueryException {
+		ParsedQuery parsedQuery = SPARQLParser.parseQuery(queryString, baseURI, getValueFactory());
+
+		if (parsedQuery instanceof ParsedTupleQuery) {
+			Optional<TupleExpr> sailTupleExpr = getSailConnection().prepareQuery(QueryLanguage.SPARQL, Query.QueryType.TUPLE, queryString, baseURI);
+			if (sailTupleExpr.isPresent()) {
+				parsedQuery = new ParsedTupleQuery(queryString, sailTupleExpr.get());
+			}
+			return new SailTupleQuery((ParsedTupleQuery) parsedQuery, this);
+		} else if (parsedQuery instanceof ParsedGraphQuery) {
+			Optional<TupleExpr> sailTupleExpr = getSailConnection().prepareQuery(QueryLanguage.SPARQL, Query.QueryType.GRAPH, queryString, baseURI);
+			if (sailTupleExpr.isPresent()) {
+				parsedQuery = new ParsedGraphQuery(queryString, sailTupleExpr.get());
+			}
+			return new ExtSailGraphQuery((ParsedGraphQuery) parsedQuery, this);
+		} else if (parsedQuery instanceof ParsedBooleanQuery) {
+			Optional<TupleExpr> sailTupleExpr = getSailConnection().prepareQuery(QueryLanguage.SPARQL, Query.QueryType.BOOLEAN, queryString, baseURI);
+			if (sailTupleExpr.isPresent()) {
+				parsedQuery = new ParsedBooleanQuery(queryString, sailTupleExpr.get());
+			}
+			return new ExtSailBooleanQuery((ParsedBooleanQuery) parsedQuery, this);
+		} else {
+			throw new RuntimeException("Unexpected query type: " + parsedQuery.getClass());
+		}
+	}
+
 	@Override
 	public SailQuery prepareQuery(QueryLanguage ql, String queryString, String baseURI) throws MalformedQueryException {
-		SailQuery query = super.prepareQuery(ql, queryString, baseURI);
+		SailQuery query;
+		if (QueryLanguage.SPARQL.equals(ql)) {
+			query = prepareQuery(queryString, baseURI);
+		} else {
+			query = super.prepareQuery(ql, queryString, baseURI);
+		}
 		swapRoot(query.getParsedQuery());
 		addImplicitBindings(query);
 		return query;
@@ -74,7 +107,7 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 	public SailTupleQuery prepareTupleQuery(QueryLanguage ql, String queryString, String baseURI) throws MalformedQueryException {
 		Optional<TupleExpr> sailTupleExpr = getSailConnection().prepareQuery(ql, Query.QueryType.TUPLE, queryString, baseURI);
 
-		ParsedTupleQuery parsedQuery = sailTupleExpr.map(expr -> new ParsedTupleQuery(queryString, expr)).orElse(QueryParserUtil.parseTupleQuery(ql, queryString, baseURI));
+		ParsedTupleQuery parsedQuery = sailTupleExpr.map(expr -> new ParsedTupleQuery(queryString, expr)).orElse(SPARQLParser.parseTupleQuery(queryString, baseURI, getValueFactory()));
 		swapRoot(parsedQuery);
 		SailTupleQuery query = new SailTupleQuery(parsedQuery, this) {
 			@Override
@@ -94,17 +127,39 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 		return query;
 	}
 
+	private SailGraphQuery prepareGraphQuery(String queryString, String baseURI) throws MalformedQueryException {
+		Optional<TupleExpr> sailTupleExpr = getSailConnection().prepareQuery(QueryLanguage.SPARQL, Query.QueryType.GRAPH, queryString, baseURI);
+		ParsedGraphQuery parsedQuery = sailTupleExpr.map(expr -> new ParsedGraphQuery(queryString, expr)).orElse(SPARQLParser.parseGraphQuery(queryString, baseURI, getValueFactory()));
+		return new ExtSailGraphQuery(parsedQuery, this);
+	}
+
 	@Override
 	public SailGraphQuery prepareGraphQuery(QueryLanguage ql, String queryString, String baseURI) throws MalformedQueryException {
-		SailGraphQuery query = super.prepareGraphQuery(ql, queryString, baseURI);
+		SailGraphQuery query;
+		if (QueryLanguage.SPARQL.equals(ql)) {
+			query = prepareGraphQuery(queryString, baseURI);
+		} else {
+			query = super.prepareGraphQuery(ql, queryString, baseURI);
+		}
 		swapRoot(query.getParsedQuery());
 		addImplicitBindings(query);
 		return query;
 	}
 
+	private SailBooleanQuery prepareBooleanQuery(String queryString, String baseURI) throws MalformedQueryException {
+		Optional<TupleExpr> sailTupleExpr = getSailConnection().prepareQuery(QueryLanguage.SPARQL, Query.QueryType.BOOLEAN, queryString, baseURI);
+		ParsedBooleanQuery parsedQuery = sailTupleExpr.map(expr -> new ParsedBooleanQuery(queryString, expr)).orElse(SPARQLParser.parseBooleanQuery(queryString, baseURI, getValueFactory()));
+		return new ExtSailBooleanQuery(parsedQuery, this);
+	}
+
 	@Override
 	public SailBooleanQuery prepareBooleanQuery(QueryLanguage ql, String queryString, String baseURI) throws MalformedQueryException {
-		SailBooleanQuery query = super.prepareBooleanQuery(ql, queryString, baseURI);
+		SailBooleanQuery query;
+		if (QueryLanguage.SPARQL.equals(ql)) {
+			query = prepareBooleanQuery(queryString, baseURI);
+		} else {
+			query = super.prepareBooleanQuery(ql, queryString, baseURI);
+		}
 		swapRoot(query.getParsedQuery());
 		addImplicitBindings(query);
 		return query;
@@ -117,10 +172,22 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 
 	@Override
 	public HBaseUpdate prepareUpdate(QueryLanguage ql, String updateQuery, String baseURI) throws RepositoryException, MalformedQueryException {
-		ParsedUpdate parsedUpdate = QueryParserUtil.parseUpdate(ql, updateQuery, baseURI);
+		ParsedUpdate parsedUpdate = SPARQLParser.parseUpdate(updateQuery, baseURI, getValueFactory());
 
 		HBaseUpdate update = new HBaseUpdate(parsedUpdate, sail, this);
 		addImplicitBindings(update);
 		return update;
+	}
+
+	static final class ExtSailBooleanQuery extends SailBooleanQuery {
+		protected ExtSailBooleanQuery(ParsedBooleanQuery tupleQuery, SailRepositoryConnection sailConnection) {
+			super(tupleQuery, sailConnection);
+		}
+	}
+
+	static final class ExtSailGraphQuery extends SailGraphQuery {
+		protected ExtSailGraphQuery(ParsedGraphQuery tupleQuery, SailRepositoryConnection sailConnection) {
+			super(tupleQuery, sailConnection);
+		}
 	}
 }

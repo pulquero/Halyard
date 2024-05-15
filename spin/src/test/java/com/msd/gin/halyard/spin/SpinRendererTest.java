@@ -10,7 +10,6 @@
  *******************************************************************************/
 package com.msd.gin.halyard.spin;
 
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
@@ -23,14 +22,17 @@ import java.util.Map;
 
 import org.apache.commons.io.output.StringBuilderWriter;
 import org.eclipse.rdf4j.common.exception.RDF4JException;
+import org.eclipse.rdf4j.model.Model;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.impl.TreeModel;
 import org.eclipse.rdf4j.model.util.Models;
 import org.eclipse.rdf4j.model.vocabulary.SP;
-import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.parser.ParsedOperation;
 import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.ParsedUpdate;
-import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFHandlerException;
 import org.eclipse.rdf4j.rio.RDFParser;
@@ -43,6 +45,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
+
+import com.msd.gin.halyard.query.algebra.evaluation.ModelTripleSource;
 
 @RunWith(Parameterized.class)
 public class SpinRendererTest {
@@ -69,30 +73,26 @@ public class SpinRendererTest {
 
 	private final SpinRenderer renderer = new SpinRenderer();
 
+	private final SpinParser textParser = new SpinParser(SpinParser.Input.TEXT_ONLY);
+
 	public SpinRendererTest(String testName, URL testURL) {
 		this.testURL = testURL;
 	}
 
 	@Test
 	public void testSpinRenderer() throws IOException, RDF4JException {
+		ValueFactory vf = SimpleValueFactory.getInstance();
 		StatementCollector expected = new StatementCollector();
-		RDFParser parser = Rio.createParser(RDFFormat.TURTLE);
+		RDFParser parser = Rio.createParser(RDFFormat.TURTLE, vf);
 		parser.setRDFHandler(expected);
 		try (InputStream rdfStream = testURL.openStream()) {
 			parser.parse(rdfStream, testURL.toString());
 		}
+		Model expectedModel = new TreeModel(expected.getStatements());
 
 		// get query from sp:text
-		String query = null;
-		for (Statement stmt : expected.getStatements()) {
-			if (SP.TEXT_PROPERTY.equals(stmt.getPredicate())) {
-				query = stmt.getObject().stringValue();
-				break;
-			}
-		}
-		assertNotNull(query);
-
-		ParsedOperation parsedOp = QueryParserUtil.parseOperation(QueryLanguage.SPARQL, query, testURL.toString());
+		Resource queryNode = expectedModel.filter(null, SP.TEXT_PROPERTY, null).subjects().iterator().next();
+		ParsedOperation parsedOp = textParser.parse(queryNode, new ModelTripleSource(expectedModel, vf));
 
 		StatementCollector actual = new StatementCollector();
 		renderer.render(parsedOp, actual);

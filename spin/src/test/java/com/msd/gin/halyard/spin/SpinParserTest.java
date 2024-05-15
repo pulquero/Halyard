@@ -25,6 +25,8 @@ import java.util.List;
 import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.impl.TreeModel;
 import org.eclipse.rdf4j.model.vocabulary.SP;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
@@ -78,8 +80,9 @@ public class SpinParserTest {
 
 	@Test
 	public void testSpinParser() throws IOException, RDF4JException {
+		ValueFactory vf = SimpleValueFactory.getInstance();
 		StatementCollector expected = new StatementCollector();
-		RDFParser parser = Rio.createParser(RDFFormat.TURTLE);
+		RDFParser parser = Rio.createParser(RDFFormat.TURTLE, vf);
 		parser.setRDFHandler(expected);
 		try (InputStream rdfStream = testURL.openStream()) {
 			parser.parse(rdfStream, testURL.toString());
@@ -95,7 +98,7 @@ public class SpinParserTest {
 		}
 		assertNotNull(queryResource);
 
-		TripleSource store = new ModelTripleSource(new TreeModel(expected.getStatements()));
+		TripleSource store = new ModelTripleSource(new TreeModel(expected.getStatements()), vf);
 		ParsedOperation textParsedOp = textParser.parse(queryResource, store);
 		ParsedOperation rdfParsedOp = rdfParser.parse(queryResource, store);
 
