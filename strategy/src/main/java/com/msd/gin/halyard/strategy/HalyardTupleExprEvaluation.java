@@ -1949,7 +1949,7 @@ final class HalyardTupleExprEvaluation {
     private BindingSetPipeEvaluationStep precompileJoin(Join join, QueryEvaluationContext evalContext) {
     	BindingSetPipeEvaluationStep step;
     	String algorithm = join.getAlgorithmName();
-    	if (isOutOfScopeForLeftArgBindings(join.getRightArg())) {
+    	if (HalyardEvaluationStrategy.isOutOfScopeForLeftArgBindings(join.getRightArg())) {
     		algorithm = Algorithms.HASH_JOIN;
     	}
 
@@ -1960,10 +1960,6 @@ final class HalyardTupleExprEvaluation {
     	}
     	return step;
     }
-
-    private static boolean isOutOfScopeForLeftArgBindings(TupleExpr expr) {
-		return (TupleExprs.isVariableScopeChange(expr) || TupleExprs.containsSubquery(expr));
-	}
 
     private BindingSetPipeEvaluationStep precompileNestedLoopsJoin(Join join, QueryEvaluationContext evalContext) {
     	join.setAlgorithm(Algorithms.NESTED_LOOPS);

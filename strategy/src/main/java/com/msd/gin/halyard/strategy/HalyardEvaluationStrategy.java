@@ -79,6 +79,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.EvaluationStatistics;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
+import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunctionFactory;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.CustomAggregateFunctionRegistry;
 import org.eclipse.rdf4j.rio.RDFHandler;
@@ -391,7 +392,11 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	}
 
 
-	public static boolean isSearchStatement(Value obj) {
+    public static boolean isOutOfScopeForLeftArgBindings(TupleExpr rightArg) {
+		return (TupleExprs.isVariableScopeChange(rightArg) || TupleExprs.containsSubquery(rightArg));
+	}
+
+    public static boolean isSearchStatement(Value obj) {
 		return (obj != null) && obj.isLiteral() && HALYARD.SEARCH.equals(((Literal) obj).getDatatype());
 	}
 

@@ -2,6 +2,7 @@ package com.msd.gin.halyard.optimizers;
 
 import com.msd.gin.halyard.query.algebra.Algorithms;
 import com.msd.gin.halyard.query.algebra.SkipVarsQueryModelVisitor;
+import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -16,6 +17,7 @@ import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
+import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,13 +47,27 @@ public class JoinAlgorithmOptimizer implements QueryOptimizer {
 			@Override
 			public void meet(Join join) {
 				super.meet(join);
-				selectJoinAlgorithm(join);
+		    	if (HalyardEvaluationStrategy.isOutOfScopeForLeftArgBindings(join.getRightArg())) {
+					// pre-emptive query change from
+					// com.msd.gin.halyard.strategy.HalyardTupleExprEvaluation.precompileJoin(Join, QueryEvaluationContext)
+					// so query plan is more accurate
+		    		join.setAlgorithm(Algorithms.HASH_JOIN);
+		    	} else {
+		    		selectJoinAlgorithm(join);
+		    	}
 			}
 
 			@Override
 			public void meet(LeftJoin leftJoin) {
 				super.meet(leftJoin);
-				selectJoinAlgorithm(leftJoin);
+				if (TupleExprs.containsSubquery(leftJoin.getRightArg())) {
+					// pre-emptive query change from
+					// com.msd.gin.halyard.strategy.HalyardTupleExprEvaluation.precompileLeftJoin(LeftJoin, QueryEvaluationContext)
+					// so query plan is more accurate
+					leftJoin.setAlgorithm(Algorithms.HASH_JOIN);
+				} else {
+					selectJoinAlgorithm(leftJoin);
+				}
 			}
 		});
 	}
