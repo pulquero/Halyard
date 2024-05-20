@@ -17,6 +17,7 @@
 package com.msd.gin.halyard.sail;
 
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import com.msd.gin.halyard.repository.HBaseRepository;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -25,7 +26,6 @@ import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -40,7 +40,7 @@ public class SES2154SubselectOptionalTest {
     @Test
     public void testSES2154SubselectOptional() throws Exception {
 		HBaseSail sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "SES2154SubselectOptionaltable", true, 0, true, QUERY_TIMEOUT, null, null);
-        SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
         SimpleValueFactory vf = SimpleValueFactory.getInstance();
         IRI person = vf.createIRI("http://schema.org/Person");

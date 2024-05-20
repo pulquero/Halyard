@@ -16,6 +16,7 @@
  */
 package com.msd.gin.halyard.tools;
 
+import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.sail.ElasticSettings;
 import com.msd.gin.halyard.sail.HBaseSail;
 
@@ -23,7 +24,6 @@ import org.apache.commons.cli.CommandLine;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.Update;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,7 +50,7 @@ public final class HalyardUpdate extends AbstractHalyardTool {
         String source = cmd.getOptionValue('s');
         String query = cmd.getOptionValue('q');
         configureString(cmd, 'i', null);
-		SailRepository rep = new SailRepository(new HBaseSail(getConf(), source, false, 0, true, 0, ElasticSettings.from(getConf()), null));
+        HBaseRepository rep = new HBaseRepository(new HBaseSail(getConf(), source, false, 0, true, 0, ElasticSettings.from(getConf()), null));
         rep.init();
         try {
         	try(RepositoryConnection conn = rep.getConnection()) {

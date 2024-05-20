@@ -17,6 +17,7 @@
 package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
+import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.sail.HBaseSail;
 
 import java.io.File;
@@ -94,7 +95,7 @@ public class HalyardBulkLoadTest extends AbstractHalyardToolTest {
         assertEquals(0, run(new String[]{"-b", NO_SPLITS, "-d", "-k", "-s", root.toURI().toURL().toString(), "-w", htableDir.toURI().toURL().toString(), "-t", "bulkLoadTable", "-o", "-m", "1000"}));
 
         HBaseSail sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "bulkLoadTable", false, 0, true, 0, null, null);
-        SailRepository rep = new SailRepository(sail);
+        HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
         assertCount(rep, "select (count(*) as ?c) where {?s ?p ?o}", 1000);
         assertCount(rep, "select (count(*) as ?c) where {graph ?g{?s ?p ?o}}", 0);
@@ -107,7 +108,7 @@ public class HalyardBulkLoadTest extends AbstractHalyardToolTest {
         assertEquals(0, run(new String[]{"-b", NO_SPLITS, "-d", "-k", "-s", root.toURI().toURL().toString(), "-w", htableDir.toURI().toURL().toString(), "-t", "bulkLoadTable", "-g", "{0}"}));
 
         sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "bulkLoadTable", false, 0, true, 0, null, null);
-        rep = new SailRepository(sail);
+        rep = new HBaseRepository(sail);
         rep.init();
         assertCount(rep, "select (count(*) as ?c) where {graph <http://whatever/graph>{?s ?p ?o}}", 100);
         rep.shutDown();
@@ -119,7 +120,7 @@ public class HalyardBulkLoadTest extends AbstractHalyardToolTest {
         assertEquals(0, ToolRunner.run(HBaseServerTestInstance.getInstanceConfig(), new HalyardBulkLoad(), new String[]{"-b", NO_SPLITS, "-d", "-k", "-s", root.toURI().toURL().toString(), "-w", htableDir.toURI().toURL().toString(), "-t", "bulkLoadTable", "-g", "{0}"}));
 
         sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "bulkLoadTable", false, 0, true, 0, null, null);
-        rep = new SailRepository(sail);
+        rep = new HBaseRepository(sail);
         rep.init();
         assertCount(rep, "select (count(*) as ?c) where {graph <"+ file1.toURI().toString() + ">{?s ?p ?o}}", 800);
         assertCount(rep, "select (count(*) as ?c) where {graph <"+ file2.toURI().toString() + ">{?s ?p ?o}}", 100);
@@ -133,7 +134,7 @@ public class HalyardBulkLoadTest extends AbstractHalyardToolTest {
         assertEquals(0, run(new String[]{"-b", NO_SPLITS, "-d", "-k", "-s", root.toURI().toURL().toString(), "-w", htableDir.toURI().toURL().toString(), "-t", "bulkLoadTable", "-o", "-g", "http://what{1}"}));
 
         sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "bulkLoadTable", false, 0, true, 0, null, null);
-        rep = new SailRepository(sail);
+        rep = new HBaseRepository(sail);
         rep.init();
         assertCount(rep, "select (count(*) as ?c) where {graph <http://what"+ file1.toURI().getPath() + ">{?s ?p ?o}}", 800);
         assertCount(rep, "select (count(*) as ?c) where {graph <http://what"+ file2.toURI().getPath() + ">{?s ?p ?o}}", 100);

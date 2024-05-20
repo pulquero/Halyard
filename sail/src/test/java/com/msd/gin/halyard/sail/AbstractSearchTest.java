@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.msd.gin.halyard.common.HBaseServerTestInstance;
 import com.msd.gin.halyard.common.RDFFactory;
+import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.sail.search.SearchDocument;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -29,7 +30,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.repository.Repository;
-import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.json.JSONObject;
 import org.junit.Before;
 
@@ -48,7 +48,7 @@ public abstract class AbstractSearchTest {
 
 	protected final Repository createRepo(String tableName, MockElasticServer esServer) throws Exception {
 		HBaseSail hbaseSail = new HBaseSail(conf, tableName, true, 0, true, QUERY_TIMEOUT, ElasticSettings.from(new URL(esServer.getIndexUrl())), null);
-		Repository hbaseRepo = new SailRepository(hbaseSail);
+		Repository hbaseRepo = new HBaseRepository(hbaseSail);
 		hbaseRepo.init();
 		return hbaseRepo;
 	}

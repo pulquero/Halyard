@@ -24,6 +24,7 @@ import com.msd.gin.halyard.common.TableConfig;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.optimizers.SimpleStatementPatternCardinalityCalculator;
+import com.msd.gin.halyard.repository.HBaseRepository;
 
 import java.io.File;
 import java.net.URL;
@@ -67,7 +68,6 @@ import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.sail.SailConnection;
 import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.UnknownSailTransactionStateException;
@@ -538,7 +538,7 @@ public class HBaseSailTest {
         IRI pred = vf.createIRI("http://whatever/pred/");
         Value obj = vf.createLiteral("whatever");
 		HBaseSail sail = new HBaseSail(hconn, useTable("whatevertable"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-        SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
@@ -564,7 +564,7 @@ public class HBaseSailTest {
 		IRI pred = vf.createIRI("http://whatever/pred/");
 		Value obj = vf.createLiteral("whatever");
 		HBaseSail sail = new HBaseSail(hconn, useTable("whatevertable"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-		SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
 		rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
@@ -590,7 +590,7 @@ public class HBaseSailTest {
         Value obj = vf.createLiteral("whatever");
         IRI context = vf.createIRI("http://whatever/context/");
 		HBaseSail sail = new HBaseSail(hconn, useTable("whatevertable"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-        SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
@@ -613,7 +613,7 @@ public class HBaseSailTest {
 	public void testEvaluateSelectService() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
 		HBaseSail sail = new HBaseSail(hconn, useTable("whateverservice"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-        SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
         Random r = new Random(333);
         IRI pred = vf.createIRI("http://whatever/pred");
@@ -636,7 +636,7 @@ public class HBaseSailTest {
         rep.shutDown();
 
 		sail = new HBaseSail(hconn, useTable("whateverparent"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-        rep = new SailRepository(sail);
+		rep = new HBaseRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
@@ -665,7 +665,7 @@ public class HBaseSailTest {
 		confService.setInt(TableConfig.ID_SIZE, 6);
 		confService.setInt(TableConfig.ID_TYPE_INDEX, 0);
 		HBaseSail sail = new HBaseSail(hconn, confService, useTable("whateverservice"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-		SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
 		rep.init();
 		Random r = new Random(333);
 		IRI pred = vf.createIRI("http://whatever/pred");
@@ -692,7 +692,7 @@ public class HBaseSailTest {
 		confParent.setInt(TableConfig.ID_SIZE, 8);
 		confParent.setInt(TableConfig.ID_TYPE_INDEX, 1);
 		sail = new HBaseSail(hconn, confParent, useTable("whateverparent"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-		rep = new SailRepository(sail);
+		rep = new HBaseRepository(sail);
 		rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
@@ -721,7 +721,7 @@ public class HBaseSailTest {
 		confService.setInt(TableConfig.ID_SIZE, 6);
 		confService.setInt(TableConfig.ID_TYPE_INDEX, 0);
 		HBaseSail sail = new HBaseSail(hconn, confService, useTable("whateverservice"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-		SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
 		rep.init();
 		IRI labelPred = vf.createIRI("http://whatever/label");
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -740,7 +740,7 @@ public class HBaseSailTest {
 		confParent.setInt(TableConfig.ID_SIZE, 8);
 		confParent.setInt(TableConfig.ID_TYPE_INDEX, 1);
 		sail = new HBaseSail(hconn, confParent, useTable("whateverparent"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-		rep = new SailRepository(sail);
+		rep = new HBaseRepository(sail);
 		rep.init();
 		IRI pred = vf.createIRI("http://whatever/pred");
 		try (RepositoryConnection conn = rep.getConnection()) {
@@ -773,7 +773,7 @@ public class HBaseSailTest {
 		String tableName = useTable("whateverservicesametable");
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		HBaseSail sail = new HBaseSail(hconn, tableName, true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-		SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
 		rep.init();
 		Random r = new Random(458);
 		IRI pred = vf.createIRI("http://whatever/pred");
@@ -796,7 +796,7 @@ public class HBaseSailTest {
 		rep.shutDown();
 
 		sail = new HBaseSail(hconn, tableName, true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-		rep = new SailRepository(sail);
+		rep = new HBaseRepository(sail);
 		rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
@@ -822,7 +822,7 @@ public class HBaseSailTest {
 	public void testEvaluateAskService() throws Exception {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		HBaseSail sail = new HBaseSail(hconn, useTable("whateverservice"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-		SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
 		rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
@@ -832,7 +832,7 @@ public class HBaseSailTest {
 		rep.shutDown();
 
 		sail = new HBaseSail(hconn, useTable("whateverparent"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-		rep = new SailRepository(sail);
+		rep = new HBaseRepository(sail);
 		rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
@@ -940,7 +940,7 @@ public class HBaseSailTest {
 	public void testEvaluateSelectServiceWithBindings() throws Exception {
         ValueFactory vf = SimpleValueFactory.getInstance();
 		HBaseSail sail = new HBaseSail(hconn, useTable("whateverservice2"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-        SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
@@ -968,7 +968,7 @@ public class HBaseSailTest {
 	public void testEvaluateAskServiceWithBindings() throws Exception {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		HBaseSail sail = new HBaseSail(hconn, useTable("whateverservice2"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-		SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
 		rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
@@ -987,7 +987,7 @@ public class HBaseSailTest {
     @Test
     public void testBindWithFilter() throws Exception {
 		HBaseSail sail = new HBaseSail(hconn, useTable("empty"), true, 0, usePushStrategy, QUERY_TIMEOUT, null, null);
-        SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();

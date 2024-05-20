@@ -81,7 +81,7 @@ public class HBaseSailVersionTest {
         IRI pred = vf.createIRI("http://whatever/pred/");
         Value obj = vf.createLiteral("whatever");
 		HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, QUERY_TIMEOUT, null, null);
-        SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
@@ -112,7 +112,7 @@ public class HBaseSailVersionTest {
         IRI pred = vf.createIRI("http://whatever/pred/");
         Value obj = vf.createLiteral("whatever");
 		HBaseSail sail = new HBaseSail(hconn, "whatevertable", true, 0, true, QUERY_TIMEOUT, null, null);
-        SailRepository rep = new SailRepository(sail);
+		HBaseRepository rep = new HBaseRepository(sail);
         rep.init();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();

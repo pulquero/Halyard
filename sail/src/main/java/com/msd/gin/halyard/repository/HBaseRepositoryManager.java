@@ -64,7 +64,6 @@ import org.eclipse.rdf4j.repository.config.RepositoryImplConfig;
 import org.eclipse.rdf4j.repository.config.RepositoryRegistry;
 import org.eclipse.rdf4j.repository.manager.RepositoryInfo;
 import org.eclipse.rdf4j.repository.manager.RepositoryManager;
-import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sparql.federation.SPARQLServiceResolver;
 
 /**
@@ -86,7 +85,7 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 		Configuration sysRepoConfig = new Configuration(conf);
 		sysRepoConfig.set(TableConfig.ID_HASH, "Murmur3-128");
 		// don't bother splitting such a small table
-		SailRepository repo = new SailRepository(new HBaseSail(hconn, sysRepoConfig, SYSTEM_TABLE, true, -1, true, 180, null, null));
+		HBaseRepository repo = new HBaseRepository(new HBaseSail(hconn, sysRepoConfig, SYSTEM_TABLE, true, -1, true, 180, null, null));
 		repo.init();
 		return repo;
 	}
