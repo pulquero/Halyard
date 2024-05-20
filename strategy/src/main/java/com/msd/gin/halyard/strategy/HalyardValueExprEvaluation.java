@@ -1434,14 +1434,14 @@ class HalyardValueExprEvaluation {
     			Value subj = subjValue.get();
     			Value pred = predValue.get();
     			Value obj = objValue.get();
-    			if (!(subj.isResource())) {
-    				return ValueOrError.fail("no subject value");
+    			if (subj == null || !subj.isResource()) {
+    				return ValueOrError.fail("invalid subject value");
     			}
-    			if (!(pred.isIRI())) {
-    				return ValueOrError.fail("no predicate value");
+    			if (pred == null || !pred.isIRI()) {
+    				return ValueOrError.fail("invalid predicate value");
     			}
     			if (obj == null) {
-    				return ValueOrError.fail("no object value");
+    				return ValueOrError.fail("missing object value");
     			}
     			return ValueOrError.ok(valueFactory.createTriple((Resource) subj, (IRI) pred, obj));
     		};
@@ -1471,10 +1471,14 @@ class HalyardValueExprEvaluation {
 	        	}, bindings);
 			}
 			public ValueOrError get(long timeout) {
+				boolean hasResult;
 				try {
-					done.await(timeout, TimeUnit.MILLISECONDS);
+					hasResult = done.await(timeout, TimeUnit.MILLISECONDS);
 				} catch (InterruptedException e) {
 					throw new QueryInterruptedException(e);
+				}
+				if (!hasResult) {
+					throw new QueryEvaluationException(String.format("Exceeded poll time-out of %dms", pollTimeoutMillis));
 				}
 				return result;
 			}
