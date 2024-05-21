@@ -1208,7 +1208,7 @@ final class HalyardTupleExprEvaluation {
      * @param group
      * @param evalContext
      */
-    private BindingSetPipeEvaluationStep precompileGroup(Group group, QueryEvaluationContext evalContext) {
+    private BindingSetPipeEvaluationStep precompileGroup(final Group group, final QueryEvaluationContext evalContext) {
         BindingSetPipeEvaluationStep step = precompileTupleExpr(group.getArg(), evalContext);
         List<GroupElem> elems = group.getGroupElements();
         String[] elemNames = new String[elems.size()];
@@ -1227,7 +1227,44 @@ final class HalyardTupleExprEvaluation {
     		argEvaluators[i] = evaluator;
 		}
 
-        if (group.getGroupBindingNames().isEmpty()) {
+        abstract class GroupBindingSetPipe<K> extends BindingSetPipe {
+			final Map<K,GroupValue> groupByMap = new ConcurrentHashMap<>(GROUP_BY_CONCURRENCY);
+			final Function<K, GroupValue> valueLoader;
+
+			GroupBindingSetPipe(BindingSetPipe parent, List<Supplier<Aggregator<?,?,?>>> aggregatorFactories) {
+				super(parent);
+				this.valueLoader = k -> GroupValue.create(elemNames, aggregatorFactories);
+			}
+			@Override
+			protected final boolean next(BindingSet bs) {
+				if (parent.isClosed()) {
+					return false;
+				}
+				K key = createKey(bs);
+				GroupValue aggregators = groupByMap.computeIfAbsent(key, valueLoader);
+				aggregators.addValues(bs, argEvaluators);
+				return true;
+			}
+			@Override
+			protected final void doClose() {
+				for(Map.Entry<K,GroupValue> aggEntry : groupByMap.entrySet()) {
+					K groupKey = aggEntry.getKey();
+					MutableBindingSet result = setBindings(groupKey);
+					try (GroupValue aggregators = aggEntry.getValue()) {
+						aggregators.bindResult(result, tripleSource);
+					}
+					if (!parent.push(result)) {
+						break;
+					}
+				}
+				parent.close();
+			}
+			abstract K createKey(BindingSet bs);
+			abstract MutableBindingSet setBindings(K key);
+		}
+
+        final Set<String> groupBindingNames = group.getGroupBindingNames();
+		if (groupBindingNames.isEmpty()) {
     		// no GROUP BY present
     		return (parent, bindings) -> {
     			List<Supplier<Aggregator<?,?,?>>> aggregatorFactories = createAggregatorFactories(elems, argEvaluators, bindings, evalContext);
@@ -1248,10 +1285,11 @@ final class HalyardTupleExprEvaluation {
     				}
     				@Override
     				protected void doClose() {
-    					QueryBindingSet result = new QueryBindingSet(bindings);
-    					aggregators.bindResult(result, tripleSource);
+    					MutableBindingSet result = new QueryBindingSet(bindings);
+    					try (aggregators) {
+        					aggregators.bindResult(result, tripleSource);
+    					}
     					parent.pushLast(result);
-    					aggregators.close();
     				}
     				@Override
     				public String toString() {
@@ -1260,45 +1298,57 @@ final class HalyardTupleExprEvaluation {
         		}
 	    		step.evaluate(new GroupWithoutByBindingSetPipe(parentStrategy.track(parent, group)), bindings);
     		};
-    	} else {
-    		return (parent, bindings) -> {
+        } else if (groupBindingNames.size() == 1) {
+        	final String groupName = groupBindingNames.iterator().next();
+			return (parent, bindings) -> {
+				final class SingleKeyGroupBindingSetPipe extends GroupBindingSetPipe<Value> {
+					SingleKeyGroupBindingSetPipe(BindingSetPipe parent, List<Supplier<Aggregator<?, ?, ?>>> aggregatorFactories) {
+						super(parent, aggregatorFactories);
+					}
+					@Override
+	    			Value createKey(BindingSet bs) {
+	    				Value v = bs.getValue(groupName);
+	    				// map keys cannot be null
+	    				return (v != null) ? v : NullValue.INSTANCE;
+	    			}
+	    			@Override
+	    			MutableBindingSet setBindings(Value key) {
+	    				QueryBindingSet result = new QueryBindingSet(bindings);
+	    				if (key != NullValue.INSTANCE) {
+	    					result.setBinding(groupName, key);
+	    				}
+	    				return result;
+	    			}
+	    			@Override
+	    			public String toString() {
+	    				return "AggregateBindingSetPipe-singleKey";
+	    			}
+				}
     			List<Supplier<Aggregator<?,?,?>>> aggregatorFactories = createAggregatorFactories(elems, argEvaluators, bindings, evalContext);
-
-    			final class GroupBindingSetPipe extends BindingSetPipe {
-	    			final Function<BindingSetValues, GroupValue> valueLoader = k -> GroupValue.create(elemNames, aggregatorFactories);
-	    			final Map<BindingSetValues,GroupValue> groupByMap = new ConcurrentHashMap<>(GROUP_BY_CONCURRENCY);
-	    			final String[] groupNames = toStringArray(group.getGroupBindingNames());
-
-	    			GroupBindingSetPipe(BindingSetPipe parent) {
-						super(parent);
+	    		step.evaluate(new SingleKeyGroupBindingSetPipe(parentStrategy.track(parent, group), aggregatorFactories), bindings);
+    		};
+    	} else {
+			final String[] groupNames = toStringArray(groupBindingNames);
+			return (parent, bindings) -> {
+				final class MultiKeyGroupBindingSetPipe extends GroupBindingSetPipe<BindingSetValues> {
+					MultiKeyGroupBindingSetPipe(BindingSetPipe parent, List<Supplier<Aggregator<?, ?, ?>>> aggregatorFactories) {
+						super(parent, aggregatorFactories);
 					}
 					@Override
-					protected boolean next(BindingSet bs) {
-						BindingSetValues key = BindingSetValues.create(groupNames, bs);
-						GroupValue aggregators = groupByMap.computeIfAbsent(key, valueLoader);
-						aggregators.addValues(bs, argEvaluators);
-						return true;
-					}
-					@Override
-					protected void doClose() {
-						for(Map.Entry<BindingSetValues,GroupValue> aggEntry : groupByMap.entrySet()) {
-							BindingSetValues groupKey = aggEntry.getKey();
-							MutableBindingSet result = groupKey.setBindings(groupNames, bindings);
-							try (GroupValue aggregators = aggEntry.getValue()) {
-								aggregators.bindResult(result, tripleSource);
-							}
-							if (!parent.push(result)) {
-								break;
-							}
-						}
-						parent.close();
-					}
-					@Override
-					public String toString() {
-						return "AggregateBindingSetPipe";
-					}
-        		}
-	    		step.evaluate(new GroupBindingSetPipe(parentStrategy.track(parent, group)), bindings);
+	    			BindingSetValues createKey(BindingSet bs) {
+	    				return BindingSetValues.create(groupNames, bs);
+	    			}
+	    			@Override
+	    			MutableBindingSet setBindings(BindingSetValues key) {
+	    				return key.setBindings(groupNames, bindings);
+	    			}
+	    			@Override
+	    			public String toString() {
+	    				return "AggregateBindingSetPipe-multiKey";
+	    			}
+				}
+    			List<Supplier<Aggregator<?,?,?>>> aggregatorFactories = createAggregatorFactories(elems, argEvaluators, bindings, evalContext);
+	    		step.evaluate(new MultiKeyGroupBindingSetPipe(parentStrategy.track(parent, group), aggregatorFactories), bindings);
     		};
     	}
     }
