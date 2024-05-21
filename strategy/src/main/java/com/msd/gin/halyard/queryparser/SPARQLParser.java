@@ -47,8 +47,6 @@ import org.eclipse.rdf4j.query.parser.sparql.DatasetDeclProcessor;
 import org.eclipse.rdf4j.query.parser.sparql.PrefixDeclProcessor;
 import org.eclipse.rdf4j.query.parser.sparql.SPARQLUpdateDataBlockParser;
 import org.eclipse.rdf4j.query.parser.sparql.StringEscapesProcessor;
-import org.eclipse.rdf4j.query.parser.sparql.TupleExprBuilder;
-import org.eclipse.rdf4j.query.parser.sparql.UpdateExprBuilder;
 import org.eclipse.rdf4j.query.parser.sparql.WildcardProjectionProcessor;
 import org.eclipse.rdf4j.query.parser.sparql.ast.ASTAskQuery;
 import org.eclipse.rdf4j.query.parser.sparql.ast.ASTConstructQuery;
