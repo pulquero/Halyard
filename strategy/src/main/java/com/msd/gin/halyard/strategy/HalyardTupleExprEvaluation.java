@@ -2359,8 +2359,8 @@ final class HalyardTupleExprEvaluation {
     		return joinAttributeNames;
     	}
 
-    	final HashJoinTable createHashTable(Set<String> joinBindings, List<String> buildBindings) {
-	    	return new HashJoinTable(initialSize, joinBindings, buildBindings);
+    	final HashJoinTable<?> createHashTable(Set<String> joinBindings, List<String> buildBindings) {
+	    	return HashJoinTable.create(initialSize, joinBindings, buildBindings);
     	}
 
 		@Override
@@ -2368,13 +2368,13 @@ final class HalyardTupleExprEvaluation {
 			Set<String> actualJoinBindings = getUnboundNames(estimatedJoinBindings, bindings);
 			List<String> actualBuildBindings = getUnboundNames(estimatedBuildBindings, actualJoinBindings, bindings);
 			buildStep.evaluate(new PipeJoin(parentStrategy.track(parent, join)) {
-		    	HashJoinTable hashTable = createHashTable(actualJoinBindings, actualBuildBindings);
+		    	HashJoinTable<?> hashTable = createHashTable(actualJoinBindings, actualBuildBindings);
 	            @Override
 	            protected boolean next(BindingSet buildBs) {
 					if (parent.isClosed()) {
 						return false;
 					}
-	            	HashJoinTable partition;
+	            	HashJoinTable<?> partition;
 	            	synchronized (this) {
 	                	if (hashTable.entryCount() >= hashTableLimit) {
 	                		partition = hashTable;
@@ -2403,7 +2403,7 @@ final class HalyardTupleExprEvaluation {
 	        	 * @param hashTablePartition hash table to join against.
 	        	 * @param isLast true if this is the last time doJoin() will be called for the current join operation.
 	        	 */
-	        	private void startJoin(HashJoinTable hashTablePartition, boolean isLast) {
+	        	private void startJoin(HashJoinTable<?> hashTablePartition, boolean isLast) {
 	        		if (hashTablePartition.entryCount() == 0) {
 	        			BindingSetPipe noJoinPipe = createNoJoinPipe(this);
 	        			if (noJoinPipe != null) {
@@ -2430,13 +2430,13 @@ final class HalyardTupleExprEvaluation {
 
 		protected abstract BindingSetPipe createNoJoinPipe(PipeJoin primary);
 
-		protected abstract BindingSetPipe createPipe(PipeJoin primary, HashJoinTable hashTablePartition);
+		protected abstract BindingSetPipe createPipe(PipeJoin primary, HashJoinTable<?> hashTablePartition);
 
     	abstract class AbstractHashJoinBindingSetPipe extends BindingSetPipe {
     		private final PipeJoin primary;
-    		protected final HashJoinTable hashTablePartition;
+    		protected final HashJoinTable<?> hashTablePartition;
 
-    		protected AbstractHashJoinBindingSetPipe(PipeJoin primary, HashJoinTable hashTablePartition) {
+    		protected AbstractHashJoinBindingSetPipe(PipeJoin primary, HashJoinTable<?> hashTablePartition) {
 				super(primary.getParent());
 				this.primary = primary;
 				this.hashTablePartition = hashTablePartition;
@@ -2444,7 +2444,7 @@ final class HalyardTupleExprEvaluation {
 			protected final boolean pushToParent(BindingSet bs) {
         		return primary.pushToParent(bs);
         	}
-			boolean hasUnboundOptionalValue(BindingSet probeBs) {
+			final boolean hasUnboundOptionalValue(BindingSet probeBs) {
 		    	for (String name : hashTablePartition.joinBindings) {
 		    		if (probeBs.getValue(name) == null) {
 		    			return true;
@@ -2452,15 +2452,15 @@ final class HalyardTupleExprEvaluation {
 		    	}
 		    	return false;
 			}
-			BindingSet join(BindingSetValues buildBsv, BindingSet probeBs) {
+			final BindingSet join(BindingSetValues buildBsv, BindingSet probeBs) {
 				return buildBsv.joinTo(hashTablePartition.buildBindings, probeBs);
 			}
-			BindingSet tryJoin(BindingSetValues buildBsv, BindingSet probeBs) {
+			final BindingSet tryJoin(BindingSetValues buildBsv, BindingSet probeBs) {
 				return buildBsv.tryJoin(hashTablePartition.buildBindings, hashTablePartition.joinKeySet, probeBs);
 			}
 
 			@Override
-			protected void doClose() {
+			protected final void doClose() {
             	primary.endSecondaryPipe();
         	}
     	}
@@ -2472,7 +2472,7 @@ final class HalyardTupleExprEvaluation {
 		}
 
 		final class HashJoinBindingSetPipe extends AbstractHashJoinBindingSetPipe {
-			protected HashJoinBindingSetPipe(PipeJoin primary, HashJoinTable hashTablePartition) {
+			protected HashJoinBindingSetPipe(PipeJoin primary, HashJoinTable<?> hashTablePartition) {
 				super(primary, hashTablePartition);
 			}
 			@Override
@@ -2524,7 +2524,7 @@ final class HalyardTupleExprEvaluation {
 		}
 
 		@Override
-		protected BindingSetPipe createPipe(PipeJoin primary, HashJoinTable hashTablePartition) {
+		protected BindingSetPipe createPipe(PipeJoin primary, HashJoinTable<?> hashTablePartition) {
 			return new HashJoinBindingSetPipe(primary, hashTablePartition);
 		}
 	}
@@ -2544,7 +2544,7 @@ final class HalyardTupleExprEvaluation {
 		}
 
 		final class LeftHashJoinBindingSetPipe extends AbstractHashJoinBindingSetPipe {
-			protected LeftHashJoinBindingSetPipe(PipeJoin primary, HashJoinTable hashTablePartition) {
+			protected LeftHashJoinBindingSetPipe(PipeJoin primary, HashJoinTable<?> hashTablePartition) {
 				super(primary, hashTablePartition);
 			}
 			@Override
@@ -2620,57 +2620,10 @@ final class HalyardTupleExprEvaluation {
 		}
 
 		@Override
-		protected BindingSetPipe createPipe(PipeJoin primary, HashJoinTable hashTablePartition) {
+		protected BindingSetPipe createPipe(PipeJoin primary, HashJoinTable<?> hashTablePartition) {
 			return new LeftHashJoinBindingSetPipe(primary, hashTablePartition);
 		}
 	}
-
-    private static final class HashJoinTable {
-    	private final Set<String> joinKeySet;
-    	private final String[] joinBindings;
-    	private final String[] buildBindings;
-    	private final Map<BindingSetValues, List<BindingSetValues>> hashTable;
-		private int keyCount;
-		private int bsCount;
-
-		HashJoinTable(int initialSize, Set<String> joinBindings, List<String> buildBindings) {
-			this.joinKeySet = joinBindings;
-			this.joinBindings = joinBindings.toArray(new String[joinBindings.size()]);
-			this.buildBindings = buildBindings.toArray(new String[buildBindings.size()]);
-    		if (!joinBindings.isEmpty()) {
-    			hashTable = new HashMap<>(initialSize);
-    		} else {
-    			hashTable = Collections.<BindingSetValues, List<BindingSetValues>>singletonMap(BindingSetValues.EMPTY, new ArrayList<>(initialSize));
-    		}
-    	}
-
-		void put(BindingSet bs) {
-			BindingSetValues hashKey = BindingSetValues.create(joinBindings, bs);
-			List<BindingSetValues> hashValue = hashTable.get(hashKey);
-			boolean newEntry = (hashValue == null);
-			if (newEntry) {
-				int averageSize = (keyCount > 0) ? (int) (bsCount/keyCount) : 0;
-				hashValue = new ArrayList<>(averageSize + 1);
-				hashTable.put(hashKey, hashValue);
-				keyCount++;
-			}
-			hashValue.add(BindingSetValues.create(buildBindings, bs));
-			bsCount++;
-		}
-
-		int entryCount() {
-			return bsCount;
-		}
-
-    	List<BindingSetValues> get(BindingSet bs) {
-    		BindingSetValues key = BindingSetValues.create(joinBindings, bs);
-			return hashTable.get(key);
-    	}
-
-    	Collection<? extends List<BindingSetValues>> all() {
-    		return hashTable.values();
-    	}
-    }
 
     /**
      * Precompiles {@link Union} query model nodes.
