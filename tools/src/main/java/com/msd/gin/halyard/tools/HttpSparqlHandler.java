@@ -125,6 +125,7 @@ import org.eclipse.rdf4j.repository.sail.SailQuery;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailUpdate;
+import org.eclipse.rdf4j.rio.ParserConfig;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFHandler;
 import org.eclipse.rdf4j.rio.RDFParseException;
@@ -187,21 +188,30 @@ public final class HttpSparqlHandler implements HttpHandler {
     private final SailRepository repository;
     private final Properties storedQueries;
     private final WriterConfig writerConfig;
+    private final ParserConfig parserConfig;
     private final Runnable stopAction;
 
     /**
      * @param rep              Sail repository
      * @param storedQueries    pre-defined stored SPARQL query templates
      * @param writerProperties RDF4J RIO WriterConfig properties
+     * @param parserProperties RDF4J RIO ParserConfig properties
+     * @param stopAction
      */
     @SuppressWarnings("unchecked")
-    public HttpSparqlHandler(SailRepository rep, Properties storedQueries, Properties writerProperties, Runnable stopAction) {
+    public HttpSparqlHandler(SailRepository rep, Properties storedQueries, Properties writerProperties, Properties parserProperties, Runnable stopAction) {
         this.repository = rep;
         this.storedQueries = storedQueries;
         this.writerConfig = new WriterConfig();
         if (writerProperties != null) {
             for (Map.Entry<Object, Object> me : writerProperties.entrySet()) {
                 writerConfig.set((RioSetting<Object>) getStaticField(me.getKey().toString()), getStaticField(me.getValue().toString()));
+            }
+        }
+        this.parserConfig = new ParserConfig();
+        if (parserProperties != null) {
+            for (Map.Entry<Object, Object> me : parserProperties.entrySet()) {
+                parserConfig.set((RioSetting<Object>) getStaticField(me.getKey().toString()), getStaticField(me.getValue().toString()));
             }
         }
         this.stopAction = stopAction;
@@ -887,6 +897,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     private void loadData(GraphLoad graphLoad, HttpExchange exchange) throws Exception {
        	LOGGER.info("Loading data");
     	try(SailRepositoryConnection connection = repository.getConnection()) {
+    		connection.setParserConfig(parserConfig);
     		connection.begin();
     		try (InputStream in = exchange.getRequestBody()) {
     			connection.add(in, graphLoad.getGraphFormat(), graphLoad.getContexts());

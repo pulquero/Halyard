@@ -86,9 +86,13 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
                 "will resolve and execute request to /my_describe_query?my_parameter=http%3A%2F%2Fwhatever%2F as " +
                 "\"describe <http://whatever/>\" query.", false, true);
         addOption("w", "writer-properties", "property_file", "Optional property file with RDF4J Rio WriterConfig properties. " +
-                "Each property name is fully qualified class.field name of WriterSetting and property value is fully qualified " +
+                "Each property name is fully qualified class.field name of WriterSettings and property value is fully qualified " +
                 " class.field or enum name with the value to set. For example: " +
                 "\"org.eclipse.rdf4j.rio.helpers.JSONLDSettings.JSONLD_MODE=org.eclipse.rdf4j.rio.helpers.JSONLDMode.COMPACT\"", false, true);
+        addOption("r", "parser-properties", "property_file", "Optional property file with RDF4J Rio ParserConfig properties. " +
+                "Each property name is fully qualified class.field name of ParserSettings and property value is fully qualified " +
+                " class.field or enum name with the value to set. For example: " +
+                "\"org.eclipse.rdf4j.rio.turtle.TurtleParserSettings.CASE_INSENSITIVE_DIRECTIVES=java.lang.Boolean.TRUE\"", false, true);
         addOption(null, "sail-factory", "class_name", "Specify a factory to use a different SAIL implementation", false, true);
         addKeyValueOption(null, "sail-factory-param", "param=value", null, "Optional parameters to pass to the SAIL factory");
         addOption(null, "create", null, "Create HBase table if it doesn't exist", false, false);
@@ -181,9 +185,15 @@ public final class HalyardEndpoint extends AbstractHalyardTool {
                         writerConfig.load(in);
                     }
                 }
+                Properties parserConfig = new Properties();
+                if (cmd.hasOption('r')) {
+                    try (FileInputStream in = new FileInputStream(cmd.getOptionValue('r'))) {
+                        parserConfig.load(in);
+                    }
+                }
                 CountDownLatch latch = new CountDownLatch(1);
                 SimpleHttpServer server = new SimpleHttpServer(port);
-                HttpSparqlHandler handler = new HttpSparqlHandler(rep, storedQueries, writerConfig, latch::countDown);
+                HttpSparqlHandler handler = new HttpSparqlHandler(rep, storedQueries, writerConfig, parserConfig, latch::countDown);
                 server.createContext(CONTEXT, handler);
                 server.start();
                 try {

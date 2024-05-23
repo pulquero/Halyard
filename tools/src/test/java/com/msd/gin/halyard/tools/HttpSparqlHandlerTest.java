@@ -140,10 +140,12 @@ public class HttpSparqlHandlerTest {
         writerCfg.put("org.eclipse.rdf4j.rio.helpers.JSONLDSettings.COMPACT_ARRAYS", "java.lang.Boolean.FALSE");
         writerCfg.put("org.eclipse.rdf4j.rio.helpers.JSONLDSettings.JSONLD_MODE", "org.eclipse.rdf4j.rio.helpers.JSONLDMode.COMPACT");
 
+        Properties parserCfg = new Properties();
+
         // Create and start http server
         server = new SimpleHttpServer(PORT);
         // Create handler with the repositoryConnection to the sail repository
-        HttpSparqlHandler handler = new HttpSparqlHandler(repository, storedQueries, writerCfg, () -> {stopTriggered.countDown();});
+        HttpSparqlHandler handler = new HttpSparqlHandler(repository, storedQueries, writerCfg, parserCfg, () -> {stopTriggered.countDown();});
         server.createContext(SERVER_CONTEXT, handler);
         server.start();
         SERVER_URL = "http://localhost:" + server.getAddress().getPort();
