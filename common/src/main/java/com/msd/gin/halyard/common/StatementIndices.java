@@ -24,6 +24,7 @@ import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.Tag;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
@@ -649,17 +650,18 @@ public final class StatementIndices {
 		RDFPredicate pb = rdfFactory.createPredicate(pred);
 		RDFObject ob = rdfFactory.createObject(obj);
 		RDFContext cb = rdfFactory.createContext(context);
+		List<Tag> tags = null; // not currently used
 
 		// generate HBase key value pairs from: row, family, qualifier, value. Permutations of SPO (and if needed CSPO) are all stored.
 	    if (includeInDefaultGraph) {
-			kvs.add(new KeyValue(spo.row(sb, pb, ob, cb), ColumnFamilyConfig.CF_NAME, spo.qualifier(sb, pb, ob, cb), timestamp, type, spo.value(sb, pb, ob, cb)));
-			kvs.add(new KeyValue(pos.row(pb, ob, sb, cb), ColumnFamilyConfig.CF_NAME, pos.qualifier(pb, ob, sb, cb), timestamp, type, pos.value(pb, ob, sb, cb)));
-			kvs.add(new KeyValue(osp.row(ob, sb, pb, cb), ColumnFamilyConfig.CF_NAME, osp.qualifier(ob, sb, pb, cb), timestamp, type, osp.value(ob, sb, pb, cb)));
+			kvs.add(new KeyValue(spo.row(sb, pb, ob, cb), ColumnFamilyConfig.CF_NAME, spo.qualifier(sb, pb, ob, cb), timestamp, type, spo.value(sb, pb, ob, cb), tags));
+			kvs.add(new KeyValue(pos.row(pb, ob, sb, cb), ColumnFamilyConfig.CF_NAME, pos.qualifier(pb, ob, sb, cb), timestamp, type, pos.value(pb, ob, sb, cb), tags));
+			kvs.add(new KeyValue(osp.row(ob, sb, pb, cb), ColumnFamilyConfig.CF_NAME, osp.qualifier(ob, sb, pb, cb), timestamp, type, osp.value(ob, sb, pb, cb), tags));
 	    }
 	    if (context != null) {
-	    	kvs.add(new KeyValue(cspo.row(cb, sb, pb, ob), ColumnFamilyConfig.CF_NAME, cspo.qualifier(cb, sb, pb, ob), timestamp, type, cspo.value(cb, sb, pb, ob)));
-	    	kvs.add(new KeyValue(cpos.row(cb, pb, ob, sb), ColumnFamilyConfig.CF_NAME, cpos.qualifier(cb, pb, ob, sb), timestamp, type, cpos.value(cb, pb, ob, sb)));
-	    	kvs.add(new KeyValue(cosp.row(cb, ob, sb, pb), ColumnFamilyConfig.CF_NAME, cosp.qualifier(cb, ob, sb, pb), timestamp, type, cosp.value(cb, ob, sb, pb)));
+	    	kvs.add(new KeyValue(cspo.row(cb, sb, pb, ob), ColumnFamilyConfig.CF_NAME, cspo.qualifier(cb, sb, pb, ob), timestamp, type, cspo.value(cb, sb, pb, ob), tags));
+	    	kvs.add(new KeyValue(cpos.row(cb, pb, ob, sb), ColumnFamilyConfig.CF_NAME, cpos.qualifier(cb, pb, ob, sb), timestamp, type, cpos.value(cb, pb, ob, sb), tags));
+	    	kvs.add(new KeyValue(cosp.row(cb, ob, sb, pb), ColumnFamilyConfig.CF_NAME, cosp.qualifier(cb, ob, sb, pb), timestamp, type, cosp.value(cb, ob, sb, pb), tags));
 	    }
 	
 	    if (includeTriples) {
