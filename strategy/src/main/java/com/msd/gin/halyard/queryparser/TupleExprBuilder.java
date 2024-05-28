@@ -1608,7 +1608,7 @@ public class TupleExprBuilder extends AbstractASTVisitor {
 
 		int childCount = node.jjtGetNumChildren();
 		for (int i = 0; i < childCount; i++) {
-			ValueExpr childValue = (ValueExpr) node.jjtGetChild(i).jjtAccept(this, null);
+			QueryModelNode childValue = (QueryModelNode) node.jjtGetChild(i).jjtAccept(this, null);
 
 			graphPattern.addRequiredSP(listVar.clone(), TupleExprs.createConstVar(RDF.FIRST),
 					mapValueExprToVar(childValue));

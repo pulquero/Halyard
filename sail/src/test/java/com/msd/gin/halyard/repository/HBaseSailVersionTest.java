@@ -35,6 +35,7 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.LinkedHashModel;
@@ -47,7 +48,6 @@ import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
-import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -121,7 +121,7 @@ public class HBaseSailVersionTest {
 		}
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
-			TupleQuery q = conn.prepareTupleQuery(QueryLanguage.SPARQL,
+			TupleQuery q = conn.prepareTupleQuery(
 					"prefix halyard: <http://merck.github.io/Halyard/ns#>\nselect ?t where {(<http://whatever/subj/> <http://whatever/pred/> \"whatever\") halyard:timestamp ?t}");
 			try (TupleQueryResult res = q.evaluate()) {
 				assertTrue(res.hasNext());
@@ -177,38 +177,60 @@ public class HBaseSailVersionTest {
         rep.shutDown();
     }
 
-    private static long toTimestamp(String datetime) {
+	private static long toTimestamp(String datetime) {
 		return SimpleValueFactory.getInstance().createLiteral(datetime, XSD.DATETIME).calendarValue().toGregorianCalendar().getTimeInMillis();
-    }
+	}
 
 	private static void update(SailRepositoryConnection con, String update) {
-        con.prepareUpdate(update).execute();
-    }
+		con.prepareUpdate(update).execute();
+	}
 
 	private static long selectLatest(SailRepositoryConnection con) {
-    	Set<Long> results = selectTimestamps(con,
-    			"prefix halyard: <http://merck.github.io/Halyard/ns#>\nselect ?t where {<http://whatever> ?p ?o. (<http://whatever> ?p ?o) halyard:timestamp ?t}");
-    	return results.size() == 1 ? results.iterator().next() : -1L;
-    }
-
+		Set<Long> results = selectTimestamps(con, "prefix halyard: <http://merck.github.io/Halyard/ns#>\nselect ?t where {<http://whatever> ?p ?o. (<http://whatever> ?p ?o) halyard:timestamp ?t}");
+		return results.size() == 1 ? results.iterator().next() : -1L;
+	}
 
 	private static Set<Long> selectAllVersions(SailRepositoryConnection con) {
-    	return selectTimestamps(con,
-                "prefix halyard: <http://merck.github.io/Halyard/ns#>\nselect ?t where {service <http://merck.github.io/Halyard/ns#timestamptable?maxVersions=5> {<http://whatever> ?p ?o. (<http://whatever> ?p ?o) halyard:timestamp ?t}}");
-    }
+		return selectTimestamps(con,
+				"prefix halyard: <http://merck.github.io/Halyard/ns#>\nselect ?t where {service <http://merck.github.io/Halyard/ns#timestamptable?maxVersions=5> {<http://whatever> ?p ?o. (<http://whatever> ?p ?o) halyard:timestamp ?t}}");
+	}
 
 	private static Set<Long> selectTimestamps(SailRepositoryConnection con, String query) {
-        Set<Long> results = new HashSet<>();
-        try(TupleQueryResult iter = con.prepareTupleQuery(QueryLanguage.SPARQL, query).evaluate()) {
-                while(iter.hasNext()) {
-                        BindingSet bs = iter.next();
-                        Literal t = (Literal) bs.getValue("t");
-                        results.add(t.calendarValue().toGregorianCalendar().getTimeInMillis());
-                }
-        }
-        return results;
-    }
+		Set<Long> results = new HashSet<>();
+		try (TupleQueryResult iter = con.prepareTupleQuery(query).evaluate()) {
+			while (iter.hasNext()) {
+				BindingSet bs = iter.next();
+				Literal t = (Literal) bs.getValue("t");
+				results.add(t.calendarValue().toGregorianCalendar().getTimeInMillis());
+			}
+		}
+		return results;
+	}
 
+
+	@Test
+	public void testModifyNestedTriple() throws Exception {
+		hconn.getConfiguration().setInt(ColumnFamilyConfig.MAX_VERSIONS, 5);
+
+		HBaseSail sail = new HBaseSail(hconn, "nestedtripletimestamptable", true, 0, true, QUERY_TIMEOUT, null, null);
+		HBaseRepository rep = new HBaseRepository(sail);
+		rep.init();
+		try (SailRepositoryConnection con = rep.getConnection()) {
+			con.begin();
+			// insert a stmt in the past
+			update(con,
+					"prefix halyard: <http://merck.github.io/Halyard/ns#>\ninsert { << <:a> <:b> <:c> >> <http://whatever/pred> <http://whatever/obj>. (<< <:a> <:b> <:c> >> <http://whatever/pred> <http://whatever/obj>) halyard:timestamp ?t} where {bind(\"2002-05-30T09:30:10.2\"^^<http://www.w3.org/2001/XMLSchema#dateTime> as ?t)}");
+			try (TupleQueryResult iter = con.prepareTupleQuery("prefix halyard: <http://merck.github.io/Halyard/ns#>\nselect ?s ?t where {?s ?p <http://whatever/obj>. (?s ?p <http://whatever/obj>) halyard:timestamp ?t}").evaluate()) {
+				BindingSet bs = iter.next();
+				Triple s = (Triple) bs.getValue("s");
+				assertNotNull(s);
+				Literal t = (Literal) bs.getValue("t");
+				assertEquals(toTimestamp("2002-05-30T09:30:10.2"), t.calendarValue().toGregorianCalendar().getTimeInMillis());
+			}
+			con.commit();
+		}
+		rep.shutDown();
+	}
 
 
     @Test
