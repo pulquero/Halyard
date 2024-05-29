@@ -38,7 +38,7 @@ public class ExploreServlet extends TupleServlet {
 
 	protected static final String LIMIT = "limit_explore";
 
-	protected static final int LIMIT_DEFAULT = 100;
+	protected static final int LIMIT_DEFAULT = 200;
 
 	public ExploreServlet() {
 		super("explore.xsl", "subject", "predicate", "object", "context");
