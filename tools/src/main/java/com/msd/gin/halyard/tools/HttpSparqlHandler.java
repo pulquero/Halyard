@@ -55,7 +55,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -809,7 +808,7 @@ public final class HttpSparqlHandler implements HttpHandler {
     		List<HalyardBulkUpdate.JsonInfo> infos = HalyardBulkUpdate.executeUpdate(sail.getConfiguration(), sail.getTableName(), updateString, sparqlUpdate.bindings);
     		sendMapReduceResults(exchange, infos);
         } else {
-        	List<JsonUpdateInfo> infos = executeUpdate(sparqlUpdate, null);
+        	List<JsonUpdateInfo> infos = executeUpdate(sparqlUpdate);
         	if (infos != null) {
         		sendResults(exchange, infos);
 	        } else {
@@ -819,16 +818,13 @@ public final class HttpSparqlHandler implements HttpHandler {
        	LOGGER.info("Update successfully processed");
     }
 
-    private List<JsonUpdateInfo> executeUpdate(SparqlUpdate sparqlUpdate, Consumer<SailRepositoryConnection> connConfigurer) throws IOException, InvalidRequestException {
+    private List<JsonUpdateInfo> executeUpdate(SparqlUpdate sparqlUpdate) throws IOException, InvalidRequestException {
         String updateString = sparqlUpdate.getUpdate();
         Dataset dataset = sparqlUpdate.getDataset();
         ParsedUpdate parsedUpdate;
     	try(SailRepositoryConnection connection = repository.getConnection()) {
     		if (connection.getSailConnection() instanceof ResultTrackingSailConnection) {
     			((ResultTrackingSailConnection)connection.getSailConnection()).setTrackResultSize(sparqlUpdate.trackResultSize);
-    		}
-    		if (connConfigurer != null) {
-    			connConfigurer.accept(connection);
     		}
     		connection.begin();
 	        SailUpdate update = (SailUpdate) connection.prepareUpdate(QueryLanguage.SPARQL, updateString, null);
@@ -1076,6 +1072,10 @@ public final class HttpSparqlHandler implements HttpHandler {
 		List<String> graphs = new ArrayList<>();
 		boolean isMapReduce = false;
 		int threshold = 1000;
+    	boolean includeSummary = true;
+    	boolean includeProperties = true;
+    	boolean includeSubjects = false;
+    	boolean includeObjects = false;
     	List<NameValuePair> queryParams = URLEncodedUtils.parse(IOUtils.toString(exchange.getRequestBody(), CHARSET), CHARSET);
     	for (NameValuePair param : queryParams) {
         	String name = param.getName();
@@ -1086,6 +1086,14 @@ public final class HttpSparqlHandler implements HttpHandler {
             	isMapReduce = Boolean.valueOf(value);
             } else if (PARTITION_THRESHOLD_PARAM.equals(name)) {
             	threshold = Integer.parseInt(value);
+            } else if ("include-summary".equals(name)) {
+            	includeSummary = Boolean.valueOf(value);
+            } else if ("include-properties".equals(name)) {
+            	includeProperties = Boolean.valueOf(value);
+            } else if ("include-subjects".equals(name)) {
+            	includeSubjects = Boolean.valueOf(value);
+            } else if ("include-objects".equals(name)) {
+            	includeObjects = Boolean.valueOf(value);
             }
         }
 		if (isMapReduce) {
@@ -1098,29 +1106,51 @@ public final class HttpSparqlHandler implements HttpHandler {
 			}
 		} else {
 			IRI statsContext = HALYARD.STATS_GRAPH_CONTEXT;
-			GraphClear clearStats = new GraphClear();
-			clearStats.setGraph(statsContext);
-			try (SailRepositoryConnection conn = repository.getConnection()) {
-				conn.clear(clearStats.getContexts());
-			}
 			ValueFactory vf = repository.getValueFactory();
-			String query = IOUtils.resourceToString("/com/msd/gin/halyard/tools/endpoint-stats.ru", StandardCharsets.UTF_8);
-			SparqlUpdate statsUpdate = new SparqlUpdate(query);
-			statsUpdate.addBinding("statsContext", statsContext);
-			statsUpdate.addBinding("now", vf.createLiteral(new Date()));
-			statsUpdate.addBinding("threshold", vf.createLiteral(threshold));
-        	executeUpdate(statsUpdate, conn -> {
-        		SailConnection sc = conn.getSailConnection();
+			Map<String,Value> bindings = new HashMap<>();
+			bindings.put("statsContext", statsContext);
+			bindings.put("now", vf.createLiteral(new Date()));
+			bindings.put("threshold", vf.createLiteral(threshold));
+	    	try(SailRepositoryConnection connection = repository.getConnection()) {
+	    		connection.begin();
+				connection.clear(statsContext);
+				connection.commit();
+				connection.begin();
+				SailConnection sc = connection.getSailConnection();
         		if (sc instanceof HBaseSailConnection) {
         			HBaseSailConnection hc = (HBaseSailConnection) sc;
         			hc.setDefaultGraphInsertMode(HBaseSailConnection.DefaultGraphMode.EXPLICIT);
         			hc.setDefaultGraphDeleteMode(HBaseSailConnection.DefaultGraphMode.EXPLICIT);
         			hc.setFlushWritesBeforeReadsEnabled(false);
         		}
-        	});
+	    		if (includeSummary) {
+	    	       	LOGGER.info("Calculating summary stats");
+	    			executeStatsUpdate(connection, "/com/msd/gin/halyard/tools/endpoint-stats-summary.ru", bindings);
+	    		}
+	    		if (includeProperties) {
+	    	       	LOGGER.info("Calculating property stats");
+	    			executeStatsUpdate(connection, "/com/msd/gin/halyard/tools/endpoint-stats-properties.ru", bindings);
+	    		}
+	    		if (includeSubjects) {
+	    	       	LOGGER.info("Calculating subject stats");
+	    			executeStatsUpdate(connection, "/com/msd/gin/halyard/tools/endpoint-stats-subjects.ru", bindings);
+	    		}
+	    		if (includeObjects) {
+	    	       	LOGGER.info("Calculating object stats");
+	    			executeStatsUpdate(connection, "/com/msd/gin/halyard/tools/endpoint-stats-objects.ru", bindings);
+	    		}
+		        connection.commit();
+	    	}
         	exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
         }
        	LOGGER.info("Stats successfully calculated");
+	}
+
+	private void executeStatsUpdate(SailRepositoryConnection connection, String queryFile, Map<String,Value> bindings) throws IOException {
+		String queryString = IOUtils.resourceToString(queryFile, StandardCharsets.UTF_8);
+        SailUpdate update = (SailUpdate) connection.prepareUpdate(QueryLanguage.SPARQL, queryString, null);
+        addBindings(update, bindings);
+        update.execute();
 	}
 
 	private void sendManagementData(HttpExchange exchange) throws IOException, InvalidRequestException {

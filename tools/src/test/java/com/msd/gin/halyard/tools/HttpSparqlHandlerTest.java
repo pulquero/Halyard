@@ -724,42 +724,56 @@ public class HttpSparqlHandlerTest {
         urlConnection.setRequestMethod("POST");
         urlConnection.setRequestProperty("Content-Type", HttpSparqlHandler.UNENCODED_QUERY_CONTENT);
         try (OutputStreamWriter out = new OutputStreamWriter(urlConnection.getOutputStream())) {
-            out.write("PREFIX void: <http://rdfs.org/ns/void#> PREFIX halyard: <http://merck.github.io/Halyard/ns#> SELECT * FROM halyard:statsContext WHERE {?s void:triples ?count} ORDER BY ?s");
+            out.write("PREFIX void: <http://rdfs.org/ns/void#> PREFIX sd: <http://www.w3.org/ns/sparql-service-description#> PREFIX halyard: <http://merck.github.io/Halyard/ns#> SELECT * FROM halyard:statsContext WHERE {?s a sd:Graph; void:triples ?count} ORDER BY ?s");
         }
         String result = IOUtils.toString(urlConnection.getInputStream(), "UTF-8");
         // NB: as we are not testing with a HBaseSail (hidden halyard:statsContext) then we will see additional stats about stats
 		String expected = "s,count\r\n"
-			+ "\"halyard:dataset:http://carrot/,property,http%3A%2F%2Fcarrot%2Fpred2%2F\",1\r\n"
-			+ "\"halyard:dataset:http://ginger/,property,http%3A%2F%2Fginger%2Fpred%2F\",1\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fpurl.org%2Fdc%2Fterms%2Fmodified\",5\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23classes\",2\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23properties\",5\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23property\",12\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23propertyPartition\",12\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23triples\",17\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23type\",27\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23defaultGraph\",1\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23graph\",4\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23name\",4\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23namedGraph\",4\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fcarrot%2Fpred2%2F\",1\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fginger%2Fpred%2F\",1\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fpotato%2Fpred2%2F\",1\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fpurl.org%2Fdc%2Fterms%2Fmodified\",5\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23classes\",2\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23properties\",5\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23triples\",5\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23type\",15\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23defaultGraph\",1\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23graph\",4\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23name\",4\r\n"
-			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23namedGraph\",4\r\n"
-			+ "\"halyard:dataset:http://potato/,property,http%3A%2F%2Fpotato%2Fpred2%2F\",1\r\n"
 			+ "http://carrot/,1\r\n"
 			+ "http://ginger/,1\r\n"
 			+ "http://merck.github.io/Halyard/ns#statsContext,8\r\n"
 			+ "http://merck.github.io/Halyard/ns#statsRoot,3\r\n"
 			+ "http://potato/,1\r\n"
+			+ "";
+        assertEquals(expected, result);
+
+        urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.setDoOutput(true);
+        urlConnection.setRequestMethod("POST");
+        urlConnection.setRequestProperty("Content-Type", HttpSparqlHandler.UNENCODED_QUERY_CONTENT);
+        try (OutputStreamWriter out = new OutputStreamWriter(urlConnection.getOutputStream())) {
+            out.write("PREFIX void: <http://rdfs.org/ns/void#> PREFIX sd: <http://www.w3.org/ns/sparql-service-description#> PREFIX halyard: <http://merck.github.io/Halyard/ns#> SELECT * FROM halyard:statsContext WHERE {[] void:propertyPartition ?s. ?s void:distinctObjects ?d; void:triples ?count} ORDER BY ?s");
+        }
+        result = IOUtils.toString(urlConnection.getInputStream(), "UTF-8");
+        // NB: as we are not testing with a HBaseSail (hidden halyard:statsContext) then we will see additional stats about stats
+		expected = "s,d,count\r\n"
+			+ "\"halyard:dataset:http://carrot/,property,http%3A%2F%2Fcarrot%2Fpred2%2F\",1,1\r\n"
+			+ "\"halyard:dataset:http://ginger/,property,http%3A%2F%2Fginger%2Fpred%2F\",1,1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fpurl.org%2Fdc%2Fterms%2Fmodified\",1,5\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23classes\",2,2\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23distinctObjects\",4,12\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23properties\",3,5\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23property\",12,12\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23propertyPartition\",12,12\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23triples\",7,17\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23type\",4,27\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23defaultGraph\",1,1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23graph\",4,4\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23name\",4,4\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsContext,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23namedGraph\",4,4\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fcarrot%2Fpred2%2F\",1,1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fginger%2Fpred%2F\",1,1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fpotato%2Fpred2%2F\",1,1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fpurl.org%2Fdc%2Fterms%2Fmodified\",1,5\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23classes\",2,2\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23properties\",3,5\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Frdfs.org%2Fns%2Fvoid%23triples\",3,5\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23type\",4,15\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23defaultGraph\",1,1\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23graph\",4,4\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23name\",4,4\r\n"
+			+ "\"halyard:dataset:http://merck.github.io/Halyard/ns#statsRoot,property,http%3A%2F%2Fwww.w3.org%2Fns%2Fsparql-service-description%23namedGraph\",4,4\r\n"
+			+ "\"halyard:dataset:http://potato/,property,http%3A%2F%2Fpotato%2Fpred2%2F\",1,1\r\n"
 			+ "";
         assertEquals(expected, result);
     }
