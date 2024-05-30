@@ -209,7 +209,7 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 					insertClause = optimize(insertClause, uc.getDataset(), uc.getBindingSet(), false);
 					InsertCollector insertCollector = new InsertCollector();
 					insertClause.visit(insertCollector);
-					insertAction = new InsertAction(sail, con, vf, uc, insertClause, insertCollector.getStatementPatterns(), insertCollector.getTupleFunctionCalls());
+					insertAction = new InsertAction(con, vf, uc, insertClause, insertCollector.getStatementPatterns(), insertCollector.getTupleFunctionCalls(), sail.getStrategyConfig());
 				} else {
 					insertAction = null;
 				}
@@ -221,7 +221,7 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 				if (deleteClause != null) {
 					// for deletes, TupleFunctions are expected in the where clause
 					whereClause = optimize(whereClause, uc.getDataset(), uc.getBindingSet(), true);
-					deleteAction = new DeleteAction(sail, con, vf, uc, deleteClause, StatementPatternCollector.process(deleteClause), WhereCollector.process(whereClause));
+					deleteAction = new DeleteAction(con, vf, uc, deleteClause, StatementPatternCollector.process(deleteClause), WhereCollector.process(whereClause), sail.getStrategyConfig());
 				} else {
 					deleteAction = null;
 				}
@@ -371,20 +371,20 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 	}
 
 	static abstract class ModifyAction {
-		private final StrategyConfig config;
 		protected final HBaseSailConnection conn;
 		protected final TupleExpr clause;
 		private final List<StatementPattern> stPatterns;
 		private final List<TupleFunctionCall> tupleFunctionCalls;
+		private final StrategyConfig config;
 		protected long resultCounter;
 		protected Stopwatch stopwatch;
 
-		ModifyAction(HBaseSail sail, HBaseSailConnection conn, TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls) {
-			this.config = sail.getStrategyConfig();
+		ModifyAction(HBaseSailConnection conn, TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls, StrategyConfig config) {
 			this.conn = conn;
 			this.clause = clause;
 			this.stPatterns = stPatterns;
 			this.tupleFunctionCalls = tupleFunctionCalls;
+			this.config = config;
 		}
 
 		public final TupleExpr getClause() {
@@ -439,8 +439,8 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 	static final class DeleteAction extends ModifyAction {
 		List<StatementDeleter> spDeleters;
 
-		DeleteAction(HBaseSail sail, HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls) {
-			super(sail, conn, clause, stPatterns, tupleFunctionCalls);
+		DeleteAction(HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls, StrategyConfig config) {
+			super(conn, clause, stPatterns, tupleFunctionCalls, config);
 			spDeleters = new ArrayList<>(stPatterns.size());
 			for (StatementPattern sp : stPatterns) {
 				spDeleters.add(new StatementDeleter(conn, vf, uc, sp, this));
@@ -539,8 +539,8 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 	static final class InsertAction extends ModifyAction {
 		List<StatementInserter> spInserters;
 
-		InsertAction(HBaseSail sail, HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls) {
-			super(sail, conn, clause, stPatterns, tupleFunctionCalls);
+		InsertAction(HBaseSailConnection conn, ValueFactory vf, TimestampedUpdateContext uc, TupleExpr clause, List<StatementPattern> stPatterns, List<TupleFunctionCall> tupleFunctionCalls, StrategyConfig config) {
+			super(conn, clause, stPatterns, tupleFunctionCalls, config);
 			spInserters = new ArrayList<>(stPatterns.size());
 			for (StatementPattern sp : stPatterns) {
 				spInserters.add(new StatementInserter(conn, vf, uc, sp, this));

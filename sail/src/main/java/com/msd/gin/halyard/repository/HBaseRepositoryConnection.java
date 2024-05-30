@@ -103,26 +103,21 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 		return query;
 	}
 
+	private SailTupleQuery prepareTupleQuery(String queryString, String baseURI) throws MalformedQueryException {
+		Optional<TupleExpr> sailTupleExpr = getSailConnection().prepareQuery(QueryLanguage.SPARQL, Query.QueryType.TUPLE, queryString, baseURI);
+		ParsedTupleQuery parsedQuery = sailTupleExpr.map(expr -> new ParsedTupleQuery(queryString, expr)).orElse(SPARQLParser.parseTupleQuery(queryString, baseURI, getValueFactory()));
+		return new ExtSailTupleQuery(parsedQuery, this);
+	}
+
 	@Override
 	public SailTupleQuery prepareTupleQuery(QueryLanguage ql, String queryString, String baseURI) throws MalformedQueryException {
-		Optional<TupleExpr> sailTupleExpr = getSailConnection().prepareQuery(ql, Query.QueryType.TUPLE, queryString, baseURI);
-
-		ParsedTupleQuery parsedQuery = sailTupleExpr.map(expr -> new ParsedTupleQuery(queryString, expr)).orElse(SPARQLParser.parseTupleQuery(queryString, baseURI, getValueFactory()));
-		swapRoot(parsedQuery);
-		SailTupleQuery query = new SailTupleQuery(parsedQuery, this) {
-			@Override
-			public void evaluate(TupleQueryResultHandler handler) throws QueryEvaluationException, TupleQueryResultHandlerException {
-				TupleExpr tupleExpr = getParsedQuery().getTupleExpr();
-				try {
-					HBaseSailConnection sailCon = (HBaseSailConnection) getConnection().getSailConnection();
-					handler.startQueryResult(new ArrayList<>(tupleExpr.getBindingNames()));
-					sailCon.evaluate(handler::handleSolution, tupleExpr, getActiveDataset(), getBindings(), getIncludeInferred());
-					handler.endQueryResult();
-				} catch (SailException e) {
-					throw new QueryEvaluationException(e.getMessage(), e);
-				}
-			}
-		};
+		SailTupleQuery query;
+		if (QueryLanguage.SPARQL.equals(ql)) {
+			query = prepareTupleQuery(queryString, baseURI);
+		} else {
+			query = super.prepareTupleQuery(ql, queryString, baseURI);
+		}
+		swapRoot(query.getParsedQuery());
 		addImplicitBindings(query);
 		return query;
 	}
@@ -179,15 +174,35 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 		return update;
 	}
 
+
 	static final class ExtSailBooleanQuery extends SailBooleanQuery {
-		protected ExtSailBooleanQuery(ParsedBooleanQuery tupleQuery, SailRepositoryConnection sailConnection) {
+		protected ExtSailBooleanQuery(ParsedBooleanQuery booleanQuery, SailRepositoryConnection sailConnection) {
+			super(booleanQuery, sailConnection);
+		}
+	}
+
+	static final class ExtSailTupleQuery extends SailTupleQuery {
+		protected ExtSailTupleQuery(ParsedTupleQuery tupleQuery, SailRepositoryConnection sailConnection) {
 			super(tupleQuery, sailConnection);
+		}
+
+		@Override
+		public void evaluate(TupleQueryResultHandler handler) throws QueryEvaluationException, TupleQueryResultHandlerException {
+			TupleExpr tupleExpr = getParsedQuery().getTupleExpr();
+			try {
+				HBaseSailConnection sailCon = (HBaseSailConnection) getConnection().getSailConnection();
+				handler.startQueryResult(new ArrayList<>(tupleExpr.getBindingNames()));
+				sailCon.evaluate(handler::handleSolution, tupleExpr, getActiveDataset(), getBindings(), getIncludeInferred());
+				handler.endQueryResult();
+			} catch (SailException e) {
+				throw new QueryEvaluationException(e.getMessage(), e);
+			}
 		}
 	}
 
 	static final class ExtSailGraphQuery extends SailGraphQuery {
-		protected ExtSailGraphQuery(ParsedGraphQuery tupleQuery, SailRepositoryConnection sailConnection) {
-			super(tupleQuery, sailConnection);
+		protected ExtSailGraphQuery(ParsedGraphQuery graphQuery, SailRepositoryConnection sailConnection) {
+			super(graphQuery, sailConnection);
 		}
 	}
 }
