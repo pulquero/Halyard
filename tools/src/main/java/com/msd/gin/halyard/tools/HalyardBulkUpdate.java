@@ -173,12 +173,8 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
         private HBaseSail createSail(Context context) {
             Configuration conf = context.getConfiguration();
             QueryInputFormat.QueryInputSplit qis = (QueryInputFormat.QueryInputSplit)context.getInputSplit();
-			return new HBaseSail(conf, tableName, false, 0, true, 0, ElasticSettings.from(conf), new HBaseSail.Ticker() {
-                @Override
-                public void tick() {
-                    context.progress();
-                }
-			}, new HBaseSail.SailConnectionFactory() {
+			return new HBaseSail(conf, tableName, false, 0, true, 0, ElasticSettings.from(conf), context::progress,
+			new HBaseSail.SailConnectionFactory() {
 				@Override
 				public HBaseSailConnection createConnection(HBaseSail sail) throws IOException {
 					HBaseSailConnection conn = new HBaseSailConnection(sail) {

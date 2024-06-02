@@ -19,6 +19,7 @@ package com.msd.gin.halyard.tools;
 import static com.msd.gin.halyard.model.vocabulary.HALYARD.*;
 
 import com.msd.gin.halyard.common.RDFFactory;
+import com.msd.gin.halyard.optimizers.HalyardEvaluationStatistics;
 import com.msd.gin.halyard.repository.HBaseRepository;
 import com.msd.gin.halyard.sail.ElasticSettings;
 import com.msd.gin.halyard.sail.HBaseSail;
@@ -49,14 +50,19 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
+import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.common.iteration.IterationWrapper;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.GraphQueryResult;
+import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.TupleQueryResult;
+import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
@@ -116,8 +122,7 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
                     props[i] = new String(Base64.decodeBase64(props[i]), StandardCharsets.UTF_8);
                 }
             }
-            String source = cfg.get(SOURCE_TABLE);
-        	HBaseSail sail = new HBaseSail(cfg, source, false, 0, true, 0, ElasticSettings.from(cfg), null);
+            HBaseSail sail = createSail(context);
         	HBaseRepository repo = new HBaseRepository(sail);
             try {
             	repo.init();
@@ -145,6 +150,37 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
             } finally {
             	repo.shutDown();
             }
+        }
+
+        private HBaseSail createSail(Context context) {
+            Configuration cfg = context.getConfiguration();
+            String source = cfg.get(SOURCE_TABLE);
+        	return new HBaseSail(cfg, source, false, 0, true, 0, ElasticSettings.from(cfg), context::progress,
+        	new HBaseSail.SailConnectionFactory() {
+				@Override
+				public HBaseSailConnection createConnection(HBaseSail sail) throws IOException {
+					HBaseSailConnection conn = new HBaseSailConnection(sail) {
+						@Override
+						protected CloseableIteration<BindingSet, QueryEvaluationException> evaluateInternal(TupleExpr tupleExpr, QueryEvaluationStep step) throws QueryEvaluationException {
+							HalyardEvaluationStatistics stats = sail.getStatistics();
+							final double estimate = stats.getCardinality(tupleExpr);
+							tupleExpr.setResultSizeEstimate(estimate);
+							LOG.info("Optimised query tree:\n{}", tupleExpr);
+							return new IterationWrapper<>(super.evaluateInternal(tupleExpr, step)) {
+								@Override
+								protected void handleClose() throws QueryEvaluationException {
+									super.handleClose();
+									LOG.info("Execution statistics:\n{}", tupleExpr);
+								}
+							};
+						}
+					};
+					conn.setTrackResultSize(sail.isTrackResultSize());
+					conn.setTrackResultTime(sail.isTrackResultTime());
+					conn.setTrackBranchOperatorsOnly(sail.isTrackBranchOperatorsOnly());
+					return conn;
+				}
+        	});
         }
 
         private static class EsOutputResultWriter extends HalyardExport.QueryResultWriter {
