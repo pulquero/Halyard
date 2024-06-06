@@ -26,12 +26,16 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.kohsuke.MetaInfServices;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 
 @MetaInfServices(TupleFunction.class)
 public class SearchTupleFunction implements ExtendedTupleFunction {
+	private static final Logger LOGGER = LoggerFactory.getLogger(SearchTupleFunction.class);
 
 	@Override
 	public String getURI() {
@@ -128,6 +132,9 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 					return values;
 				}
 			};
+		} catch (ElasticsearchException e) {
+			LOGGER.error(String.format("Query failed: %s", query));
+			throw new QueryEvaluationException(e);
 		} catch (IOException e) {
 			throw new QueryEvaluationException(e);
 		}
