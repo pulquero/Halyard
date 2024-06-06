@@ -1,11 +1,9 @@
 package com.msd.gin.halyard.sail.search.function;
 
-import com.google.common.collect.Sets;
 import com.msd.gin.halyard.model.ArrayLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.util.Locale;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,8 +17,8 @@ import org.kohsuke.MetaInfServices;
 
 @MetaInfServices(Function.class)
 public class EscapeTerm implements Function {
-	private static final Pattern RESERVED_CHARACTERS = Pattern.compile("[\\<\\>\\+\\-\\=\\!\\(\\)\\{\\}\\[\\]\\^\\\"\\~\\*\\?\\:\\\\\\/]|(\\&\\&)|(\\|\\|)|( AND )|( OR )|( NOT )|( TO )");
-	private static final Set<String> OPERATORS = Sets.newHashSet(" AND ", " OR ", " NOT ", " TO ");
+	private static final Pattern OPERATORS = Pattern.compile("(^|\\s)((AND)|(OR)|(NOT)|(TO))($|\\s)");
+	private static final Pattern RESERVED_CHARACTERS = Pattern.compile("[\\<\\>\\+\\-\\=\\!\\(\\)\\{\\}\\[\\]\\^\\\"\\~\\*\\?\\:\\\\\\/]|(\\&\\&)|(\\|\\|)|" + OPERATORS.pattern());
 
 	@Override
 	public String getURI() {
@@ -63,7 +61,7 @@ public class EscapeTerm implements Function {
 			buf.append(s.substring(end, start));
 			end = matcher.end();
 			String reserved = s.substring(start, end);
-			if (OPERATORS.contains(reserved)) {
+			if (OPERATORS.matcher(reserved).find()) {
 				buf.append(reserved.toLowerCase(Locale.ROOT));
 			} else if (!"<".equals(reserved) && !">".equals(reserved)) {
 				buf.append("\\");

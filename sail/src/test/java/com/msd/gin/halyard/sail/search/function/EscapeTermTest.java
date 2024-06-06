@@ -25,9 +25,15 @@ public class EscapeTermTest {
 	}
 
 	@Test
-	public void testLowerCaseOperator() {
+	public void testLowerCaseOperator1() {
 		Literal escaped = (Literal) new EscapeTerm().evaluate(vf, vf.createLiteral("foo AND bar"));
 		assertEquals("foo and bar", escaped.stringValue());
+	}
+
+	@Test
+	public void testLowerCaseOperator2() {
+		Literal escaped = (Literal) new EscapeTerm().evaluate(vf, vf.createLiteral("OR"));
+		assertEquals("or", escaped.stringValue());
 	}
 
 	@Test
