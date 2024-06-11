@@ -124,4 +124,23 @@ public class ExtendedSPARQLConnection extends SPARQLConnection {
 			super.add(file, baseURI, dataFormat, contexts);
 		}
 	}
+
+	@Override
+	public void clear(Resource... contexts) throws RepositoryException {
+		if (client instanceof ExtendedSPARQLProtocolSession) {
+			try {
+				if (contexts.length > 0) {
+					for (Resource graph : contexts) {
+						((ExtendedSPARQLProtocolSession)client).deleteGraph(graph, requestParams);
+					}
+				} else {
+					((ExtendedSPARQLProtocolSession)client).deleteAll(requestParams);
+				}
+			} catch (IOException ioe) {
+				throw new RepositoryException(ioe);
+			}
+		} else {
+			super.clear(contexts);
+		}
+	}
 }

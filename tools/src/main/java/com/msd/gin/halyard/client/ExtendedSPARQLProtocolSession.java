@@ -16,6 +16,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -167,16 +168,7 @@ public class ExtendedSPARQLProtocolSession extends SPARQLProtocolSession {
 				maxQueryTime, bindings);
 		queryParams.addAll(requestParams);
 		HttpUriRequest method;
-		String queryUrlWithParams;
-		try {
-			URIBuilder urib = new URIBuilder(getQueryURL());
-			for (NameValuePair nvp : queryParams) {
-				urib.addParameter(nvp.getName(), nvp.getValue());
-			}
-			queryUrlWithParams = urib.toString();
-		} catch (URISyntaxException e) {
-			throw new AssertionError(e);
-		}
+		String queryUrlWithParams = createURL(getQueryURL(), queryParams);
 		if (shouldUsePost(queryUrlWithParams)) {
 			// we just built up a URL for nothing. oh well.
 			// It's probably not much overhead against
@@ -244,8 +236,6 @@ public class ExtendedSPARQLProtocolSession extends SPARQLProtocolSession {
 	}
 
 	protected void storeGraph(HttpEntity entity, RDFFormat dataFormat, Resource graph, List<NameValuePair> requestParams) throws IOException {
-		HttpPost method = new HttpPost(getGraphStoreURL());
-		method.setHeader("Content-Type", dataFormat.getDefaultMIMEType());
 		List<NameValuePair> queryParams = new ArrayList<>();
 		if (graph == null) {
 			queryParams.add(new BasicNameValuePair("default", null));
@@ -254,11 +244,57 @@ public class ExtendedSPARQLProtocolSession extends SPARQLProtocolSession {
 		}
 		queryParams.addAll(additionalHttpRequestParams);
 		queryParams.addAll(requestParams);
+
+		HttpPost method = new HttpPost(createURL(getGraphStoreURL(), queryParams));
+		method.setHeader("Content-Type", dataFormat.getDefaultMIMEType());
 		method.setEntity(entity);
 		for (Map.Entry<String, String> additionalHeader : getAdditionalHttpHeaders().entrySet()) {
 			method.addHeader(additionalHeader.getKey(), additionalHeader.getValue());
 		}
 
 		executeNoContent(method);
+	}
+
+	public void deleteGraph(Resource graph, List<NameValuePair> requestParams) throws IOException {
+		List<NameValuePair> queryParams = new ArrayList<>();
+		if (graph == null) {
+			queryParams.add(new BasicNameValuePair("default", null));
+		} else {
+			queryParams.add(new BasicNameValuePair("graph", graph.stringValue()));
+		}
+		queryParams.addAll(additionalHttpRequestParams);
+		queryParams.addAll(requestParams);
+
+		HttpDelete method = new HttpDelete(createURL(getGraphStoreURL(), queryParams));
+		for (Map.Entry<String, String> additionalHeader : getAdditionalHttpHeaders().entrySet()) {
+			method.addHeader(additionalHeader.getKey(), additionalHeader.getValue());
+		}
+
+		executeNoContent(method);
+	}
+
+	public void deleteAll(List<NameValuePair> requestParams) throws IOException {
+		List<NameValuePair> queryParams = new ArrayList<>();
+		queryParams.addAll(additionalHttpRequestParams);
+		queryParams.addAll(requestParams);
+
+		HttpDelete method = new HttpDelete(createURL(getGraphStoreURL(), queryParams));
+		for (Map.Entry<String, String> additionalHeader : getAdditionalHttpHeaders().entrySet()) {
+			method.addHeader(additionalHeader.getKey(), additionalHeader.getValue());
+		}
+
+		executeNoContent(method);
+	}
+
+	private static String createURL(String endpoint, List<NameValuePair> queryParams) {
+		try {
+			URIBuilder urib = new URIBuilder(endpoint);
+			for (NameValuePair nvp : queryParams) {
+				urib.addParameter(nvp.getName(), nvp.getValue());
+			}
+			return urib.toString();
+		} catch (URISyntaxException e) {
+			throw new AssertionError(e);
+		}
 	}
 }
