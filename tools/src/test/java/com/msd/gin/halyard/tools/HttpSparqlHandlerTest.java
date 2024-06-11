@@ -689,6 +689,73 @@ public class HttpSparqlHandlerTest {
         out.write("<http://newdata/s> <http://newdata/p> <http://newdata/o> .");
         out.close();
         assertEquals(HttpURLConnection.HTTP_NO_CONTENT, urlConnection.getResponseCode());
+
+        ValueFactory vf = repository.getValueFactory();
+        try(RepositoryConnection repositoryConnection = repository.getConnection()) {
+        	boolean exists = repositoryConnection.hasStatement(vf.createIRI("http://newdata/s"), vf.createIRI("http://newdata/p"), vf.createIRI("http://newdata/o"), false);
+        	assertTrue(exists);
+        }
+    }
+
+    @Test
+    public void testLoadDataIntoNamedGraph() throws IOException {
+        URL url = new URL(SERVER_URL + "?graph=" + URLEncoder.encode(CONTEXT.stringValue(), "UTF-8"));
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.setDoOutput(true);
+        urlConnection.setRequestMethod("POST");
+        urlConnection.setRequestProperty("Content-Type", RDFFormat.TURTLE.getDefaultMIMEType());
+        OutputStreamWriter out = new OutputStreamWriter(urlConnection.getOutputStream());
+        out.write("<http://newdata/s> <http://newdata/p> <http://newdata/o> .");
+        out.close();
+        assertEquals(HttpURLConnection.HTTP_NO_CONTENT, urlConnection.getResponseCode());
+
+        ValueFactory vf = repository.getValueFactory();
+        try(RepositoryConnection repositoryConnection = repository.getConnection()) {
+        	boolean exists = repositoryConnection.hasStatement(vf.createIRI("http://newdata/s"), vf.createIRI("http://newdata/p"), vf.createIRI("http://newdata/o"), false, CONTEXT);
+        	assertTrue(exists);
+        }
+    }
+
+    @Test
+    public void testClearAll() throws IOException {
+        URL url = new URL(SERVER_URL);
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.setDoOutput(true);
+        urlConnection.setRequestMethod("DELETE");
+        assertEquals(HttpURLConnection.HTTP_NO_CONTENT, urlConnection.getResponseCode());
+
+        try(RepositoryConnection repositoryConnection = repository.getConnection()) {
+        	boolean exists = repositoryConnection.hasStatement(SUBJ, PRED, OBJ, false, CONTEXT);
+        	assertFalse(exists);
+        }
+    }
+
+    @Test
+    public void testClearDefault() throws IOException {
+        URL url = new URL(SERVER_URL + "?default");
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.setDoOutput(true);
+        urlConnection.setRequestMethod("DELETE");
+        assertEquals(HttpURLConnection.HTTP_NO_CONTENT, urlConnection.getResponseCode());
+
+        try(RepositoryConnection repositoryConnection = repository.getConnection()) {
+        	boolean exists = repositoryConnection.hasStatement(SUBJ, PRED, OBJ, false, CONTEXT);
+        	assertTrue(exists);
+        }
+    }
+
+    @Test
+    public void testClearNamedGraph() throws IOException {
+        URL url = new URL(SERVER_URL + "?graph=" + URLEncoder.encode(CONTEXT.stringValue(), "UTF-8"));
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.setDoOutput(true);
+        urlConnection.setRequestMethod("DELETE");
+        assertEquals(HttpURLConnection.HTTP_NO_CONTENT, urlConnection.getResponseCode());
+
+        try(RepositoryConnection repositoryConnection = repository.getConnection()) {
+        	boolean exists = repositoryConnection.hasStatement(SUBJ, PRED, OBJ, false, CONTEXT);
+        	assertFalse(exists);
+        }
     }
 
     @Test

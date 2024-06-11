@@ -891,7 +891,9 @@ public final class HttpSparqlHandler implements HttpHandler {
     }
 
     private void loadData(GraphLoad graphLoad, HttpExchange exchange) throws Exception {
-       	LOGGER.info("Loading data");
+    	IRI graph = graphLoad.getGraph();
+    	String graphName = (graph != null) ? graph.stringValue() : "default graph";
+       	LOGGER.info("Loading data into {}", graphName);
     	try(SailRepositoryConnection connection = repository.getConnection()) {
     		connection.setParserConfig(parserConfig);
     		connection.begin();
@@ -905,7 +907,9 @@ public final class HttpSparqlHandler implements HttpHandler {
     }
 
     private void clearData(GraphClear graphClear, HttpExchange exchange) throws Exception {
-       	LOGGER.info("Clearing data");
+    	IRI graph = graphClear.getGraph();
+    	String graphName = (graph != null) ? graph.stringValue() : graphClear.isDefaultGraph() ? "default graph" : "all graphs";
+       	LOGGER.info("Clearing data from {}", graphName);
 		try (SailRepositoryConnection conn = repository.getConnection()) {
 			conn.clear(graphClear.getContexts());
 		}
@@ -1476,6 +1480,10 @@ public final class HttpSparqlHandler implements HttpHandler {
         	this.defaultGraph = f;
         }
 
+        public boolean isDefaultGraph() {
+        	return defaultGraph;
+        }
+
         public void setGraph(IRI graph) throws InvalidRequestException {
         	if (this.graph != null) {
         		throw new InvalidRequestException("Multiple 'graph' query parameters encountered");
@@ -1484,6 +1492,10 @@ public final class HttpSparqlHandler implements HttpHandler {
     			throw new InvalidRequestException("Cannot specify both 'default' and 'graph' query parameters");
     		}
         	this.graph = graph;
+        }
+
+        public IRI getGraph() {
+        	return graph;
         }
 
         public Resource[] getContexts() {
@@ -1506,6 +1518,11 @@ public final class HttpSparqlHandler implements HttpHandler {
 
 
     private static final class GraphClear extends GraphOperation {
+    	@Override
+        public Resource[] getContexts() {
+    		IRI graph = getGraph();
+        	return (graph != null) ? new Resource[] {graph} : isDefaultGraph() ? new Resource[] {null} : new Resource[0];
+        }
     }
 
 
