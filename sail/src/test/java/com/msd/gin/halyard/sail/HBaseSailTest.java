@@ -276,7 +276,7 @@ public class HBaseSailTest {
 		try (SailConnection conn = sail.getConnection()) {
 			conn.begin();
             conn.addStatement(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, vf.createIRI("http://whatever/ctx"), HALYARD.STATS_GRAPH_CONTEXT);
-            try (CloseableIteration<? extends Resource, SailException> ctxIt = conn.getContextIDs()) {
+			try (CloseableIteration<? extends Resource> ctxIt = conn.getContextIDs()) {
                 assertTrue(ctxIt.hasNext());
                 assertEquals("http://whatever/ctx", ctxIt.next().stringValue());
             }
@@ -485,7 +485,7 @@ public class HBaseSailTest {
 
 	private static int countNamespaces(SailConnection conn) {
     	int count ;
-    	try (CloseableIteration<? extends Namespace, SailException> iter = conn.getNamespaces()) {
+		try (CloseableIteration<? extends Namespace> iter = conn.getNamespaces()) {
     		for(count=0; iter.hasNext(); iter.next()) {
     			count++;
     		}
@@ -507,18 +507,18 @@ public class HBaseSailTest {
 			conn.begin();
 	        conn.addStatement(subj, pred, obj, context);
 	        conn.addStatement(subj, pred, obj);
-			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(subj, pred, obj, true)) {
+			try (CloseableIteration<? extends Statement> iter = conn.getStatements(subj, pred, obj, true)) {
 				assertTrue(iter.hasNext());
 			}
 	        conn.clear(context);
-			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(subj, pred, obj, true)) {
+			try (CloseableIteration<? extends Statement> iter = conn.getStatements(subj, pred, obj, true)) {
 				assertTrue(iter.hasNext());
 			}
-			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(subj, pred, obj, true, context)) {
+			try (CloseableIteration<? extends Statement> iter = conn.getStatements(subj, pred, obj, true, context)) {
 				assertFalse(iter.hasNext());
 			}
 	        conn.clear();
-			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(subj, pred, obj, true)) {
+			try (CloseableIteration<? extends Statement> iter = conn.getStatements(subj, pred, obj, true)) {
 				assertFalse(iter.hasNext());
 			}
 			conn.commit();
@@ -882,7 +882,7 @@ public class HBaseSailTest {
         try {
 			try (SailConnection conn = sail.getConnection()) {
 				conn.begin();
-				try (CloseableIteration<? extends Statement, SailException> it = conn.getStatements(null, null, null,
+				try (CloseableIteration<? extends Statement> it = conn.getStatements(null, null, null,
 						true)) {
 					Thread.sleep(2000);
 					it.hasNext();
@@ -1053,7 +1053,7 @@ public class HBaseSailTest {
 		sail.init();
 		try (SailConnection conn = sail.getConnection()) {
 			conn.begin();
-			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, false)) {
+			try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, false)) {
 				assertTrue(iter.hasNext());
 			}
 			conn.commit();
@@ -1067,7 +1067,7 @@ public class HBaseSailTest {
 
 	private static void assertCount(SailConnection conn, int expected) throws Exception {
 		int count = 0;
-		try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
+		try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true)) {
 			while (iter.hasNext()) {
 				iter.next();
 				count++;
@@ -1078,7 +1078,7 @@ public class HBaseSailTest {
 
 	private static void assertTripleCount(SailConnection conn, int expected) throws Exception {
 		int count = 0;
-		try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true, HALYARD.TRIPLE_GRAPH_CONTEXT)) {
+		try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true, HALYARD.TRIPLE_GRAPH_CONTEXT)) {
 			while (iter.hasNext()) {
 				iter.next();
 				count++;

@@ -36,7 +36,7 @@ public class PushOnlyMockSail extends MemoryStore implements BindingSetConsumerS
 		}
 
 		@Override
-		public CloseableIteration<BindingSet,QueryEvaluationException> evaluate(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred) throws SailException {
+		public CloseableIteration<BindingSet> evaluate(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred) throws SailException {
 			throw new UnsupportedOperationException();
 		}
 

@@ -42,7 +42,7 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
         	private int forkIndex = StatementIndices.NO_PARTITIONING;
 
         	@Override
-        	protected CloseableIteration<? extends BindingSet, QueryEvaluationException> evaluateInternal(TupleExpr tupleExpr,
+        	protected CloseableIteration<? extends BindingSet> evaluateInternal(TupleExpr tupleExpr,
         			Dataset dataset, BindingSet bindings, boolean includeInferred) throws SailException {
         		forkIndex = Literals.getIntValue(bindings.getValue(FORK_INDEX_BINDING), StatementIndices.NO_PARTITIONING);
         		return super.evaluateInternal(tupleExpr, dataset, bindings, includeInferred);
@@ -83,7 +83,7 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
         }
 
         @Override
-        public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
+        public CloseableIteration<? extends Statement> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
         	Assert.fail("Non-optimal strategy");
         	return null;
         }
@@ -94,7 +94,7 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
         }
 
 		@Override
-		public CloseableIteration<? extends Triple, QueryEvaluationException> getRdfStarTriples(Resource subj, IRI pred, Value obj) throws QueryEvaluationException {
+		public CloseableIteration<? extends Triple> getRdfStarTriples(Resource subj, IRI pred, Value obj) throws QueryEvaluationException {
 			return ((RDFStarTripleSource)tripleSource).getRdfStarTriples(subj, pred, obj);
 		}
 
@@ -102,8 +102,8 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
 		public TripleSource partition(TermRole role, PartitionedIndex partitionedIndex, ValueConstraint constraint) {
 			return new TripleSource() {
 		        @Override
-		        public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
-		            return new FilterIteration<Statement, QueryEvaluationException>(tripleSource.getStatements(subj, pred, obj, contexts)){
+		        public CloseableIteration<? extends Statement> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
+		            return new FilterIteration<Statement>(tripleSource.getStatements(subj, pred, obj, contexts)){
 		                @Override
 		                protected boolean accept(Statement stmt) throws QueryEvaluationException {
 		                	Value v = role.getValue(stmt);
@@ -111,6 +111,10 @@ class MockSailWithConstraintsStrategy extends MemoryStore {
 		                    return (partitionIndex == StatementIndices.NO_PARTITIONING || partitionCount == 0 || Math.floorMod(v.hashCode(), partitionCount) == partitionIndex)
 		                    	&& (constraint == null || constraint.test(v));
 		                }
+
+						@Override
+						protected void handleClose() {
+						}
 		            };
 		        }
 

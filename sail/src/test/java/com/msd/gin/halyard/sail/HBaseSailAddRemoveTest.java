@@ -28,7 +28,6 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.sail.SailConnection;
-import org.eclipse.rdf4j.sail.SailException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -92,7 +91,7 @@ public class HBaseSailAddRemoveTest {
 			conn.begin();
 			conn.addStatement(SUBJ, PRED, OBJ);
 			conn.addStatement(SUBJ, PRED, OBJ, CONTEXT);
-			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
+			try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true)) {
 				assertTrue(iter.hasNext());
 				iter.next();
 				assertTrue(iter.hasNext());
@@ -102,7 +101,7 @@ public class HBaseSailAddRemoveTest {
 				assertEquals(OBJ, st.getObject());
 				assertFalse(iter.hasNext());
 			}
-			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true, CONTEXT)) {
+			try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true, CONTEXT)) {
 				assertTrue(iter.hasNext());
 				Statement st = iter.next();
 				assertEquals(SUBJ, st.getSubject());
@@ -112,11 +111,11 @@ public class HBaseSailAddRemoveTest {
 				assertFalse(iter.hasNext());
 			}
 			conn.removeStatements(subj, pred, obj, CONTEXT);
-			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
+			try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true)) {
 				assertTrue(iter.hasNext());
 			}
 			conn.removeStatements(subj, pred, obj);
-			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
+			try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true)) {
 				assertFalse(iter.hasNext());
 			}
 			conn.commit();

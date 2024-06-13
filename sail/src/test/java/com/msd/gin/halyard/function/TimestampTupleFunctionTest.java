@@ -34,10 +34,10 @@ public class TimestampTupleFunctionTest {
 					private final TimestampedValueFactory tsvf = new TimestampedValueFactory(stmtIndices.getRDFFactory());
 
 					@Override
-					public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
+					public CloseableIteration<? extends Statement> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
 						Statement stmt = getValueFactory().createStatement(subj, pred, obj);
 						((Timestamped) stmt).setTimestamp(ts);
-						return new SingletonIteration<Statement, QueryEvaluationException>(stmt);
+						return new SingletonIteration<Statement>(stmt);
 					}
 
 					@Override
@@ -57,7 +57,7 @@ public class TimestampTupleFunctionTest {
 		Resource subj = vf.createBNode();
 		IRI pred = vf.createIRI(":prop");
 		Value obj = vf.createBNode();
-		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter = new TimestampTupleFunction().evaluate(tripleSource, subj, pred, obj);
+		CloseableIteration<? extends List<? extends Value>> iter = new TimestampTupleFunction().evaluate(tripleSource, subj, pred, obj);
 		assertTrue(iter.hasNext());
 		List<? extends Value> bindings = iter.next();
 		assertEquals(1, bindings.size());
@@ -74,7 +74,7 @@ public class TimestampTupleFunctionTest {
 		Resource subj = vf.createBNode();
 		IRI pred = vf.createIRI(":prop");
 		Value obj = vf.createBNode();
-		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter = new TimestampTupleFunction().evaluate(tripleSource, vf.createTriple(subj, pred, obj));
+		CloseableIteration<? extends List<? extends Value>> iter = new TimestampTupleFunction().evaluate(tripleSource, vf.createTriple(subj, pred, obj));
 		assertTrue(iter.hasNext());
 		List<? extends Value> bindings = iter.next();
 		assertEquals(1, bindings.size());

@@ -202,7 +202,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 	void pullPushAsync(BindingSetPipe pipe,
 			QueryEvaluationStep evalStep,
 			TupleExpr node, BindingSet bs,
-			Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
+			Function<CloseableIteration<BindingSet>,CloseableIteration<BindingSet>> trackerFactory) {
 		BindingSetPipe childPipe = new CountingBindingSetPipe(pipe, incomingBindingsCount);
 		pullPusher.pullPush(childPipe, evalStep, node, bs, trackerFactory);
     }
@@ -214,7 +214,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
      * @param bs binding set
      * @return iteration of binding sets to pull from.
      */
-	CloseableIteration<BindingSet, QueryEvaluationException> pushPullAsync(BindingSetPipeEvaluationStep evalStep, TupleExpr node, BindingSet bs) {
+	CloseableIteration<BindingSet> pushPullAsync(BindingSetPipeEvaluationStep evalStep, TupleExpr node, BindingSet bs) {
         QueueingBindingSetPipe pipe = new QueueingBindingSetPipe(maxQueueSize, offerTimeoutMillis, TimeUnit.MILLISECONDS);
         BindingSetPipe childPipe = new CountingBindingSetPipe(pipe, outgoingBindingsCount);
         Thread thr = new Thread(new PipeAndQueueTask(childPipe, evalStep, bs));
@@ -319,7 +319,7 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
     /**
      * Used by client to pull data.
      */
-    final class BindingSetPipeIteration extends LookAheadIteration<BindingSet, QueryEvaluationException> {
+    final class BindingSetPipeIteration extends LookAheadIteration<BindingSet> {
     	final Deque<BindingSet> lookAheadBuffer = new ArrayDeque<>(maxQueueSize);
     	final QueueingBindingSetPipe pipe;
     	boolean hasMore = true;
@@ -340,7 +340,6 @@ public final class HalyardEvaluationExecutor implements HalyardEvaluationExecuto
 
         @Override
         protected void handleClose() throws QueryEvaluationException {
-            super.handleClose();
             pipe.close();
         }
 

@@ -20,12 +20,12 @@ import com.msd.gin.halyard.common.ByteUtils;
 import com.msd.gin.halyard.common.HalyardTableUtils;
 import com.msd.gin.halyard.common.Hashes;
 import com.msd.gin.halyard.common.Hashes.HashFunction;
-import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.RDFPredicate;
 import com.msd.gin.halyard.common.RDFSubject;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.sail.HBaseSail;
 
 import java.io.ByteArrayInputStream;
@@ -82,7 +82,6 @@ import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.sail.SailConnection;
-import org.eclipse.rdf4j.sail.SailException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -349,7 +348,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
                 writer.handleNamespace(XSD.PREFIX, XSD.NAMESPACE);
                 writer.handleNamespace(RDF.PREFIX, RDF.NAMESPACE);
                 writer.handleNamespace(RDFS.PREFIX, RDFS.NAMESPACE);
-				try (CloseableIteration<? extends Namespace, SailException> iter = conn.getNamespaces()) {
+				try (CloseableIteration<? extends Namespace> iter = conn.getNamespaces()) {
                     while (iter.hasNext()) {
                         Namespace ns = iter.next();
                         writer.handleNamespace(ns.getPrefix(), ns.getName());
@@ -367,7 +366,7 @@ public final class HalyardSummary extends AbstractHalyardTool {
 
         private void copyDescription(Resource subject) throws IOException {
             Statement dedup = null;
-			try (CloseableIteration<? extends Statement, SailException> it = conn.getStatements(subject, null, null, true)) {
+			try (CloseableIteration<? extends Statement> it = conn.getStatements(subject, null, null, true)) {
                 while (it.hasNext()) {
                     Statement st = it.next();
                     if (!st.getPredicate().stringValue().startsWith(FILTER_NAMESPACE_PREFIX)) {

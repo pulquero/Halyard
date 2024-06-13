@@ -61,7 +61,7 @@ public class SelectTupleFunction extends AbstractSpinFunction implements Extende
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
+	public CloseableIteration<? extends List<? extends Value>> evaluate(
 			TripleSource tripleSource, Value... args) throws QueryEvaluationException {
 		if (args.length == 0 || !(args[0] instanceof Resource)) {
 			throw new QueryEvaluationException("First argument must be a resource");
@@ -98,7 +98,7 @@ public class SelectTupleFunction extends AbstractSpinFunction implements Extende
 		}
 	}
 
-	static class TupleQueryResultIteration extends AbstractCloseableIteration<List<Value>, QueryEvaluationException> {
+	static class TupleQueryResultIteration extends AbstractCloseableIteration<List<Value>> {
 		private final QueryPreparer qp;
 
 		private final TupleQueryResult queryResult;
@@ -155,13 +155,9 @@ public class SelectTupleFunction extends AbstractSpinFunction implements Extende
 		}
 
 		@Override
-		public void handleClose() throws QueryEvaluationException {
+		protected void handleClose() throws QueryEvaluationException {
 			try {
-				try {
-					super.handleClose();
-				} finally {
-					queryResult.close();
-				}
+				queryResult.close();
 			} finally {
 				qp.close();
 			}

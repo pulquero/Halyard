@@ -27,9 +27,7 @@ import org.eclipse.rdf4j.repository.sail.SailRepository;
 public class HalyardSPARQLUpdateTest extends SPARQLUpdateTest {
 
 	@Override
-	protected Repository newRepository()
-		throws Exception
-	{
+	protected Repository newRepository() {
 		return new SailRepository(new MockSailWithHalyardStrategy());
 	}
 

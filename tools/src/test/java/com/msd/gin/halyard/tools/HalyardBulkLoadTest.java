@@ -35,7 +35,6 @@ import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.sail.SailConnection;
-import org.eclipse.rdf4j.sail.SailException;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -185,7 +184,7 @@ public class HalyardBulkLoadTest extends AbstractHalyardToolTest {
         HBaseSail sail = new HBaseSail(HBaseServerTestInstance.getInstanceConfig(), "bulkLoadTable3", false, 0, true, 30, null, null);
         sail.init();
 		try (SailConnection conn = sail.getConnection()) {
-			CloseableIteration<? extends Statement,? extends SailException> iter = conn.getStatements(null, null, null, false);
+			CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, false);
 			assertTrue(iter.hasNext());
 			Statement stmt = iter.next();
 			assertFalse(iter.hasNext());

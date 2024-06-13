@@ -39,7 +39,7 @@ public class WithinDistanceTupleFunction implements ExtendedTupleFunction {
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(TripleSource tripleSource, Value... args) throws QueryEvaluationException {
+	public CloseableIteration<? extends List<? extends Value>> evaluate(TripleSource tripleSource, Value... args) throws QueryEvaluationException {
 		if (!(tripleSource instanceof HBaseSearchTripleSource)) {
 			throw new QueryEvaluationException("Search index not configured");
 		}
@@ -98,8 +98,8 @@ public class WithinDistanceTupleFunction implements ExtendedTupleFunction {
 
 		try {
 			SearchResponse<? extends SearchDocument> searchResults = searchClient.search(fromCoord.getY(), fromCoord.getX(), esDistLimit, esUnits);
-			return new ConvertingIteration<Hit<? extends SearchDocument>, List<Value>, QueryEvaluationException>(
-					new CloseableIteratorIteration<Hit<? extends SearchDocument>, QueryEvaluationException>(searchResults.hits().hits().iterator())) {
+			return new ConvertingIteration<Hit<? extends SearchDocument>, List<Value>>(
+					new CloseableIteratorIteration<Hit<? extends SearchDocument>>(searchResults.hits().hits().iterator())) {
 				@Override
 				protected List<Value> convert(Hit<? extends SearchDocument> doc) throws QueryEvaluationException {
 					Literal to = (Literal) doc.source().createValue(valueFactory, rdfFactory);

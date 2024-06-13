@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.mapdb.DB;
-import org.mapdb.DB.HTreeMapMaker;
+import org.mapdb.DB.HashMapMaker;
 import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
 
@@ -102,15 +102,15 @@ public class BigHashMap<K extends Serializable, V extends Serializable> implemen
     	if (ref.getRight() != null) {
     		throw new IllegalStateException();
     	}
-    	DB db = DBMaker.newTempFileDB().deleteFilesAfterClose().closeOnJvmShutdown().mmapFileEnableIfSupported().transactionDisable().asyncWriteEnable().make();
-    	HTreeMapMaker mapMaker = db.createHashMap(MAP_NAME);
+    	DB db = DBMaker.tempFileDB().fileDeleteAfterClose().closeOnJvmShutdown().fileMmapEnableIfSupported().make();
+    	HashMapMaker mapMaker = db.hashMap(MAP_NAME);
     	if (keySerializer != null) {
     		mapMaker = mapMaker.keySerializer(keySerializer);
     	}
     	if (valueSerializer != null) {
     		mapMaker = mapMaker.valueSerializer(valueSerializer);
     	}
-        Map<K, V> map = mapMaker.make();
+        Map<K, V> map = mapMaker.create();
         map.putAll(ref.getLeft());
         return Pair.of(map, db);
     }

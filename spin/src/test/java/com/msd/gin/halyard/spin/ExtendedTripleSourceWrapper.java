@@ -35,7 +35,7 @@ class ExtendedTripleSourceWrapper implements ExtendedTripleSource, CloseableTrip
 	}
 
 	@Override
-	public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
+	public CloseableIteration<? extends Statement> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
 		return delegate.getStatements(subj, pred, obj, contexts);
 	}
 

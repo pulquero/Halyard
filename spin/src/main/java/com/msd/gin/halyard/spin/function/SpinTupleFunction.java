@@ -69,10 +69,10 @@ public class SpinTupleFunction extends AbstractSpinFunction implements Transient
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
+	public CloseableIteration<? extends List<? extends Value>> evaluate(
 			TripleSource tripleSource, Value... args) throws QueryEvaluationException {
 		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
-		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter;
+		CloseableIteration<? extends List<? extends Value>> iter;
 		if (parsedQuery instanceof ParsedBooleanQuery) {
 			ParsedBooleanQuery askQuery = (ParsedBooleanQuery) parsedQuery;
 			Value result;

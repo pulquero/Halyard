@@ -1,13 +1,12 @@
 package com.msd.gin.halyard.sail;
 
-import com.msd.gin.halyard.query.BindingSetPipe;
-
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.sail.SailConnection;
+
+import com.msd.gin.halyard.query.BindingSetPipe;
 
 public interface BindingSetPipeSailConnection extends SailConnection {
 	default void evaluate(BindingSetPipe pipe, final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) {
@@ -21,7 +20,7 @@ public interface BindingSetPipeSailConnection extends SailConnection {
 	 * @param pipe the pipe to push to
 	 * @return true if the pipe can accept more binding sets
 	 */
-	static boolean report(CloseableIteration<? extends BindingSet, QueryEvaluationException> iter, BindingSetPipe pipe) {
+	static boolean report(CloseableIteration<? extends BindingSet> iter, BindingSetPipe pipe) {
 		while (iter.hasNext()) {
 			if (!pipe.push(iter.next())) {
 				return false;

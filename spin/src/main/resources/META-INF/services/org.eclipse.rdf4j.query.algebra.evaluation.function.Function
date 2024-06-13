@@ -42,3 +42,5 @@ com.msd.gin.halyard.spin.function.spif.UpperCase
 com.msd.gin.halyard.spin.function.spif.LowerCase
 com.msd.gin.halyard.spin.function.spif.TitleCase
 com.msd.gin.halyard.spin.function.spif.LowerTitleCase
+# halyard
+com.msd.gin.halyard.spin.function.halyard.Like

@@ -16,7 +16,6 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
@@ -30,7 +29,7 @@ public class IdentifierTupleFunction implements ExtendedTupleFunction {
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(TripleSource tripleSource,
+	public CloseableIteration<? extends List<? extends Value>> evaluate(TripleSource tripleSource,
 			Value... args)
 		throws ValueExprEvaluationException
 	{

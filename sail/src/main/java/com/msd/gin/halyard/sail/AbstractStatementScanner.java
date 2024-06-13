@@ -5,9 +5,7 @@ import com.msd.gin.halyard.common.RDFObject;
 import com.msd.gin.halyard.common.RDFPredicate;
 import com.msd.gin.halyard.common.RDFSubject;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.common.ValueIO;
 
-import java.io.IOException;
 import java.util.NoSuchElementException;
 
 import org.apache.hadoop.hbase.client.Result;
@@ -15,7 +13,7 @@ import org.eclipse.rdf4j.common.iteration.AbstractCloseableIteration;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.ValueFactory;
 
-public abstract class AbstractStatementScanner extends AbstractCloseableIteration<Statement, IOException> {
+public abstract class AbstractStatementScanner extends AbstractCloseableIteration<Statement> {
 	protected final StatementIndices indices;
 	protected final ValueFactory vf;
 	protected RDFSubject subj;
@@ -32,10 +30,10 @@ public abstract class AbstractStatementScanner extends AbstractCloseableIteratio
 		this.vf = vf;
 	}
 
-	protected abstract Result nextResult() throws IOException;
+	protected abstract Result nextResult();
 
 	@Override
-	public final boolean hasNext() throws IOException {
+	public final boolean hasNext() {
 		if (next == null) {
 			while (true) {
 				if (stmts == null) {
@@ -59,7 +57,7 @@ public abstract class AbstractStatementScanner extends AbstractCloseableIteratio
 	}
 
 	@Override
-	public final Statement next() throws IOException {
+	public final Statement next() {
 		if (!hasNext()) {
 			throw new NoSuchElementException();
 		}

@@ -33,9 +33,4 @@ public class HalyardStrategyServiceTest {
     public void testGetService() {
         assertNotNull(new HalyardEvaluationStrategy(new Configuration(), new EmptyTripleSource(), null, new SPARQLServiceResolver(), null).getService("http://whatever/endpoint"));
     }
-
-    @Test(expected = UnsupportedOperationException.class)
-    public void testServiceEvaluateFail() {
-        new HalyardEvaluationStrategy(new Configuration(), new EmptyTripleSource(), null, null, null).evaluate(null, null, null);
-    }
 }

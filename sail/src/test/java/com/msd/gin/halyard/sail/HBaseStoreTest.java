@@ -29,6 +29,6 @@ public class HBaseStoreTest extends RDFStoreTest {
 	@Override
 	@Test
 	@Ignore // we return the canonical value
-	public void testTimeZoneRoundTrip() throws Exception {
+	public void testTimeZoneRoundTrip() {
 	}
 }

@@ -23,7 +23,7 @@ public class FromTuple extends AbstractSpinFunction implements ExtendedTupleFunc
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
+	public CloseableIteration<? extends List<? extends Value>> evaluate(
 			TripleSource tripleSource, Value... args) throws QueryEvaluationException {
 		if (args.length != 1 || !TupleLiteral.isTupleLiteral(args[0])) {
 			throw new ValueExprEvaluationException(String.format("%s requires a tuple", getURI()));

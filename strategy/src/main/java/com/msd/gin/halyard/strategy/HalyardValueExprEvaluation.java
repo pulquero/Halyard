@@ -29,7 +29,6 @@ import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -78,7 +77,6 @@ import org.eclipse.rdf4j.query.algebra.IsURI;
 import org.eclipse.rdf4j.query.algebra.Label;
 import org.eclipse.rdf4j.query.algebra.Lang;
 import org.eclipse.rdf4j.query.algebra.LangMatches;
-import org.eclipse.rdf4j.query.algebra.Like;
 import org.eclipse.rdf4j.query.algebra.ListMemberOperator;
 import org.eclipse.rdf4j.query.algebra.LocalName;
 import org.eclipse.rdf4j.query.algebra.MathExpr;
@@ -233,8 +231,6 @@ class HalyardValueExprEvaluation {
             return precompileRegex((Regex) expr, evalContext);
         } else if (expr instanceof Coalesce) {
             return precompileCoalesce((Coalesce) expr, evalContext);
-        } else if (expr instanceof Like) {
-            return precompileLike((Like) expr, evalContext);
         } else if (expr instanceof FunctionCall) {
             return precompileFunctionCall((FunctionCall) expr, evalContext);
         } else if (expr instanceof And) {
@@ -776,82 +772,6 @@ class HalyardValueExprEvaluation {
 	    		};
 	    		langTagStep.evaluate(new MultiValuePipe(parent, args, v -> langTagRef.set(v), resultSupplier), bindings);
 	    		langRangeStep.evaluate(new MultiValuePipe(parent, args, v -> langRangeRef.set(v), resultSupplier), bindings);
-	    	};
-    	}, evalContext);
-    }
-
-    /**
-     * Determines whether the two operands match according to the <code>like</code> operator. The operator is defined as a string comparison with the possible
-     * use of an asterisk (*) at the end and/or the start of the second operand to indicate substring matching.
-     */
-    private ValuePipeEvaluationStep precompileLike(Like node, QueryEvaluationContext evalContext) throws ValueExprEvaluationException, QueryEvaluationException {
-    	return precompileUnaryValueOperator(node, step -> {
-	    	return (parent, bindings) -> {
-	    		step.evaluate(new ConvertingValuePipe(parent, val -> {
-			        String strVal;
-			        if (val.isIRI()) {
-			            strVal = ((IRI) val).stringValue();
-			        } else if (val.isLiteral()) {
-			            strVal = ((Literal) val).getLabel();
-			        } else {
-			            return ValueOrError.fail("Like");
-			        }
-			        if (!node.isCaseSensitive()) {
-			            // Convert strVal to lower case, just like the pattern has been done
-			            strVal = strVal.toLowerCase(Locale.ROOT);
-			        }
-			        int valIndex = 0;
-			        int prevPatternIndex = -1;
-			        int patternIndex = node.getOpPattern().indexOf('*');
-			        if (patternIndex == -1) {
-			            // No wildcards
-			            return ok(node.getOpPattern().equals(strVal));
-			        }
-			        String snippet;
-			        if (patternIndex > 0) {
-			            // Pattern does not start with a wildcard, first part must match
-			            snippet = node.getOpPattern().substring(0, patternIndex);
-			            if (!strVal.startsWith(snippet)) {
-			                return OK_FALSE;
-			            }
-			            valIndex += snippet.length();
-			            prevPatternIndex = patternIndex;
-			            patternIndex = node.getOpPattern().indexOf('*', patternIndex + 1);
-			        }
-			        while (patternIndex != -1) {
-			            // Get snippet between previous wildcard and this wildcard
-			            snippet = node.getOpPattern().substring(prevPatternIndex + 1, patternIndex);
-			            // Search for the snippet in the value
-			            valIndex = strVal.indexOf(snippet, valIndex);
-			            if (valIndex == -1) {
-			                return OK_FALSE;
-			            }
-			            valIndex += snippet.length();
-			            prevPatternIndex = patternIndex;
-			            patternIndex = node.getOpPattern().indexOf('*', patternIndex + 1);
-			        }
-			        // Part after last wildcard
-			        snippet = node.getOpPattern().substring(prevPatternIndex + 1);
-			        if (snippet.length() > 0) {
-			            // Pattern does not end with a wildcard.
-			            // Search last occurence of the snippet.
-			            valIndex = strVal.indexOf(snippet, valIndex);
-			            int i;
-			            while ((i = strVal.indexOf(snippet, valIndex + 1)) != -1) {
-			                // A later occurence was found.
-			                valIndex = i;
-			            }
-			            if (valIndex == -1) {
-			                return OK_FALSE;
-			            }
-			            valIndex += snippet.length();
-			            if (valIndex < strVal.length()) {
-			                // Some characters were not matched
-			                return OK_FALSE;
-			            }
-			        }
-	                return OK_FALSE;
-	    		}), bindings);
 	    	};
     	}, evalContext);
     }

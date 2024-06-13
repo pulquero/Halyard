@@ -44,7 +44,7 @@ public class SailConnectionBooleanQuery extends SailConnectionQuery implements B
 		try {
 			SailConnection sailCon = getSailConnection();
 
-			CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter;
+			CloseableIteration<? extends BindingSet> bindingsIter;
 			bindingsIter = sailCon.evaluate(tupleExpr, dataset, getBindings(), getIncludeInferred());
 
 			bindingsIter = enforceMaxQueryTime(bindingsIter);

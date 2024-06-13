@@ -34,7 +34,6 @@ import org.eclipse.rdf4j.model.impl.LinkedHashModel;
 import org.eclipse.rdf4j.model.impl.LinkedHashModelFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.sail.SailConnection;
-import org.eclipse.rdf4j.sail.SailException;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -93,11 +92,11 @@ public class HalyardBulkUpdateTest extends AbstractHalyardToolTest {
         ValueFactory vf = sail.getValueFactory();
         try {
 			try (SailConnection conn = sail.getConnection()) {
-				try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, vf.createIRI("http://whatever/pred"), null, true)) {
+				try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, vf.createIRI("http://whatever/pred"), null, true)) {
 					Assert.assertFalse(iter.hasNext());
 				}
 				int count;
-				try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
+				try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true)) {
 					count = 0;
 					while (iter.hasNext()) {
 						iter.next();
@@ -131,11 +130,11 @@ public class HalyardBulkUpdateTest extends AbstractHalyardToolTest {
         ValueFactory vf = sail.getValueFactory();
         try {
 			try (SailConnection conn = sail.getConnection()) {
-				try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, vf.createIRI("http://whatever/pred"), null, true)) {
+				try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, vf.createIRI("http://whatever/pred"), null, true)) {
 					Assert.assertFalse(iter.hasNext());
 				}
 				int count;
-				try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true)) {
+				try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true)) {
 					count = 0;
 					while (iter.hasNext()) {
 						iter.next();
@@ -311,7 +310,7 @@ public class HalyardBulkUpdateTest extends AbstractHalyardToolTest {
         sail.init();
         try {
 			try (SailConnection conn = sail.getConnection()) {
-				try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true, targetGraph)) {
+				try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true, targetGraph)) {
 					while (iter.hasNext()) {
 						resultModel.add(iter.next());
 					}

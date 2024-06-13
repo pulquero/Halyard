@@ -45,7 +45,7 @@ public class SailConnectionTupleQuery extends SailConnectionQuery implements Tup
 		TupleExpr tupleExpr = getParsedQuery().getTupleExpr();
 
 		try {
-			CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter;
+			CloseableIteration<? extends BindingSet> bindingsIter;
 
 			SailConnection sailCon = getSailConnection();
 			bindingsIter = sailCon.evaluate(tupleExpr, getActiveDataset(), getBindings(), getIncludeInferred());

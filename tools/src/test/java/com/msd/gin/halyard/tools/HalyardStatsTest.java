@@ -56,7 +56,6 @@ import org.eclipse.rdf4j.rio.helpers.BasicWriterSettings;
 import org.eclipse.rdf4j.rio.helpers.ParseErrorLogger;
 import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.SailConnection;
-import org.eclipse.rdf4j.sail.SailException;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -198,7 +197,7 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 		// verify with golden file
 		try (SailConnection conn = sail.getConnection()) {
 			Set<Statement> statsM = new HashSet<>();
-			try (CloseableIteration<? extends Statement, SailException> it = conn.getStatements(null, null, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
+			try (CloseableIteration<? extends Statement> it = conn.getStatements(null, null, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
 				while (it.hasNext()) {
 					statsM.add(it.next());
 				}
@@ -219,7 +218,7 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 		// verify with golden file
 		try (SailConnection conn = sail.getConnection()) {
 			Set<Statement> statsM = new HashSet<>();
-			try (CloseableIteration<? extends Statement, SailException> it = conn.getStatements(null, null, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
+			try (CloseableIteration<? extends Statement> it = conn.getStatements(null, null, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
 				while (it.hasNext()) {
 					statsM.add(it.next());
 				}
@@ -244,7 +243,7 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 		// verify with golden file
 		try (SailConnection conn = sail.getConnection()) {
 			Set<Statement> statsM = new HashSet<>();
-			try (CloseableIteration<? extends Statement, SailException> it = conn.getStatements(null, null, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
+			try (CloseableIteration<? extends Statement> it = conn.getStatements(null, null, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
 				while (it.hasNext()) {
 					statsM.add(it.next());
 				}
@@ -266,7 +265,7 @@ public class HalyardStatsTest extends AbstractHalyardToolTest {
 		// verify with golden file
 		try (SailConnection conn = sail.getConnection()) {
 			Set<Statement> statsM = new HashSet<>();
-			try (CloseableIteration<? extends Statement, SailException> it = conn.getStatements(null, null, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
+			try (CloseableIteration<? extends Statement> it = conn.getStatements(null, null, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
 				while (it.hasNext()) {
 					statsM.add(it.next());
 				}

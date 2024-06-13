@@ -161,7 +161,7 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
 				public HBaseSailConnection createConnection(HBaseSail sail) throws IOException {
 					HBaseSailConnection conn = new HBaseSailConnection(sail) {
 						@Override
-						protected CloseableIteration<BindingSet, QueryEvaluationException> evaluateInternal(TupleExpr tupleExpr, QueryEvaluationStep step) throws QueryEvaluationException {
+						protected CloseableIteration<BindingSet> evaluateInternal(TupleExpr tupleExpr, QueryEvaluationStep step) throws QueryEvaluationException {
 							HalyardEvaluationStatistics stats = sail.getStatistics();
 							final double estimate = stats.getCardinality(tupleExpr);
 							tupleExpr.setResultSizeEstimate(estimate);

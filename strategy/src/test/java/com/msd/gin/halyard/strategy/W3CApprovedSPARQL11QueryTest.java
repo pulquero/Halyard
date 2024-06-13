@@ -16,22 +16,16 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import org.eclipse.rdf4j.query.Dataset;
-import org.eclipse.rdf4j.testsuite.query.parser.sparql.manifest.SPARQL11QueryComplianceTest;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.dataset.DatasetRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
+import org.eclipse.rdf4j.testsuite.query.parser.sparql.manifest.SPARQL11QueryComplianceTest;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
 public class W3CApprovedSPARQL11QueryTest extends SPARQL11QueryComplianceTest {
-
-    public W3CApprovedSPARQL11QueryTest(String displayName, String testURI, String name, String queryFileURL,
-			String resultFileURL, Dataset dataset, boolean ordered, boolean laxCardinality) {
-		super(displayName, testURI, name, queryFileURL, resultFileURL, dataset, ordered, laxCardinality);
-    }
 
     @Override
     protected Repository newRepository() {

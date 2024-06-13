@@ -37,7 +37,6 @@ import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.sail.SailConnection;
-import org.eclipse.rdf4j.sail.SailException;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -140,7 +139,7 @@ public class HalyardBulkDeleteTest extends AbstractHalyardToolTest {
         try {
 			try (SailConnection conn = sail.getConnection()) {
 				List<Statement> stmts = new ArrayList<>();
-				try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true, ctxs)) {
+				try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true, ctxs)) {
 					while (iter.hasNext()) {
 						Statement stmt = iter.next();
 						stmts.add(stmt);
@@ -159,7 +158,7 @@ public class HalyardBulkDeleteTest extends AbstractHalyardToolTest {
         try {
 			try (SailConnection conn = sail.getConnection()) {
 				List<Statement> stmts = new ArrayList<>();
-				try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, null, null, true, HALYARD.TRIPLE_GRAPH_CONTEXT)) {
+				try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true, HALYARD.TRIPLE_GRAPH_CONTEXT)) {
 					while (iter.hasNext()) {
 						Statement stmt = iter.next();
 						stmts.add(stmt);

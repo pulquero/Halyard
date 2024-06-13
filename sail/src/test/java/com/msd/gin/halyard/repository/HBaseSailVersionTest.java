@@ -47,7 +47,6 @@ import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -350,7 +349,7 @@ public class HBaseSailVersionTest {
         LinkedHashModel resultModel = new LinkedHashModelFactory().createEmptyModel();
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.begin();
-			try (CloseableIteration<? extends Statement, RepositoryException> iter = conn.getStatements(null, null, null, true, targetGraph)) {
+			try (CloseableIteration<? extends Statement> iter = conn.getStatements(null, null, null, true, targetGraph)) {
 				while (iter.hasNext()) {
 					Statement stmt = iter.next();
 					resultModel.add(stmt);

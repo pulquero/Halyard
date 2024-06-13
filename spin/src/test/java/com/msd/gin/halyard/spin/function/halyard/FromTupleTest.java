@@ -21,7 +21,7 @@ public class FromTupleTest {
 		TripleSource ts = new EmptyTripleSource();
 		ValueFactory vf = ts.getValueFactory();
 		TupleLiteral v = new TupleLiteral(vf.createLiteral("foo"), vf.createLiteral("bar"));
-		try(CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter = new FromTuple().evaluate(ts, v)) {
+		try(CloseableIteration<? extends List<? extends Value>> iter = new FromTuple().evaluate(ts, v)) {
 			List<? extends Value> actual = iter.next();
 			assertEquals(Arrays.asList(v.objectValue()), actual);
 		}

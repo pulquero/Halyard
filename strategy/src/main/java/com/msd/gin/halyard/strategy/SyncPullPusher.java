@@ -18,7 +18,7 @@ final class SyncPullPusher implements PullPusher {
 	public void pullPush(BindingSetPipe pipe,
 			QueryEvaluationStep evalStep,
 			TupleExpr node, BindingSet bs,
-			Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
+			Function<CloseableIteration<BindingSet>,CloseableIteration<BindingSet>> trackerFactory) {
 		active.incrementAndGet();
 		try {
 			pullPushAll(pipe, evalStep, node, bs, trackerFactory);
@@ -44,10 +44,10 @@ final class SyncPullPusher implements PullPusher {
 	static void pullPushAll(BindingSetPipe pipe,
 			QueryEvaluationStep evalStep,
 			TupleExpr expr, BindingSet bindingSet,
-			Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
+			Function<CloseableIteration<BindingSet>,CloseableIteration<BindingSet>> trackerFactory) {
 		if (!pipe.isClosed()) {
 			try {
-				CloseableIteration<BindingSet, QueryEvaluationException> iter = trackerFactory.apply(evalStep.evaluate(bindingSet));
+				CloseableIteration<BindingSet> iter = trackerFactory.apply(evalStep.evaluate(bindingSet));
 				boolean doNext = true;
 				while (doNext && !pipe.isClosed()) {
 		    		try {

@@ -25,9 +25,9 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 
 import org.mapdb.DB;
-import org.mapdb.DB.BTreeMapMaker;
+import org.mapdb.DB.TreeMapMaker;
 import org.mapdb.DBMaker;
-import org.mapdb.Serializer;
+import org.mapdb.serializer.GroupSerializer;
 
 /**
  * Sorter does not preserve unique instances. All equal instances are mapped to a single instance.
@@ -40,7 +40,7 @@ public class Sorter<E extends Comparable<E> & Serializable> implements Iterable<
     private static final String MAP_NAME = "temp";
 
     private final int memoryThreshold;
-    private final Serializer<E> serializer;
+    private final GroupSerializer<E> serializer;
     private NavigableMap<E, Long> map;
     private DB db;
     private final long limit;
@@ -54,7 +54,7 @@ public class Sorter<E extends Comparable<E> & Serializable> implements Iterable<
      * @param memoryThreshold memory usage threshold at which to swap to disk
      * @param serializer custom serializer to use (can be null)
      */
-    public Sorter(long limit, boolean distinct, int memoryThreshold, Serializer<E> serializer) {
+    public Sorter(long limit, boolean distinct, int memoryThreshold, GroupSerializer<E> serializer) {
         this.map = new TreeMap<>();
         this.limit = limit;
         this.distinct = distinct;
@@ -114,12 +114,12 @@ public class Sorter<E extends Comparable<E> & Serializable> implements Iterable<
     		return;
     	}
 
-    	db = DBMaker.newTempFileDB().deleteFilesAfterClose().closeOnJvmShutdown().mmapFileEnableIfSupported().transactionDisable().asyncWriteEnable().make();
-    	BTreeMapMaker mapMaker = db.createTreeMap(MAP_NAME);
+    	db = DBMaker.tempFileDB().fileDeleteAfterClose().closeOnJvmShutdown().fileMmapEnableIfSupported().make();
+    	TreeMapMaker mapMaker = db.treeMap(MAP_NAME);
     	if (serializer != null) {
-    		mapMaker = mapMaker.keySerializerWrap(serializer);
+    		mapMaker = mapMaker.keySerializer(serializer);
     	}
-        NavigableMap<E,Long> dbMap = mapMaker.make();
+        NavigableMap<E,Long> dbMap = mapMaker.create();
         dbMap.putAll(map);
         map = dbMap;
     }

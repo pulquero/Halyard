@@ -24,7 +24,7 @@ public class XPathTupleFunctionTest {
 		String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\"><desc>bar</desc><part id=\"1\"/><part id=\"2\"/></test>";
 		XMLLiteral l = new XMLLiteral(xml);
 		IRI dt = vf.createIRI(XPathConstants.NODESET.getNamespaceURI() + "#", XPathConstants.NODESET.getLocalPart());
-		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter = new XPathTupleFunction().evaluate(vf, vf.createLiteral("/test/part"), l, dt);
+		CloseableIteration<? extends List<? extends Value>> iter = new XPathTupleFunction().evaluate(vf, vf.createLiteral("/test/part"), l, dt);
 		assertTrue(iter.hasNext());
 		assertEquals("<part id=\"1\"/>", iter.next().get(0).stringValue());
 		assertTrue(iter.hasNext());
@@ -38,7 +38,7 @@ public class XPathTupleFunctionTest {
 		String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\"><desc>bar</desc><part id=\"1\"/><part id=\"2\"/></test>";
 		XMLLiteral l = new XMLLiteral(xml);
 		IRI dt = vf.createIRI(XPathConstants.NODESET.getNamespaceURI() + "#", XPathConstants.NODESET.getLocalPart());
-		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter = new XPathTupleFunction().evaluate(vf, vf.createLiteral("/test/part/@id"), l, dt);
+		CloseableIteration<? extends List<? extends Value>> iter = new XPathTupleFunction().evaluate(vf, vf.createLiteral("/test/part/@id"), l, dt);
 		assertTrue(iter.hasNext());
 		assertEquals("1", iter.next().get(0).stringValue());
 		assertTrue(iter.hasNext());
@@ -52,7 +52,7 @@ public class XPathTupleFunctionTest {
 		String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\"><desc>bar</desc><part id=\"1\"/><part id=\"2\"/></test>";
 		XMLLiteral l = new XMLLiteral(xml);
 		IRI dt = vf.createIRI(XPathConstants.NODE.getNamespaceURI() + "#", XPathConstants.NODE.getLocalPart());
-		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter = new XPathTupleFunction().evaluate(vf, vf.createLiteral("/test"), l, dt);
+		CloseableIteration<? extends List<? extends Value>> iter = new XPathTupleFunction().evaluate(vf, vf.createLiteral("/test"), l, dt);
 		assertTrue(iter.hasNext());
 		assertEquals("<test attr=\"foo\"><desc>bar</desc><part id=\"1\"/><part id=\"2\"/></test>", iter.next().get(0).stringValue());
 		assertFalse(iter.hasNext());
@@ -63,7 +63,7 @@ public class XPathTupleFunctionTest {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\"><desc>bar</desc><part id=\"1\"/><part id=\"2\"/></test>";
 		XMLLiteral l = new XMLLiteral(xml);
-		CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter = new XPathTupleFunction().evaluate(vf, vf.createLiteral("/test/@attr"), l);
+		CloseableIteration<? extends List<? extends Value>> iter = new XPathTupleFunction().evaluate(vf, vf.createLiteral("/test/@attr"), l);
 		assertTrue(iter.hasNext());
 		assertEquals("foo", iter.next().get(0).stringValue());
 		assertFalse(iter.hasNext());

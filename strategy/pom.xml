@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>io.github.pulquero.halyard</groupId>
 		<artifactId>halyard</artifactId>
-		<version>4.10</version>
+		<version>5.0</version>
 	</parent>
 	<dependencies>
 		<dependency>
@@ -23,7 +23,7 @@
 		</dependency>
 		<dependency>
 			<groupId>org.eclipse.rdf4j</groupId>
-			<artifactId>rdf4j-collection-factory-mapdb</artifactId>
+			<artifactId>rdf4j-collection-factory-mapdb3</artifactId>
 			<version>${rdf4j.version}</version>
 		</dependency>
 		<dependency>

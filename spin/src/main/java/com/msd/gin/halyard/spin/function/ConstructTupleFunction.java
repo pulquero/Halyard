@@ -55,7 +55,7 @@ public class ConstructTupleFunction extends AbstractSpinFunction implements Exte
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
+	public CloseableIteration<? extends List<? extends Value>> evaluate(
 			TripleSource tripleSource, Value... args) throws QueryEvaluationException {
 		if (args.length == 0 || !(args[0] instanceof Resource)) {
 			throw new QueryEvaluationException("First argument must be a resource");
@@ -78,7 +78,7 @@ public class ConstructTupleFunction extends AbstractSpinFunction implements Exte
 		}
 	}
 
-	static class GraphQueryResultIteration extends AbstractCloseableIteration<List<Value>, QueryEvaluationException> {
+	static class GraphQueryResultIteration extends AbstractCloseableIteration<List<Value>> {
 		private final QueryPreparer qp;
 		private final GraphQueryResult queryResult;
 
@@ -132,13 +132,9 @@ public class ConstructTupleFunction extends AbstractSpinFunction implements Exte
 		}
 
 		@Override
-		public void handleClose() throws QueryEvaluationException {
+		protected void handleClose() throws QueryEvaluationException {
 			try {
-				try {
-					super.handleClose();
-				} finally {
-					queryResult.close();
-				}
+				queryResult.close();
 			} finally {
 				qp.close();
 			}

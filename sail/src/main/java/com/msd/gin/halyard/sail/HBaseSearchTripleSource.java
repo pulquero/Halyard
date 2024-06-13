@@ -69,7 +69,7 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 	}
 
 	@Override
-	protected CloseableIteration<? extends Statement, IOException> createStatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contexts) throws QueryEvaluationException {
+	protected CloseableIteration<? extends Statement> createStatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contexts) throws QueryEvaluationException {
 		if (HalyardEvaluationStrategy.isSearchStatement(obj)) {
 			return new LiteralSearchStatementScanner(subj, pred, obj.stringValue(), contexts);
 		} else {
@@ -91,7 +91,7 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 		}
 
 		@Override
-		protected Result nextResult() throws IOException {
+		protected Result nextResult() {
 			while (true) {
 				if (obj == null) {
 					if (objects == null) { // perform ES query and parse results

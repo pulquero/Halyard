@@ -42,7 +42,7 @@ public class XPathTupleFunction implements TupleFunction, InverseMagicProperty {
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(ValueFactory vf, Value... args) throws ValueExprEvaluationException {
+	public CloseableIteration<? extends List<? extends Value>> evaluate(ValueFactory vf, Value... args) throws ValueExprEvaluationException {
 		if (args.length < 2 || args.length > 3) {
 			throw new ValueExprEvaluationException(String.format("%s requires 2 or 3 arguments, got %d", getURI(), args.length));
 		}
@@ -90,7 +90,7 @@ public class XPathTupleFunction implements TupleFunction, InverseMagicProperty {
 				return new SingletonIteration<>(Collections.singletonList(vf.createLiteral(s)));
 			} else if (result instanceof NodeList) {
 				NodeList nl = (NodeList) result;
-				return new CloseableIteration<List<? extends Value>, QueryEvaluationException>() {
+				return new CloseableIteration<List<? extends Value>>() {
 					int pos = 0;
 
 					@Override

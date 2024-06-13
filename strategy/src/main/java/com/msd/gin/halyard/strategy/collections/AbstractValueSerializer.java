@@ -17,9 +17,9 @@ import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
-import org.mapdb.Serializer;
+import org.mapdb.serializer.GroupSerializerObjectArray;
 
-public abstract class AbstractValueSerializer<E> implements Serializer<E>, Externalizable {
+public abstract class AbstractValueSerializer<E> extends GroupSerializerObjectArray<E> implements Externalizable {
 	protected static final ValueIO.Writer WRITER = ValueIO.getDefaultWriter();
 	protected static final ValueIO.Reader READER = ValueIO.getDefaultReader();
 	protected transient ValueFactory vf;

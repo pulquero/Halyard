@@ -74,7 +74,7 @@ public class MockSailWithHalyardStrategy extends MemoryStore {
 		fsr.registerService("repository:pushOnly", new SailFederatedService(new PushOnlyMockSail()));
 		fsr.registerService("repository:askOnly", new SailFederatedService(new MemoryStore()) {
 			@Override
-			public CloseableIteration<BindingSet, QueryEvaluationException> select(Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
+			public CloseableIteration<BindingSet> select(Service service, Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
 				throw new UnsupportedOperationException();
 			}
 
@@ -89,7 +89,7 @@ public class MockSailWithHalyardStrategy extends MemoryStore {
 			}
 
 			@Override
-			public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(Service service, CloseableIteration<BindingSet, QueryEvaluationException> bindings, String baseUri) throws QueryEvaluationException {
+			public CloseableIteration<BindingSet> evaluate(Service service, CloseableIteration<BindingSet> bindings, String baseUri) throws QueryEvaluationException {
 				throw new UnsupportedOperationException();
 			}
 		});
@@ -155,8 +155,8 @@ public class MockSailWithHalyardStrategy extends MemoryStore {
         }
 
         @Override
-        public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
-            return new IterationWrapper<Statement, QueryEvaluationException>(tripleSource.getStatements(subj, pred, obj, contexts)){
+        public CloseableIteration<? extends Statement> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
+            return new IterationWrapper<Statement>(tripleSource.getStatements(subj, pred, obj, contexts)){
             	final long CONNECTION_DELAY = 20L;
             	final long NEXT_DELAY = 2L;
                 long delay = CONNECTION_DELAY;
@@ -181,7 +181,7 @@ public class MockSailWithHalyardStrategy extends MemoryStore {
         }
 
 		@Override
-		public CloseableIteration<? extends Triple, QueryEvaluationException> getRdfStarTriples(Resource subj, IRI pred, Value obj) throws QueryEvaluationException {
+		public CloseableIteration<? extends Triple> getRdfStarTriples(Resource subj, IRI pred, Value obj) throws QueryEvaluationException {
 			return ((RDFStarTripleSource)tripleSource).getRdfStarTriples(subj, pred, obj);
 		}
 

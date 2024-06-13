@@ -10,8 +10,6 @@
  *******************************************************************************/
 package com.msd.gin.halyard.query.algebra.evaluation.impl;
 
-import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
-
 import java.util.List;
 import java.util.function.Function;
 
@@ -34,14 +32,16 @@ import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
+import org.eclipse.rdf4j.query.algebra.evaluation.impl.DefaultEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.EvaluationStatistics;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.StrictEvaluationStrategy;
+
+import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 
 /**
  * An {@link EvaluationStrategy} that has support for {@link TupleFunction}s.
  */
-public class TupleFunctionEvaluationStrategy extends StrictEvaluationStrategy {
+public class TupleFunctionEvaluationStrategy extends DefaultEvaluationStrategy {
 
 	private final TupleFunctionRegistry tupleFuncRegistry;
 
@@ -78,7 +78,7 @@ public class TupleFunctionEvaluationStrategy extends StrictEvaluationStrategy {
 
 	@Deprecated(forRemoval = true)
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(TupleExpr expr, BindingSet bindings)
+	public CloseableIteration<BindingSet> evaluate(TupleExpr expr, BindingSet bindings)
 			throws QueryEvaluationException {
 		if (expr instanceof TupleFunctionCall) {
 			return evaluate((TupleFunctionCall) expr, bindings);
@@ -98,16 +98,17 @@ public class TupleFunctionEvaluationStrategy extends StrictEvaluationStrategy {
 	}
 
 	@Deprecated(forRemoval = true)
-	public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(TupleFunctionCall expr,
+	public CloseableIteration<BindingSet> evaluate(TupleFunctionCall expr,
 			BindingSet bindings) throws QueryEvaluationException {
 		return precompile(expr).evaluate(bindings);
 	}
 
+	@Override
 	protected QueryEvaluationStep prepare(TupleFunctionCall expr, QueryEvaluationContext context)
 			throws QueryEvaluationException {
 		TupleFunction func = tupleFuncRegistry.get(expr.getURI())
 				.orElseThrow(() -> new QueryEvaluationException("Unknown tuple function '" + expr.getURI() + "'"));
-		Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
+		Function<Value[],CloseableIteration<? extends List<? extends Value>>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
 
 		List<ValueExpr> args = expr.getArgs();
 		QueryValueEvaluationStep[] argEpresions = new QueryValueEvaluationStep[args.size()];
@@ -118,7 +119,7 @@ public class TupleFunctionEvaluationStrategy extends StrictEvaluationStrategy {
 		return new QueryEvaluationStep() {
 
 			@Override
-			public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(BindingSet bindings) {
+			public CloseableIteration<BindingSet> evaluate(BindingSet bindings) {
 				Value[] argValues = new Value[args.size()];
 				for (int i = 0; i < args.size(); i++) {
 					argValues[i] = argEpresions[i].evaluate(bindings);
@@ -129,8 +130,8 @@ public class TupleFunctionEvaluationStrategy extends StrictEvaluationStrategy {
 		};
 	}
 
-	public static Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> createEvaluator(TupleFunction func, TripleSource tripleSource) {
-		Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator;
+	public static Function<Value[],CloseableIteration<? extends List<? extends Value>>> createEvaluator(TupleFunction func, TripleSource tripleSource) {
+		Function<Value[],CloseableIteration<? extends List<? extends Value>>> tfEvaluator;
 		if (func instanceof ExtendedTupleFunction) {
 			ExtendedTupleFunction extFunc = (ExtendedTupleFunction) func;
 			tfEvaluator = argValues -> extFunc.evaluate(tripleSource, argValues);
@@ -141,7 +142,7 @@ public class TupleFunctionEvaluationStrategy extends StrictEvaluationStrategy {
 		return tfEvaluator;
 	}
 
-	public static CloseableIteration<BindingSet, QueryEvaluationException> createBindings(CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> iter, List<Var> resultVars, BindingSet bindings) {
+	public static CloseableIteration<BindingSet> createBindings(CloseableIteration<? extends List<? extends Value>> iter, List<Var> resultVars, BindingSet bindings) {
 		return new LookAheadIteration<>() {
 
 			@Override
@@ -175,7 +176,6 @@ public class TupleFunctionEvaluationStrategy extends StrictEvaluationStrategy {
 
 			@Override
 			protected void handleClose() throws QueryEvaluationException {
-				super.handleClose();
 				iter.close();
 			}
 		};

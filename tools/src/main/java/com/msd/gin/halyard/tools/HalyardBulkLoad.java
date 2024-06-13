@@ -222,7 +222,7 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
                                 throw e;
                             } else {
                                 reportError(e, NTriplesParserSettings.FAIL_ON_INVALID_LINES);
-                                return super.createLiteral(label, null, null, lineNo, columnNo);
+                                return super.createLiteral(label, (String) null, (IRI) null, lineNo, columnNo);
                             }
                         }
                     }

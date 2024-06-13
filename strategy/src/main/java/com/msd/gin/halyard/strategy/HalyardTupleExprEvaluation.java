@@ -66,8 +66,6 @@ import com.msd.gin.halyard.strategy.collections.AbstractValueSerializer;
 import com.msd.gin.halyard.strategy.collections.BigHashSet;
 import com.msd.gin.halyard.strategy.collections.Sorter;
 
-import java.io.DataInput;
-import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -186,6 +184,8 @@ import org.eclipse.rdf4j.query.impl.MapBindingSet;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateCollector;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunction;
 import org.eclipse.rdf4j.query.parser.sparql.aggregate.AggregateFunctionFactory;
+import org.mapdb.DataInput2;
+import org.mapdb.DataOutput2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -258,7 +258,7 @@ final class HalyardTupleExprEvaluation {
 			}
 
 			@Override
-			public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(BindingSet bindings) {
+			public CloseableIteration<BindingSet> evaluate(BindingSet bindings) {
 				return executor.pushPullAsync(step, expr, bindings);
 			}
     	};
@@ -383,7 +383,7 @@ final class HalyardTupleExprEvaluation {
 
     private void evaluateStatementPattern(final BindingSetPipe parent, final StatementPattern sp, final TupleExpr priorityExpr,
     		final BindingSet bindings,
-			Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
+			Function<CloseableIteration<BindingSet>,CloseableIteration<BindingSet>> trackerFactory) {
         QuadPattern nq = getQuadPattern(sp, bindings);
         if (nq != null) {
     		try {
@@ -522,7 +522,7 @@ final class HalyardTupleExprEvaluation {
         }
     }
 
-    CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(QuadPattern nq, TripleSource tripleSource) {
+    CloseableIteration<? extends Statement> getStatements(QuadPattern nq, TripleSource tripleSource) {
     	Resource[] mainCtxs;
     	List<Resource> virtualCtxs;
     	if (nq.ctxs.length == 0) {
@@ -545,19 +545,22 @@ final class HalyardTupleExprEvaluation {
 	    	}
     	}
 
-    	CloseableIteration<? extends Statement, QueryEvaluationException> mainIter;
+    	CloseableIteration<? extends Statement> mainIter;
     	if (mainCtxs != null) {
 	    	mainIter = tripleSource.getStatements(nq.subj, nq.pred, nq.obj, mainCtxs);
 	        if (nq.isAllNamedContexts()) {
 	            // Named contexts are matched by retrieving all statements from
 	            // the store and filtering out the statements that do not have a context.
-	            mainIter = new FilterIteration<Statement, QueryEvaluationException>(mainIter) {
+	            mainIter = new FilterIteration<Statement>(mainIter) {
 	
 	                @Override
 	                protected boolean accept(Statement st) {
 	                    return st.getContext() != null;
 	                }
-	
+
+					@Override
+					protected void handleClose() {
+					}
 	            };
 	        }
     	} else {
@@ -565,7 +568,7 @@ final class HalyardTupleExprEvaluation {
     	}
 
         if (!virtualCtxs.isEmpty()) {
-    		List<CloseableIteration<? extends Statement, QueryEvaluationException>> iters = new ArrayList<>(1 + virtualCtxs.size());
+    		List<CloseableIteration<? extends Statement>> iters = new ArrayList<>(1 + virtualCtxs.size());
     		if (mainIter != null) {
     			iters.add(mainIter);
     		}
@@ -599,23 +602,27 @@ final class HalyardTupleExprEvaluation {
 
         return bs -> {
 	        //get an iterator over all triple statements that match the s, p, o specification in the contexts
-	        CloseableIteration<? extends Statement, QueryEvaluationException> stIter = getStatements(nq, tripleSource);
+	        CloseableIteration<? extends Statement> stIter = getStatements(nq, tripleSource);
 	
 	        // The same variable might have been used multiple times in this
 	        // StatementPattern (e.g. ?x :p ?x or ?x ?x "foobar"), verify value equality in those cases.
 	        int distinctVarCount = sp.getBindingNames().size();
 	        boolean allVarsDistinct = (ctxVar != null && distinctVarCount == 4) || (ctxVar == null && distinctVarCount == 3);
 	        if (!allVarsDistinct) {
-		        stIter = new FilterIteration<Statement, QueryEvaluationException>(stIter) {
+		        stIter = new FilterIteration<Statement>(stIter) {
 		            @Override
 		            protected boolean accept(Statement stmt) {
 		            	return filterStatement(sp, stmt, nq);
 		            }
+
+		            @Override
+					protected void handleClose() {
+					}
 		        };
 	        }
 	
 	        // Return an iterator that converts the RDF statements (triples) to var bindings
-	        return new ConvertingIteration<Statement, BindingSet, QueryEvaluationException>(stIter) {
+	        return new ConvertingIteration<Statement, BindingSet>(stIter) {
 	            @Override
 	            protected BindingSet convert(Statement stmt) {
 	            	return convertStatement(sp, stmt, bs);
@@ -765,9 +772,9 @@ final class HalyardTupleExprEvaluation {
 					parent.pushLast(result);
 				} else {
 					final QueryEvaluationStep evalStep = bs -> {
-						CloseableIteration<? extends Triple, QueryEvaluationException> sourceIter = ((RDFStarTripleSource) tripleSource)
+						CloseableIteration<? extends Triple> sourceIter = ((RDFStarTripleSource) tripleSource)
 								.getRdfStarTriples((Resource) subjValue, (IRI) predValue, objValue);
-						return new ConvertingIteration<Triple, BindingSet, QueryEvaluationException>(sourceIter) {
+						return new ConvertingIteration<Triple, BindingSet>(sourceIter) {
 							@Override
 							protected BindingSet convert(Triple triple) {
 								QueryBindingSet result = new QueryBindingSet(bs);
@@ -815,7 +822,7 @@ final class HalyardTupleExprEvaluation {
 				// standard reification iteration
 				evalStep = bs -> {
 					// 1. walk over resources used as subjects of (x rdf:type rdf:Statement)
-					final CloseableIteration<? extends Resource, QueryEvaluationException> iter = new ConvertingIteration<Statement, Resource, QueryEvaluationException>(
+					final CloseableIteration<? extends Resource> iter = new ConvertingIteration<Statement, Resource>(
 							tripleSource.getStatements((Resource) extValue, RDF.TYPE, RDF.STATEMENT)) {
 		
 						@Override
@@ -825,11 +832,10 @@ final class HalyardTupleExprEvaluation {
 					};
 					// for each reification node, fetch and check the subject, predicate and object values against
 					// the expected values from TripleRef pattern and supplied bindings collection
-					return new LookAheadIteration<BindingSet, QueryEvaluationException>() {
+					return new LookAheadIteration<BindingSet>() {
 						@Override
 						protected void handleClose()
 								throws QueryEvaluationException {
-							super.handleClose();
 							iter.close();
 						}
 		
@@ -867,7 +873,7 @@ final class HalyardTupleExprEvaluation {
 		
 						private boolean matchValue(Resource theNode, Value value, Var var, QueryBindingSet result,
 								IRI predicate) {
-							try (CloseableIteration<? extends Statement, QueryEvaluationException> valueiter = tripleSource
+							try (CloseableIteration<? extends Statement> valueiter = tripleSource
 									.getStatements(theNode, predicate, null)) {
 								while (valueiter.hasNext()) {
 									Statement valueStatement = valueiter.next();
@@ -1111,7 +1117,7 @@ final class HalyardTupleExprEvaluation {
 		}
 
 		@Override
-		public void serialize(DataOutput out, ComparableBindingSetWrapper cbsw) throws IOException {
+		public void serialize(DataOutput2 out, ComparableBindingSetWrapper cbsw) throws IOException {
 			ByteBuffer tmp = newTempBuffer();
 			writeBindingSet(cbsw.bs, out, tmp);
 			out.writeInt(cbsw.values.length);
@@ -1123,7 +1129,7 @@ final class HalyardTupleExprEvaluation {
 		}
 
 		@Override
-		public ComparableBindingSetWrapper deserialize(DataInput in, int available) throws IOException {
+		public ComparableBindingSetWrapper deserialize(DataInput2 in, int available) throws IOException {
 			BindingSet bs = readBindingSet(in);
 			int len = in.readInt();
 			Value[] values = new Value[len];
@@ -2820,7 +2826,7 @@ final class HalyardTupleExprEvaluation {
         	int startIndex = isPrebound ? 0 : 1;
     		if (sps.length-startIndex > 1) {
     			// multiple statement patterns
-				BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher = getStatementFetcher(sps, startIndex, bindings);
+				BiFunction<Resource,Resource[],CloseableIteration<? extends Statement>> stmtFetcher = getStatementFetcher(sps, startIndex, bindings);
 				if (stmtFetcher == null) {
 					parent.close();
 					return;
@@ -2893,7 +2899,7 @@ final class HalyardTupleExprEvaluation {
 		        	return (parent, bindings) -> {
 		        		BindingSetPipeEvaluationStep stmtsStep;
 		        		if (sps.length > 1) {
-		        			BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher = getStatementFetcher(sps, 0, bindings);
+		        			BiFunction<Resource,Resource[],CloseableIteration<? extends Statement>> stmtFetcher = getStatementFetcher(sps, 0, bindings);
 		        			if (stmtFetcher == null) {
 		        				parent.close();
 		        				return;
@@ -2950,7 +2956,7 @@ final class HalyardTupleExprEvaluation {
     	return sps;
     }
 
-    private BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> getStatementFetcher(StatementPattern[] sps, int startIndex, BindingSet bindings) {
+    private BiFunction<Resource,Resource[],CloseableIteration<? extends Statement>> getStatementFetcher(StatementPattern[] sps, int startIndex, BindingSet bindings) {
     	boolean getFullSubject = false;
 		IRI[] preds = new IRI[sps.length];
     	for (int i=startIndex; i<sps.length; i++) {
@@ -2966,7 +2972,7 @@ final class HalyardTupleExprEvaluation {
     		}
     	}
 
-    	BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher;
+    	BiFunction<Resource,Resource[],CloseableIteration<? extends Statement>> stmtFetcher;
     	getFullSubject = true; // TODO currently only support getFullSubject mode
     	if (getFullSubject || !(tripleSource instanceof ExtendedTripleSource)) {
     		stmtFetcher = (common, ctxs) -> tripleSource.getStatements(common, null, null, ctxs);
@@ -2979,7 +2985,7 @@ final class HalyardTupleExprEvaluation {
     	return stmtFetcher;
     }
 
-    private List<BindingSet>[] applyStatementPatterns(Var commonVar, Var ctxVar, StatementPattern[] sps, int startIndex, BiFunction<Resource,Resource[],CloseableIteration<? extends Statement, QueryEvaluationException>> stmtFetcher, BindingSet bindings) {
+    private List<BindingSet>[] applyStatementPatterns(Var commonVar, Var ctxVar, StatementPattern[] sps, int startIndex, BiFunction<Resource,Resource[],CloseableIteration<? extends Statement>> stmtFetcher, BindingSet bindings) {
     	Value common = Algebra.getVarValue(commonVar, bindings);
     	if (common != null && !(common instanceof Resource)) {
     		return null;
@@ -2990,7 +2996,7 @@ final class HalyardTupleExprEvaluation {
     	}
 		Resource[] ctxs = (ctxVar != null) ? new Resource[] {(Resource) ctx} : ALL_CONTEXTS;
 		List<BindingSet>[] resultsPerSp = (List<BindingSet>[]) new List<?>[sps.length];
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> iter = stmtFetcher.apply((Resource)common, ctxs)) {
+		try (CloseableIteration<? extends Statement> iter = stmtFetcher.apply((Resource)common, ctxs)) {
 			while (iter.hasNext()) {
 				Statement stmt = iter.next();
 				for (int i=startIndex; i<sps.length; i++) {
@@ -3247,7 +3253,7 @@ final class HalyardTupleExprEvaluation {
 	        //temporary solution using copy of the original iterator
 	        //re-writing this to push model is a bit more complex task
             EvaluationStrategy alpStrategy = new DefaultEvaluationStrategy(tripleSource, dataset, null) {
-            	public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(TupleExpr expr, BindingSet bindings)
+            	public CloseableIteration<BindingSet> evaluate(TupleExpr expr, BindingSet bindings)
             			throws QueryEvaluationException {
             		if (expr instanceof NAryUnion) {
             			NAryUnion nunion = (NAryUnion) expr;
@@ -3260,13 +3266,13 @@ final class HalyardTupleExprEvaluation {
 //            // Currently causes too many blocked threads
 //            EvaluationStrategy alpStrategy = new StrictEvaluationStrategy(null, null) {
 //                @Override
-//                public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(ZeroLengthPath zlp, BindingSet bindings) throws QueryEvaluationException {
+//                public CloseableIteration<BindingSet> evaluate(ZeroLengthPath zlp, BindingSet bindings) throws QueryEvaluationException {
 //                    zlp.setParentNode(alp);
 //                    return parentStrategy.evaluate(zlp, bindings);
 //                }
 //
 //                @Override
-//                public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(TupleExpr expr, BindingSet bindings) throws QueryEvaluationException {
+//                public CloseableIteration<BindingSet> evaluate(TupleExpr expr, BindingSet bindings) throws QueryEvaluationException {
 //                    expr.setParentNode(alp);
 //                    return parentStrategy.evaluate(expr, bindings);
 //                }
@@ -3359,7 +3365,7 @@ final class HalyardTupleExprEvaluation {
 			argSteps[i] = parentStrategy.precompile(args.get(i), evalContext);
 		}
 
-		java.util.function.Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
+		java.util.function.Function<Value[],CloseableIteration<? extends List<? extends Value>>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
 		java.util.function.Function<BindingSetPipe,BindingSetPipe> pipeBuilder = parent -> {
 			return new BindingSetPipe(parent) {
 				@Override
@@ -3370,7 +3376,7 @@ final class HalyardTupleExprEvaluation {
 							argValues[i] = argSteps[i].evaluate(bs);
 						}
 	
-						try (CloseableIteration<BindingSet, QueryEvaluationException> iter = TupleFunctionEvaluationStrategy.createBindings(tfEvaluator.apply(argValues), tfc.getResultVars(), bs)) {
+						try (CloseableIteration<BindingSet> iter = TupleFunctionEvaluationStrategy.createBindings(tfEvaluator.apply(argValues), tfc.getResultVars(), bs)) {
 							while (iter.hasNext()) {
 								if(!parent.push(iter.next())) {
 									return false;

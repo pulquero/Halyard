@@ -331,10 +331,10 @@ public class HBaseUpdate extends SailUpdate implements Timestamped {
 				} else {
 					Scope scope = clearExpr.getScope();
 					if (Scope.NAMED_CONTEXTS.equals(scope)) {
-						CloseableIteration<? extends Resource, SailException> contextIDs = con.getContextIDs();
+						CloseableIteration<? extends Resource> contextIDs = con.getContextIDs();
 						try {
 							if (maxExecutionTime > 0) {
-								contextIDs = new TimeLimitIteration<Resource, SailException>(contextIDs, TimeUnit.SECONDS.toMillis(maxExecutionTime)) {
+								contextIDs = new TimeLimitIteration<Resource>(contextIDs, TimeUnit.SECONDS.toMillis(maxExecutionTime)) {
 
 									@Override
 									protected void throwInterruptedException() throws SailException {
