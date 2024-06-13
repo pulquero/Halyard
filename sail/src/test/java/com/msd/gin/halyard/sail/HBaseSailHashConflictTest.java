@@ -135,7 +135,7 @@ public class HBaseSailHashConflictTest {
     @Test
     public void testConflictingHash() throws Exception {
 		try (SailConnection conn = sail.getConnection()) {
-			try (CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(subj, pred, obj, true)) {
+			try (CloseableIteration<? extends Statement> iter = conn.getStatements(subj, pred, obj, true)) {
 				HashSet<Statement> res = new HashSet<>();
 				while (iter.hasNext()) {
 					res.add(iter.next());

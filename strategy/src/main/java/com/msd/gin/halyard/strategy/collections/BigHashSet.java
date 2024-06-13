@@ -17,8 +17,6 @@
 package com.msd.gin.halyard.strategy.collections;
 
 import java.io.Closeable;
-import java.io.DataInput;
-import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -33,8 +31,10 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.mapdb.DB;
-import org.mapdb.DB.HTreeSetMaker;
+import org.mapdb.DB.HashSetMaker;
 import org.mapdb.DBMaker;
+import org.mapdb.DataInput2;
+import org.mapdb.DataOutput2;
 import org.mapdb.Serializer;
 
 /**
@@ -125,12 +125,12 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
     	if (ref.getRight() != null) {
     		throw new IllegalStateException();
     	}
-    	DB db = DBMaker.newTempFileDB().deleteFilesAfterClose().closeOnJvmShutdown().mmapFileEnableIfSupported().transactionDisable().asyncWriteEnable().make();
-    	HTreeSetMaker setMaker = db.createHashSet(SET_NAME);
+    	DB db = DBMaker.tempFileDB().fileDeleteAfterClose().closeOnJvmShutdown().fileMmapEnableIfSupported().make();
+    	HashSetMaker setMaker = db.hashSet(SET_NAME);
     	if (serializer != null) {
     		setMaker = setMaker.serializer(serializer);
     	}
-        Set<E> set = setMaker.make();
+        Set<E> set = (Set<E>) setMaker.create();
         set.addAll(ref.getLeft());
         return Pair.of(set, db);
     }
@@ -192,13 +192,13 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
     	}
 
     	@Override
-		public void serialize(DataOutput out, Value value) throws IOException {
+		public void serialize(DataOutput2 out, Value value) throws IOException {
 			ByteBuffer tmp = newTempBuffer();
 			writeValue(value, out, tmp);
 		}
 
 		@Override
-		public Value deserialize(DataInput in, int available) throws IOException {
+		public Value deserialize(DataInput2 in, int available) throws IOException {
 			return readValue(in);
 		}
     }
@@ -214,13 +214,13 @@ public class BigHashSet<E extends Serializable> implements Iterable<E>, Closeabl
 		}
 
 		@Override
-		public void serialize(DataOutput out, BindingSet bs) throws IOException {
+		public void serialize(DataOutput2 out, BindingSet bs) throws IOException {
 			ByteBuffer tmp = newTempBuffer();
 			writeBindingSet(bs, out, tmp);
 		}
 
 		@Override
-		public BindingSet deserialize(DataInput in, int available) throws IOException {
+		public BindingSet deserialize(DataInput2 in, int available) throws IOException {
 			return readBindingSet(in);
 		}
     }

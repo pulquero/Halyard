@@ -10,10 +10,6 @@
  *******************************************************************************/
 package com.msd.gin.halyard.query.algebra.evaluation.federation;
 
-import com.msd.gin.halyard.query.algebra.Algebra;
-import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
-import com.msd.gin.halyard.query.algebra.evaluation.impl.TupleFunctionEvaluationStrategy;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -43,6 +39,10 @@ import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunctionRegistry;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtil;
+
+import com.msd.gin.halyard.query.algebra.Algebra;
+import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.impl.TupleFunctionEvaluationStrategy;
 
 /**
  * A federated service that can evaluate {@link TupleFunction}s.
@@ -75,7 +75,7 @@ public class TupleFunctionFederatedService implements FederatedService {
 
 	@Override
 	public boolean ask(Service service, BindingSet bindings, String baseUri) throws QueryEvaluationException {
-		try (final CloseableIteration<BindingSet, QueryEvaluationException> iter = evaluate(service,
+		try (final CloseableIteration<BindingSet> iter = evaluate(service,
 				new SingletonIteration<>(bindings), baseUri)) {
 			if (iter.hasNext()) {
 				BindingSet bs = iter.next();
@@ -87,9 +87,9 @@ public class TupleFunctionFederatedService implements FederatedService {
 	}
 
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> select(Service service,
+	public CloseableIteration<BindingSet> select(Service service,
 			final Set<String> projectionVars, BindingSet bindings, String baseUri) throws QueryEvaluationException {
-		final CloseableIteration<BindingSet, QueryEvaluationException> iter, eval;
+		final CloseableIteration<BindingSet> iter, eval;
 		eval = evaluate(service, new SingletonIteration<>(bindings), baseUri);
 		iter = service.isSilent() ? new SilentIteration<>(eval) : eval;
 		if (service.getBindingNames().equals(projectionVars)) {
@@ -150,8 +150,8 @@ public class TupleFunctionFederatedService implements FederatedService {
 	}
 
 	@Override
-	public final CloseableIteration<BindingSet, QueryEvaluationException> evaluate(Service service,
-			CloseableIteration<BindingSet, QueryEvaluationException> bindings, String baseUri)
+	public final CloseableIteration<BindingSet> evaluate(Service service,
+			CloseableIteration<BindingSet> bindings, String baseUri)
 			throws QueryEvaluationException {
 		if (!bindings.hasNext()) {
 			return QueryEvaluationStep.EMPTY_ITERATION;
@@ -166,9 +166,9 @@ public class TupleFunctionFederatedService implements FederatedService {
 		TupleFunction func = tupleFunctionRegistry.get(funcCall.getURI())
 				.orElseThrow(() -> new QueryEvaluationException("Unknown tuple function '" + funcCall.getURI() + "'"));
 
-		List<CloseableIteration<BindingSet, QueryEvaluationException>> resultIters = new ArrayList<>();
+		List<CloseableIteration<BindingSet>> resultIters = new ArrayList<>();
 		try (CloseableTripleSource tripleSource = tripleSourceFactory.get()) {
-			Function<Value[],CloseableIteration<? extends List<? extends Value>, QueryEvaluationException>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
+			Function<Value[],CloseableIteration<? extends List<? extends Value>>> tfEvaluator = TupleFunctionEvaluationStrategy.createEvaluator(func, tripleSource);
 
 			List<ValueExpr> argExprs = funcCall.getArgs();
 

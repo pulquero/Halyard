@@ -52,9 +52,9 @@ public class TupleFunctionCallTest {
 			}
 
 			@Override
-			public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(ValueFactory vf, Value... args) throws QueryEvaluationException {
+			public CloseableIteration<? extends List<? extends Value>> evaluate(ValueFactory vf, Value... args) throws QueryEvaluationException {
 				IRI iri = (IRI) args[0];
-				return new SingletonIteration<List<? extends Value>, QueryEvaluationException>(Arrays.asList(vf.createLiteral(iri.getLocalName())));
+				return new SingletonIteration<List<? extends Value>>(Arrays.asList(vf.createLiteral(iri.getLocalName())));
 			}
 		};
 		ExtendedTupleFunctionCall tfc = new ExtendedTupleFunctionCall(tf.getURI());
@@ -63,7 +63,7 @@ public class TupleFunctionCallTest {
 		tfc.setDependentExpression(bsa);
 		TupleFunctionRegistry.getInstance().add(tf);
 		Set<String> outValues = new HashSet<>();
-		CloseableIteration<BindingSet,QueryEvaluationException> iter = strategy.evaluate(tfc, new QueryBindingSet());
+		CloseableIteration<BindingSet> iter = strategy.evaluate(tfc, new QueryBindingSet());
 		while(iter.hasNext()) {
 			outValues.add(iter.next().getValue("out").stringValue());
 		}

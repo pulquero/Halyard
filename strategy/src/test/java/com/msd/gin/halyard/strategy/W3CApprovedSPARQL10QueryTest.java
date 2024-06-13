@@ -16,29 +16,21 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import java.net.URL;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Deque;
 import java.util.List;
 
-import org.eclipse.rdf4j.query.Dataset;
-import org.eclipse.rdf4j.testsuite.query.parser.sparql.manifest.SPARQL10QueryComplianceTest;
-import org.eclipse.rdf4j.testsuite.query.parser.sparql.manifest.SPARQLQueryComplianceTest;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.dataset.DatasetRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
-import org.junit.Before;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.eclipse.rdf4j.testsuite.query.parser.sparql.manifest.SPARQLQueryComplianceTest;
+import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.TestFactory;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
-@RunWith(Parameterized.class)
 public class W3CApprovedSPARQL10QueryTest extends SPARQLQueryComplianceTest {
 
 	private static final String[] defaultIgnoredTests = {
@@ -64,50 +56,20 @@ public class W3CApprovedSPARQL10QueryTest extends SPARQLQueryComplianceTest {
 
 	private static final List<String> excludedSubdirs = Arrays.asList("service");
 
-	@Parameterized.Parameters(name = "{0}")
-	public static Collection<Object[]> data() {
-		return Arrays.asList(getTestData());
-	}
-
-	private static Object[][] getTestData() {
-		List<Object[]> tests = new ArrayList<>();
-
-		Deque<String> manifests = new ArrayDeque<>();
-		manifests.add(getManifestURL().toExternalForm());
-		while (!manifests.isEmpty()) {
-			String pop = manifests.pop();
-			SPARQLQueryTestManifest manifest = new SPARQLQueryTestManifest(pop, excludedSubdirs);
-			tests.addAll(manifest.getTests());
-			manifests.addAll(manifest.getSubManifests());
+    public W3CApprovedSPARQL10QueryTest() {
+    	super(excludedSubdirs);
+		for (String ig : defaultIgnoredTests) {
+			addIgnoredTest(ig);
 		}
-
-		Object[][] result = new Object[tests.size()][6];
-		tests.toArray(result);
-
-		return result;
-	}
-
-	protected static URL getManifestURL() {
-		return SPARQL10QueryComplianceTest.class.getClassLoader()
-				.getResource("testcases-sparql-1.0-w3c/data-r2/manifest-evaluation.ttl");
-	}
-
-    public W3CApprovedSPARQL10QueryTest(String displayName, String testURI, String name, String queryFileURL,
-			String resultFileURL, Dataset dataset, boolean ordered, boolean laxCardinality) {
-		super(displayName, testURI, name, queryFileURL, resultFileURL, dataset, ordered, laxCardinality);
     }
+
+    @TestFactory
+	public Collection<DynamicTest> tests() {
+		return getTestData("testcases-sparql-1.0-w3c/data-r2/manifest-evaluation.ttl");
+	}
 
     @Override
     protected Repository newRepository() {
         return new DatasetRepository(new SailRepository(new MockSailWithHalyardStrategy()));
     }
-
-	@Override
-	@Before
-	public void setUp() throws Exception {
-		super.setUp();
-		for (String defaultIgnoredTest : defaultIgnoredTests) {
-			addIgnoredTest(defaultIgnoredTest);
-		}
-	}
 }

@@ -79,7 +79,7 @@ final class AsyncPullPusher implements PullPusher {
 	public void pullPush(BindingSetPipe pipe,
 			QueryEvaluationStep evalStep,
 			TupleExpr node, BindingSet bs,
-			Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
+			Function<CloseableIteration<BindingSet>,CloseableIteration<BindingSet>> trackerFactory) {
 		double sizeEstimate = node.getResultSizeEstimate();
 		if (sizeEstimate == -1) {
 			// if unknown assume it is very large
@@ -162,9 +162,9 @@ final class AsyncPullPusher implements PullPusher {
 	final class IterateSingleAndPipeTask extends PrioritizedTask {
         private final BindingSetPipe pipe;
         private final QueryEvaluationStep evalStep;
-        private final Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory;
+        private final Function<CloseableIteration<BindingSet>,CloseableIteration<BindingSet>> trackerFactory;
         private int pushPriority = MIN_SUB_PRIORITY;
-        private CloseableIteration<BindingSet, QueryEvaluationException> iter;
+        private CloseableIteration<BindingSet> iter;
 
         /**
          * Constructor for the class with the supplied variables
@@ -177,7 +177,7 @@ final class AsyncPullPusher implements PullPusher {
 		IterateSingleAndPipeTask(BindingSetPipe pipe,
 				QueryEvaluationStep evalStep,
 				TupleExpr expr, BindingSet bs,
-				Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
+				Function<CloseableIteration<BindingSet>,CloseableIteration<BindingSet>> trackerFactory) {
 			super(expr, bs);
             this.pipe = pipe;
             this.evalStep = evalStep;
@@ -234,7 +234,7 @@ final class AsyncPullPusher implements PullPusher {
     final class IterateAllAndPipeTask extends PrioritizedTask {
         private final BindingSetPipe pipe;
         private final QueryEvaluationStep evalStep;
-        private final Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory;
+        private final Function<CloseableIteration<BindingSet>,CloseableIteration<BindingSet>> trackerFactory;
 
         /**
          * Constructor for the class with the supplied variables
@@ -247,7 +247,7 @@ final class AsyncPullPusher implements PullPusher {
 		IterateAllAndPipeTask(BindingSetPipe pipe,
 				QueryEvaluationStep evalStep,
 				TupleExpr expr, BindingSet bs,
-				Function<CloseableIteration<BindingSet, QueryEvaluationException>,CloseableIteration<BindingSet, QueryEvaluationException>> trackerFactory) {
+				Function<CloseableIteration<BindingSet>,CloseableIteration<BindingSet>> trackerFactory) {
 			super(expr, bs);
             this.pipe = pipe;
             this.evalStep = evalStep;

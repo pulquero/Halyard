@@ -28,7 +28,6 @@ import org.eclipse.rdf4j.model.vocabulary.SPL;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.MalformedQueryException;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.Join;
 import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
@@ -256,7 +255,7 @@ public class SpinMagicPropertyInterpreter implements QueryOptimizer {
 		}
 
 		private boolean hasTriplesWithMagicProperty(String property) {
-			try (CloseableIteration<? extends Statement, QueryEvaluationException> iter = tripleSource.getStatements(null, tripleSource.getValueFactory().createIRI(property), null)) {
+			try (CloseableIteration<? extends Statement> iter = tripleSource.getStatements(null, tripleSource.getValueFactory().createIRI(property), null)) {
 				return iter.hasNext();
 			}
 		}

@@ -114,7 +114,7 @@ public abstract class AbstractSailConnection implements ResultTrackingSailConnec
 		try {
 			selfInterruptOnTimeoutThread.start();
 
-			try (CloseableIteration<? extends BindingSet, QueryEvaluationException> evaluate = evaluate(tupleExpr, dataset, bindings, includeInferred)) {
+			try (CloseableIteration<? extends BindingSet> evaluate = evaluate(tupleExpr, dataset, bindings, includeInferred)) {
 				while (evaluate.hasNext()) {
 					if (Thread.interrupted()) {
 						break;

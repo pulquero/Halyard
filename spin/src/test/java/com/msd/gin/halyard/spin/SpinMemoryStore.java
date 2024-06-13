@@ -72,7 +72,7 @@ public class SpinMemoryStore extends MemoryStore {
         }
 
 		@Override
-		protected CloseableIteration<? extends BindingSet, QueryEvaluationException> evaluateInternal(
+		protected CloseableIteration<? extends BindingSet> evaluateInternal(
 				TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred)
 			throws SailException
 		{

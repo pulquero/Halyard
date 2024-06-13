@@ -101,12 +101,12 @@ public final class HalyardProfile extends AbstractHalyardTool {
 						// do nothing
 					}
 					@Override
-		            public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred) throws SailException {
+		            public CloseableIteration<BindingSet> evaluate(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred) throws SailException {
 		                System.out.println(toMessage("Original query:", tupleExpr));
 		                return super.evaluate(tupleExpr, dataset, bindings, includeInferred);
 		            }
 		            @Override
-		            protected CloseableIteration<BindingSet, QueryEvaluationException> evaluateInternal(TupleExpr optimizedTupleExpr, QueryEvaluationStep step) {
+		            protected CloseableIteration<BindingSet> evaluateInternal(TupleExpr optimizedTupleExpr, QueryEvaluationStep step) {
 		                System.out.println(toMessage("Optimized query:", optimizedTupleExpr));
 		                return new EmptyIteration<>();
 		            }

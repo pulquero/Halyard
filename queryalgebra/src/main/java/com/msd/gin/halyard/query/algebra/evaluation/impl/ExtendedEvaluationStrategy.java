@@ -9,7 +9,6 @@ package com.msd.gin.halyard.query.algebra.evaluation.impl;
 
 import java.util.List;
 
-import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -17,11 +16,9 @@ import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.Compare;
 import org.eclipse.rdf4j.query.algebra.FunctionCall;
-import org.eclipse.rdf4j.query.algebra.MathExpr;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryValueEvaluationStep;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
-import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.FunctionRegistry;
@@ -30,7 +27,6 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.datetime.Now;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.EvaluationStatistics;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtil;
-import org.eclipse.rdf4j.query.algebra.evaluation.util.XMLDatatypeMathUtil;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 
 /**
@@ -59,65 +55,9 @@ public class ExtendedEvaluationStrategy extends TupleFunctionEvaluationStrategy 
 	}
 
 	@Override
-	public Value evaluate(Compare node, BindingSet bindings)
-			throws ValueExprEvaluationException, QueryEvaluationException {
-		Value leftVal = evaluate(node.getLeftArg(), bindings);
-		Value rightVal = evaluate(node.getRightArg(), bindings);
-
-		// return result of non-strict comparisson.
-		return BooleanLiteral.valueOf(QueryEvaluationUtil.compare(leftVal, rightVal, node.getOperator(), isStrict));
-	}
-
-	@Override
 	protected QueryValueEvaluationStep prepare(Compare node, QueryEvaluationContext context) {
 		return supplyBinaryValueEvaluation(node, (leftVal, rightVal) -> BooleanLiteral
 				.valueOf(QueryEvaluationUtil.compare(leftVal, rightVal, node.getOperator(), false)), context);
-	}
-
-	@Override
-	public Value evaluate(MathExpr node, BindingSet bindings)
-			throws QueryEvaluationException {
-		Value leftVal = evaluate(node.getLeftArg(), bindings);
-		Value rightVal = evaluate(node.getRightArg(), bindings);
-
-		return mathOperationApplier(node, leftVal, rightVal);
-	}
-
-	private Value mathOperationApplier(MathExpr node, Value leftVal, Value rightVal) {
-		if (leftVal.isLiteral() && rightVal.isLiteral()) {
-			return XMLDatatypeMathUtil.compute((Literal) leftVal, (Literal) rightVal, node.getOperator());
-		}
-
-		throw new ValueExprEvaluationException("Both arguments must be literals");
-	}
-
-	/**
-	 * Evaluates a function.
-	 */
-	@Override
-	public Value evaluate(FunctionCall node, BindingSet bindings)
-			throws QueryEvaluationException {
-		Function function = funcRegistry
-				.get(node.getURI())
-				.orElseThrow(() -> new QueryEvaluationException("Unknown function '" + node.getURI() + "'"));
-
-		// the NOW function is a special case as it needs to keep a shared
-		// return
-		// value for the duration of the query.
-		if (function instanceof Now) {
-			return evaluate((Now) function, bindings);
-		}
-
-		List<ValueExpr> args = node.getArgs();
-
-		Value[] argValues = new Value[args.size()];
-
-		for (int i = 0; i < args.size(); i++) {
-			argValues[i] = evaluate(args.get(i), bindings);
-		}
-
-		return function.evaluate(tripleSource, argValues);
-
 	}
 
 	@Override

@@ -30,7 +30,6 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.MalformedQueryException;
 import org.eclipse.rdf4j.sail.SailConnection;
-import org.eclipse.rdf4j.sail.SailException;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -107,7 +106,7 @@ public class HalyardUpdateTest extends AbstractHalyardToolTest {
         sail.init();
         try {
 			try (SailConnection conn = sail.getConnection()) {
-				CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, SimpleValueFactory.getInstance().createIRI("http://whatever/reverse"), null, true);
+				CloseableIteration<? extends Statement> iter = conn.getStatements(null, SimpleValueFactory.getInstance().createIRI("http://whatever/reverse"), null, true);
 				int count = 0;
 				while (iter.hasNext()) {
 					iter.next();
@@ -125,7 +124,7 @@ public class HalyardUpdateTest extends AbstractHalyardToolTest {
         sail.init();
         try {
 			try (SailConnection conn = sail.getConnection()) {
-				CloseableIteration<? extends Statement, SailException> iter = conn.getStatements(null, SimpleValueFactory.getInstance().createIRI("http://whatever/reverse"), null, true);
+				CloseableIteration<? extends Statement> iter = conn.getStatements(null, SimpleValueFactory.getInstance().createIRI("http://whatever/reverse"), null, true);
 				Assert.assertFalse(iter.hasNext());
 				iter.close();
 			}

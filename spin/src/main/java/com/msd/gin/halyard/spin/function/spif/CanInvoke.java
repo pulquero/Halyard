@@ -137,7 +137,7 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 				private final ValueFactory vf = extTripleSource.getValueFactory();
 
 				@Override
-				public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj,
+				public CloseableIteration<? extends Statement> getStatements(Resource subj,
 						IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
 					if (funcInstance.equals(subj)) {
 						if (pred != null) {
@@ -165,7 +165,7 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 						private final FederatedServiceResolver serviceResolver = new SPARQLServiceResolver();
 
 						@Override
-						protected CloseableIteration<? extends BindingSet, QueryEvaluationException> evaluate(
+						protected CloseableIteration<? extends BindingSet> evaluate(
 								TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred,
 								int maxExecutionTime) throws QueryEvaluationException {
 							// Clone the tuple expression to allow for more aggressive
@@ -207,7 +207,7 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 			};
 
 			ExtendedTripleSource tempTripleSource = new FunctionExtendedTripleSource();
-			try (CloseableIteration<Resource, QueryEvaluationException> iter = TripleSources
+			try (CloseableIteration<Resource> iter = TripleSources
 					.getObjectResources(func, SPIN.CONSTRAINT_PROPERTY, extTripleSource)) {
 				while (iter.hasNext()) {
 					Resource constraint = iter.next();

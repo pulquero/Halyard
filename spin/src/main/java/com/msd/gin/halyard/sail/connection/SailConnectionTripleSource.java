@@ -17,7 +17,6 @@
 package com.msd.gin.halyard.sail.connection;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.common.iteration.ExceptionConvertingIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -41,13 +40,8 @@ public class SailConnectionTripleSource implements CloseableTripleSource {
 	}
 
 	@Override
-	public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
-		return new ExceptionConvertingIteration<Statement, QueryEvaluationException>(conn.getStatements(subj, pred, obj, includeInferred, contexts)) {
-			@Override
-			protected QueryEvaluationException convert(Exception e) {
-				return new QueryEvaluationException(e);
-			}
-		};
+	public CloseableIteration<? extends Statement> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
+		return conn.getStatements(subj, pred, obj, includeInferred, contexts);
 	}
 
 	@Override

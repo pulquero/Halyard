@@ -43,7 +43,7 @@ public class SpinInterpreterTest {
 		ParsedTupleQuery q = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "select ?str {?str spif:split (\"Hello World\" \" \")}", null);
 		TupleExpr expr = Algebra.ensureRooted(q.getTupleExpr());
 		interpreter.optimize(expr, null, null);
-		try (CloseableIteration<? extends BindingSet, QueryEvaluationException> iter = repoConn.getSailConnection().evaluate(expr, null, new QueryBindingSet(), true)) {
+		try (CloseableIteration<? extends BindingSet> iter = repoConn.getSailConnection().evaluate(expr, null, new QueryBindingSet(), true)) {
 			assertEquals("Hello", iter.next().getValue("str").stringValue());
 			assertEquals("World", iter.next().getValue("str").stringValue());
 		}
@@ -62,7 +62,7 @@ public class SpinInterpreterTest {
 		ParsedTupleQuery q = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "select ?str {?str spif:split (\"Hello World\" \" \")}", null);
 		TupleExpr expr = Algebra.ensureRooted(q.getTupleExpr());
 		interpreter.optimize(expr, null, null);
-		try (CloseableIteration<? extends BindingSet, QueryEvaluationException> iter = repoConn.getSailConnection().evaluate(expr, null, new QueryBindingSet(), true)) {
+		try (CloseableIteration<? extends BindingSet> iter = repoConn.getSailConnection().evaluate(expr, null, new QueryBindingSet(), true)) {
 			assertEquals("Hello", iter.next().getValue("str").stringValue());
 			assertEquals("World", iter.next().getValue("str").stringValue());
 		}
@@ -83,7 +83,7 @@ public class SpinInterpreterTest {
 		ParsedTupleQuery q = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "select ?str {?str spif:split (\"Hello World\" \" \")}", null);
 		TupleExpr expr = Algebra.ensureRooted(q.getTupleExpr());
 		interpreter.optimize(expr, null, null);
-		try (CloseableIteration<? extends BindingSet, QueryEvaluationException> iter = repoConn.getSailConnection().evaluate(expr, null, new QueryBindingSet(), true)) {
+		try (CloseableIteration<? extends BindingSet> iter = repoConn.getSailConnection().evaluate(expr, null, new QueryBindingSet(), true)) {
 			assertEquals("Hello", iter.next().getValue("str").stringValue());
 			assertEquals("World", iter.next().getValue("str").stringValue());
 		}
@@ -104,7 +104,7 @@ public class SpinInterpreterTest {
 		ParsedTupleQuery q = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "select ?str {?str spif:split (\"Hello World\" \" \")}", null);
 		TupleExpr expr = Algebra.ensureRooted(q.getTupleExpr());
 		interpreter.optimize(expr, null, null);
-		try (CloseableIteration<? extends BindingSet, QueryEvaluationException> iter = repoConn.getSailConnection().evaluate(expr, null, new QueryBindingSet(), true)) {
+		try (CloseableIteration<? extends BindingSet> iter = repoConn.getSailConnection().evaluate(expr, null, new QueryBindingSet(), true)) {
 			assertEquals("Hello", iter.next().getValue("str").stringValue());
 			assertEquals("World", iter.next().getValue("str").stringValue());
 		}

@@ -43,7 +43,7 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(TripleSource tripleSource, Value... args) throws QueryEvaluationException {
+	public CloseableIteration<? extends List<? extends Value>> evaluate(TripleSource tripleSource, Value... args) throws QueryEvaluationException {
 		if (!(tripleSource instanceof HBaseSearchTripleSource)) {
 			throw new QueryEvaluationException("Search index not configured");
 		}
@@ -86,7 +86,7 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 				// in case anyone actually does this
 				results = Lists.cartesianProduct(Collections.nCopies(numMatchValues, searchResults.hits().hits()));
 			}
-			return new ConvertingIteration<List<Hit<? extends SearchDocument>>, List<Value>, QueryEvaluationException>(new CloseableIteratorIteration<List<Hit<? extends SearchDocument>>, QueryEvaluationException>(results.iterator())) {
+			return new ConvertingIteration<List<Hit<? extends SearchDocument>>, List<Value>>(new CloseableIteratorIteration<List<Hit<? extends SearchDocument>>>(results.iterator())) {
 				int outputSize = 2;
 				@Override
 				protected List<Value> convert(List<Hit<? extends SearchDocument>> matchValues) throws QueryEvaluationException {

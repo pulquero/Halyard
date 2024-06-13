@@ -58,7 +58,7 @@ class MockSailWithExistsStrategy extends MemoryStore {
 		}
 
 		@Override
-		public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
+		public CloseableIteration<? extends Statement> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
         	Assert.fail("Non-optimal strategy");
         	return null;
 		}
@@ -70,13 +70,13 @@ class MockSailWithExistsStrategy extends MemoryStore {
 
 		@Override
 		public boolean hasStatement(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
-			try (CloseableIteration<? extends Statement, QueryEvaluationException> iter = tripleSource.getStatements(subj, pred, obj, contexts)) {
+			try (CloseableIteration<? extends Statement> iter = tripleSource.getStatements(subj, pred, obj, contexts)) {
 				return iter.hasNext();
 			}
 		}
 
 		@Override
-		public CloseableIteration<? extends Triple, QueryEvaluationException> getRdfStarTriples(Resource subj, IRI pred, Value obj) throws QueryEvaluationException {
+		public CloseableIteration<? extends Triple> getRdfStarTriples(Resource subj, IRI pred, Value obj) throws QueryEvaluationException {
 			return ((RDFStarTripleSource)tripleSource).getRdfStarTriples(subj, pred, obj);
 		}
 	}

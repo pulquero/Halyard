@@ -80,18 +80,18 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 	@Override
 	public boolean ask(Service service, BindingSet bindings, String baseUri) throws QueryEvaluationException {
 		try (SailConnection conn = getConnection()) {
-			try (CloseableIteration<? extends BindingSet, QueryEvaluationException> res = evaluateInternal((expr, bs) -> conn.evaluate(expr, null, bs, true), service, null, bindings, baseUri)) {
+			try (CloseableIteration<? extends BindingSet> res = evaluateInternal((expr, bs) -> conn.evaluate(expr, null, bs, true), service, null, bindings, baseUri)) {
 				return res.hasNext();
 			}
 		}
 	}
 
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> select(Service service, Set<String> projectionVars,
+	public CloseableIteration<BindingSet> select(Service service, Set<String> projectionVars,
 			BindingSet bindings, String baseUri) throws QueryEvaluationException {
 		SailConnection conn = getConnection();
-		CloseableIteration<? extends BindingSet, QueryEvaluationException> iter = evaluateInternal((expr, bs) -> conn.evaluate(expr, null, bs, true), service, projectionVars, bindings, baseUri);
-		CloseableIteration<BindingSet, QueryEvaluationException> result = new InsertBindingSetCursor((CloseableIteration<BindingSet, QueryEvaluationException>) iter, bindings);
+		CloseableIteration<? extends BindingSet> iter = evaluateInternal((expr, bs) -> conn.evaluate(expr, null, bs, true), service, projectionVars, bindings, baseUri);
+		CloseableIteration<BindingSet> result = new InsertBindingSetCursor((CloseableIteration<BindingSet>) iter, bindings);
 		result = new CloseConnectionIteration(result, conn);
 		if (service.isSilent()) {
 			result = new SilentIteration<>(result);
@@ -107,7 +107,7 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 				evaluateInternal((expr, bs) -> {conn.evaluate(serviceHandler, expr, null, bs, true); return null;}, service, projectionVars, bindings, baseUri);
 			}
 		} else {
-			try (CloseableIteration<BindingSet, QueryEvaluationException> result = select(service, projectionVars, bindings, baseUri)) {
+			try (CloseableIteration<BindingSet> result = select(service, projectionVars, bindings, baseUri)) {
 				BindingSetConsumerSailConnection.report(result, handler);
 			}
 		}
@@ -121,7 +121,7 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 				evaluateInternal((expr, bs) -> {conn.evaluate(servicePipe, expr, null, bs, true); return null;}, service, projectionVars, bindings, baseUri);
 			}
 		} else {
-			try (CloseableIteration<BindingSet, QueryEvaluationException> result = select(service, projectionVars, bindings, baseUri)) {
+			try (CloseableIteration<BindingSet> result = select(service, projectionVars, bindings, baseUri)) {
 				BindingSetPipeSailConnection.report(result, pipe);
 				pipe.close();
 			}
@@ -129,8 +129,8 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 	}
 
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(Service service,
-			CloseableIteration<BindingSet, QueryEvaluationException> bindings, String baseUri)
+	public CloseableIteration<BindingSet> evaluate(Service service,
+			CloseableIteration<BindingSet> bindings, String baseUri)
 			throws QueryEvaluationException {
 		List<BindingSet> allBindings = new ArrayList<>();
 		while (bindings.hasNext()) {
@@ -142,7 +142,7 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 		}
 
 		Set<String> projectionVars = new HashSet<>(service.getServiceVars());
-		CloseableIteration<BindingSet, QueryEvaluationException> result = new SimpleServiceIteration(allBindings, b -> select(service, projectionVars, b, baseUri));
+		CloseableIteration<BindingSet> result = new SimpleServiceIteration(allBindings, b -> select(service, projectionVars, b, baseUri));
 		if (service.isSilent()) {
 			result = new SilentIteration<>(result);
 		}
@@ -165,9 +165,9 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 	private static class SimpleServiceIteration extends JoinExecutorBase<BindingSet> {
 
 		private final List<BindingSet> allBindings;
-		private final Function<BindingSet,CloseableIteration<BindingSet, QueryEvaluationException>> selectEvaluator;
+		private final Function<BindingSet,CloseableIteration<BindingSet>> selectEvaluator;
 
-		public SimpleServiceIteration(List<BindingSet> allBindings, Function<BindingSet,CloseableIteration<BindingSet, QueryEvaluationException>> selectEvaluator) {
+		public SimpleServiceIteration(List<BindingSet> allBindings, Function<BindingSet,CloseableIteration<BindingSet>> selectEvaluator) {
 			super(null, null, null);
 			this.allBindings = allBindings;
 			this.selectEvaluator = selectEvaluator;
@@ -183,11 +183,11 @@ public class SailFederatedService implements BindingSetConsumerFederatedService,
 	}
 
 
-	private static class CloseConnectionIteration implements CloseableIteration<BindingSet, QueryEvaluationException> {
-		private final CloseableIteration<BindingSet, QueryEvaluationException> delegate;
+	private static class CloseConnectionIteration implements CloseableIteration<BindingSet> {
+		private final CloseableIteration<BindingSet> delegate;
 		private final SailConnection conn;
 
-		CloseConnectionIteration(CloseableIteration<BindingSet, QueryEvaluationException> delegate, SailConnection conn) {
+		CloseConnectionIteration(CloseableIteration<BindingSet> delegate, SailConnection conn) {
 			this.delegate = delegate;
 			this.conn = conn;
 		}

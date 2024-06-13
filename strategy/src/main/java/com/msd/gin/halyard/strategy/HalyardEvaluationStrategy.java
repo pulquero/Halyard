@@ -42,8 +42,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.eclipse.rdf4j.common.iteration.AbstractCloseableIteration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.common.iteration.IterationWrapper;
 import org.eclipse.rdf4j.common.transaction.QueryEvaluationMode;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -61,7 +61,6 @@ import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
-import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
@@ -275,14 +274,6 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		return optimizedExpr;
 	}
 
-    /**
-     * Called by RDF4J to evaluate a query or part of a query using a service
-     */
-    @Override
-    public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(Service service, String serviceUri, CloseableIteration<BindingSet, QueryEvaluationException> bindings) throws QueryEvaluationException {
-        throw new UnsupportedOperationException();
-    }
-
     @Override
     public BindingSetPipeQueryEvaluationStep precompile(TupleExpr expr, QueryEvaluationContext context) {
     	return tupleEval.precompile(expr, context);
@@ -297,11 +288,11 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	 * Called by RDF4J to evaluate a tuple expression
 	 */
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(TupleExpr expr, BindingSet bindings) throws QueryEvaluationException {
+	public CloseableIteration<BindingSet> evaluate(TupleExpr expr, BindingSet bindings) throws QueryEvaluationException {
 		return precompile(expr).evaluate(bindings);
 	}
 
-	CloseableIteration<BindingSet, QueryEvaluationException> track(CloseableIteration<BindingSet, QueryEvaluationException> iter, TupleExpr expr) {
+	CloseableIteration<BindingSet> track(CloseableIteration<BindingSet> iter, TupleExpr expr) {
 		if (!trackBranchOperatorsOnly || Algebra.isBranchTupleOperator(expr) || (expr instanceof QueryRoot)) {
 			if (trackResultTime) {
 				iter = new TimedIterator(iter, expr);
@@ -371,7 +362,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 				ExtendedTripleSource tripleSource = (ExtendedTripleSource) tupleEval.getTripleSource(sp, bindings);
 				if (nq.isAllNamedContexts()) {
 					// can't optimize for this
-				    try (CloseableIteration<?, QueryEvaluationException> stmtIter = tupleEval.getStatements(nq, tripleSource)) {
+				    try (CloseableIteration<?> stmtIter = tupleEval.getStatements(nq, tripleSource)) {
 				    	return stmtIter.hasNext();
 				    }
 				} else {
@@ -538,15 +529,14 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	 * This class wraps an iterator and increments the "resultSizeActual" of the query model node that the iterator
 	 * represents. This means we can track the number of tuples that have been retrieved from this node.
 	 */
-	private final class ResultSizeCountingIterator extends IterationWrapper<BindingSet, QueryEvaluationException> {
+	private final class ResultSizeCountingIterator extends AbstractCloseableIteration<BindingSet> {
 
-		private final CloseableIteration<BindingSet, QueryEvaluationException> iterator;
+		private final CloseableIteration<BindingSet> iterator;
 		private final QueryModelNode queryModelNode;
 		private long counter;
 
-		private ResultSizeCountingIterator(CloseableIteration<BindingSet, QueryEvaluationException> iterator,
+		private ResultSizeCountingIterator(CloseableIteration<BindingSet> iterator,
 				QueryModelNode queryModelNode) {
-			super(iterator);
 			this.iterator = iterator;
 			this.queryModelNode = queryModelNode;
 			// set resultsSizeActual to at least be 0 so we can track iterations that don't produce anything
@@ -563,9 +553,13 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		}
 
 		@Override
+		public boolean hasNext() throws QueryEvaluationException {
+			return iterator.hasNext();
+		}
+
+		@Override
 		protected void handleClose() throws QueryEvaluationException {
 			updateResultSize();
-			super.handleClose();
 		}
 
 		private void updateResultSize() {
@@ -577,15 +571,14 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 	/**
 	 * This class wraps an iterator and tracks the time used to execute next() and hasNext()
 	 */
-	private final class TimedIterator extends IterationWrapper<BindingSet, QueryEvaluationException> {
+	private final class TimedIterator extends AbstractCloseableIteration<BindingSet> {
 
-		private final CloseableIteration<BindingSet, QueryEvaluationException> iterator;
+		private final CloseableIteration<BindingSet> iterator;
 		private final QueryModelNode queryModelNode;
 		private long elapsed;
 
-		private TimedIterator(CloseableIteration<BindingSet, QueryEvaluationException> iterator,
+		private TimedIterator(CloseableIteration<BindingSet> iterator,
 				QueryModelNode queryModelNode) {
-			super(iterator);
 			this.iterator = iterator;
 			this.queryModelNode = queryModelNode;
 			Algebra.initTotalTimeNanosActual(queryModelNode);
@@ -606,7 +599,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		@Override
 		public boolean hasNext() throws QueryEvaluationException {
 			long start = System.nanoTime();
-			boolean hasNext = super.hasNext();
+			boolean hasNext = iterator.hasNext();
 			long end = System.nanoTime();
 			elapsed += end - start;
 			if (elapsed > config.trackResultTimeUpdateInterval) {
@@ -618,7 +611,6 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 		@Override
 		protected void handleClose() throws QueryEvaluationException {
 			updateResultTime();
-			super.handleClose();
 		}
 
 		private void updateResultTime() {

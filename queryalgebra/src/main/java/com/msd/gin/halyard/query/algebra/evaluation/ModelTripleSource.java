@@ -1,7 +1,5 @@
 package com.msd.gin.halyard.query.algebra.evaluation;
 
-import com.msd.gin.halyard.query.algebra.evaluation.CloseableTripleSource;
-
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteratorIteration;
 import org.eclipse.rdf4j.model.IRI;
@@ -28,7 +26,7 @@ public class ModelTripleSource implements CloseableTripleSource {
 	}
 
 	@Override
-	public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred,
+	public CloseableIteration<? extends Statement> getStatements(Resource subj, IRI pred,
 			Value obj, Resource... contexts) throws QueryEvaluationException {
 		return new CloseableIteratorIteration<>(model.getStatements(subj, pred, obj, contexts).iterator());
 	}

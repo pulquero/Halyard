@@ -52,7 +52,7 @@ public class ObjectFunction extends AbstractSpinFunction implements Function {
 		}
 		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
 		try (QueryPreparer qp = extTripleSource.newQueryPreparer()) {
-			try (CloseableIteration<? extends Statement, QueryEvaluationException> stmts = extTripleSource.getStatements((Resource) subj, (IRI) pred, null)) {
+			try (CloseableIteration<? extends Statement> stmts = extTripleSource.getStatements((Resource) subj, (IRI) pred, null)) {
 				if (stmts.hasNext()) {
 					return stmts.next().getObject();
 				} else {

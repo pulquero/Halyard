@@ -33,7 +33,7 @@ public class TimestampTupleFunction extends AbstractSpinFunction implements Exte
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
+	public CloseableIteration<? extends List<? extends Value>> evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
 		ValueFactory vf = tripleSource.getValueFactory();
 		if (args.length == 1 && args[0].isTriple()) {
 			Triple t = (Triple) args[0];
@@ -55,8 +55,8 @@ public class TimestampTupleFunction extends AbstractSpinFunction implements Exte
 		}
 
 		Resource[] contexts = (args.length == 4) ? new Resource[] { (Resource) args[3] } : new Resource[0];
-		CloseableIteration<? extends Statement, QueryEvaluationException> iter = ((HBaseTripleSource) tripleSource).getTimestampedTripleSource().getStatements((Resource) args[0], (IRI) args[1], args[2], contexts);
-		return new ConvertingIteration<Statement, List<? extends Value>, QueryEvaluationException>(iter) {
+		CloseableIteration<? extends Statement> iter = ((HBaseTripleSource) tripleSource).getTimestampedTripleSource().getStatements((Resource) args[0], (IRI) args[1], args[2], contexts);
+		return new ConvertingIteration<Statement, List<? extends Value>>(iter) {
 			@Override
 			protected List<? extends Value> convert(Statement stmt) throws QueryEvaluationException {
 				long ts = ((Timestamped) stmt).getTimestamp();

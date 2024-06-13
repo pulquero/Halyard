@@ -136,7 +136,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	@Override
-	public final CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
+	public final CloseableIteration<? extends Statement> getStatements(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
 		if (RDF.TYPE.equals(pred) && SPIN.MAGIC_PROPERTY_CLASS.equals(obj)) {
 			// cache magic property definitions here
 			return EMPTY_ITERATION;
@@ -157,26 +157,30 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		}
 	}
 
-	private CloseableIteration<? extends Statement, QueryEvaluationException> getStatementsInternal(Resource subj, IRI pred, Value obj, QueryContexts queryContexts) {
-		CloseableIteration<? extends Statement, QueryEvaluationException> iter = timeLimit(
+	private CloseableIteration<? extends Statement> getStatementsInternal(Resource subj, IRI pred, Value obj, QueryContexts queryContexts) {
+		CloseableIteration<? extends Statement> iter = timeLimit(
 				new ExceptionConvertingIteration<Statement, QueryEvaluationException>(createStatementScanner(subj, pred, obj, queryContexts.contextsToScan)) {
 			@Override
-			protected QueryEvaluationException convert(Exception e) {
+					protected QueryEvaluationException convert(RuntimeException e) {
 				return new QueryEvaluationException(e);
 			}
 		}, timeoutSecs);
 		if (queryContexts.contextsToFilter != null) {
-			iter = new FilterIteration<Statement, QueryEvaluationException>(iter) {
+			iter = new FilterIteration<Statement>(iter) {
 				@Override
 				protected boolean accept(Statement st) {
 					return queryContexts.contextsToFilter.contains(st.getContext());
+				}
+
+				@Override
+				protected void handleClose() {
 				}
 			};
 		}
 		return iter;
 	}
 
-	protected CloseableIteration<? extends Statement, IOException> createStatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contexts) {
+	protected CloseableIteration<? extends Statement> createStatementScanner(Resource subj, IRI pred, Value obj, List<Resource> contexts) {
 		return new StatementScanner(subj, pred, obj, contexts);
 	}
 
@@ -190,11 +194,11 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 			RDFObject object = rdfFactory.createObject(obj);
 			for (Resource ctx : queryContexts.contextsToScan) {
 				RDFContext context = rdfFactory.createContext(ctx);
+				Scan scan = scan(subject, predicate, object, context);
+				if (scan == null) {
+					return false;
+				}
 				try {
-					Scan scan = scan(subject, predicate, object, context);
-					if (scan == null) {
-						return false;
-					}
 					return HalyardTableUtils.exists(keyspaceConn, scan);
 				} catch (IOException e) {
 					throw new QueryEvaluationException(e);
@@ -205,20 +209,24 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	protected final boolean hasStatementFallback(Resource subj, IRI pred, Value obj, QueryContexts queryContexts) {
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> iter = getStatementsInternal(subj, pred, obj, queryContexts)) {
+		try (CloseableIteration<? extends Statement> iter = getStatementsInternal(subj, pred, obj, queryContexts)) {
 			return iter.hasNext();
 		}
 	}
 
-	protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) throws IOException {
+	protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) {
 		Scan scan = stmtIndices.scan(subj, pred, obj, ctx);
 		applySettings(scan);
 		return scan;
 	}
 
-	private void applySettings(Scan scan) throws IOException {
+	private void applySettings(Scan scan) {
 		if (scan != null && settings != null) {
-			scan.setTimeRange(settings.minTimestamp, settings.maxTimestamp);
+			try {
+				scan.setTimeRange(settings.minTimestamp, settings.maxTimestamp);
+			} catch (IOException ioe) {
+				throw new QueryEvaluationException(ioe);
+			}
 			scan.readVersions(settings.maxVersions);
 		}
 	}
@@ -234,7 +242,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		}
 		return new HBaseTripleSource(keyspaceConn, vf, stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker, forkIndex) {
 			@Override
-			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) throws IOException {
+			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) {
 				Scan scan = stmtIndices.scanWithConstraint(subj, pred, obj, ctx, roleName, forkIndex, partitionedIndex, constraint);
 				applySettings(scan);
 				return scan;
@@ -277,38 +285,41 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 			LOG.trace("New StatementScanner {} {} {} {}", subj, pred, obj, contextsList);
 		}
 
-		protected Result nextResult() throws IOException { // gets the next result to consider from the HBase Scan
-			while (true) {
-				if (rs == null) {
-					if (contexts.hasNext()) {
+		protected Result nextResult() { // gets the next result to consider from the HBase Scan
+			try {
+				while (true) {
+					if (rs == null) {
+						if (contexts.hasNext()) {
 
-						// build a ResultScanner from an HBase Scan that finds potential matches
-						ctx = rdfFactory.createContext(contexts.next());
-						Scan scan = scan(subj, pred, obj, ctx);
-						if (scan == null) {
+							// build a ResultScanner from an HBase Scan that finds potential matches
+							ctx = rdfFactory.createContext(contexts.next());
+							Scan scan = scan(subj, pred, obj, ctx);
+							if (scan == null) {
+								return null;
+							}
+							rs = keyspaceConn.getScanner(scan);
+						} else {
 							return null;
 						}
-						rs = keyspaceConn.getScanner(scan);
+					}
+					Result res = rs.next();
+					if (ticker != null) {
+						ticker.tick(); // sends a tick for keep alive purposes
+					}
+					if (res == null) { // no more results from this ResultScanner, close and clean up.
+						rs.close();
+						rs = null;
 					} else {
-						return null;
+						return res;
 					}
 				}
-				Result res = rs.next();
-				if (ticker != null) {
-					ticker.tick(); // sends a tick for keep alive purposes
-				}
-				if (res == null) { // no more results from this ResultScanner, close and clean up.
-					rs.close();
-					rs = null;
-				} else {
-					return res;
-				}
+			} catch (IOException ioe) {
+				throw new QueryEvaluationException(ioe);
 			}
 		}
 
 		@Override
-		protected void handleClose() throws IOException {
-			super.handleClose();
+		protected void handleClose() {
 			if (rs != null) {
 				rs.close();
 				rs = null;
@@ -317,14 +328,9 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	@Override
-	public final CloseableIteration<? extends Triple, QueryEvaluationException> getRdfStarTriples(Resource subj, IRI pred, Value obj) throws QueryEvaluationException {
-		CloseableIteration<? extends Triple, QueryEvaluationException> iter = new ConvertingIteration<Statement, Triple, QueryEvaluationException>(
-				new ExceptionConvertingIteration<Statement, QueryEvaluationException>(createStatementScanner(subj, pred, obj, Collections.singletonList(HALYARD.TRIPLE_GRAPH_CONTEXT))) {
-				@Override
-				protected QueryEvaluationException convert(Exception e) {
-					return new QueryEvaluationException(e);
-				}
-			}) {
+	public final CloseableIteration<? extends Triple> getRdfStarTriples(Resource subj, IRI pred, Value obj) throws QueryEvaluationException {
+		CloseableIteration<? extends Triple> iter = new ConvertingIteration<Statement, Triple>(
+				createStatementScanner(subj, pred, obj, Collections.singletonList(HALYARD.TRIPLE_GRAPH_CONTEXT))) {
 
 			@Override
 			protected Triple convert(Statement stmt) {
@@ -334,9 +340,9 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		return timeLimit(iter, timeoutSecs);
 	}
 
-	private static <X, E extends Exception> CloseableIteration<X, E> timeLimit(CloseableIteration<X, E> iter, long timeoutSecs) {
+	private static <X> CloseableIteration<X> timeLimit(CloseableIteration<X> iter, long timeoutSecs) {
 		if (timeoutSecs > 0) {
-			return new TimeLimitIteration<X, E>(iter, TimeUnit.SECONDS.toMillis(timeoutSecs)) {
+			return new TimeLimitIteration<X>(iter, TimeUnit.SECONDS.toMillis(timeoutSecs)) {
 				@Override
 				protected void throwInterruptedException() {
 					throw new QueryEvaluationException(String.format("Statements scanning exceeded specified timeout %ds", timeoutSecs));

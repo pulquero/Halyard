@@ -355,11 +355,11 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 	// evaluate queries/ subqueries
     @Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) throws SailException {
+	public CloseableIteration<BindingSet> evaluate(final TupleExpr tupleExpr, final Dataset dataset, final BindingSet bindings, final boolean includeInferred) throws SailException {
 		return evaluate((optimizedTree, step, queryInfo) -> {
 			try {
-				CloseableIteration<BindingSet, QueryEvaluationException> iter = evaluateInternal(optimizedTree, step);
-				iter = new IterationWrapper<BindingSet, QueryEvaluationException>(iter) {
+				CloseableIteration<BindingSet> iter = evaluateInternal(optimizedTree, step);
+				iter = new IterationWrapper<BindingSet>(iter) {
 					@Override
 					protected void handleClose() throws QueryEvaluationException {
 						try {
@@ -370,7 +370,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 					}
 				};
 				return sail.evaluationTimeoutSecs <= 0 ? iter
-						: new TimeLimitIteration<BindingSet, QueryEvaluationException>(iter, TimeUnit.SECONDS.toMillis(sail.evaluationTimeoutSecs)) {
+						: new TimeLimitIteration<BindingSet>(iter, TimeUnit.SECONDS.toMillis(sail.evaluationTimeoutSecs)) {
 							@Override
 							protected void throwInterruptedException() {
 								throw new QueryInterruptedException(String.format("Query evaluation exceeded specified timeout %ds", sail.evaluationTimeoutSecs));
@@ -465,7 +465,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		return (!cleaned.isEmpty()) ? cleaned : EmptyBindingSet.getInstance();
 	}
 
-	protected CloseableIteration<BindingSet, QueryEvaluationException> evaluateInternal(TupleExpr optimizedTree, QueryEvaluationStep step) throws QueryEvaluationException {
+	protected CloseableIteration<BindingSet> evaluateInternal(TupleExpr optimizedTree, QueryEvaluationStep step) throws QueryEvaluationException {
 		return step.evaluate(EmptyBindingSet.getInstance());
 	}
 
@@ -495,12 +495,12 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	}
 
     @Override
-    public CloseableIteration<? extends Resource, SailException> getContextIDs() throws SailException {
+	public CloseableIteration<? extends Resource> getContextIDs() throws SailException {
 
         //generate an iterator over the identifiers of the contexts available in Halyard.
-		final CloseableIteration<? extends Statement, SailException> scanner = getStatements(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, null, true, HALYARD.STATS_GRAPH_CONTEXT);
+		final CloseableIteration<? extends Statement> scanner = getStatements(HALYARD.STATS_ROOT_NODE, SD.NAMED_GRAPH_PROPERTY, null, true, HALYARD.STATS_GRAPH_CONTEXT);
 		if (scanner.hasNext()) {
-			return new ConvertingIteration<Statement, Resource, SailException>(scanner) {
+			return new ConvertingIteration<Statement, Resource>(scanner) {
 
 				@Override
 				protected Resource convert(Statement stmt) {
@@ -522,22 +522,25 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 					}
 
 					@Override
-					protected Result nextResult() throws IOException {
-						return rs.next();
+					protected Result nextResult() {
+						try {
+							return rs.next();
+						} catch (IOException ioe) {
+							throw new QueryEvaluationException(ioe);
+						}
 					}
 
 					@Override
-					protected void handleClose() throws IOException {
-						super.handleClose();
+					protected void handleClose() {
 						rs.close();
 					}
 				}
 
 				try {
-					return new TimeLimitIteration<Resource, SailException>(
-							new ReducedIteration<Resource, SailException>(new ConvertingIteration<Statement, Resource, SailException>(new ExceptionConvertingIteration<Statement, SailException>(new StatementScanner(sail.getRDFFactory())) {
+					return new TimeLimitIteration<Resource>(
+							new ReducedIteration<Resource>(new ConvertingIteration<Statement, Resource>(new ExceptionConvertingIteration<Statement, SailException>(new StatementScanner(sail.getRDFFactory())) {
 								@Override
-								protected SailException convert(Exception e) {
+								protected SailException convert(RuntimeException e) {
 									return new SailException(e);
 								}
 							}) {
@@ -561,14 +564,14 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     }
 
     @Override
-    public CloseableIteration<? extends Statement, SailException> getStatements(Resource subj, IRI pred, Value obj, boolean includeInferred, Resource... contexts) throws SailException {
+	public CloseableIteration<? extends Statement> getStatements(Resource subj, IRI pred, Value obj, boolean includeInferred, Resource... contexts) throws SailException {
 		if (flushWritesBeforeReads) {
 			flush();
 		}
 		TripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred);
 		return new ExceptionConvertingIteration<Statement, SailException>(tripleSource.getStatements(subj, pred, obj, contexts)) {
 			@Override
-			protected SailException convert(Exception e) {
+			protected SailException convert(RuntimeException e) {
 				throw new SailException(e);
 			}
 		};
@@ -594,7 +597,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
         if (contexts != null && contexts.length > 0 && contexts[0] != null) {
             for (Resource ctx : contexts) {
             		//examine the VOID statistics for the count of triples in this context
-                try (CloseableIteration<? extends Statement, SailException> scanner = getStatements(ctx, VOID.TRIPLES, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
+					try (CloseableIteration<? extends Statement> scanner = getStatements(ctx, VOID.TRIPLES, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
                     if (scanner.hasNext()) {
                         size += ((Literal)scanner.next().getObject()).longValue();
                     }
@@ -604,7 +607,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
                 }
             }
         } else {
-            try (CloseableIteration<? extends Statement, SailException> scanner = getStatements(HALYARD.STATS_ROOT_NODE, VOID.TRIPLES, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
+			try (CloseableIteration<? extends Statement> scanner = getStatements(HALYARD.STATS_ROOT_NODE, VOID.TRIPLES, null, true, HALYARD.STATS_GRAPH_CONTEXT)) {
                 if (scanner.hasNext()) {
                     size += ((Literal)scanner.next().getObject()).longValue();
                 }
@@ -615,7 +618,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
         }
         // try to count it manually if there are no stats and there is a specific timeout
 		if (size == 0 && sail.evaluationTimeoutSecs > 0) {
-			try (CloseableIteration<? extends Statement, SailException> scanner = getStatements(null, null, null, true, contexts)) {
+			try (CloseableIteration<? extends Statement> scanner = getStatements(null, null, null, true, contexts)) {
 				while (scanner.hasNext()) {
 					scanner.next();
 					size++;
@@ -841,7 +844,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 			}
 
 			TripleSet triples = new TripleSet();
-			try (CloseableIteration<? extends Statement, SailException> iter = getStatements(subjPattern, predPattern, objPattern, true, contexts)) {
+			try (CloseableIteration<? extends Statement> iter = getStatements(subjPattern, predPattern, objPattern, true, contexts)) {
 				while (iter.hasNext()) {
 					Statement st = iter.next();
 					Resource subj = st.getSubject();
@@ -888,7 +891,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 	}
 
 	private void deleteSystemStatements(@Nullable Resource subj, @Nullable IRI pred, @Nullable Value obj, Resource[] contexts, long timestamp) throws SailException {
-		try (CloseableIteration<? extends Statement, SailException> iter = getStatements(subj, pred, obj, true, contexts)) {
+		try (CloseableIteration<? extends Statement> iter = getStatements(subj, pred, obj, true, contexts)) {
 			while (iter.hasNext()) {
 				Statement st = iter.next();
 				deleteStatement(st.getSubject(), st.getPredicate(), st.getObject(), st.getContext(), timestamp, deleteNonDefaultKeyValueMapper);
@@ -910,11 +913,6 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 		getBufferedMutator().mutate(new Delete(kv.getRowArray(), kv.getRowOffset(), kv.getRowLength()).add(kv));
 		pendingUpdateCount++;
 	}
-
-    @Override
-    public boolean pendingRemovals() {
-        return false;
-    }
 
     @Override
     public void startUpdate(UpdateContext op) throws SailException {
@@ -954,7 +952,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     @Override
     public String getNamespace(String prefix) throws SailException {
         ValueFactory vf = sail.getValueFactory();
-    	try (CloseableIteration<? extends Statement, SailException> nsIter = getStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), false, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT })) {
+		try (CloseableIteration<? extends Statement> nsIter = getStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, vf.createLiteral(prefix), false, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT })) {
     		if (nsIter.hasNext()) {
     			IRI namespace = (IRI) nsIter.next().getSubject();
     			return namespace.stringValue();
@@ -965,9 +963,9 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
     }
 
     @Override
-    public CloseableIteration<? extends Namespace, SailException> getNamespaces() {
-    	CloseableIteration<? extends Statement, SailException> nsIter = getStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, null, false, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
-    	return new ConvertingIteration<Statement, Namespace, SailException>(nsIter) {
+	public CloseableIteration<? extends Namespace> getNamespaces() {
+		CloseableIteration<? extends Statement> nsIter = getStatements(null, HALYARD.NAMESPACE_PREFIX_PROPERTY, null, false, new Resource[] { HALYARD.SYSTEM_GRAPH_CONTEXT });
+		return new ConvertingIteration<Statement, Namespace>(nsIter) {
 			@Override
 			protected Namespace convert(Statement stmt)
 				throws SailException {

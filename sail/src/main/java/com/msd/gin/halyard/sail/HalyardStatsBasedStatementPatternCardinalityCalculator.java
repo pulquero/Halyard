@@ -245,7 +245,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 			Long count = stmtCountCache.get(Pair.of(subjectNode, countPredicate), subjPred -> {
 				IRI statsNode = subjPred.getLeft();
 				IRI statsPred = subjPred.getRight();
-				try (CloseableIteration<? extends Statement, QueryEvaluationException> ci = statsSource.getStatements(statsNode, statsPred, null, HALYARD.STATS_GRAPH_CONTEXT)) {
+				try (CloseableIteration<? extends Statement> ci = statsSource.getStatements(statsNode, statsPred, null, HALYARD.STATS_GRAPH_CONTEXT)) {
 					if (ci.hasNext()) {
 						Value v = ci.next().getObject();
 						if (v.isLiteral()) {
@@ -299,7 +299,7 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 				long sumxx = 0L;
 				long sumx = 0L;
 				// get the partitions for all the values
-				try (CloseableIteration<? extends Statement, QueryEvaluationException> iter = statsSource.getStatements(graph, PARTITION_PREDICATES.get(partitionType), null, HALYARD.STATS_GRAPH_CONTEXT)) {
+				try (CloseableIteration<? extends Statement> iter = statsSource.getStatements(graph, PARTITION_PREDICATES.get(partitionType), null, HALYARD.STATS_GRAPH_CONTEXT)) {
 					while (iter.hasNext()) {
 						Statement stmt = iter.next();
 						// get the number of triples for this value

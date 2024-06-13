@@ -107,6 +107,7 @@ public final class HALYARD implements Vocabulary {
     public final static IRI GET_FUNCTION = SVF.createIRI(NAMESPACE, "get");
     public final static IRI SLICE_FUNCTION = SVF.createIRI(NAMESPACE, "slice");
     public final static IRI FROM_TUPLE = SVF.createIRI(NAMESPACE, "fromTuple");
+    public final static IRI LIKE_FUNCTION = SVF.createIRI(NAMESPACE, "like");
 
     public final static IRI MAX_WITH_FUNCTION = SVF.createIRI(NAMESPACE, "maxWith");
     public final static IRI MIN_WITH_FUNCTION = SVF.createIRI(NAMESPACE, "minWith");

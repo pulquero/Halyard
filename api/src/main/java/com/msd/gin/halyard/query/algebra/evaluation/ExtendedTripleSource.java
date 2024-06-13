@@ -10,7 +10,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 
 public interface ExtendedTripleSource extends TripleSource {
 	default boolean hasStatement(Resource subj, IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> iter = getStatements(subj, pred, obj, contexts)) {
+		try (CloseableIteration<? extends Statement> iter = getStatements(subj, pred, obj, contexts)) {
 			return iter.hasNext();
 		}
 	}

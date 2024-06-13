@@ -16,24 +16,15 @@
  */
 package com.msd.gin.halyard.strategy;
 
-import java.util.Map;
-
-import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.testsuite.query.parser.sparql.manifest.SPARQL11UpdateComplianceTest;
 import org.eclipse.rdf4j.repository.contextaware.ContextAwareRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
+import org.eclipse.rdf4j.testsuite.query.parser.sparql.manifest.SPARQL11UpdateComplianceTest;
 
 /**
  *
  * @author Adam Sotona (MSD)
  */
 public class W3CApprovedSPARQL11UpdateTest extends SPARQL11UpdateComplianceTest {
-
-    public W3CApprovedSPARQL11UpdateTest(String displayName, String testURI, String name, String requestFile,
-			IRI defaultGraphURI, Map<String, IRI> inputNamedGraphs, IRI resultDefaultGraphURI,
-			Map<String, IRI> resultNamedGraphs) {
-    	super(displayName, testURI, name, requestFile, defaultGraphURI, inputNamedGraphs, resultDefaultGraphURI, resultNamedGraphs);
-    }
 
     @Override
     protected ContextAwareRepository newRepository() throws Exception {
