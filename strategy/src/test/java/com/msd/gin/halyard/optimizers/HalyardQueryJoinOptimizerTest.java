@@ -63,6 +63,18 @@ public class HalyardQueryJoinOptimizerTest {
         assertEquals(expr.toString(), "c", joinOrder.list.get(1).getObjectVar().getName());
     }
 
+	@Test
+	public void testQueryJoinOptimizerWithMultipleSubqueries() {
+        final TupleExpr expr = new SPARQLParser().parseQuery("select * where { { select * {?d a ?type; rdfs:label \"foobar\"} } { select * {?a ?b ?c; a \"1\"} }}", BASE_URI).getTupleExpr();
+        new HalyardQueryJoinOptimizer(createStatistics()).optimize(expr, null, null);
+        JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
+        assertEquals(expr.toString(), "foobar", joinOrder.list.get(0).getObjectVar().getValue().stringValue());
+        double expected = SimpleStatementPatternCardinalityCalculator.SUBJECT_VAR_CARDINALITY;
+        assertEquals(expr.toString(), expected, joinOrder.list.get(0).getResultSizeEstimate(), 0.0);
+        assertEquals(expr.toString(), "1", joinOrder.list.get(2).getObjectVar().getValue().stringValue());
+        assertEquals(expr.toString(), expected, joinOrder.list.get(2).getResultSizeEstimate(), 0.0);
+	}
+
     @Test
     public void testQueryJoinOptimizerWithSplitFunction() {
         final TupleExpr expr = new SPARQLParser().parseQuery("select * where {?a a \"1\";?b ?d. filter (<" + HALYARD.PARALLEL_SPLIT_FUNCTION + ">(10, ?d))}", BASE_URI).getTupleExpr();
@@ -74,7 +86,7 @@ public class HalyardQueryJoinOptimizerTest {
 
     @Test
     public void testQueryJoinOptimizerWithSplitFunctionOutsideSubquery() {
-        final TupleExpr expr = new SPARQLParser().parseQuery("select * where {?a a \"1\";?b ?d. filter (<" + HALYARD.PARALLEL_SPLIT_FUNCTION + ">(10, ?d)) { select * {?d a ?type; rdfs:label ?l} }}", BASE_URI).getTupleExpr();
+        final TupleExpr expr = new SPARQLParser().parseQuery("select * where {?a a \"1\";?b ?d. filter (<" + HALYARD.PARALLEL_SPLIT_FUNCTION + ">(10, ?d)) { select * {?d a ?type; rdfs:label ?label} }}", BASE_URI).getTupleExpr();
         new HalyardQueryJoinOptimizer(createStatistics()).optimize(expr, null, null);
         JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
         assertEquals(expr.toString(), "type", joinOrder.list.get(0).getObjectVar().getName());
@@ -84,7 +96,7 @@ public class HalyardQueryJoinOptimizerTest {
 
     @Test
     public void testQueryJoinOptimizerWithSplitFunctionInsideSubquery() {
-        final TupleExpr expr = new SPARQLParser().parseQuery("select * where { ?d a ?type; rdfs:label ?l { select * {?a a \"1\";?b ?d. filter (<" + HALYARD.PARALLEL_SPLIT_FUNCTION + ">(10, ?d))} }}", BASE_URI).getTupleExpr();
+        final TupleExpr expr = new SPARQLParser().parseQuery("select * where { ?d a ?type; rdfs:label ?label { select * {?a a \"1\";?b ?d. filter (<" + HALYARD.PARALLEL_SPLIT_FUNCTION + ">(10, ?d))} }}", BASE_URI).getTupleExpr();
         new HalyardQueryJoinOptimizer(createStatistics()).optimize(expr, null, null);
         JoinOrderVisitor joinOrder = new JoinOrderVisitor(expr);
         assertEquals(expr.toString(), "d", joinOrder.list.get(0).getObjectVar().getName());

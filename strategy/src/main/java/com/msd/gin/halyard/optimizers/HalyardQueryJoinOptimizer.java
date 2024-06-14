@@ -24,8 +24,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.eclipse.rdf4j.query.BindingSet;
-import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.FunctionCall;
 import org.eclipse.rdf4j.query.algebra.Projection;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
@@ -46,46 +44,57 @@ public final class HalyardQueryJoinOptimizer extends QueryJoinOptimizer {
     }
 
     @Override
-    public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-		// Halyard - find bindings required for parallel split function
-        tupleExpr.visit(new QueryJoinOptimizer.JoinVisitor() {
-        	Set<String> parallelSplitBindings = null;
-
-        	private Set<String> getParallelSplitBindings() {
-        		if (parallelSplitBindings == null) {
-            		parallelSplitBindings = findParallelSplitBindings(tupleExpr);
-        		}
-        		return parallelSplitBindings;
-        	}
-
-        	@Override
-        	public void meet(Projection node) {
-        		Set<String> currentParallelSplitBindings = parallelSplitBindings;
-        		if (node.isSubquery()) {
-        			parallelSplitBindings = findParallelSplitBindings(node.getArg());
-        		}
-        		super.meet(node);
-        		parallelSplitBindings = currentParallelSplitBindings;
-        	}
-
-        	@Override
-			protected void updateCardinalityMap(TupleExpr node, Map<TupleExpr,Double> cardinalityMap) {
-				statistics.updateCardinalityMap(node, boundVars, getParallelSplitBindings(), cardinalityMap, true);
-			}
-
-        	@Override
-        	protected void setResultSizeEstimate(TupleExpr node, double cardinality) {
-				// fix-up result size estimates - compensate for cost factor
-				double costFactor = -node.getCostEstimate() - 1.0;
-				if (costFactor > 0.0) {
-					cardinality /= costFactor;
-				}
-				super.setResultSizeEstimate(node, cardinality);
-        	}
-        });
+    protected JoinVisitor createJoinVisitor(TupleExpr root) {
+		return new JoinVisitor(root);
 	}
 
-	private static Set<String> findParallelSplitBindings(TupleExpr tupleExpr) {
+    class JoinVisitor extends QueryJoinOptimizer.JoinVisitor {
+    	final TupleExpr root;
+    	Set<String> parallelSplitBindings = null;
+
+    	JoinVisitor(TupleExpr root) {
+    		this.root = root;
+    	}
+
+    	private Set<String> getParallelSplitBindings() {
+    		if (parallelSplitBindings == null) {
+        		parallelSplitBindings = findParallelSplitBindings(root);
+    		}
+    		return parallelSplitBindings;
+    	}
+
+    	@Override
+    	public void meet(Projection node) {
+    		Set<String> currentParallelSplitBindings = parallelSplitBindings;
+    		if (node.isSubquery()) {
+    			parallelSplitBindings = findParallelSplitBindings(node.getArg());
+    		}
+    		super.meet(node);
+    		parallelSplitBindings = currentParallelSplitBindings;
+    	}
+
+    	@Override
+		protected void updateCardinalityMap(TupleExpr node, Map<TupleExpr,Double> cardinalityMap) {
+			statistics.updateCardinalityMap(node, boundVars, getParallelSplitBindings(), cardinalityMap, true);
+		}
+
+    	@Override
+    	protected void setResultSizeEstimate(TupleExpr node, double cardinality) {
+			// fix-up result size estimates - compensate for cost factor
+			double costFactor = -node.getCostEstimate() - 1.0;
+			if (costFactor > 0.0) {
+				cardinality /= costFactor;
+			}
+			super.setResultSizeEstimate(node, cardinality);
+    	}
+    }
+
+    /**
+     * Finds bindings required for parallel split function.
+     * @param tupleExpr root of query model node tree to search
+     * @return set of required binding names
+     */
+    private static Set<String> findParallelSplitBindings(TupleExpr tupleExpr) {
         final Set<String> parallelSplitBindings = new HashSet<>();
         tupleExpr.visit(new SkipVarsQueryModelVisitor<RuntimeException>() {
         	/**

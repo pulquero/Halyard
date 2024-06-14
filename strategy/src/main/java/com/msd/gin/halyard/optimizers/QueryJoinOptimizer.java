@@ -52,14 +52,22 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 	 */
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-        tupleExpr.visit(new JoinVisitor());
+        tupleExpr.visit(createJoinVisitor(tupleExpr));
+	}
+
+	protected JoinVisitor createJoinVisitor(TupleExpr root) {
+		return new JoinVisitor();
 	}
 
 
+	/**
+	 * This can be extended by subclasses to allow for adjustments to the optimization process.
+	 */
 	protected class JoinVisitor extends /*Halyard*/AbstractExtendedQueryModelVisitor<RuntimeException> {
 
 		protected Set<String> boundVars = new HashSet<>();
-		private boolean skipResultSizeEstimate = false;
+		private boolean skipSettingResultSizeEstimate = false;
+		private double highestCost = 1.0;
 
 		protected void updateCardinalityMap(TupleExpr tupleExpr, Map<TupleExpr,Double> cardinalityMap) {
 			statistics.updateCardinalityMap(tupleExpr, boundVars, cardinalityMap, true);
@@ -72,7 +80,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 		}
 
 		private void setResultSizeEstimates(Map<TupleExpr,Double> cardinalityMap) {
-			if (!skipResultSizeEstimate) {
+			if (!skipSettingResultSizeEstimate) {
 				cardinalityMap.entrySet().stream().forEach(entry -> {
 					TupleExpr expr = entry.getKey();
 					double cardinality = entry.getValue();
@@ -86,7 +94,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 		}
 
 		private void setResultSizeEstimate(TupleExpr tupleExpr) {
-			if (!skipResultSizeEstimate) {
+			if (!skipSettingResultSizeEstimate) {
 				Map<TupleExpr,Double> cardinalityMap = getCardinalityMap(tupleExpr);
 				setResultSizeEstimates(cardinalityMap);
 			}
@@ -171,16 +179,6 @@ public class QueryJoinOptimizer implements QueryOptimizer {
         }
 
 
-        private void optimizePriorityJoin(Set<String> origBoundVars, TupleExpr join) {
-			Set<String> saveBoundVars = boundVars;
-			try {
-				boundVars = new HashSet<>(origBoundVars);
-				join.visit(this);
-			} finally {
-				boundVars = saveBoundVars;
-			}
-		}
-
 		@Override
 		public void meet(Join node) {
 			TupleExpr replacement;
@@ -193,10 +191,13 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 
 				// get all extensions (BIND clause)
 				List<TupleExpr> orderedExtensions = getExtensionTupleExprs(joinArgs);
+				optimizeInNewScope(orderedExtensions);
 				joinArgs.removeAll(orderedExtensions);
 
 				// get all subselects and order them
-				List<TupleExpr> orderedSubselects = reorderSubselects(getSubSelects(joinArgs));
+				List<TupleExpr> subselects = getSubSelects(joinArgs);
+				optimizeInNewScope(subselects);
+				List<TupleExpr> orderedSubselects = reorderSubselects(subselects);
 				joinArgs.removeAll(orderedSubselects);
 
 				// Reorder the subselects and extensions to a more optimal sequence
@@ -262,6 +263,7 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 						TupleExpr[] oldNewExpr = selectNextTupleExpr(joinArgs, varsMap, varFreqMap);
 						TupleExpr oldExpr = oldNewExpr[0];
 						TupleExpr newExpr = oldNewExpr[1];
+						highestCost = Math.max(highestCost, newExpr.getCostEstimate());
 						joinArgs.remove(oldExpr);
 						orderedJoinArgs.add(newExpr);
 
@@ -285,13 +287,6 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 
 					// Replace old join hierarchy
 					node.replaceWith(replacement);
-
-					// we optimize after the replacement call above in case the optimize call below
-					// recurses back into this function and we need all the node's parent/child pointers
-					// set up correctly for replacement to work on subsequent calls
-					if (priorityJoins != null) {
-						optimizePriorityJoin(origBoundVars, priorityJoins);
-					}
 				} else {
 					// only subselect/priority joins involved in this query.
 					replacement = priorityJoins;
@@ -301,6 +296,12 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 				setResultSizeEstimate(replacement);
 			} finally {
 				boundVars = origBoundVars;
+			}
+		}
+
+		private void optimizeInNewScope(List<TupleExpr> subselects) {
+			for (TupleExpr subselect : subselects) {
+				subselect.visit(createJoinVisitor(subselect));
 			}
 		}
 
@@ -363,7 +364,15 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			return extensions;
 		}
 
-		private List<TupleExpr> getSubSelects(List<TupleExpr> expressions) {
+		/**
+		 * This method returns all direct sub-selects in the given list of expressions.
+		 * <p>
+		 * This method is meant to be possible to override by subclasses.
+		 *
+		 * @param expressions
+		 * @return
+		 */
+		protected List<TupleExpr> getSubSelects(List<TupleExpr> expressions) {
 			if (expressions.isEmpty())
 				return List.of();
 
@@ -566,15 +575,17 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 
 		private TupleExpr optimizeTupleExpr(TupleExpr tupleExpr) {
 			if (Algebra.isTupleOperator(tupleExpr)) {
-				boolean currentSkipResultSizeEstimate = skipResultSizeEstimate;
+				boolean currentSkipResultSizeEstimate = skipSettingResultSizeEstimate;
+				double currentHighestCost = highestCost;
 				// trial optimization so don't store any result size estimates
-				skipResultSizeEstimate = true;
+				skipSettingResultSizeEstimate = true;
 				try {
 					Parent parent = Parent.wrap(tupleExpr);
 					tupleExpr.visit(this);
 					return Parent.unwrap(parent);
 				} finally {
-					skipResultSizeEstimate = currentSkipResultSizeEstimate;
+					skipSettingResultSizeEstimate = currentSkipResultSizeEstimate;
+					highestCost = currentHighestCost;
 				}
 			} else {
 				return tupleExpr;
@@ -603,6 +614,11 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			// in most cases, cost is driven by cardinality
 			double cost = cardinalityMap.get(optimizedExpr);
 
+			// Adding 5 to the cost allows us to order tuple expressions based on which variables are already bound even
+			// if the statistics returns a cardinality of 0. This is useful for cases where the statistics are
+			// inaccurate, such as when querying the data added in the current transaction.
+			cost += 5;
+
 			List<Var> vars = varsMap.get(tupleExpr);
 
 			// Compensate for variables that are bound earlier in the evaluation
@@ -612,8 +628,14 @@ public class QueryJoinOptimizer implements QueryOptimizer {
 			int nonConstantVarCount = vars.size() - constantVars;
 
 			if (nonConstantVarCount > 0) {
-				double exp = (double) unboundVars.size() / nonConstantVarCount;
-				cost = Math.pow(cost, exp);
+				int boundVarCount = nonConstantVarCount - unboundVars.size();
+				if (boundVarCount == 0) {
+					// Cartesian Product!
+					cost = cost * highestCost;
+				} else {
+					double exp = (double) unboundVars.size() / nonConstantVarCount;
+					cost = Math.pow(cost, exp);
+				}
 			}
 
 			if (unboundVars.isEmpty()) {
