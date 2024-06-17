@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.json.JSONObject;
 
@@ -13,14 +14,27 @@ import com.msd.gin.halyard.model.vocabulary.HALYARD;
 public final class MapLiteral extends AbstractDataLiteral implements ObjectLiteral<Map<String,Object>> {
 	private static final long serialVersionUID = -8130963762756953874L;
 
+	public static Map<String,Object> objectMap(Literal l) {
+		if (l instanceof MapLiteral) {
+			return ((MapLiteral)l).map;
+		} else {
+			return parse(l.getLabel());
+		}
+	}
+
+	private static Map<String,Object> parse(CharSequence s) {
+		JSONObject obj = new JSONObject(s);
+		Map<String,Object> map = new HashMap<>(obj.length()+1);
+		for (String k : (Set<String>) obj.keySet()) {
+			map.put(k, obj.get(k));
+		}
+		return map;
+	}
+
 	private final Map<String,Object> map;
 
 	public MapLiteral(String s) {
-		JSONObject obj = new JSONObject(s);
-		this.map = new HashMap<>(obj.length()+1);
-		for (String k : (Set<String>) obj.keySet()) {
-			this.map.put(k, obj.get(k));
-		}
+		this.map = parse(s);
 	}
 
 	public MapLiteral(Map<String,Object> map) {

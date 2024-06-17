@@ -1,14 +1,13 @@
 package com.msd.gin.halyard.strategy.aggregators;
 
 import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.MapLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
-import java.util.Optional;
 import java.util.function.Function;
 
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.base.CoreDatatype.XSD;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
@@ -55,6 +54,10 @@ public final class GroupIntoArraysAggregateFactory implements AggregateFunctionF
 					} catch (NumberFormatException nfe) {
 						o = l.getLabel();
 					}
+				} else if (HALYARD.ARRAY_TYPE.equals(l.getDatatype())) {
+					o = ArrayLiteral.objectArray(l);
+				} else if (HALYARD.MAP_TYPE.equals(l.getDatatype())) {
+					o = MapLiteral.objectMap(l);
 				} else {
 					o = l.getLabel();
 				}
