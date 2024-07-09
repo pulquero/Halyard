@@ -116,8 +116,6 @@ import org.eclipse.rdf4j.query.parser.sparql.ast.*;
  * A SPARQL AST visitor implementation that creates a query algebra representation of the query.
  *
  * @author Arjohn Kampman
- * @apiNote This feature is for internal use only: its existence, signature or behavior may change without warning from
- *          one release to the next.
  */
 @InternalUseOnly
 public class TupleExprBuilder extends AbstractASTVisitor {

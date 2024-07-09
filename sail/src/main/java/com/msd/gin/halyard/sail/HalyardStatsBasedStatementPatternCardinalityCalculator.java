@@ -51,7 +51,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- *
+ * Cardinality calculator based on stored stats.
+ * 
  * @author Adam Sotona (MSD)
  */
 public final class HalyardStatsBasedStatementPatternCardinalityCalculator extends SchemaBasedStatementPatternCardinalityCalculator {

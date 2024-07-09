@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.github.pulquero.halyard</groupId>
 	<artifactId>halyard</artifactId>
-	<version>4.10-SNAPSHOT</version>
+	<version>4.10</version>
 	<packaging>pom</packaging>
 	<organization><name>halyard</name></organization>
 	<name>Halyard-star</name>
@@ -30,8 +30,7 @@
 	</developers>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.source>11</maven.compiler.source>
-		<maven.compiler.target>11</maven.compiler.target>
+		<maven.compiler.release>11</maven.compiler.release>
 		<rdf4j.version>4.3.11</rdf4j.version>
 		<hbase.version>2.5.5</hbase.version>
 		<hbase-connectors.version>1.0.0</hbase-connectors.version>
@@ -212,7 +211,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.10.1</version>
+				<version>3.13.0</version>
 				<configuration>
 					<showDeprecation>true</showDeprecation>
 				</configuration>
@@ -504,6 +503,9 @@
 		</profile>
 		<profile>
 			<id>release</id>
+			<properties>
+				<gpg.pinentry.mode>ask</gpg.pinentry.mode>
+			</properties>
 			<distributionManagement>
 				<snapshotRepository>
 					<id>ossrh</id>
@@ -529,6 +531,10 @@
 								</goals>
 								<configuration>
 									<keyname>3C1AA179E35EBEF3</keyname>
+									<gpgArguments>
+										<arg>--pinentry-mode</arg>
+										<arg>${gpg.pinentry.mode}</arg>
+									</gpgArguments>
 								</configuration>
 							</execution>
 						</executions>

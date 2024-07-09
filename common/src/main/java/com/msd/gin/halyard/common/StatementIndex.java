@@ -34,6 +34,10 @@ import org.eclipse.rdf4j.model.ValueFactory;
 
 /**
  * Triples/quads are stored in multiple indices as different permutations.
+ * @param <T1> RDF role
+ * @param <T2> RDF role
+ * @param <T3> RDF role
+ * @param <T4> RDF role
  */
 @ThreadSafe
 public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 extends SPOC<?>,T4 extends SPOC<?>> {

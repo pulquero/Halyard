@@ -41,7 +41,7 @@ import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.kohsuke.MetaInfServices;
 
 /**
- *
+ * Filters binding sets into partitions.
  * @author Adam Sotona (MSD)
  */
 @MetaInfServices(Function.class)

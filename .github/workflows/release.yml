@@ -1,0 +1,32 @@
+name: Halyard-star release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Java 11
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 11
+        server-id: ossrh
+        server-username: OSSRH_USERNAME
+        server-password: OSSRH_PASSWORD
+        gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+        gpg-passphrase: GPG_PASSPHRASE
+
+    - name: Release jars
+      run: mvn -Prelease deploy -Dgpg.pinentry.mode=loopback -B -V --no-transfer-progress
+      env:
+        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+        GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+    - name: Upload code coverage
+      uses: codecov/codecov-action@v2

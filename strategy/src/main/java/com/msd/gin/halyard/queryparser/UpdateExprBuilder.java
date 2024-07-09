@@ -49,8 +49,6 @@ import org.eclipse.rdf4j.query.parser.sparql.ast.VisitorException;
  * Extension of TupleExprBuilder that builds Update Expressions.
  *
  * @author Jeen Broekstra
- * @apiNote This feature is for internal use only: its existence, signature or behavior may change without warning from
- *          one release to the next.
  */
 @InternalUseOnly
 public class UpdateExprBuilder extends TupleExprBuilder {
