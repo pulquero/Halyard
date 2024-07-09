@@ -3,7 +3,7 @@ FROM eclipse-temurin:${JAVA_VERSION}
 
 ARG HADOOP_VERSION=3.3.6
 ARG HBASE_VERSION=2.5.5
-ARG HALYARD_VERSION=4.10-SNAPSHOT
+ARG HALYARD_VERSION=5.1-SNAPSHOT
 
 RUN apt-get update && \
     apt-get install -y wget gpg unzip
