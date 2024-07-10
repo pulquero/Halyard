@@ -19,7 +19,8 @@ package com.msd.gin.halyard.sail;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -102,14 +103,14 @@ public class HBaseSailConfigTest {
     }
 
     @Test
-    public void testElasticIndex() throws MalformedURLException {
+	public void testElasticIndex() throws URISyntaxException, MalformedURLException {
         HBaseSailConfig cfg = new HBaseSailConfig();
-        cfg.setElasticIndexURL(new URL("http://localhost:12345/index"));
+		cfg.setElasticIndexURL(new URI("http://localhost:12345/index").toURL());
 		cfg.setElasticUsername("elastic");
 		cfg.setElasticPassword("espass");
-		cfg.setElasticKeystoreLocation(new URL("file:/home/keystore"));
+		cfg.setElasticKeystoreLocation(new URI("file:/home/keystore").toURL());
 		cfg.setElasticKeystorePassword("keypass");
-		cfg.setElasticTruststoreLocation(new URL("file:/home/truststore"));
+		cfg.setElasticTruststoreLocation(new URI("file:/home/truststore").toURL());
 		cfg.setElasticTruststorePassword("trustpass");
         assertEquals("http://localhost:12345/index", cfg.getElasticIndexURL().toString());
 		assertEquals("elastic", cfg.getElasticUsername());
@@ -153,7 +154,7 @@ public class HBaseSailConfigTest {
         cfg.setSplitBits(7);
         cfg.setCreate(false);
         cfg.setPush(false);
-        cfg.setElasticIndexURL(new URL("http://whateverURL/index"));
+		cfg.setElasticIndexURL(new URI("http://whateverURL/index").toURL());
         TreeModel g = new TreeModel();
         cfg.export(g);
         cfg = new HBaseSailConfig();
@@ -203,12 +204,12 @@ public class HBaseSailConfigTest {
 	@Test
 	public void testExportAndParse4() throws Exception {
 		HBaseSailConfig cfg = new HBaseSailConfig();
-		cfg.setElasticIndexURL(new URL("http://localhost:12345/index"));
+		cfg.setElasticIndexURL(new URI("http://localhost:12345/index").toURL());
 		cfg.setElasticUsername("elastic");
 		cfg.setElasticPassword("espass");
-		cfg.setElasticKeystoreLocation(new URL("file:/home/keystore"));
+		cfg.setElasticKeystoreLocation(new URI("file:/home/keystore").toURL());
 		cfg.setElasticKeystorePassword("keypass");
-		cfg.setElasticTruststoreLocation(new URL("file:/home/truststore"));
+		cfg.setElasticTruststoreLocation(new URI("file:/home/truststore").toURL());
 		cfg.setElasticTruststorePassword("trustpass");
 		TreeModel g = new TreeModel();
 		cfg.export(g);

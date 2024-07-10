@@ -16,7 +16,7 @@ import java.io.OutputStreamWriter;
 import java.io.StringWriter;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
-import java.net.URL;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,7 +47,7 @@ public abstract class AbstractSearchTest {
 	}
 
 	protected final Repository createRepo(String tableName, MockElasticServer esServer) throws Exception {
-		HBaseSail hbaseSail = new HBaseSail(conf, tableName, true, 0, true, QUERY_TIMEOUT, ElasticSettings.from(new URL(esServer.getIndexUrl())), null);
+		HBaseSail hbaseSail = new HBaseSail(conf, tableName, true, 0, true, QUERY_TIMEOUT, ElasticSettings.from(new URI(esServer.getIndexUrl()).toURL()), null);
 		Repository hbaseRepo = new HBaseRepository(hbaseSail);
 		hbaseRepo.init();
 		return hbaseRepo;
@@ -119,7 +119,7 @@ public abstract class AbstractSearchTest {
 								nodeInfo.put("ip", server.getAddress().getAddress().getHostAddress());
 								nodeInfo.put("roles", Arrays.asList("master", "data", "ingest"));
 								JSONObject httpNode = new JSONObject();
-								httpNode.put("publish_address", server.getAddress().toString());
+								httpNode.put("publish_address", server.getAddress().getHostString());
 								nodeInfo.put("http", httpNode);
 								JSONObject node = new JSONObject();
 								node.put(NODE_ID, nodeInfo);
