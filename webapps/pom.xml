@@ -124,6 +124,37 @@
 								</artifactItem>
 
 								<artifactItem>
+									<groupId>org.mapdb</groupId>
+									<artifactId>mapdb</artifactId>
+									<version>3.1.0</version>
+								</artifactItem>
+								<artifactItem>
+									<groupId>org.mapdb</groupId>
+									<artifactId>elsa</artifactId>
+									<version>3.0.0-M5</version>
+								</artifactItem>
+								<artifactItem>
+									<groupId>org.jetbrains.kotlin</groupId>
+									<artifactId>kotlin-stdlib</artifactId>
+									<version>1.9.25</version>
+								</artifactItem>
+								<artifactItem>
+									<groupId>org.eclipse.collections</groupId>
+									<artifactId>eclipse-collections-api</artifactId>
+									<version>10.4.0</version>
+								</artifactItem>
+								<artifactItem>
+									<groupId>org.eclipse.collections</groupId>
+									<artifactId>eclipse-collections</artifactId>
+									<version>10.4.0</version>
+								</artifactItem>
+								<artifactItem>
+									<groupId>org.eclipse.collections</groupId>
+									<artifactId>eclipse-collections-forkjoin</artifactId>
+									<version>10.4.0</version>
+								</artifactItem>
+
+								<artifactItem>
 									<groupId>javax.servlet</groupId>
 									<artifactId>jstl</artifactId>
 									<version>${jstl.version}</version>
@@ -255,6 +286,8 @@
 									<patternset>
 										<exclude name="WEB-INF/lib/rdf4j-repository-api-${rdf4j.version}.jar" />
 										<exclude name="WEB-INF/lib/rdf4j-spin-${rdf4j.version}.jar" />
+										<!-- exclude old mapdb version -->
+										<exclude name="WEB-INF/lib/mapdb-1.*.jar" />
 										<!-- exclude unused SAILs -->
 										<exclude name="WEB-INF/lib/lucene-*.jar" />
 										<exclude name="WEB-INF/lib/solr-*.jar" />
