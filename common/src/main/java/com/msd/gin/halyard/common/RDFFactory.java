@@ -142,9 +142,7 @@ public final class RDFFactory {
 			idSize = confIdSize;
 		}
 		int typeIndex = lessThan(lessThanOrEqual(greaterThanOrEqual(halyardConfig.getInt(TableConfig.ID_TYPE_INDEX), 0), Short.BYTES), idSize);
-		if (confIdJavaHash) {
-			greaterThanOrEqual(idSize, typeIndex + 1 + Integer.BYTES); // salt & typing bytes + 4 bytes for the Java int hash code
-		}
+		greaterThanOrEqual(idSize, ValueIdentifier.Format.minSize(typeIndex, confIdJavaHash));
 		ValueIdentifier.TypeNibble typeNibble = halyardConfig.getBoolean(TableConfig.ID_TYPE_NIBBLE) ? ValueIdentifier.TypeNibble.LITTLE_NIBBLE : ValueIdentifier.TypeNibble.BIG_NIBBLE;
 		idFormat = new ValueIdentifier.Format(confIdAlgo, idSize, typeIndex, typeNibble, confIdJavaHash);
 		LOGGER.info("Identifier format: {}", idFormat);

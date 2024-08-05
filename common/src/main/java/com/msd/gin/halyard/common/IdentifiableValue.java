@@ -17,6 +17,7 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 
 	private IdSer cachedIV;
 	private Value materializedValue;
+	private int hashCode;
 
 	protected IdentifiableValue(Value v) {
 		cachedIV = IdSer.NONE;
@@ -56,9 +57,18 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 
 	@Override
 	public final int hashCode() {
+		int hc = hashCode;
+		if (hc == 0) {
+			hc = calculateHashCode();
+			hashCode = hc;
+		}
+		return hc;
+	}
+
+	private int calculateHashCode() {
 		IdSer current = cachedIV;
 		if (current.rdfFactory != null && current.rdfFactory.idFormat.hasJavaHash) {
-			return getId(current.rdfFactory).hashCode();
+			return getId(current.rdfFactory).valueHashCode(current.rdfFactory.idFormat);
 		} else {
 			return getValue().hashCode();
 		}

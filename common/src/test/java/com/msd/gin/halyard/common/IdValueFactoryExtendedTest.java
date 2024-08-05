@@ -166,14 +166,14 @@ public class IdValueFactoryExtendedTest {
 		RDFFactory rdfFactory1 = RDFFactory.create(conf1);
 		ValueIdentifier actualId1 = actual.getId(rdfFactory1);
 		assertEquals(rdfFactory1.id(expected), actualId1);
-		assertEquals(expected.hashCode(), actualId1.hashCode());
+		assertEquals(expected.hashCode(), actualId1.valueHashCode(rdfFactory1.idFormat));
 
 		Configuration conf2 = new Configuration(false);
 		conf2.setInt(TableConfig.ID_SIZE, 10);
 		RDFFactory rdfFactory2 = RDFFactory.create(conf2);
 		ValueIdentifier actualId2 = actual.getId(rdfFactory2);
 		assertEquals(rdfFactory2.id(expected), actualId2);
-		assertEquals(expected.hashCode(), actualId2.hashCode());
+		assertEquals(expected.hashCode(), actualId2.valueHashCode(rdfFactory2.idFormat));
 	}
 
 	@Test

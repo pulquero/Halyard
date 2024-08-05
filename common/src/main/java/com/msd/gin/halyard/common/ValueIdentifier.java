@@ -78,6 +78,11 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 	static final class Format implements Serializable {
 		private static final long serialVersionUID = -7777885367792871664L;
 
+		static int minSize(int typeIndex, boolean hasJavaHash) {
+			// salt & typing bytes + 4 bytes for the Java int hash code
+			return typeIndex + 1 + (hasJavaHash ? Integer.BYTES : 0);
+		}
+
 		final String algorithm;
 		final int size;
 		final int typeIndex;
@@ -94,6 +99,9 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 		 * @param hasJavaHash indicates whether to include the Java hash as part of the ID.
 		 */
 		Format(String algorithm, int size, int typeIndex, TypeNibble typeNibble, boolean hasJavaHash) {
+			if (hasJavaHash && size < minSize(typeIndex, hasJavaHash)) {
+				throw new IllegalArgumentException("Size is too small");
+			}
 			this.size = size;
 			this.algorithm = algorithm;
 			this.typeIndex = typeIndex;
@@ -331,16 +339,17 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 		return Arrays.equals(this.idBytes, that.idBytes);
 	}
 
-	/**
-	 * This will coincide with the Java hash code of the Value, if present.
-	 */
 	@Override
 	public int hashCode() {
-		int h = 0;
-		for (int i = Math.min(idBytes.length - Integer.BYTES, 0); i < idBytes.length; i++) {
-			h = (h << 8) | (idBytes[i] & 0xFF);
+		return Arrays.hashCode(idBytes);
+	}
+
+	int valueHashCode(Format format) {
+		if (!format.hasJavaHash) {
+			throw new IllegalArgumentException("Java hash not available");
 		}
-		return h;
+		int i = idBytes.length - Integer.BYTES;
+		return (idBytes[i++] & 0xFF) << 24 | (idBytes[i++] & 0xFF) << 16 | (idBytes[i++] & 0xFF) << 8 | (idBytes[i++] & 0xFF);
 	}
 
 	@Override
