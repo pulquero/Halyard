@@ -20,6 +20,7 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -215,7 +216,7 @@ public final class RDFFactory {
 		return idFormat.algorithm;
 	}
 
-	ByteSequence writeSaltAndType(final int salt, ValueType type, IRI datatype, ByteSequence seq) {
+	ByteSequence writeSaltAndType(final int salt, ValueType type, CoreDatatype datatype, ByteSequence seq) {
 		if (salt >= typeSaltSize) {
 			throw new IllegalArgumentException(String.format("Salt must be between 0 (inclusive) and %d (exclusive): %d", typeSaltSize, salt));
 		}

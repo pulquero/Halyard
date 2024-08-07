@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Date;
 
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.junit.jupiter.api.Test;
@@ -16,12 +17,23 @@ import com.msd.gin.halyard.model.vocabulary.HALYARD;
 public class LiteralConstraintTest {
 
 	@Test
-	public void testStringLiteral() {
+	public void testStringLiteral_iri() {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		LiteralConstraint vc = new LiteralConstraint(XSD.STRING);
 		assertFalse(vc.test(vf.createLiteral(1)));
 		assertTrue(vc.test(vf.createLiteral("foobar")));
 		assertFalse(vc.test(vf.createLiteral("foo", "en")));
+		assertFalse(vc.test(vf.createLiteral("whatever", vf.createIRI("http://whatever"))));
+	}
+
+	@Test
+	public void testIntLiteral_cdt() {
+		ValueFactory vf = SimpleValueFactory.getInstance();
+		LiteralConstraint vc = new LiteralConstraint(CoreDatatype.XSD.INT);
+		assertTrue(vc.test(vf.createLiteral(1)));
+		assertFalse(vc.test(vf.createLiteral("foobar")));
+		assertFalse(vc.test(vf.createLiteral("foo", "en")));
+		assertFalse(vc.test(vf.createLiteral("whatever", vf.createIRI("http://whatever"))));
 	}
 
 	@Test
@@ -31,6 +43,7 @@ public class LiteralConstraintTest {
 		assertFalse(vc.test(vf.createLiteral(1)));
 		assertFalse(vc.test(vf.createLiteral("foobar")));
 		assertTrue(vc.test(vf.createLiteral("foo", "en")));
+		assertFalse(vc.test(vf.createLiteral("whatever", vf.createIRI("http://whatever"))));
 	}
 
 	@Test
@@ -41,6 +54,7 @@ public class LiteralConstraintTest {
 		assertTrue(vc.test(vf.createLiteral(new Date())));
 		assertFalse(vc.test(vf.createLiteral("foobar")));
 		assertFalse(vc.test(vf.createLiteral("foo", "en")));
+		assertTrue(vc.test(vf.createLiteral("whatever", vf.createIRI("http://whatever"))));
 	}
 
 	@Test
@@ -51,6 +65,7 @@ public class LiteralConstraintTest {
 		assertTrue(vc.test(vf.createLiteral(1.8)));
 		assertFalse(vc.test(vf.createLiteral("foobar")));
 		assertFalse(vc.test(vf.createLiteral("foo", "en")));
+		assertFalse(vc.test(vf.createLiteral("whatever", vf.createIRI("http://whatever"))));
 	}
 
 	@Test

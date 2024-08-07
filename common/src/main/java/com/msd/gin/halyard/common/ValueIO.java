@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
@@ -42,7 +43,6 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.vocabulary.GEO;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
-import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.locationtech.jts.io.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -312,7 +312,7 @@ public class ValueIO {
 	}
 
 	private final HalyardTableConfiguration config;
-	private final Map<IRI, ByteWriter> byteWriters = new HashMap<>(32);
+	private final Map<CoreDatatype, ByteWriter> byteWriters = new IdentityHashMap<>(32);
 	private final Map<Integer, ByteReader> byteReaders = new HashMap<>(32);
 	private final int stringCompressionThreshold;
 
@@ -327,7 +327,7 @@ public class ValueIO {
 		addByteReaderWriters();
 	}
 
-	private void addByteWriter(IRI datatype, ByteWriter bw) {
+	private void addByteWriter(CoreDatatype datatype, ByteWriter bw) {
 		if (byteWriters.putIfAbsent(datatype, bw) != null) {
 			throw new AssertionError(String.format("%s already exists for %s", ByteWriter.class.getSimpleName(), datatype));
 		}
@@ -340,7 +340,7 @@ public class ValueIO {
 	}
 
 	private void addByteReaderWriters() {
-		addByteWriter(XSD.BOOLEAN, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.BOOLEAN, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				boolean v = l.booleanValue();
@@ -361,7 +361,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.BYTE, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.BYTE, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				byte v = l.byteValue();
@@ -375,7 +375,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.SHORT, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.SHORT, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				short v = l.shortValue();
@@ -389,7 +389,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.INT, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.INT, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				int v = l.intValue();
@@ -403,7 +403,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.LONG, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.LONG, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				long v = l.longValue();
@@ -417,7 +417,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.FLOAT, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.FLOAT, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				float v = l.floatValue();
@@ -431,7 +431,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.DOUBLE, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.DOUBLE, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				double v = l.doubleValue();
@@ -445,7 +445,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.INTEGER, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.INTEGER, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				BigInteger bigInt;
@@ -498,7 +498,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.DECIMAL, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.DECIMAL, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				BigDecimal x = l.decimalValue();
@@ -518,7 +518,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.STRING, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.STRING, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				return writeString(l.getLabel(), b);
@@ -537,7 +537,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(RDF.LANGSTRING, new ByteWriter() {
+		addByteWriter(CoreDatatype.RDF.LANGSTRING, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				String langTag = l.getLanguage().get();
@@ -572,7 +572,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.TIME, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.TIME, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				return writeCalendar(HeaderBytes.TIME_TYPE, l.calendarValue(), b);
@@ -589,7 +589,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.DATE, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.DATE, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				return writeCalendar(HeaderBytes.DATE_TYPE, l.calendarValue(), b);
@@ -607,7 +607,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(XSD.DATETIME, new ByteWriter() {
+		addByteWriter(CoreDatatype.XSD.DATETIME, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				return writeCalendar(HeaderBytes.DATETIME_TYPE, l.calendarValue(), b);
@@ -621,7 +621,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(GEO.WKT_LITERAL, new ByteWriter() {
+		addByteWriter(CoreDatatype.GEO.WKT_LITERAL, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				try {
@@ -658,7 +658,7 @@ public class ValueIO {
 			}
 		});
 
-		addByteWriter(RDF.XMLLITERAL, new ByteWriter() {
+		addByteWriter(CoreDatatype.RDF.XMLLITERAL, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				try {
@@ -960,7 +960,7 @@ public class ValueIO {
 		}
 
 		private ByteBuffer writeLiteral(Literal l, ByteBuffer b) {
-			ByteWriter writer = byteWriters.get(l.getDatatype());
+			ByteWriter writer = byteWriters.get(l.getCoreDatatype());
 			if (writer != null) {
 				final int failsafeMark = b.position();
 				try {

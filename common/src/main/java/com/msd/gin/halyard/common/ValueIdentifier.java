@@ -13,9 +13,9 @@ import java.util.Objects;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 
 /**
  * Immutable wrapper around a byte array identifier.
@@ -161,7 +161,7 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 				hash[i--] = (byte) jhash;
 			}
 			ValueType type = ValueType.valueOf(v);
-			IRI datatype = v.isLiteral() ? ((Literal)v).getDatatype() : null;
+			CoreDatatype datatype = v.isLiteral() ? ((Literal)v).getCoreDatatype() : null;
 			writeType(type, datatype, hash, 0);
 			return new ValueIdentifier(hash);
 		}
@@ -214,7 +214,7 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 			return rotated;
 		}
 
-		byte[] writeType(ValueType type, IRI datatype, byte[] arr, int offset) {
+		byte[] writeType(ValueType type, CoreDatatype datatype, byte[] arr, int offset) {
 			int typeBits;
 			int dtBits = 0;
 			switch (type) {

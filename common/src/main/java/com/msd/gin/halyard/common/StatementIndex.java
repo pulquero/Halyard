@@ -31,6 +31,7 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 
 /**
  * Triples/quads are stored in multiple indices as different permutations.
@@ -561,10 +562,10 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 
 	private Scan appendValueConstraintFilters(ByteSequence prefix, @Nullable ByteSequence stopPrefix, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys, ValueConstraint constraint, Scan scan, List<Filter> filters) {
 		ValueType type = constraint.getValueType();
-		IRI dt = null;
+		CoreDatatype dt = null;
 		if ((constraint instanceof LiteralConstraint)) {
 			LiteralConstraint objConstraint = (LiteralConstraint) constraint;
-			dt = objConstraint.getDatatype();
+			dt = objConstraint.getCoreDatatype();
 		}
 		int typeSaltSize = rdfFactory.idFormat.getSaltSize();
 		List<RowRange> ranges;
@@ -604,7 +605,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		}
 	}
 
-	private RowRange createRowRange(ByteSequence startPrefix, ByteSequence stopPrefix, int startSalt, int stopSalt, ValueType type, IRI dt, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys, Scan scan) {
+	private RowRange createRowRange(ByteSequence startPrefix, ByteSequence stopPrefix, int startSalt, int stopSalt, ValueType type, CoreDatatype dt, ByteSequence startKey, ByteSequence stopKey, ByteSequence trailingStartKeys, ByteSequence trailingStopKeys, Scan scan) {
 		byte[] startRange = concat(false, startPrefix, rdfFactory.writeSaltAndType(startSalt, type, dt, startKey), trailingStartKeys); // inclusive
 		byte[] stopRange = concat(true, stopPrefix, rdfFactory.writeSaltAndType(stopSalt, type, dt, stopKey), trailingStopKeys); // exclusive
 		// check if row range is outside scan range

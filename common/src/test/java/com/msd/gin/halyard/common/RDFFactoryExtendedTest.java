@@ -19,9 +19,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
-import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.json.JSONObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -147,7 +147,7 @@ public class RDFFactoryExtendedTest {
 		for (int i=0; i<typeSaltSize; i++) {
 			byte[] idBytes = new byte[idFormat.size];
 			ByteBuffer bb = ByteBuffer.wrap(idBytes);
-			rdfFactory.writeSaltAndType(i, ValueType.LITERAL, XSD.STRING, new ByteFiller((byte)0xFF, idFormat.size)).writeTo(bb);
+			rdfFactory.writeSaltAndType(i, ValueType.LITERAL, CoreDatatype.XSD.STRING, new ByteFiller((byte)0xFF, idFormat.size)).writeTo(bb);
 			assertFalse(bb.hasRemaining());
 			bb.flip();
 			salts.add(bb);
