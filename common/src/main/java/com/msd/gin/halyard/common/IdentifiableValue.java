@@ -24,8 +24,8 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 		materializedValue = v;
 	}
 
-	protected IdentifiableValue(ByteArray ser, RDFFactory rdfFactory) {
-		cachedIV = new IdSer(null, ser, rdfFactory);
+	protected IdentifiableValue(ValueIdentifier id, ByteArray ser, RDFFactory rdfFactory) {
+		cachedIV = new IdSer(id, ser, rdfFactory);
 	}
 
 	@Override

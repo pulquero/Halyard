@@ -329,28 +329,25 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 			ValueType valueType = rdfFactory.valueReader.getValueType(cv);
 			Value value;
 			if (valueType != null) {
-				IdentifiableValue idValue;
 				byte[] serBytes = new byte[len];
 				cv.get(serBytes);
 				ByteArray ser = new ByteArray(serBytes);
 				switch (valueType) {
 					case IRI:
-						idValue = new IdentifiableIRI(ser, rdfFactory);
+						value = new IdentifiableIRI(id, ser, rdfFactory);
 						break;
 					case LITERAL:
-						idValue = new IdentifiableLiteral(ser, rdfFactory);
+						value = new IdentifiableLiteral(id, ser, rdfFactory);
 						break;
 					case BNODE:
-						idValue = new IdentifiableBNode(ser, rdfFactory);
+						value = new IdentifiableBNode(id, ser, rdfFactory);
 						break;
 					case TRIPLE:
-						idValue = new IdentifiableTriple(ser, rdfFactory);
+						value = new IdentifiableTriple(id, ser, rdfFactory);
 						break;
 					default:
 						throw new AssertionError("Unexpected ValueType: " + valueType);
 				}
-				idValue.setId(id, rdfFactory);
-				value = idValue;
 			} else {
 				value = rdfFactory.valueReader.readValue(cv, vf);
 			}

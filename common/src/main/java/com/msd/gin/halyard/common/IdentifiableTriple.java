@@ -6,8 +6,8 @@ import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 
 public final class IdentifiableTriple extends IdentifiableValue implements Triple {
-	IdentifiableTriple(ByteArray ser, RDFFactory rdfFactory) {
-		super(ser, rdfFactory);
+	IdentifiableTriple(ValueIdentifier id, ByteArray ser, RDFFactory rdfFactory) {
+		super(id, ser, rdfFactory);
 	}
 
 	IdentifiableTriple(Resource subject, IRI predicate, Value object) {

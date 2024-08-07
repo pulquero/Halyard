@@ -5,8 +5,8 @@ import java.util.Objects;
 import org.eclipse.rdf4j.model.IRI;
 
 public final class IdentifiableIRI extends IdentifiableValue implements IRI {
-	IdentifiableIRI(ByteArray ser, RDFFactory rdfFactory) {
-		super(ser, rdfFactory);
+	IdentifiableIRI(ValueIdentifier id, ByteArray ser, RDFFactory rdfFactory) {
+		super(id, ser, rdfFactory);
 	}
 
 	IdentifiableIRI(String iri) {

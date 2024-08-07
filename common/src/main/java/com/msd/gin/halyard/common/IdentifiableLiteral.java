@@ -14,8 +14,8 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 
 public final class IdentifiableLiteral extends IdentifiableValue implements Literal {
-	IdentifiableLiteral(ByteArray ser, RDFFactory rdfFactory) {
-		super(ser, rdfFactory);
+	IdentifiableLiteral(ValueIdentifier id, ByteArray ser, RDFFactory rdfFactory) {
+		super(id, ser, rdfFactory);
 	}
 
 	IdentifiableLiteral(Literal l) {
