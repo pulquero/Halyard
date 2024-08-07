@@ -12,7 +12,7 @@ public final class RDFContext extends RDFValue<Resource, SPOC.C> {
 			return null;
 		}
 		if (ctx.isTriple()) {
-    		throw new UnsupportedOperationException("Context cannot be a triple value");
+			throw new UnsupportedOperationException("Context cannot be a triple value");
 		}
 		return new RDFContext(ctx, rdfFactory);
 	}

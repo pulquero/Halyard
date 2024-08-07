@@ -180,7 +180,7 @@ public class RDFFactoryExtendedTest {
 
 	@Test
 	public void testWellKnownIRI() {
-		assertTrue(rdfFactory.isWellKnownIRI(RDF.TYPE));
+		assertTrue(rdfFactory.createIRI(RDF.TYPE.stringValue()).isWellKnown());
 		ValueIdentifier id = rdfFactory.id(RDF.TYPE);
 		IRI typeIri = rdfFactory.getWellKnownIRI(id);
 		assertEquals(RDF.TYPE, typeIri);

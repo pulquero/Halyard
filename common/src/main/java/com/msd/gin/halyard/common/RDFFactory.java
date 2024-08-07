@@ -1,7 +1,5 @@
 package com.msd.gin.halyard.common;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.msd.gin.halyard.model.TermRole;
 import com.msd.gin.halyard.model.ValueType;
 
@@ -12,8 +10,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Table;
 import org.eclipse.rdf4j.model.IRI;
@@ -33,8 +33,8 @@ public final class RDFFactory {
 	private final HalyardTableConfiguration halyardConfig;
 	public final ValueIO.Writer valueWriter;
 	public final ValueIO.Reader valueReader;
-	private final BiMap<ValueIdentifier, IRI> wellKnownIriIds = HashBiMap.create(256);
-	private final Map<String, IRI> wellKnownIris = new HashMap<>(256);
+	private final Map<ValueIdentifier, IdentifiableIRI> wellKnownIdsToIris = new HashMap<>(256);
+	private final Map<String, Pair<IdentifiableIRI,ValueIdentifier>> wellKnownIris = new HashMap<>(256);
 	final int version;
 	final ValueIdentifier.Format idFormat;
 	private final int typeSaltSize;
@@ -176,11 +176,11 @@ public final class RDFFactory {
 
 		for (IdentifiableIRI iri : halyardConfig.getWellKnownIRIs()) {
 			ValueIdentifier id = iri.getId(this);
-			if (wellKnownIriIds.putIfAbsent(id, iri) != null) {
+			if (wellKnownIdsToIris.putIfAbsent(id, iri) != null) {
 				throw new AssertionError(String.format("Hash collision between %s and %s",
-						wellKnownIriIds.get(id), iri));
+						wellKnownIdsToIris.get(id), iri));
 			}
-			wellKnownIris.put(iri.stringValue(), iri);
+			wellKnownIris.put(iri.stringValue(), Pair.of(iri, id));
 		}
 	}
 
@@ -189,22 +189,15 @@ public final class RDFFactory {
 	}
 
 	IRI getWellKnownIRI(ValueIdentifier id) {
-		return wellKnownIriIds.get(id);
+		return wellKnownIdsToIris.get(id);
 	}
 
-	IRI getWellKnownIRI(String iri) {
-		return wellKnownIris.get(iri);
-	}
-
-	boolean isWellKnownIRI(Value v) {
-		if (v.isIRI()) {
-			if (v instanceof IdentifiableIRI) {
-				return ((IdentifiableIRI)v).isWellKnown();
-			} else {
-				return wellKnownIriIds.containsValue(v);
-			}
+	IdentifiableIRI createIRI(String iri) {
+		Pair<IdentifiableIRI,ValueIdentifier> entry = wellKnownIris.get(iri);
+		if (entry != null) {
+			return entry.getLeft();
 		} else {
-			return false;
+			return new IdentifiableIRI(iri);
 		}
 	}
 
@@ -355,8 +348,11 @@ public final class RDFFactory {
 	}
 
 	public ValueIdentifier id(Value v) {
-		ValueIdentifier id = v.isIRI() ? wellKnownIriIds.inverse().get(v) : null;
-		if (id == null) {
+		Pair<IdentifiableIRI,ValueIdentifier> entry = v.isIRI() ? wellKnownIris.get(v.stringValue()) : null;
+		if (entry != null) {
+			return entry.getRight();
+		} else {
+			ValueIdentifier id;
 			if (v instanceof IdentifiableValue) {
 				IdentifiableValue idv = (IdentifiableValue) v;
 				id = idv.getId(this);
@@ -364,8 +360,8 @@ public final class RDFFactory {
 				byte[] ser = valueWriter.toBytes(v);
 				id = id(v, ser);
 			}
+			return id;
 		}
-		return id;
 	}
 
 	public ValueIdentifier id(byte[] idBytes) {
@@ -404,19 +400,38 @@ public final class RDFFactory {
 		return buf;
 	}
 
-	public RDFSubject createSubject(Resource val) {
-		return RDFSubject.create(val, this);
+	public RDFSubject createSubject(@Nullable Resource val) {
+		ValueIdentifier id = null;
+		Pair<IdentifiableIRI,ValueIdentifier> entry = (val != null && val.isIRI()) ? wellKnownIris.get(val.stringValue()) : null;
+		if (entry != null) {
+			val = entry.getLeft();
+			id = entry.getRight();
+		}
+		return RDFSubject.create(val, this, id);
 	}
 
-	public RDFPredicate createPredicate(IRI val) {
-		return RDFPredicate.create(val, this);
+	public RDFPredicate createPredicate(@Nullable IRI val) {
+		ValueIdentifier id = null;
+		Pair<IdentifiableIRI,ValueIdentifier> entry = (val != null) ? wellKnownIris.get(val.stringValue()) : null;
+		if (entry != null) {
+			val = entry.getLeft();
+			id = entry.getRight();
+		}
+		return RDFPredicate.create(val, this, id);
 	}
 
-	public RDFObject createObject(Value val) {
-		return RDFObject.create(val, this);
+	public RDFObject createObject(@Nullable Value val) {
+		ValueIdentifier id = null;
+		Pair<IdentifiableIRI,ValueIdentifier> entry = (val != null && val.isIRI()) ? wellKnownIris.get(val.stringValue()) : null;
+		if (entry != null) {
+			val = entry.getLeft();
+			id = entry.getRight();
+		}
+		return RDFObject.create(val, this, id);
 	}
 
-	public RDFContext createContext(Resource val) {
+	public RDFContext createContext(@Nullable Resource val) {
+		// named graphs are unlikely to be well-known IRIs
 		return RDFContext.create(val, this);
 	}
 }

@@ -4,30 +4,36 @@ import com.msd.gin.halyard.model.TermRole;
 
 import java.util.Objects;
 
+import javax.annotation.Nonnull;
+
 import org.eclipse.rdf4j.model.Value;
 
 public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFIdentifier<T> {
 	final V val;
 	private final RDFFactory rdfFactory;
+	private final boolean isWellKnownIri;
 	private ByteArray ser;
-	private Boolean isWellKnown;
 
 	public static <V extends Value, T extends SPOC<V>> boolean matches(V value, RDFValue<V, T> pattern) {
 		return pattern == null || pattern.val.equals(value);
 	}
 
-
 	protected RDFValue(TermRole role, V val, RDFFactory rdfFactory) {
 		super(role);
 		this.val = Objects.requireNonNull(val);
 		this.rdfFactory = Objects.requireNonNull(rdfFactory);
+		this.isWellKnownIri = false;
+	}
+
+	protected RDFValue(TermRole role, V val, RDFFactory rdfFactory, @Nonnull ValueIdentifier wellKnownIriId) {
+		super(role, wellKnownIriId);
+		this.val = Objects.requireNonNull(val);
+		this.rdfFactory = Objects.requireNonNull(rdfFactory);
+		this.isWellKnownIri = true;
 	}
 
 	boolean isWellKnownIRI() {
-		if (isWellKnown == null) {
-			isWellKnown = rdfFactory.isWellKnownIRI(val);
-		}
-		return isWellKnown;
+		return isWellKnownIri;
 	}
 
 	public final ByteArray getSerializedForm() {

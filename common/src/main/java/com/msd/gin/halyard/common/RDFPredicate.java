@@ -7,14 +7,22 @@ import javax.annotation.Nullable;
 import org.eclipse.rdf4j.model.IRI;
 
 public final class RDFPredicate extends RDFValue<IRI, SPOC.P> {
-	static RDFPredicate create(@Nullable IRI pred, RDFFactory rdfFactory) {
+	static RDFPredicate create(@Nullable IRI pred, RDFFactory rdfFactory, ValueIdentifier wellKnownIriId) {
 		if(pred == null) {
 			return null;
 		}
-		return new RDFPredicate(pred, rdfFactory);
+		if (wellKnownIriId != null) {
+			return new RDFPredicate(pred, rdfFactory, wellKnownIriId);
+		} else {
+			return new RDFPredicate(pred, rdfFactory);
+		}
 	}
 
 	private RDFPredicate(IRI val, RDFFactory rdfFactory) {
 		super(TermRole.PREDICATE, val, rdfFactory);
+	}
+
+	private RDFPredicate(IRI val, RDFFactory rdfFactory, ValueIdentifier wellKnownIriId) {
+		super(TermRole.PREDICATE, val, rdfFactory, wellKnownIriId);
 	}
 }

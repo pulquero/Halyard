@@ -41,14 +41,11 @@ public class IdValueFactory implements ValueFactory, Serializable {
 
 	@Override
 	public IRI createIRI(String iriString) {
-		IRI iri = null;
 		if (rdfFactory != null) {
-			iri = rdfFactory.getWellKnownIRI(iriString);
+			return rdfFactory.createIRI(iriString);
+		} else {
+			return new IdentifiableIRI(iriString);
 		}
-		if (iri == null) {
-			iri = new IdentifiableIRI(iriString);
-		}
-		return iri;
 	}
 
 	@Override
