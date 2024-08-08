@@ -91,7 +91,6 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 	public final ValueIdentifier getId(@Nonnull RDFFactory rdfFactory) {
 		IdSer current = cachedIV;
 		if (current.rdfFactory != rdfFactory) {
-			materialize(current);
 			current = createIdSer(null, true, null, rdfFactory);
 			cachedIV = current;
 		} else if (current.id == null) {
@@ -104,7 +103,6 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 	public final ByteArray getSerializedForm(@Nonnull RDFFactory rdfFactory) {
 		IdSer current = cachedIV;
 		if (current.rdfFactory != rdfFactory) {
-			materialize(current);
 			current = createIdSer(null, false, null, rdfFactory);
 			cachedIV = current;
 		} else if (current.ser == null) {
@@ -123,17 +121,14 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 		}
 	}
 
-	private Value materialize(IdSer current) {
+	protected final Value getValue() {
 		Value mv = materializedValue;
 		if (mv == null) {
+			IdSer current = cachedIV;
 			mv = current.rdfFactory.valueReader.readValue(ByteBuffer.wrap(current.ser.copyBytes()), MATERIALIZED_VALUE_FACTORY);
 			materializedValue = mv;
 		}
 		return mv;
-	}
-
-	protected final Value getValue() {
-		return materialize(cachedIV);
 	}
 
 	protected final int getEncodingType() {
@@ -153,7 +148,7 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 			if (serBytes == null) {
 				serBytes = ser.copyBytes();
 			}
-			id = rdfFactory.id(this, serBytes);
+			id = rdfFactory.getId(serBytes);
 		}
 		return new IdSer(id, ser, rdfFactory);
 	}

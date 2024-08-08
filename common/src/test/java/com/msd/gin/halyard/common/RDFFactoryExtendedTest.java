@@ -133,7 +133,7 @@ public class RDFFactoryExtendedTest {
 			assertFalse(bb.hasRemaining());
 			bb.flip();
 			salts.add(bb);
-			ValueIdentifier id = rdfFactory.id(idBytes);
+			ValueIdentifier id = rdfFactory.idFromBytes(idBytes);
 			assertTrue(id.isIRI(idFormat));
 		}
 		assertEquals(typeSaltSize, salts.size());
@@ -151,7 +151,7 @@ public class RDFFactoryExtendedTest {
 			assertFalse(bb.hasRemaining());
 			bb.flip();
 			salts.add(bb);
-			ValueIdentifier id = rdfFactory.id(idBytes);
+			ValueIdentifier id = rdfFactory.idFromBytes(idBytes);
 			assertTrue(id.isLiteral(idFormat));
 			assertTrue(id.isString(idFormat));
 		}

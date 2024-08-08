@@ -358,25 +358,25 @@ public final class RDFFactory {
 				id = idv.getId(this);
 			} else {
 				byte[] ser = valueWriter.toBytes(v);
-				id = id(v, ser);
+				id = getId(ser);
 			}
 			return id;
 		}
 	}
 
-	public ValueIdentifier id(byte[] idBytes) {
+	ValueIdentifier getId(byte[] ser) {
+		return idFormat.id(ser, valueReader);
+	}
+
+	public ValueIdentifier idFromBytes(byte[] idBytes) {
 		if (idBytes.length != idFormat.size) {
 			throw new IllegalArgumentException("Byte array has incorrect length");
 		}
 		return new ValueIdentifier(idBytes);
 	}
 
-	ValueIdentifier id(Value v, byte[] ser) {
-		return idFormat.id(v, ser);
-	}
-
 	public ValueIdentifier idFromString(String s) {
-		return id(ByteUtils.decode(s));
+		return idFromBytes(ByteUtils.decode(s));
 	}
 
 	ByteArray getSerializedForm(Value v) {

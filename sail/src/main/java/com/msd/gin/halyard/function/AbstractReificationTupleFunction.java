@@ -49,9 +49,9 @@ public abstract class AbstractReificationTupleFunction implements ExtendedTupleF
 			byte[] stmtId = ByteUtils.decode(idIri.getLocalName());
 			byte[] idBytes = new byte[idSize];
 			System.arraycopy(stmtId, statementPosition() * idSize, idBytes, 0, idSize);
-			id = rdfFactory.id(idBytes);
+			id = rdfFactory.idFromBytes(idBytes);
 		} else if (HALYARD.VALUE_ID_NS.getName().equals(idIri.getNamespace())) {
-			id = rdfFactory.id(ByteUtils.decode(idIri.getLocalName()));
+			id = rdfFactory.idFromBytes(ByteUtils.decode(idIri.getLocalName()));
 		} else {
 			throw new ValueExprEvaluationException(String.format("%s requires an identifier IRI", getURI()));
 		}

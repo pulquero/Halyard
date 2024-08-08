@@ -15,7 +15,9 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 
 /**
  * Immutable wrapper around a byte array identifier.
@@ -83,6 +85,7 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 			return typeIndex + 1 + (hasJavaHash ? Integer.BYTES : 0);
 		}
 
+		final ValueFactory valueFactory = SimpleValueFactory.getInstance();
 		final String algorithm;
 		final int size;
 		final int typeIndex;
@@ -143,14 +146,31 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 		/**
 		 * Thread-safe.
 		 */
-		ValueIdentifier id(Value v, byte[] ser) {
+		ValueIdentifier id(byte[] ser, ValueIO.Reader reader) {
 			byte[] hash = new byte[size];
 			if (hashFuncProvider != null) {
 				byte[] algoHash = hashFuncProvider.get().apply(ser);
 				System.arraycopy(algoHash, 0, hash, 0, algoHash.length);
 			}
+			ByteBuffer bb = ByteBuffer.wrap(ser);
+			ValueType type = reader.getValueType(bb);
+			CoreDatatype datatype;
+			Value val = null;
+			if (type == ValueType.LITERAL) {
+				datatype = reader.getCoreDatatype(bb);
+				if (datatype == null) {
+					val = reader.readValue(bb, valueFactory);
+					datatype = ((Literal)val).getCoreDatatype();
+				}
+			} else {
+				datatype = null;
+			}
+
 			if (hasJavaHash) {
-				int jhash = v.hashCode();
+				if (val == null) {
+					val = reader.readValue(bb, valueFactory);
+				}
+				int jhash = val.hashCode();
 				int i = size - 1;
 				hash[i--] = (byte) jhash;
 				jhash >>>= 8;
@@ -160,8 +180,6 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 				jhash >>>= 8;
 				hash[i--] = (byte) jhash;
 			}
-			ValueType type = ValueType.valueOf(v);
-			CoreDatatype datatype = v.isLiteral() ? ((Literal)v).getCoreDatatype() : null;
 			writeType(type, datatype, hash, 0);
 			return new ValueIdentifier(hash);
 		}

@@ -366,7 +366,7 @@ public final class StatementIndex<T1 extends SPOC<?>,T2 extends SPOC<?>,T3 exten
 		rdfFactory.idFormat.unrotate(key.array(), key.arrayOffset() + key.position(), keySize, role.getByteShift(), idBytes);
 		key.position(key.position()+keySize);
 		cn.get(idBytes, keySize, idBytes.length - keySize);
-		return rdfFactory.id(idBytes);
+		return rdfFactory.idFromBytes(idBytes);
 	}
 
 	Scan scan(ByteSequence k1Start, ByteSequence k2Start, ByteSequence k3Start, ByteSequence k4Start, ByteSequence k1Stop, ByteSequence k2Stop, ByteSequence k3Stop, ByteSequence k4Stop, int cardinality, boolean indiscriminate) {

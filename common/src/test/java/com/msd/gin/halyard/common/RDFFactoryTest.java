@@ -219,7 +219,7 @@ public class RDFFactoryTest {
 			byte[] idxIdBytes = new byte[idFormat.size];
 			idFormat.unrotate(keyHash, 0, keyHashSize, role.getByteShift(), idxIdBytes);
 			role.writeQualifierHashTo(v.getId(), ByteBuffer.wrap(idxIdBytes, keyHashSize, idxIdBytes.length-keyHashSize));
-			assertEquals(testName, id, rdfFactory.id(idxIdBytes));
+			assertEquals(testName, id, rdfFactory.idFromBytes(idxIdBytes));
 		}
 	}
 }

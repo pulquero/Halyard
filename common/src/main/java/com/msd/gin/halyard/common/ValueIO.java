@@ -65,12 +65,17 @@ public class ValueIO {
 	);
 	private static final BiFunction<String,ValueFactory,Resource> DEFAULT_BNODE_TRANSFORMER = (id,valueFactory) -> valueFactory.createBNode(id);
 
-	interface ByteWriter {
-		ByteBuffer writeBytes(Literal l, ByteBuffer b);
+	abstract class ByteWriter {
+		abstract ByteBuffer writeBytes(Literal l, ByteBuffer b);
 	}
 
-	interface ByteReader {
-		Literal readBytes(ByteBuffer b, ValueFactory vf);
+	abstract class ByteReader {
+		final CoreDatatype datatype;
+
+		ByteReader(CoreDatatype dt) {
+			this.datatype = dt;
+		}
+		abstract Literal readBytes(ByteBuffer b, ValueFactory vf);
 	}
 
 	static final DatatypeFactory DATATYPE_FACTORY;
@@ -348,13 +353,13 @@ public class ValueIO {
 				return b.put(v ? HeaderBytes.TRUE_TYPE : HeaderBytes.FALSE_TYPE);
 			}
 		});
-		addByteReader(HeaderBytes.FALSE_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.FALSE_TYPE, new ByteReader(CoreDatatype.XSD.BOOLEAN) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(false);
 			}
 		});
-		addByteReader(HeaderBytes.TRUE_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.TRUE_TYPE, new ByteReader(CoreDatatype.XSD.BOOLEAN) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(true);
@@ -368,7 +373,7 @@ public class ValueIO {
 				return ByteUtils.ensureCapacity(b, 1 + Byte.BYTES).put(HeaderBytes.BYTE_TYPE).put(v);
 			}
 		});
-		addByteReader(HeaderBytes.BYTE_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.BYTE_TYPE, new ByteReader(CoreDatatype.XSD.BYTE) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.get());
@@ -382,7 +387,7 @@ public class ValueIO {
 				return ByteUtils.ensureCapacity(b, 1 + Short.BYTES).put(HeaderBytes.SHORT_TYPE).putShort(v);
 			}
 		});
-		addByteReader(HeaderBytes.SHORT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.SHORT_TYPE, new ByteReader(CoreDatatype.XSD.SHORT) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.getShort());
@@ -396,7 +401,7 @@ public class ValueIO {
 				return ByteUtils.ensureCapacity(b, 1 + Integer.BYTES).put(HeaderBytes.INT_TYPE).putInt(v);
 			}
 		});
-		addByteReader(HeaderBytes.INT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.INT_TYPE, new ByteReader(CoreDatatype.XSD.INT) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.getInt());
@@ -410,7 +415,7 @@ public class ValueIO {
 				return ByteUtils.ensureCapacity(b, 1 + Long.BYTES).put(HeaderBytes.LONG_TYPE).putLong(v);
 			}
 		});
-		addByteReader(HeaderBytes.LONG_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.LONG_TYPE, new ByteReader(CoreDatatype.XSD.LONG) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.getLong());
@@ -424,7 +429,7 @@ public class ValueIO {
 				return ByteUtils.ensureCapacity(b, 1 + Float.BYTES).put(HeaderBytes.FLOAT_TYPE).putFloat(v);
 			}
 		});
-		addByteReader(HeaderBytes.FLOAT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.FLOAT_TYPE, new ByteReader(CoreDatatype.XSD.FLOAT) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.getFloat());
@@ -438,7 +443,7 @@ public class ValueIO {
 				return ByteUtils.ensureCapacity(b, 1 + Double.BYTES).put(HeaderBytes.DOUBLE_TYPE).putDouble(v);
 			}
 		});
-		addByteReader(HeaderBytes.DOUBLE_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.DOUBLE_TYPE, new ByteReader(CoreDatatype.XSD.DOUBLE) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(b.getDouble());
@@ -460,7 +465,7 @@ public class ValueIO {
 				return ByteUtils.writeCompressedInteger(bigInt, x, b);
 			}
 		});
-		addByteReader(HeaderBytes.BIG_INT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.BIG_INT_TYPE, new ByteReader(CoreDatatype.XSD.INTEGER) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				byte[] bytes = new byte[b.remaining()];
@@ -468,7 +473,7 @@ public class ValueIO {
 				return vf.createLiteral(new BigInteger(bytes));
 			}
 		});
-		addByteReader(HeaderBytes.INT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.INT_COMPRESSED_BIG_INT_TYPE, new ByteReader(CoreDatatype.XSD.INTEGER) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int v = b.getInt();
@@ -479,7 +484,7 @@ public class ValueIO {
 				}
 			}
 		});
-		addByteReader(HeaderBytes.SHORT_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.SHORT_COMPRESSED_BIG_INT_TYPE, new ByteReader(CoreDatatype.XSD.INTEGER) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int v = b.getShort();
@@ -490,7 +495,7 @@ public class ValueIO {
 				}
 			}
 		});
-		addByteReader(HeaderBytes.LONG_COMPRESSED_BIG_INT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.LONG_COMPRESSED_BIG_INT_TYPE, new ByteReader(CoreDatatype.XSD.INTEGER) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				long v = b.getLong();
@@ -508,7 +513,7 @@ public class ValueIO {
 				return b.put(HeaderBytes.BIG_FLOAT_TYPE).putInt(scale).put(bytes);
 			}
 		});
-		addByteReader(HeaderBytes.BIG_FLOAT_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.BIG_FLOAT_TYPE, new ByteReader(CoreDatatype.XSD.DECIMAL) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int scale = b.getInt();
@@ -524,13 +529,13 @@ public class ValueIO {
 				return writeString(l.getLabel(), b);
 			}
 		});
-		addByteReader(HeaderBytes.COMPRESSED_STRING_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.COMPRESSED_STRING_TYPE, new ByteReader(CoreDatatype.XSD.STRING) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(readCompressedString(b));
 			}
 		});
-		addByteReader(HeaderBytes.UNCOMPRESSED_STRING_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.UNCOMPRESSED_STRING_TYPE, new ByteReader(CoreDatatype.XSD.STRING) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				return vf.createLiteral(readUncompressedString(b));
@@ -545,7 +550,7 @@ public class ValueIO {
 				return writeString(l.getLabel(), b, langTag);
 			}
 		});
-		addByteReader(HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE, new ByteReader(CoreDatatype.RDF.LANGSTRING) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				b.mark();
@@ -559,7 +564,7 @@ public class ValueIO {
 				return vf.createLiteral(label, lang);
 			}
 		});
-		addByteReader(HeaderBytes.LANGUAGE_LITERAL_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.LANGUAGE_LITERAL_TYPE, new ByteReader(CoreDatatype.RDF.LANGSTRING) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int originalLimit = b.limit();
@@ -578,7 +583,7 @@ public class ValueIO {
 				return writeCalendar(HeaderBytes.TIME_TYPE, l.calendarValue(), b);
 			}
 		});
-		addByteReader(HeaderBytes.TIME_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.TIME_TYPE, new ByteReader(CoreDatatype.XSD.TIME) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				XMLGregorianCalendar cal = readCalendar(b);
@@ -595,7 +600,7 @@ public class ValueIO {
 				return writeCalendar(HeaderBytes.DATE_TYPE, l.calendarValue(), b);
 			}
 		});
-		addByteReader(HeaderBytes.DATE_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.DATE_TYPE, new ByteReader(CoreDatatype.XSD.DATE) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				XMLGregorianCalendar cal = readCalendar(b);
@@ -613,7 +618,7 @@ public class ValueIO {
 				return writeCalendar(HeaderBytes.DATETIME_TYPE, l.calendarValue(), b);
 			}
 		});
-		addByteReader(HeaderBytes.DATETIME_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.DATETIME_TYPE, new ByteReader(CoreDatatype.XSD.DATETIME) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				XMLGregorianCalendar cal = readCalendar(b);
@@ -639,7 +644,7 @@ public class ValueIO {
 				}
 			}
 		});
-		addByteReader(HeaderBytes.WKT_LITERAL_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.WKT_LITERAL_TYPE, new ByteReader(CoreDatatype.GEO.WKT_LITERAL) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int wktType = b.get();
@@ -677,7 +682,7 @@ public class ValueIO {
 				}
 			}
 		});
-		addByteReader(HeaderBytes.XML_TYPE, new ByteReader() {
+		addByteReader(HeaderBytes.XML_TYPE, new ByteReader(CoreDatatype.RDF.XMLLITERAL) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				int xmlType = b.get();
@@ -1135,7 +1140,9 @@ public class ValueIO {
 					if (reader == null) {
 						throw new AssertionError(String.format("Unexpected type: %s", type));
 					}
-					return reader.readBytes(b, vf);
+					Literal val = reader.readBytes(b, vf);
+					assert val.getCoreDatatype() == reader.datatype;
+					return val;
 			}
 		}
 
@@ -1166,6 +1173,19 @@ public class ValueIO {
 					} else {
 						throw new AssertionError(String.format("Unexpected type: %s", type));
 					}
+			}
+		}
+
+		public CoreDatatype getCoreDatatype(ByteBuffer b) {
+			int type = b.get(b.position()); // peek
+			ByteReader byteReader = byteReaders.get(type);
+			if (byteReader != null) {
+				return byteReader.datatype;
+			} else if (type == HeaderBytes.DATATYPE_LITERAL_TYPE) {
+				// cannot be determine without a full read
+				return null;
+			} else {
+				throw new IllegalArgumentException("Not a literal");
 			}
 		}
 	}
