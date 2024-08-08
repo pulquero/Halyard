@@ -14,6 +14,21 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 
 public final class IdentifiableLiteral extends IdentifiableValue implements Literal {
+	private static String normalize(String l, CoreDatatype dt) {
+		CoreDatatype.XSD xsd = dt.asXSDDatatypeOrNull();
+		if (xsd != null) {
+			switch (xsd) {
+				case DATE:
+				case DATETIME:
+					return l.replace("+00:00", "Z");
+				default:
+					return l;
+			}
+		} else {
+			return l;
+		}
+	}
+
 	IdentifiableLiteral(ValueIdentifier id, ByteArray ser, RDFFactory rdfFactory) {
 		super(id, ser, rdfFactory);
 	}
@@ -27,11 +42,11 @@ public final class IdentifiableLiteral extends IdentifiableValue implements Lite
 	}
 
 	IdentifiableLiteral(String label, IRI datatype) {
-		super(MATERIALIZED_VALUE_FACTORY.createLiteral(label, datatype));
+		super(MATERIALIZED_VALUE_FACTORY.createLiteral(normalize(label, CoreDatatype.from(datatype)), datatype));
 	}
 
 	IdentifiableLiteral(String label, CoreDatatype coreDatatype) {
-		super(MATERIALIZED_VALUE_FACTORY.createLiteral(label, coreDatatype));
+		super(MATERIALIZED_VALUE_FACTORY.createLiteral(normalize(label, coreDatatype), coreDatatype));
 	}
 
 	IdentifiableLiteral(String label, String lang) {
