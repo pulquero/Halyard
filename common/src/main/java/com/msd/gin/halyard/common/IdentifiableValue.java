@@ -137,18 +137,11 @@ public abstract class IdentifiableValue implements Value, Cloneable {
 	}
 
 	private IdSer createIdSer(ValueIdentifier id, boolean makeId, ByteArray ser, @Nonnull RDFFactory rdfFactory) {
-		byte[] serBytes;
 		if (ser == null) {
-			serBytes = rdfFactory.valueWriter.toBytes(this);
-			ser = new ByteArray(serBytes);
-		} else {
-			serBytes = null;
+			ser = new ByteArray(rdfFactory.valueWriter.toBytes(this));
 		}
 		if (id == null && makeId) {
-			if (serBytes == null) {
-				serBytes = ser.copyBytes();
-			}
-			id = rdfFactory.getId(serBytes);
+			id = rdfFactory.getId(ser);
 		}
 		return new IdSer(id, ser, rdfFactory);
 	}

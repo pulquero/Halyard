@@ -146,20 +146,21 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 		/**
 		 * Thread-safe.
 		 */
-		ValueIdentifier id(byte[] ser, ValueIO.Reader reader) {
+		ValueIdentifier id(ByteSequence ser, ValueIO.Reader reader) {
 			byte[] hash = new byte[size];
+			ByteBuffer serbb = ser.asReadOnlyBuffer();
 			if (hashFuncProvider != null) {
-				byte[] algoHash = hashFuncProvider.get().apply(ser);
+				byte[] algoHash = hashFuncProvider.get().apply(serbb);
 				System.arraycopy(algoHash, 0, hash, 0, algoHash.length);
 			}
-			ByteBuffer bb = ByteBuffer.wrap(ser);
-			ValueType type = reader.getValueType(bb);
+			serbb.rewind();
+			ValueType type = reader.getValueType(serbb);
 			CoreDatatype datatype;
 			Value val = null;
 			if (type == ValueType.LITERAL) {
-				datatype = reader.getCoreDatatype(bb);
+				datatype = reader.getCoreDatatype(serbb);
 				if (datatype == null) {
-					val = reader.readValue(bb, valueFactory);
+					val = reader.readValue(serbb, valueFactory);
 					datatype = ((Literal)val).getCoreDatatype();
 				}
 			} else {
@@ -168,7 +169,7 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 
 			if (hasJavaHash) {
 				if (val == null) {
-					val = reader.readValue(bb, valueFactory);
+					val = reader.readValue(serbb, valueFactory);
 				}
 				int jhash = val.hashCode();
 				int i = size - 1;
@@ -326,6 +327,11 @@ public final class ValueIdentifier extends ByteSequence implements Serializable 
 	@Override
 	public ByteBuffer writeTo(ByteBuffer bb) {
 		return bb.put(idBytes);
+	}
+
+	@Override
+	public ByteBuffer asReadOnlyBuffer() {
+		return ByteBuffer.wrap(idBytes).asReadOnlyBuffer();
 	}
 
 	ByteBuffer writeSliceTo(int offset, int len, ByteBuffer bb) {

@@ -256,22 +256,21 @@ public class ValueIO {
 		return b;
 	}
 
-	private static String readScsuString(ByteBuffer b) {
-		byte[] bytes = b.array();
-		int offset = b.arrayOffset();
-		int len = b.limit();
+	private static String readScsuString(ByteBuffer bb) {
+		byte[] bytes = new byte[bb.remaining()];
+		bb.get(bytes);
 		CharBuffer c = CharBuffer.allocate(512);
 		UnicodeDecompressor decompressor = new UnicodeDecompressor();
+		int bpos = 0;
 		int[] bytesReadHolder = new int[1];
 		do {
 			// ensure we have a decent amount of available buffer to write to
 			c = ensureCapacity(c, 512);
-			int bpos = b.position();
 			int cpos = c.position();
-			int charsWritten = decompressor.decompress(bytes, offset + bpos, len, bytesReadHolder, c.array(), c.arrayOffset() + cpos, c.remaining());
-			b.position(bpos + bytesReadHolder[0]);
+			int charsWritten = decompressor.decompress(bytes, bpos, bytes.length, bytesReadHolder, c.array(), c.arrayOffset() + cpos, c.limit());
+			bpos += bytesReadHolder[0];
 			c.position(cpos + charsWritten);
-		} while (b.hasRemaining());
+		} while (bpos < bytes.length);
 		c.flip();
 		return c.toString();
 	}

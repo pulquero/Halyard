@@ -52,7 +52,7 @@ public abstract class RDFValue<V extends Value, T extends SPOC<V>> extends RDFId
 		if (val instanceof IdentifiableValue) {
 			return ((IdentifiableValue) val).getId(rdfFactory);
 		} else {
-			return rdfFactory.getId(getSerializedForm().copyBytes());
+			return rdfFactory.getId(getSerializedForm());
 		}
 	}
 

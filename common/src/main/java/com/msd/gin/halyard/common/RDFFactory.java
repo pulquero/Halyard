@@ -357,14 +357,14 @@ public final class RDFFactory {
 				IdentifiableValue idv = (IdentifiableValue) v;
 				id = idv.getId(this);
 			} else {
-				byte[] ser = valueWriter.toBytes(v);
+				ByteArray ser = new ByteArray(valueWriter.toBytes(v));
 				id = getId(ser);
 			}
 			return id;
 		}
 	}
 
-	ValueIdentifier getId(byte[] ser) {
+	ValueIdentifier getId(ByteSequence ser) {
 		return idFormat.id(ser, valueReader);
 	}
 

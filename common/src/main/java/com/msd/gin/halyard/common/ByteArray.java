@@ -27,6 +27,12 @@ public final class ByteArray extends ByteSequence {
 		return bb.put(arr);
 	}
 
+	@Override
+	public ByteBuffer asReadOnlyBuffer() {
+		return ByteBuffer.wrap(arr).asReadOnlyBuffer();
+	}
+
+	@Override
 	public byte[] copyBytes() {
 		byte[] copy = new byte[arr.length];
 		System.arraycopy(arr, 0, copy, 0, arr.length);

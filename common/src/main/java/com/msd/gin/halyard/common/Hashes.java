@@ -2,6 +2,7 @@ package com.msd.gin.halyard.common;
 
 import com.google.common.hash.Hashing;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -75,7 +76,7 @@ public final class Hashes {
 	}
 
 
-	public static abstract class HashFunction implements Function<byte[],byte[]> {
+	public static abstract class HashFunction implements Function<ByteBuffer,byte[]> {
 		private final String name;
 		private final int size;
 
@@ -97,12 +98,12 @@ public final class Hashes {
 		}
 
 		@Override
-		public final byte[] apply(byte[] bb) {
+		public final byte[] apply(ByteBuffer bb) {
 			byte[] hash = calculateHash(bb);
 			return (size != hash.length) ? Arrays.copyOf(hash, size) : hash;
 		}
 
-		protected abstract byte[] calculateHash(byte[] bb);
+		protected abstract byte[] calculateHash(ByteBuffer bb);
 	}
 
 	static final class MessageDigestHashFunction extends HashFunction {
@@ -114,7 +115,7 @@ public final class Hashes {
 		}
 
 		@Override
-		protected byte[] calculateHash(byte[] bb) {
+		protected byte[] calculateHash(ByteBuffer bb) {
 			try {
 				md.update(bb);
 				return md.digest();
@@ -133,7 +134,7 @@ public final class Hashes {
 		}
 
 		@Override
-		protected byte[] calculateHash(byte[] bb) {
+		protected byte[] calculateHash(ByteBuffer bb) {
 			return hf.hashBytes(bb).asBytes();
 		}
 	}

@@ -3,9 +3,16 @@ package com.msd.gin.halyard.common;
 import java.nio.ByteBuffer;
 
 final class EmptyBytes extends ByteSequence {
+	private static final byte[] EMPTY_BYTES = new byte[0];
+
 	@Override
 	public ByteBuffer writeTo(ByteBuffer bb) {
 		return bb;
+	}
+
+	@Override
+	public byte[] copyBytes() {
+		return EMPTY_BYTES;
 	}
 
 	@Override

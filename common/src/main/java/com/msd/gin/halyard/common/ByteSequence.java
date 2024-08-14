@@ -12,6 +12,12 @@ public abstract class ByteSequence {
 	public abstract ByteBuffer writeTo(ByteBuffer bb);
 	public abstract int size();
 
+	public ByteBuffer asReadOnlyBuffer() {
+		ByteBuffer bb = ByteBuffer.allocate(size());
+		writeTo(bb);
+		return bb.asReadOnlyBuffer();
+	}
+
 	public byte[] copyBytes() {
 		byte[] copy = new byte[size()];
 		writeTo(ByteBuffer.wrap(copy));

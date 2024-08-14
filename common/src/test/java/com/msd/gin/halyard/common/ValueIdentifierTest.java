@@ -23,7 +23,7 @@ public class ValueIdentifierTest {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		ValueIdentifier.Format f = new ValueIdentifier.Format("Murmur3-128", 3, 1, TypeNibble.BIG_NIBBLE, false);
 		Literal l = vf.createLiteral("foobar");
-		ValueIdentifier id = f.id(ValueIO.getDefaultWriter().toBytes(l), ValueIO.getDefaultReader());
+		ValueIdentifier id = f.id(new ByteArray(ValueIO.getDefaultWriter().toBytes(l)), ValueIO.getDefaultReader());
 		assertThrows(IllegalArgumentException.class, () ->
 			id.valueHashCode(f)
 		);
@@ -34,7 +34,7 @@ public class ValueIdentifierTest {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		ValueIdentifier.Format f = new ValueIdentifier.Format("Murmur3-128", 6, 1, TypeNibble.BIG_NIBBLE, true);
 		Literal l = vf.createLiteral("foobar");
-		ValueIdentifier id = f.id(ValueIO.getDefaultWriter().toBytes(l), ValueIO.getDefaultReader());
+		ValueIdentifier id = f.id(new ByteArray(ValueIO.getDefaultWriter().toBytes(l)), ValueIO.getDefaultReader());
 		assertEquals(l.hashCode(), id.valueHashCode(f));
 	}
 
@@ -44,7 +44,7 @@ public class ValueIdentifierTest {
 		Literal expected = vf.createLiteral("2018-04-06Z", XSD.DATE);
 		ValueIdentifier.Format f = new ValueIdentifier.Format("Murmur3-128", 6, 1, TypeNibble.BIG_NIBBLE, true);
 		Literal l = vf.createLiteral("2018-04-06+00:00", XSD.DATE);
-		ValueIdentifier id = f.id(ValueIO.getDefaultWriter().toBytes(l), ValueIO.getDefaultReader());
+		ValueIdentifier id = f.id(new ByteArray(ValueIO.getDefaultWriter().toBytes(l)), ValueIO.getDefaultReader());
 		assertEquals(expected.hashCode(), id.valueHashCode(f));
 	}
 }
