@@ -21,6 +21,8 @@ import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,6 +39,7 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.util.Models;
+import org.eclipse.rdf4j.model.vocabulary.CONFIG;
 import org.eclipse.rdf4j.repository.config.RepositoryConfigSchema;
 import org.eclipse.rdf4j.repository.sail.config.SailRepositorySchema;
 import org.eclipse.rdf4j.sail.config.AbstractSailImplConfig;
@@ -54,7 +57,12 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 
     static {
         ValueFactory factory = SimpleValueFactory.getInstance();
-        BACK_COMPATIBILITY_MAP.put(HALYARD.TABLE_NAME_PROPERTY, factory.createIRI(OLD_NAMESPACE, "tablespace"));
+		BACK_COMPATIBILITY_MAP.put(CONFIG.delegate, SailConfigSchema.DELEGATE);
+		BACK_COMPATIBILITY_MAP.put(CONFIG.Sail.impl, SailRepositorySchema.SAILIMPL);
+		BACK_COMPATIBILITY_MAP.put(CONFIG.Rep.impl, RepositoryConfigSchema.REPOSITORYIMPL);
+		BACK_COMPATIBILITY_MAP.put(CONFIG.Rep.id, RepositoryConfigSchema.REPOSITORYID);
+
+		BACK_COMPATIBILITY_MAP.put(HALYARD.TABLE_NAME_PROPERTY, factory.createIRI(OLD_NAMESPACE, "tablespace"));
         BACK_COMPATIBILITY_MAP.put(HALYARD.SPLITBITS_PROPERTY, factory.createIRI(OLD_NAMESPACE, "splitbits"));
         BACK_COMPATIBILITY_MAP.put(HALYARD.CREATE_TABLE_PROPERTY, factory.createIRI(OLD_NAMESPACE, "create"));
         BACK_COMPATIBILITY_MAP.put(HALYARD.PUSH_STRATEGY_PROPERTY, factory.createIRI(OLD_NAMESPACE, "pushstrategy"));
@@ -345,12 +353,12 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
         if (tableNameValue.isPresent() && tableNameValue.get().stringValue().length() > 0) {
             setTableName(tableNameValue.get().stringValue());
 		} else {
-            Optional<Resource> delegate = Models.subject(graph.filter(null, SailConfigSchema.DELEGATE, implNode));
-            Optional<Resource> sailImpl = Models.subject(graph.filter(null, SailRepositorySchema.SAILIMPL, delegate.isPresent() ? delegate.get(): implNode));
+			Optional<Resource> delegate = backCompatibilityFilterSubjectResource(graph, CONFIG.delegate, implNode);
+			Optional<Resource> sailImpl = backCompatibilityFilterSubjectResource(graph, CONFIG.Sail.impl, delegate.isPresent() ? delegate.get() : implNode);
             if (sailImpl.isPresent()) {
-                Optional<Resource> repoImpl = Models.subject(graph.filter(null, RepositoryConfigSchema.REPOSITORYIMPL, sailImpl.get()));
+				Optional<Resource> repoImpl = backCompatibilityFilterSubjectResource(graph, CONFIG.Rep.impl, sailImpl.get());
                 if (repoImpl.isPresent()) {
-                    Optional<Literal> idValue = Models.objectLiteral(graph.filter(repoImpl.get(), RepositoryConfigSchema.REPOSITORYID, null));
+					Optional<Literal> idValue = backCompatibilityFilterObjectLiteral(graph, repoImpl.get(), CONFIG.Rep.id);
                     if (idValue.isPresent()) {
                         setTableName(idValue.get().stringValue());
                     }
@@ -413,8 +421,8 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 			String elasticIndexUrl = elasticIndexValue.get().stringValue();
 			if (!elasticIndexUrl.isEmpty()) {
 				try {
-					setElasticIndexURL(new URL(elasticIndexUrl));
-				} catch (MalformedURLException e) {
+					setElasticIndexURL(new URI(elasticIndexUrl).toURL());
+				} catch (URISyntaxException | MalformedURLException e) {
 					throw new SailConfigException(e);
 				}
 			}
@@ -433,8 +441,8 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 				String elasticKeystoreUrl = elasticKeystoreLocation.get().stringValue();
 				if (!elasticKeystoreUrl.isEmpty()) {
 					try {
-						setElasticKeystoreLocation(new URL(elasticKeystoreUrl));
-					} catch (MalformedURLException e) {
+						setElasticKeystoreLocation(new URI(elasticKeystoreUrl).toURL());
+					} catch (URISyntaxException | MalformedURLException e) {
 						throw new SailConfigException(e);
 					}
 					Optional<Literal> elasticKeystorePassword = Models.objectLiteral(graph.filter(implNode, HALYARD.ELASTIC_KEYSTORE_PASSWORD_PROPERTY, null));
@@ -449,8 +457,8 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 				String elasticTruststoreUrl = elasticTruststoreLocation.get().stringValue();
 				if (!elasticTruststoreUrl.isEmpty()) {
 					try {
-						setElasticTruststoreLocation(new URL(elasticTruststoreUrl));
-					} catch (MalformedURLException e) {
+						setElasticTruststoreLocation(new URI(elasticTruststoreUrl).toURL());
+					} catch (URISyntaxException | MalformedURLException e) {
 						throw new SailConfigException(e);
 					}
 					Optional<Literal> elasticTruststorePassword = Models.objectLiteral(graph.filter(implNode, HALYARD.ELASTIC_TRUSTSTORE_PASSWORD_PROPERTY, null));
@@ -461,6 +469,20 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 			}
         }
     }
+
+	private static Optional<Resource> backCompatibilityFilterSubjectResource(Model graph, IRI predicate, Resource object) {
+		Optional<Resource> value = Models.subject(graph.filter(null, predicate, object));
+		if (value.isPresent()) {
+			return value;
+		} else {
+			IRI deprecatedIRI = BACK_COMPATIBILITY_MAP.get(predicate);
+			if (deprecatedIRI != null) {
+				return Models.subject(graph.filter(null, deprecatedIRI, object));
+			} else {
+				return Optional.empty();
+			}
+		}
+	}
 
     private static Optional<Literal> backCompatibilityFilterObjectLiteral(Model graph, Resource subject, IRI predicate) {
         Optional<Literal> value = Models.objectLiteral(graph.filter(subject, predicate, null));
