@@ -11,6 +11,8 @@ import com.msd.gin.halyard.common.SSLSettings;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.util.concurrent.TimeUnit;
@@ -48,6 +50,7 @@ import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 public final class ElasticSettings {
 	private static final String USER = "es.net.http.auth.user";
 	private static final String PASS = "es.net.http.auth.pass";
+	private static final String IS_WAN_ONLY = "es.nodes.wan.only";
 	/**
 	 * Property defining optional ElasticSearch index URL
 	 */
@@ -69,6 +72,7 @@ public final class ElasticSettings {
 	String password;
 	String indexName;
 	SSLSettings sslSettings;
+	boolean isWanOnly;
 	int connRequestTimeoutMillis = DEFAULT_CONNECTION_REQUEST_TIMEOUT;
 	int maxConnTotal = DEFAULT_MAX_CONNECTIONS_TOTAL;
 	int maxConnPerRoute = DEFAULT_MAX_CONNECTIONS_PER_ROUTE;
@@ -134,8 +138,8 @@ public final class ElasticSettings {
 	public static ElasticSettings from(String esIndexUrl, Configuration conf) {
 		ElasticSettings merged;
 		try {
-			merged = from(new URL(esIndexUrl));
-		} catch (MalformedURLException e) {
+			merged = from(new URI(esIndexUrl).toURL());
+		} catch (URISyntaxException | MalformedURLException e) {
 			throw new IllegalArgumentException(e);
 		}
 		if (merged.username == null) {
@@ -156,8 +160,8 @@ public final class ElasticSettings {
 		String esIndexUrl = conf.get(ELASTIC_INDEX_URL);
 		if (esIndexUrl != null) {
 			try {
-				urlSettings = from(new URL(esIndexUrl));
-			} catch (MalformedURLException e) {
+				urlSettings = from(new URI(esIndexUrl).toURL());
+			} catch (URISyntaxException | MalformedURLException e) {
 				throw new IllegalArgumentException(e);
 			}
 		} else if (defaults != null) {
@@ -189,6 +193,7 @@ public final class ElasticSettings {
 	}
 
 	private static void setAdditionalSettings(ElasticSettings settings, Configuration conf, ElasticSettings defaults) {
+		settings.isWanOnly = conf.getBoolean(IS_WAN_ONLY, defaults != null ? defaults.isWanOnly : false);
 		settings.ioThreads = conf.getInt(IO_THREADS, defaults != null ? defaults.ioThreads : DEFAULT_MAX_IO_THREADS);
 		settings.maxConnTotal = conf.getInt(MAX_CONNECTIONS_TOTAL, defaults != null ? defaults.maxConnTotal : DEFAULT_MAX_CONNECTIONS_TOTAL);
 		settings.maxConnPerRoute = conf.getInt(MAX_CONNECTIONS_PER_ROUTE, defaults != null ? defaults.maxConnPerRoute : DEFAULT_MAX_CONNECTIONS_PER_ROUTE);
@@ -231,20 +236,24 @@ public final class ElasticSettings {
 		});
 		RestClient restClient = restClientBuilder.build();
 
-		ElasticsearchNodesSniffer.Scheme snifferScheme;
-		switch (protocol) {
-			case "http":
-				snifferScheme = ElasticsearchNodesSniffer.Scheme.HTTP;
-				break;
-			case "https":
-				snifferScheme = ElasticsearchNodesSniffer.Scheme.HTTPS;
-				break;
-			default:
-				throw new AssertionError("Unsupported scheme: " + protocol);
+		Sniffer sniffer;
+		if (isWanOnly) {
+			sniffer = null;
+		} else {
+			ElasticsearchNodesSniffer.Scheme snifferScheme;
+			switch (protocol) {
+				case "http":
+					snifferScheme = ElasticsearchNodesSniffer.Scheme.HTTP;
+					break;
+				case "https":
+					snifferScheme = ElasticsearchNodesSniffer.Scheme.HTTPS;
+					break;
+				default:
+					throw new AssertionError("Unsupported scheme: " + protocol);
+			}
+			NodesSniffer nodesSniffer = new ElasticsearchNodesSniffer(restClient, ElasticsearchNodesSniffer.DEFAULT_SNIFF_REQUEST_TIMEOUT, snifferScheme);
+			sniffer = Sniffer.builder(restClient).setNodesSniffer(nodesSniffer).build();
 		}
-		NodesSniffer nodesSniffer = new ElasticsearchNodesSniffer(restClient, ElasticsearchNodesSniffer.DEFAULT_SNIFF_REQUEST_TIMEOUT, snifferScheme);
-		Sniffer sniffer = Sniffer.builder(restClient).setNodesSniffer(nodesSniffer).build();
-
 		return new RestClientTransportWithSniffer(restClient, new JacksonJsonpMapper(), connManager, sniffer);
 	}
 }

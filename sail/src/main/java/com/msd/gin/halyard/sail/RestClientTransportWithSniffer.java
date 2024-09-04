@@ -2,6 +2,8 @@ package com.msd.gin.halyard.sail;
 
 import java.io.IOException;
 
+import javax.annotation.Nullable;
+
 import org.apache.http.impl.nio.conn.PoolingNHttpClientConnectionManager;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.sniff.Sniffer;
@@ -13,7 +15,7 @@ final class RestClientTransportWithSniffer extends RestClientTransport {
 	private final PoolingNHttpClientConnectionManager connManager;
 	private final Sniffer sniffer;
 
-	RestClientTransportWithSniffer(RestClient restClient, JsonpMapper mapper, PoolingNHttpClientConnectionManager connManager, Sniffer sniffer) {
+	RestClientTransportWithSniffer(RestClient restClient, JsonpMapper mapper, PoolingNHttpClientConnectionManager connManager, @Nullable Sniffer sniffer) {
 		super(restClient, mapper);
 		this.connManager = connManager;
 		this.sniffer = sniffer;
@@ -26,7 +28,9 @@ final class RestClientTransportWithSniffer extends RestClientTransport {
 	@Override
 	public void close() throws IOException {
 		try {
-			sniffer.close();
+			if (sniffer != null) {
+				sniffer.close();
+			}
 		} finally {
 			super.close();
 		}
