@@ -58,6 +58,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -552,7 +553,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs, null),
 				rdfFactory, statisticsCache);
 		ServiceStatisticsProvider srvStatsProvider = new ServiceStatisticsProvider() {
-			final Map<String, Optional<ExtendedEvaluationStatistics>> serviceToStats = new HashMap<>();
+			final Map<String, Optional<ExtendedEvaluationStatistics>> serviceToStats = new ConcurrentHashMap<>();
 
 			@Override
 			public Optional<ExtendedEvaluationStatistics> getStatisticsForService(String serviceUrl) {
