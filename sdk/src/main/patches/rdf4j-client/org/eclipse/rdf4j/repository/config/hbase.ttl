@@ -28,5 +28,6 @@
          halyard:elasticKeystorePassword "{%ElasticSearch Keystore Password|%}" ;
          halyard:elasticTruststoreLocation "{%ElasticSearch Truststore Location|%}" ;
          halyard:elasticTruststorePassword "{%ElasticSearch Truststore Password|%}" ;
+         halyard:elasticWanOnly "{%ElasticSearch Wan Only|%}" ;
       ]
    ].

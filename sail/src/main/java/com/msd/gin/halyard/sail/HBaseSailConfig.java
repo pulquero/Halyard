@@ -37,6 +37,7 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.util.Models;
 import org.eclipse.rdf4j.model.vocabulary.CONFIG;
@@ -85,6 +86,7 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 	private String elasticKeystorePassword = null;
 	private URL elasticTruststoreLocation = null;
 	private String elasticTruststorePassword = null;
+	private boolean isWanOnly = false;
 
 	/**
 	 * Default constructor of HBaseSailConfig
@@ -280,6 +282,14 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 		this.elasticTruststorePassword = elasticTruststorePassword;
 	}
 
+	public boolean isWanOnly() {
+		return isWanOnly;
+	}
+
+	public void setWanOnly(boolean f) {
+		this.isWanOnly = f;
+	}
+
 	@Override
 	public void validate() throws SailConfigException {
 		super.validate();
@@ -336,6 +346,7 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 				graph.add(implNode, HALYARD.ELASTIC_TRUSTSTORE_LOCATION_PROPERTY, vf.createLiteral(elasticTruststoreLocation.toString()));
 				graph.add(implNode, HALYARD.ELASTIC_TRUSTSTORE_PASSWORD_PROPERTY, vf.createLiteral(elasticTruststorePassword));
 			}
+			graph.add(implNode, HALYARD.ELASTIC_WAN_ONLY_PROPERTY, vf.createLiteral(isWanOnly));
         }
         return implNode;
     }
@@ -467,6 +478,9 @@ public final class HBaseSailConfig extends AbstractSailImplConfig {
 					}
 				}
 			}
+
+			Optional<Literal> wanOnly = Models.objectLiteral(graph.filter(implNode, HALYARD.ELASTIC_WAN_ONLY_PROPERTY, null));
+			setWanOnly(wanOnly.orElse(BooleanLiteral.FALSE).booleanValue());
         }
     }
 

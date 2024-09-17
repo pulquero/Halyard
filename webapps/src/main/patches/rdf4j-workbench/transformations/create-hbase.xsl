@@ -225,6 +225,20 @@
 						</td>
 						<td></td>
 					</tr>
+          <tr>
+            <th>
+              Optional ElasticSearch Wan Only
+            </th>
+            <td>
+              <input type="radio" name="ElasticSearch Wan Only" size="48"
+                value="true" />
+              <xsl:value-of select="$true.label" />
+              <input type="radio" name="ElasticSearch Wan Only" size="48"
+                value="false" checked="true" />
+              <xsl:value-of select="$false.label" />
+            </td>
+            <td></td>
+          </tr>
 					<tr>
 						<td></td>
 						<td>
