@@ -262,11 +262,11 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         getConf().setIfUnset("es.batch.size.entries", Integer.toString(10000));
 
         if (createIndex) {
-        	createIndex(targetUrl);
+        	createIndex(targetUrl, getConf());
         }
 
         // retrieve mapping config to use
-        JSONObject mapping = getIndexMapping(targetUrl);
+        JSONObject mapping = getIndexMapping(targetUrl, getConf());
     	JSONObject fields = mapping.getJSONObject(indexName).getJSONObject("mappings").getJSONObject("properties");
     	for (String field : (Set<String>) fields.keySet()) {
     		getConf().setBoolean(confProperty(TOOL_NAME, "fields."+field), true);
@@ -312,7 +312,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         job.setSpeculativeExecution(false);
 	    try {
 	        if (job.waitForCompletion(true)) {
-	            refreshIndex(targetUrl);
+	            refreshIndex(targetUrl, getConf());
 	            LOG.info("Elastic indexing completed.");
 	            return 0;
 	        } else {
@@ -324,45 +324,45 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         }
     }
 
-    private void configureAuth(HttpURLConnection http) {
-        String esUser = getConf().get("es.net.http.auth.user");
+    private static void configureAuth(HttpURLConnection http, Configuration conf) {
+        String esUser = conf.get("es.net.http.auth.user");
         if (esUser != null) {
-        	String esPassword = getConf().get("es.net.http.auth.pass");
+        	String esPassword = conf.get("es.net.http.auth.pass");
         	String userPass = esUser + ':' + esPassword;
         	String basicAuth = "Basic " + Base64.getEncoder().encodeToString(userPass.getBytes(StandardCharsets.UTF_8));
         	http.setRequestProperty("Authorization", basicAuth);
         }
     }
 
-	private void configureSSL(HttpsURLConnection https) throws IOException, GeneralSecurityException {
-		SSLSettings sslSettings = SSLSettings.from(getConf());
+	private static void configureSSL(HttpsURLConnection https, Configuration conf) throws IOException, GeneralSecurityException {
+		SSLSettings sslSettings = SSLSettings.from(conf);
 		SSLContext sslContext = sslSettings.createSSLContext();
 		https.setSSLSocketFactory(sslContext.getSocketFactory());
 	}
 
-	private HttpURLConnection open(URL url) throws IOException, GeneralSecurityException {
+	private static HttpURLConnection open(URL url, Configuration conf) throws IOException, GeneralSecurityException {
         HttpURLConnection http = (HttpURLConnection)url.openConnection();
-        configureAuth(http);
+        configureAuth(http, conf);
         if (http instanceof HttpsURLConnection) {
         	HttpsURLConnection https = (HttpsURLConnection) http;
-        	configureSSL(https);
+        	configureSSL(https, conf);
         }
         return http;
 	}
 
-	private void createIndex(URL indexUrl) throws IOException, GeneralSecurityException {
+	private static void createIndex(URL indexUrl, Configuration conf) throws IOException, GeneralSecurityException {
         int shards;
         int replicas = 1;
-        try (Connection conn = ConnectionFactory.createConnection(getConf())) {
+        try (Connection conn = ConnectionFactory.createConnection(conf)) {
             try (Admin admin = conn.getAdmin()) {
                 shards = admin.getRegionServers().size();
             }
         }
-        HttpURLConnection http = open(indexUrl);
+        HttpURLConnection http = open(indexUrl, conf);
         http.setRequestMethod("PUT");
         http.setDoOutput(true);
         http.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-        String alias = getConf().get(ALIAS_PROPERTY);
+        String alias = conf.get(ALIAS_PROPERTY);
         byte b[] = Bytes.toBytes(getMappingConfig("", Integer.toString(shards), Integer.toString(replicas), alias));
         http.setFixedLengthStreamingMode(b.length);
         http.connect();
@@ -394,9 +394,9 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         }
 	}
 
-	private JSONObject getIndexMapping(URL indexUrl) throws IOException, GeneralSecurityException {
+	private static JSONObject getIndexMapping(URL indexUrl, Configuration conf) throws IOException, GeneralSecurityException {
 		JSONObject mapping;
-        HttpURLConnection http = open(new URL(indexUrl + "/_mapping"));
+        HttpURLConnection http = open(new URL(indexUrl + "/_mapping"), conf);
         http.connect();
         try {
 	        int response = http.getResponseCode();
@@ -413,8 +413,8 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         return mapping;
 	}
 
-	private void refreshIndex(URL indexUrl) throws IOException, GeneralSecurityException {
-        HttpURLConnection http = open(new URL(indexUrl + "/_refresh"));
+	static void refreshIndex(URL indexUrl, Configuration conf) throws IOException, GeneralSecurityException {
+        HttpURLConnection http = open(new URL(indexUrl + "/_refresh"), conf);
         http.setRequestMethod("POST");
         http.connect();
         try {

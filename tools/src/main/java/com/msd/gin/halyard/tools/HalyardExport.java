@@ -87,6 +87,7 @@ import org.slf4j.LoggerFactory;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ErrorCause;
+import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
@@ -447,8 +448,9 @@ public final class HalyardExport extends AbstractHalyardTool {
     	private final ValueFactory valueFactory;
     	private final int batchSize = 1000;
 
-    	public ElasticsearchWriter(StatusLog log, ElasticSettings esSettings, RDFFactory rdfFactory, ValueFactory valueFactory) throws IOException, GeneralSecurityException {
+    	public ElasticsearchWriter(Configuration conf, StatusLog log, String indexUrl, RDFFactory rdfFactory, ValueFactory valueFactory) throws IOException, GeneralSecurityException {
     		super(log);
+    		ElasticSettings esSettings = ElasticSettings.from(indexUrl, conf);
     		this.indexName = esSettings.getIndexName();
     		this.esTransport = esSettings.createTransport();
     		this.esClient = new ElasticsearchClient(this.esTransport);
@@ -507,6 +509,7 @@ public final class HalyardExport extends AbstractHalyardTool {
 
         @Override
         public void doClose() throws IOException {
+        	esClient.index(idxf -> idxf.refresh(Refresh.True));
         	esTransport.close();
         }
     }
@@ -618,9 +621,8 @@ public final class HalyardExport extends AbstractHalyardTool {
             }
             return new JDBCResultWriter(log, targetUrl.substring(0, i), targetUrl.substring(i+1), jdbcProperties, driverClass, driverCP, trimTable);
         } else if (isElasticsearch(targetUrl)) {
-    		ElasticSettings esSettings = ElasticSettings.from(targetUrl, conf);
     		try {
-    			return new ElasticsearchWriter(log, esSettings, rdfFactory, valueFactory);
+    			return new ElasticsearchWriter(conf, log, targetUrl, rdfFactory, valueFactory);
     		} catch (GeneralSecurityException e) {
     			throw new ExportException(e);
     		}

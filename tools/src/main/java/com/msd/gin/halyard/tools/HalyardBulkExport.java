@@ -28,6 +28,7 @@ import com.msd.gin.halyard.sail.search.SearchDocument;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
@@ -138,7 +139,7 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
                 	writer = new EsOutputResultWriter(log, sail.getRDFFactory(), sail.getValueFactory(), context);
                 } else {
                     String target = cfg.get(TARGET_URL);
-                	writer = HalyardExport.createWriter(sail.getConfiguration(), log, MessageFormat.format(target, bName, partitionIndex), sail.getRDFFactory(), sail.getValueFactory(), cfg.get(JDBC_DRIVER), cfg.get(JDBC_CLASSPATH), props, false);
+                	writer = HalyardExport.createWriter(cfg, log, MessageFormat.format(target, bName, partitionIndex), sail.getRDFFactory(), sail.getValueFactory(), cfg.get(JDBC_DRIVER), cfg.get(JDBC_CLASSPATH), props, false);
                 }
                 try {
 	        		HalyardExport.export(repo, query, allBindings, writer);
@@ -235,8 +236,10 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
     		}
 
     		@Override
-    		protected void doClose() {
-    			// do nothing
+    		protected void doClose() throws Exception {
+    			Configuration conf = output.getConfiguration();
+    			String indexUrl = conf.get(TARGET_URL);
+    			HalyardElasticIndexer.refreshIndex(new URI(indexUrl).toURL(), conf);
     		}
         }
     }

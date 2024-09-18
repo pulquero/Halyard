@@ -730,12 +730,12 @@ public final class HttpSparqlHandler implements HttpHandler {
 	            query.getParsedQuery().setDataset(dataset);
 	        }
             LOGGER.info("Indexing results from query:\nBindings: {}\n{}", sparqlQuery.getBindings(), sparqlQuery.getQuery());
-    		try (HalyardExport.ElasticsearchWriter writer = new HalyardExport.ElasticsearchWriter(new HalyardExport.StatusLog() {
-					public void tick() {}
-					public void logStatus(String msg) {
-						LOGGER.info(msg);
-					}
-				}, ElasticSettings.from(sparqlQuery.target, sail.getConfiguration()), sail.getRDFFactory(), repository.getValueFactory())) {
+    		try (HalyardExport.ElasticsearchWriter writer = new HalyardExport.ElasticsearchWriter(sail.getConfiguration(), new HalyardExport.StatusLog() {
+						public void tick() {}
+						public void logStatus(String msg) {
+							LOGGER.info(msg);
+						}
+					}, sparqlQuery.target, sail.getRDFFactory(), repository.getValueFactory())) {
             	writer.writeTupleQueryResult(((TupleQuery)query).evaluate());
             	connection.commit();
             	JsonExportInfo info = new JsonExportInfo();
