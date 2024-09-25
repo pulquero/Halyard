@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.github.pulquero.halyard</groupId>
 	<artifactId>halyard</artifactId>
-	<version>5.1-SNAPSHOT</version>
+	<version>5.1</version>
 	<packaging>pom</packaging>
 	<organization><name>halyard</name></organization>
 	<name>Halyard-star</name>
@@ -96,7 +96,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>3.0.0-M9</version>
+				<version>3.5.0</version>
 				<configuration>
 					<argLine>@{argLine} -XshowSettings:vm -Xmx8g</argLine>
 					<trimStackTrace>false</trimStackTrace>
@@ -123,7 +123,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
-				<version>3.2.0</version>
+				<version>3.4.2</version>
 				<configuration>
 					<archive>
 						<manifest>
@@ -141,7 +141,7 @@
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
-				<version>0.8.8</version>
+				<version>0.8.12</version>
 				<configuration>
 					<includes>
 						<include>com/msd/gin/halyard/**</include>
@@ -182,7 +182,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-source-plugin</artifactId>
-				<version>3.2.1</version>
+				<version>3.3.1</version>
 				<executions>
 					<execution>
 						<id>attach-sources</id>
@@ -195,7 +195,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>3.6.3</version>
+				<version>3.10.0</version>
 				<configuration>
 					<encoding>UTF-8</encoding>
 				</configuration>
@@ -219,7 +219,7 @@
 			<plugin>
 				<groupId>org.sonatype.plugins</groupId>
 				<artifactId>nexus-staging-maven-plugin</artifactId>
-				<version>1.6.9</version>
+				<version>1.7.0</version>
 				<extensions>true</extensions>
 				<configuration>
 					<serverId>ossrh</serverId>
