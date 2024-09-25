@@ -31,7 +31,7 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.release>11</maven.compiler.release>
-		<rdf4j.version>5.0.0</rdf4j.version>
+		<rdf4j.version>5.0.2</rdf4j.version>
 		<hbase.version>2.5.5</hbase.version>
 		<hbase-connectors.version>1.0.0</hbase-connectors.version>
 		<hadoop.version>3.3.6</hadoop.version>
