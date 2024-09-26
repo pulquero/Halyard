@@ -103,6 +103,8 @@ public final class HALYARD implements Vocabulary {
     public final static IRI DATASET_IRI_FUNCTION = SVF.createIRI(NAMESPACE, "datasetIRI");
     public final static IRI PARALLEL_SPLIT_FUNCTION = SVF.createIRI(NAMESPACE, "forkAndFilterBy");
 
+    public final static IRI VECTOR_EMBEDDING_FUNCTION = SVF.createIRI(NAMESPACE, "vectorEmbedding");
+
     public final static IRI DATA_URL_FUNCTION = SVF.createIRI(NAMESPACE, "dataURL");
 
     public final static IRI GET_FUNCTION = SVF.createIRI(NAMESPACE, "get");
