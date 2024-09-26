@@ -16,4 +16,7 @@ public interface ExtendedTripleSource extends TripleSource {
 	}
 
 	QueryPreparer newQueryPreparer();
+
+	<T> T getQueryHelper(Class<T> cls);
+	boolean hasQueryHelper(Class<?> cls);
 }

@@ -53,7 +53,18 @@ class MockSailWithExistsStrategy extends MemoryStore {
 			this.tripleSource = tripleSource;
 		}
 
+		@Override
 		public QueryPreparer newQueryPreparer() {
+			throw new AssertionError();
+		}
+
+		@Override
+		public <T> T getQueryHelper(Class<T> cls) {
+			throw new AssertionError();
+		}
+
+		@Override
+		public boolean hasQueryHelper(Class<?> helperType) {
 			throw new AssertionError();
 		}
 

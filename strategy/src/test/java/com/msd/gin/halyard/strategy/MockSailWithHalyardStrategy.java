@@ -185,8 +185,19 @@ public class MockSailWithHalyardStrategy extends MemoryStore {
 			return ((RDFStarTripleSource)tripleSource).getRdfStarTriples(subj, pred, obj);
 		}
 
+		@Override
 		public QueryPreparer newQueryPreparer() {
 			throw new AssertionError();
 		}
-    }
+
+		@Override
+		public <T> T getQueryHelper(Class<T> cls) {
+			throw new AssertionError();
+		}
+
+		@Override
+		public boolean hasQueryHelper(Class<?> helperType) {
+			throw new AssertionError();
+		}
+	}
 }

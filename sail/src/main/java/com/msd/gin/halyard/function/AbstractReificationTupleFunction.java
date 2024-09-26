@@ -6,8 +6,8 @@ import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.common.ValueIdentifier;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
-import com.msd.gin.halyard.sail.HBaseTripleSource;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -33,13 +33,13 @@ public abstract class AbstractReificationTupleFunction implements ExtendedTupleF
 			Value... args)
 		throws ValueExprEvaluationException
 	{
-		HBaseTripleSource extTripleSource = (HBaseTripleSource) tripleSource;
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
 
 		if (args.length != 1 || !(args[0] instanceof IRI)) {
 			throw new ValueExprEvaluationException(String.format("%s requires an identifier IRI", getURI()));
 		}
 
-		StatementIndices indices = extTripleSource.getStatementIndices();
+		StatementIndices indices = extTripleSource.getQueryHelper(StatementIndices.class);
 		RDFFactory rdfFactory = indices.getRDFFactory();
 
 		IRI idIri = (IRI) args[0];
@@ -56,7 +56,7 @@ public abstract class AbstractReificationTupleFunction implements ExtendedTupleF
 			throw new ValueExprEvaluationException(String.format("%s requires an identifier IRI", getURI()));
 		}
 
-		KeyspaceConnection keyspace = extTripleSource.getKeyspaceConnection();
+		KeyspaceConnection keyspace = extTripleSource.getQueryHelper(KeyspaceConnection.class);
 		Value v;
 		try {
 			v = getValue(keyspace, id, extTripleSource.getValueFactory(), indices);

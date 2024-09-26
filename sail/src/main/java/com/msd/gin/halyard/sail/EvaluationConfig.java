@@ -8,6 +8,7 @@ public final class EvaluationConfig {
 	public static final String TRACK_BRANCH_OPERATORS_ONLY = "halyard.evaluation.trackBranchOperatorsOnly";
 	public static final String QUERY_CACHE_MAX_SIZE = "hayard.evaluation.maxQueryCacheSize";
 	public static final String QUERY_HISTORY_MAX_SIZE = "hayard.evaluation.maxQueryHistorySize";
+	public static final String QUERY_HELPERS_PREFIX = "halyard.queryHelpers.";
 
 	public final int queryCacheSize;
 	public final boolean trackResultSize;

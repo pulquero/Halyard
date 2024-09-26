@@ -22,7 +22,6 @@ import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
-import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 
 final class QueryCache {
 	private final Cache<PreparedQueryKey, PreparedQuery> cache;
@@ -31,7 +30,7 @@ final class QueryCache {
 		cache = Caffeine.newBuilder().maximumSize(queryCacheMaxSize).expireAfterWrite(1L, TimeUnit.DAYS).build();
 	}
 
-	TupleExpr getOptimizedQuery(HBaseSailConnection conn, String sourceString, int updatePart, TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred, boolean isPartitioned, TripleSource tripleSource,
+	TupleExpr getOptimizedQuery(HBaseSailConnection conn, String sourceString, int updatePart, TupleExpr tupleExpr, Dataset dataset, BindingSet bindings, boolean includeInferred, boolean isPartitioned, HBaseTripleSource tripleSource,
 			EvaluationStrategy strategy) {
 		PreparedQueryKey pqkey = new PreparedQueryKey(sourceString, updatePart, dataset, bindings, includeInferred, isPartitioned);
 		PreparedQuery preparedQuery = cache.get(pqkey, key -> {

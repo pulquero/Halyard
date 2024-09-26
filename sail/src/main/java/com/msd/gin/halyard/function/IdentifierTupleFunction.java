@@ -4,8 +4,8 @@ import com.msd.gin.halyard.common.ByteUtils;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
-import com.msd.gin.halyard.sail.HBaseTripleSource;
 
 import java.util.Collections;
 import java.util.List;
@@ -33,8 +33,8 @@ public class IdentifierTupleFunction implements ExtendedTupleFunction {
 			Value... args)
 		throws ValueExprEvaluationException
 	{
-		HBaseTripleSource extTripleSource = (HBaseTripleSource) tripleSource;
-		StatementIndices indices = extTripleSource.getStatementIndices();
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+		StatementIndices indices = extTripleSource.getQueryHelper(StatementIndices.class);
 		RDFFactory rdfFactory = indices.getRDFFactory();
 
 		Namespace ns;

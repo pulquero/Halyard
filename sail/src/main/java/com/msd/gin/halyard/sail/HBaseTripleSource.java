@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -60,7 +61,10 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.SPIN;
+import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
+import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.RDFStarTripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.slf4j.Logger;
@@ -74,20 +78,23 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	protected final StatementIndices stmtIndices;
 	private final long timeoutSecs;
 	private final QueryPreparer.Factory queryPreparerFactory;
+	private final Map<Class<?>, ?> queryHelpers;
 	protected final RDFFactory rdfFactory;
 	private final HBaseSail.ScanSettings settings;
 	private final HBaseSail.Ticker ticker;
 	private final int forkIndex;
 
-	public HBaseTripleSource(KeyspaceConnection keyspaceConn, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory) {
-		this(keyspaceConn, vf, stmtIndices, timeoutSecs, qpFactory, null, null, StatementIndices.NO_PARTITIONING);
+	public HBaseTripleSource(KeyspaceConnection keyspaceConn, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs) {
+		this(keyspaceConn, vf, stmtIndices, timeoutSecs, null, Collections.emptyMap(), null, null, StatementIndices.NO_PARTITIONING);
 	}
 
-	protected HBaseTripleSource(KeyspaceConnection keyspaceConn, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory, HBaseSail.ScanSettings settings, HBaseSail.Ticker ticker, int forkIndex) {
+	protected HBaseTripleSource(KeyspaceConnection keyspaceConn, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory, Map<Class<?>, ?> queryHelpers,
+			HBaseSail.ScanSettings settings, HBaseSail.Ticker ticker, int forkIndex) {
 		this.keyspaceConn = keyspaceConn;
 		this.vf = vf;
 		this.stmtIndices = stmtIndices;
 		this.queryPreparerFactory = qpFactory;
+		this.queryHelpers = queryHelpers;
 		this.rdfFactory = stmtIndices.getRDFFactory();
 		this.timeoutSecs = timeoutSecs;
 		this.settings = settings;
@@ -96,21 +103,31 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	@Override
-	public QueryPreparer newQueryPreparer() {
+	public final QueryPreparer newQueryPreparer() {
 		return queryPreparerFactory.create();
 	}
 
 	@Override
-	public int getPartitionIndex() {
+	public final <T> T getQueryHelper(Class<T> qhType) {
+		Object qh = queryHelpers.get(qhType);
+		if (qh == null) {
+			throw new QueryEvaluationException(String.format("%s is not available", qhType.getName()));
+		}
+		return qhType.cast(qh);
+	}
+
+	@Override
+	public boolean hasQueryHelper(Class<?> helperType) {
+		return queryHelpers.containsKey(helperType);
+	}
+
+	@Override
+	public final int getPartitionIndex() {
 		return forkIndex;
 	}
 
-	public KeyspaceConnection getKeyspaceConnection() {
-		return keyspaceConn;
-	}
-
-	public StatementIndices getStatementIndices() {
-		return stmtIndices;
+	protected void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
+		// no extra interpreters
 	}
 
 	static final class QueryContexts {
@@ -232,7 +249,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	public TripleSource getTimestampedTripleSource() {
-		return new HBaseTripleSource(keyspaceConn, new TimestampedValueFactory(rdfFactory), stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker, forkIndex);
+		return new HBaseTripleSource(keyspaceConn, new TimestampedValueFactory(rdfFactory), stmtIndices, timeoutSecs, queryPreparerFactory, queryHelpers, settings, ticker, forkIndex);
 	}
 
 	@Override
@@ -240,7 +257,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 		if (partitionedIndex != null && forkIndex >= partitionedIndex.getPartitionCount()) {
 			throw new IllegalArgumentException(String.format("Partition number %d must be less than %d", forkIndex, partitionedIndex.getPartitionCount()));
 		}
-		return new HBaseTripleSource(keyspaceConn, vf, stmtIndices, timeoutSecs, queryPreparerFactory, settings, ticker, forkIndex) {
+		return new HBaseTripleSource(keyspaceConn, vf, stmtIndices, timeoutSecs, queryPreparerFactory, queryHelpers, settings, ticker, forkIndex) {
 			@Override
 			protected Scan scan(RDFSubject subj, RDFPredicate pred, RDFObject obj, RDFContext ctx) {
 				Scan scan = stmtIndices.scanWithConstraint(subj, pred, obj, ctx, roleName, forkIndex, partitionedIndex, constraint);

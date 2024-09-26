@@ -4,8 +4,8 @@ import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.model.WKTLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
-import com.msd.gin.halyard.sail.HBaseSearchTripleSource;
 import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.sail.search.SearchDocument;
 
@@ -40,10 +40,7 @@ public class WithinDistanceTupleFunction implements ExtendedTupleFunction {
 
 	@Override
 	public CloseableIteration<? extends List<? extends Value>> evaluate(TripleSource tripleSource, Value... args) throws QueryEvaluationException {
-		if (!(tripleSource instanceof HBaseSearchTripleSource)) {
-			throw new QueryEvaluationException("Search index not configured");
-		}
-		HBaseSearchTripleSource extTripleSource = (HBaseSearchTripleSource) tripleSource;
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
 
 		if (args.length < 3) {
 			throw new QueryEvaluationException("Missing arguments");
@@ -92,9 +89,9 @@ public class WithinDistanceTupleFunction implements ExtendedTupleFunction {
 		}
 
 		ValueFactory valueFactory = extTripleSource.getValueFactory();
-		StatementIndices indices = extTripleSource.getStatementIndices();
+		StatementIndices indices = extTripleSource.getQueryHelper(StatementIndices.class);
 		RDFFactory rdfFactory = indices.getRDFFactory();
-		SearchClient searchClient = extTripleSource.getSearchClient();
+		SearchClient searchClient = extTripleSource.getQueryHelper(SearchClient.class);
 
 		try {
 			SearchResponse<? extends SearchDocument> searchResults = searchClient.search(fromCoord.getY(), fromCoord.getX(), esDistLimit, esUnits);

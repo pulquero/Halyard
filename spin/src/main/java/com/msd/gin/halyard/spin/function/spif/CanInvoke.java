@@ -204,6 +204,16 @@ public class CanInvoke extends AbstractSpinFunction implements Function {
 						}
 					};
 				}
+
+				@Override
+				public <T> T getQueryHelper(Class<T> helperType) {
+					return extTripleSource.getQueryHelper(helperType);
+				}
+
+				@Override
+				public boolean hasQueryHelper(Class<?> helperType) {
+					return extTripleSource.hasQueryHelper(helperType);
+				}
 			};
 
 			ExtendedTripleSource tempTripleSource = new FunctionExtendedTripleSource();

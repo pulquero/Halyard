@@ -3,7 +3,7 @@ package com.msd.gin.halyard.function;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
-import com.msd.gin.halyard.sail.HBaseTripleSource;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.sail.HalyardStatsBasedStatementPatternCardinalityCalculator;
 
 import org.eclipse.rdf4j.model.IRI;
@@ -34,9 +34,9 @@ public class DatasetIri implements Function {
 		}
 
 		HalyardStatsBasedStatementPatternCardinalityCalculator.PartitionIriTransformer partitionIriTransformer;
-		if (tripleSource instanceof HBaseTripleSource) {
-			HBaseTripleSource extTripleSource = (HBaseTripleSource) tripleSource;
-			StatementIndices indices = extTripleSource.getStatementIndices();
+		if (tripleSource instanceof ExtendedTripleSource && ((ExtendedTripleSource) tripleSource).hasQueryHelper(StatementIndices.class)) {
+			ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
+			StatementIndices indices = extTripleSource.getQueryHelper(StatementIndices.class);
 			RDFFactory rdfFactory = indices.getRDFFactory();
 			partitionIriTransformer = HalyardStatsBasedStatementPatternCardinalityCalculator.createPartitionIriTransformer(rdfFactory);
 		} else {

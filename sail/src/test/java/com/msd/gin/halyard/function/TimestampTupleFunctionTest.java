@@ -27,7 +27,7 @@ public class TimestampTupleFunctionTest {
 	private static final StatementIndices stmtIndices = StatementIndices.create();
 
 	private TripleSource getStubTripleSource(long ts) {
-		return new HBaseTripleSource(null, SimpleValueFactory.getInstance(), stmtIndices, 0, null) {
+		return new HBaseTripleSource(null, SimpleValueFactory.getInstance(), stmtIndices, 0) {
 			@Override
 			public TripleSource getTimestampedTripleSource() {
 				return new TripleSource() {

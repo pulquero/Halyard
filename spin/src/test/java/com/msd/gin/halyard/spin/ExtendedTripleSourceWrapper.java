@@ -1,11 +1,8 @@
-/**
- * Copyright (c) 2016 Eclipse RDF4J contributors.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Distribution License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/org/documents/edl-v10.php.
- */
 package com.msd.gin.halyard.spin;
+
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
@@ -23,15 +20,32 @@ import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
 class ExtendedTripleSourceWrapper implements ExtendedTripleSource, CloseableTripleSource {
 	private final TripleSource delegate;
 	private final QueryPreparer.Factory queryPreparerFactory;
+	private final Map<Class<?>,?> queryHelpers;
 
-	ExtendedTripleSourceWrapper(TripleSource delegate, QueryPreparer.Factory queryPreparerFactory) {
+	ExtendedTripleSourceWrapper(TripleSource delegate, QueryPreparer.Factory queryPreparerFactory, Map<Class<?>,?> queryHelpers) {
 		this.delegate = delegate;
 		this.queryPreparerFactory = queryPreparerFactory;
+		// must be thread-safe
+		this.queryHelpers = Collections.unmodifiableMap(new IdentityHashMap<>(queryHelpers));
 	}
 
 	@Override
 	public QueryPreparer newQueryPreparer() {
 		return queryPreparerFactory.create();
+	}
+
+	@Override
+	public <T> T getQueryHelper(Class<T> qhType) {
+		Object qh = queryHelpers.get(qhType);
+		if (qh == null) {
+			throw new QueryEvaluationException(String.format("%s is not available", qhType.getName()));
+		}
+		return qhType.cast(qh);
+	}
+
+	@Override
+	public boolean hasQueryHelper(Class<?> qhType) {
+		return queryHelpers.containsKey(qhType);
 	}
 
 	@Override

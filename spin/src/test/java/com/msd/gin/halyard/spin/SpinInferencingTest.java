@@ -5,6 +5,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 import java.io.IOException;
+import java.util.Collections;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -39,7 +40,7 @@ public class SpinInferencingTest {
 		SpinInferencing.insertSchema(repoConn);
 		repoConn.add(getClass().getResource("/test-cases/inferencing-tests.ttl"), RDFFormat.TURTLE);
 		QueryPreparer qp = new SailConnectionQueryPreparer(repoConn.getSailConnection(), true, sail.getValueFactory());
-		tripleSource = new ExtendedTripleSourceWrapper(new SailConnectionTripleSource(repoConn.getSailConnection(), true, sail.getValueFactory()), () -> qp);
+		tripleSource = new ExtendedTripleSourceWrapper(new SailConnectionTripleSource(repoConn.getSailConnection(), true, sail.getValueFactory()), () -> qp, Collections.emptyMap());
 	}
 
 	@After

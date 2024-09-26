@@ -45,6 +45,7 @@ import com.msd.gin.halyard.util.MBeanDetails;
 import com.msd.gin.halyard.util.MBeanManager;
 import com.msd.gin.halyard.util.Version;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -52,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -208,6 +210,10 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		return TupleFunctionRegistry.getInstance();
 	}
 
+	public static QueryHelperProviderRegistry getDefaultQueryHelperProviderRegistry() {
+		return QueryHelperProviderRegistry.getInstance();
+	}
+
 	private static final long STATUS_CACHING_TIMEOUT = 60000l;
 
     private final Configuration conf; //the configuration of the HBase database
@@ -234,6 +240,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	private final FunctionRegistry functionRegistry = getDefaultFunctionRegistry();
 	private final CustomAggregateFunctionRegistry aggregateFunctionRegistry = getDefaultAggregateFunctionRegistry();
 	private final TupleFunctionRegistry tupleFunctionRegistry = getDefaultTupleFunctionRegistry();
+	private final QueryHelperProviderRegistry queryHelperProviderRegistry = getDefaultQueryHelperProviderRegistry();
 	private final SpinParser spinParser = new SpinParser(Input.TEXT_FIRST, functionRegistry, tupleFunctionRegistry);
 	private final ScanSettings scanSettings = new ScanSettings();
 	final SailConnectionFactory connFactory;
@@ -246,6 +253,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 	QueryCache queryCache;
 	private Cache<Pair<IRI, IRI>, Long> statisticsCache;
 	private HalyardEvaluationStatistics statistics;
+	private Map<Class<?>, Object> queryHelpers;
 	String owner;
 	private MBeanManager<HBaseSail> mbeanManager;
 	private final Cache<String, HBaseSailConnection> connections = Caffeine.newBuilder().weakValues().removalListener((String id, HBaseSailConnection conn, RemovalCause cause) ->
@@ -550,7 +558,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		if (keyspace == null) {
 			throw new IllegalStateException("Sail is not initialized");
 		}
-		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs, null),
+		StatementPatternCardinalityCalculator.Factory spcalcFactory = () -> new HalyardStatsBasedStatementPatternCardinalityCalculator(new HBaseTripleSource(keyspace.getConnection(), valueFactory, stmtIndices, evaluationTimeoutSecs),
 				rdfFactory, statisticsCache);
 		ServiceStatisticsProvider srvStatsProvider = new ServiceStatisticsProvider() {
 			final Map<String, Optional<ExtendedEvaluationStatistics>> serviceToStats = new ConcurrentHashMap<>();
@@ -614,6 +622,17 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 		SpinFunctionInterpreter.registerSpinParsingFunctions(spinParser, functionRegistry, pushStrategy ? tupleFunctionRegistry : TupleFunctionRegistry.getInstance());
 		SpinMagicPropertyInterpreter.registerSpinParsingTupleFunctions(spinParser, tupleFunctionRegistry);
+
+		queryHelpers = new IdentityHashMap<>();
+		Map<String, String> qhConfig = conf.getPropsWithPrefix(EvaluationConfig.QUERY_HELPERS_PREFIX);
+		for (Map.Entry<String, String> qhEntry : qhConfig.entrySet()) {
+			QueryHelperProvider qhp = queryHelperProviderRegistry.get(qhEntry.getKey()).orElseThrow(() -> new SailException(String.format("No %s registered for %s", QueryHelperProvider.class.getName(), qhEntry.getKey())));
+			try {
+				queryHelpers.put(qhp.getQueryHelperClass(), qhp.createQueryHelper(conf.getPropsWithPrefix(qhEntry.getValue() + ".")));
+			} catch (Exception e) {
+				throw new SailException(e);
+			}
+		}
 
 		if (esSettings != null) {
 			try {
@@ -698,8 +717,14 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 
 	HBaseTripleSource createTripleSource(KeyspaceConnection keyspaceConn, boolean includeInferred, int forkIndex) {
 		QueryPreparer.Factory qpFactory = () -> new SailConnectionQueryPreparer(getConnection(), includeInferred, getValueFactory());
-		return getSearchClient().<HBaseTripleSource>map(sc -> new HBaseSearchTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), sc, ticker, forkIndex))
-				.orElseGet(() -> new HBaseTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, getScanSettings(), ticker, forkIndex));
+		// add default query helpers
+		Map<Class<?>, Object> allQhs = new IdentityHashMap<>(queryHelpers);
+		allQhs.put(KeyspaceConnection.class, keyspaceConn);
+		allQhs.put(StatementIndices.class, stmtIndices);
+		return getSearchClient().<HBaseTripleSource>map(sc -> {
+			allQhs.put(SearchClient.class, sc);
+			return new HBaseSearchTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, Collections.unmodifiableMap(allQhs), getScanSettings(), sc, ticker, forkIndex);
+		}).orElseGet(() -> new HBaseTripleSource(keyspaceConn, getValueFactory(), getStatementIndices(), evaluationTimeoutSecs, qpFactory, Collections.unmodifiableMap(allQhs), getScanSettings(), ticker, forkIndex));
 	}
 
 	public RDFFactory getRDFFactory() {
@@ -739,6 +764,17 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 			mbeanManager = null;
 		}
 
+		if (queryHelpers != null) {
+			for (Object qh : queryHelpers.values()) {
+				if (qh instanceof Closeable) {
+					try {
+						((Closeable) qh).close();
+					} catch (IOException ignore) {
+					}
+				}
+			}
+			queryHelpers = null;
+		}
 		if (esTransport != null) {
 			esTransport.ifPresent(transport -> {
 				try {

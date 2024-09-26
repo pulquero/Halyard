@@ -1,12 +1,12 @@
 package com.msd.gin.halyard.spin;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
@@ -53,7 +53,7 @@ public class SpinMemoryStore extends MemoryStore {
         protected EvaluationStrategy getEvaluationStrategy(Dataset dataset, final TripleSource tripleSource) {
 			boolean includeInferred = this.includeInferred;
 			QueryPreparer.Factory queryPreparerFactory = () -> new SailConnectionQueryPreparer(getConnection(), includeInferred, getValueFactory());
-			ExtendedTripleSourceWrapper extTripleSource = new ExtendedTripleSourceWrapper(tripleSource, queryPreparerFactory);
+			ExtendedTripleSourceWrapper extTripleSource = new ExtendedTripleSourceWrapper(tripleSource, queryPreparerFactory, Collections.emptyMap());
 			EvaluationStatistics stats = new EvaluationStatistics();
 			TupleFunctionEvaluationStrategy evalStrat = new TupleFunctionEvaluationStrategy(extTripleSource, dataset, getFederatedServiceResolver(), tupleFunctionRegistry, 0, stats);
 			evalStrat.setOptimizerPipeline(new StandardQueryOptimizerPipeline(evalStrat, extTripleSource, stats) {

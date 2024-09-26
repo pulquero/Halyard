@@ -22,14 +22,17 @@ import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFObject;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.sail.geosparql.WithinDistanceInterpreter;
 import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.sail.search.SearchDocument;
+import com.msd.gin.halyard.sail.search.SearchInterpreter;
 import com.msd.gin.halyard.strategy.HalyardEvaluationStrategy;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -40,7 +43,10 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
+import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.sail.SailException;
 
 import co.elastic.clients.elasticsearch.core.SearchResponse;
@@ -49,14 +55,17 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 public class HBaseSearchTripleSource extends HBaseTripleSource {
 	private final SearchClient searchClient;
 
-	public HBaseSearchTripleSource(KeyspaceConnection table, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory, HBaseSail.ScanSettings settings, SearchClient searchClient,
+	public HBaseSearchTripleSource(KeyspaceConnection table, ValueFactory vf, StatementIndices stmtIndices, long timeoutSecs, QueryPreparer.Factory qpFactory, Map<Class<?>, ?> qhs,
+			HBaseSail.ScanSettings settings, SearchClient searchClient,
 			HBaseSail.Ticker ticker, int forkIndex) {
-		super(table, vf, stmtIndices, timeoutSecs, qpFactory, settings, ticker, forkIndex);
+		super(table, vf, stmtIndices, timeoutSecs, qpFactory, qhs, settings, ticker, forkIndex);
 		this.searchClient = Objects.requireNonNull(searchClient);
 	}
 
-	public SearchClient getSearchClient() {
-		return searchClient;
+	@Override
+	protected void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
+		new SearchInterpreter().optimize(tupleExpr, dataset, bindings);
+		new WithinDistanceInterpreter().optimize(tupleExpr, dataset, bindings);
 	}
 
 	@Override

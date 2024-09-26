@@ -6,8 +6,8 @@ import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.model.ArrayLiteral;
 import com.msd.gin.halyard.model.ObjectLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
-import com.msd.gin.halyard.sail.HBaseSearchTripleSource;
 import com.msd.gin.halyard.sail.search.SearchInterpreter.SearchParams;
 
 import java.io.IOException;
@@ -44,10 +44,7 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 
 	@Override
 	public CloseableIteration<? extends List<? extends Value>> evaluate(TripleSource tripleSource, Value... args) throws QueryEvaluationException {
-		if (!(tripleSource instanceof HBaseSearchTripleSource)) {
-			throw new QueryEvaluationException("Search index not configured");
-		}
-		HBaseSearchTripleSource extTripleSource = (HBaseSearchTripleSource) tripleSource;
+		ExtendedTripleSource extTripleSource = (ExtendedTripleSource) tripleSource;
 
 		if (args.length != 6) {
 			throw new QueryEvaluationException("Missing arguments");
@@ -64,9 +61,9 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 		int phraseSlop = ((Literal) args[argPos++]).intValue();
 		List<SearchInterpreter.SearchParams.MatchParams> matches = ((ObjectLiteral<List<SearchInterpreter.SearchParams.MatchParams>>) args[argPos++]).objectValue();
 		ValueFactory valueFactory = extTripleSource.getValueFactory();
-		StatementIndices indices = extTripleSource.getStatementIndices();
+		StatementIndices indices = extTripleSource.getQueryHelper(StatementIndices.class);
 		RDFFactory rdfFactory = indices.getRDFFactory();
-		SearchClient searchClient = extTripleSource.getSearchClient();
+		SearchClient searchClient = extTripleSource.getQueryHelper(SearchClient.class);
 
 		boolean hasAdditionalFields = false;
 		for (SearchInterpreter.SearchParams.MatchParams matchParams : matches) {
