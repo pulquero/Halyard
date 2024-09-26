@@ -2,8 +2,8 @@ package com.msd.gin.halyard.sail;
 
 import java.util.Map;
 
-public interface QueryHelperProvider {
-	Class<?> getQueryHelperClass();
+public interface QueryHelperProvider<T> {
+	Class<T> getQueryHelperClass();
 
-	Object createQueryHelper(Map<String, String> config);
+	T createQueryHelper(Map<String, String> config) throws Exception;
 }

@@ -626,7 +626,7 @@ public class HBaseSail implements BindingSetConsumerSail, BindingSetPipeSail, Sp
 		queryHelpers = new IdentityHashMap<>();
 		Map<String, String> qhConfig = conf.getPropsWithPrefix(EvaluationConfig.QUERY_HELPERS_PREFIX);
 		for (Map.Entry<String, String> qhEntry : qhConfig.entrySet()) {
-			QueryHelperProvider qhp = queryHelperProviderRegistry.get(qhEntry.getKey()).orElseThrow(() -> new SailException(String.format("No %s registered for %s", QueryHelperProvider.class.getName(), qhEntry.getKey())));
+			QueryHelperProvider<?> qhp = queryHelperProviderRegistry.get(qhEntry.getKey()).orElseThrow(() -> new SailException(String.format("No %s registered for %s", QueryHelperProvider.class.getName(), qhEntry.getKey())));
 			try {
 				queryHelpers.put(qhp.getQueryHelperClass(), qhp.createQueryHelper(conf.getPropsWithPrefix(qhEntry.getValue() + ".")));
 			} catch (Exception e) {
