@@ -23,6 +23,7 @@ import com.msd.gin.halyard.common.RDFObject;
 import com.msd.gin.halyard.common.StatementIndices;
 import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
 import com.msd.gin.halyard.sail.geosparql.WithinDistanceInterpreter;
+import com.msd.gin.halyard.sail.search.KNNInterpreter;
 import com.msd.gin.halyard.sail.search.SearchClient;
 import com.msd.gin.halyard.sail.search.SearchDocument;
 import com.msd.gin.halyard.sail.search.SearchInterpreter;
@@ -66,6 +67,7 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 	protected void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
 		new SearchInterpreter().optimize(tupleExpr, dataset, bindings);
 		new WithinDistanceInterpreter().optimize(tupleExpr, dataset, bindings);
+		new KNNInterpreter().optimize(tupleExpr, dataset, bindings);
 	}
 
 	@Override

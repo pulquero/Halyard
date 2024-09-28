@@ -44,10 +44,10 @@ public class VectorEmbedding implements Function {
 		ExtendedTripleSource extTs = (ExtendedTripleSource) ts;
 		Response<Embedding> resp = extTs.getQueryHelper(EmbeddingModel.class).embed(l.getLabel());
 		float[] vec = resp.content().vector();
-		Float[] arr = new Float[vec.length];
+		Object[] arr = new Object[vec.length];
 		for (int i = 0; i < vec.length; i++) {
 			arr[i] = Float.valueOf(vec[i]);
 		}
-		return new ArrayLiteral((Object[]) arr);
+		return new ArrayLiteral(arr);
 	}
 }

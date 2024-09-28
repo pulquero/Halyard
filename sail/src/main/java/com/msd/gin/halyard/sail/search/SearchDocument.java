@@ -14,7 +14,6 @@ import com.msd.gin.halyard.common.IdentifiableValue;
 import com.msd.gin.halyard.common.RDFFactory;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +34,7 @@ public class SearchDocument {
 	public static final String LANG_FIELD = "lang";
 	public static final String DATATYPE_FIELD = "datatype";
 	public static final String GEOMETRY_FIELD = "geometry";
+	public static final String VECTOR_FIELD = "vector";
 	static final List<String> REQUIRED_FIELDS = Arrays.asList(ID_FIELD, IRI_FIELD, LABEL_FIELD, LANG_FIELD, DATATYPE_FIELD);
 
 	@JsonProperty(ID_FIELD)
@@ -49,6 +49,8 @@ public class SearchDocument {
 	public String datatype;
 	@JsonProperty(GEOMETRY_FIELD)
 	public String geometry;
+	@JsonProperty(VECTOR_FIELD)
+	public float[] vector;
 	@JsonIgnore
 	private Map<String, Object> additionalFields;
 

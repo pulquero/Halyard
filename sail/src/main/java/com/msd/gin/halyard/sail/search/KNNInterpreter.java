@@ -34,58 +34,57 @@ import org.eclipse.rdf4j.query.algebra.evaluation.QueryOptimizer;
 import org.eclipse.rdf4j.query.algebra.helpers.AbstractQueryModelVisitor;
 
 /**
- * [] a halyard:Query;
- * halyard:query 'what';
- * halyard:limit 5;
+ * [] a halyard:KNN;
+ * halyard:query '[5.0, 2.0]';
+ * halyard:k 5;
+ * halyard:numCandidates 20;
+ * halyard:minScore 0.4;
  * halyard:matches [rdf:value ?v; halyard:score ?score; halyard:index ?index; halyard:field [rdfs:label "field_name"; rdf:value ?value] ]
  */
-public class SearchInterpreter implements QueryOptimizer {
+public class KNNInterpreter implements QueryOptimizer {
 
 	@Override
 	public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-		tupleExpr.visit(new SearchScanner());
+		tupleExpr.visit(new KNNScanner());
 	}
 
-	static final class SearchScanner extends AbstractQueryModelVisitor<RuntimeException> {
+	static final class KNNScanner extends AbstractQueryModelVisitor<RuntimeException> {
 		private void processGraphPattern(BGPCollector<RuntimeException> bgp) {
 			ListMultimap<String, StatementPattern> stmtsBySubj = Multimaps.newListMultimap(new HashMap<>(), () -> new ArrayList<>(8));
-			Map<Var, SearchCall> searchCallsBySubj = new HashMap<>();
+			Map<Var, KNNCall> knnCallsBySubj = new HashMap<>();
 			for (StatementPattern sp : bgp.getStatementPatterns()) {
 				Var subjVar = sp.getSubjectVar();
 				Var predVar = sp.getPredicateVar();
 				Var objVar = sp.getObjectVar();
-				if (RDF.TYPE.equals((IRI) predVar.getValue()) && HALYARD.QUERY_CLASS.equals(objVar.getValue())) {
-					SearchCall searchCall = new SearchCall();
-					searchCallsBySubj.put(subjVar, searchCall);
-					sp.replaceWith(searchCall.tfc);
+				if (RDF.TYPE.equals((IRI) predVar.getValue()) && HALYARD.KNN_CLASS.equals(objVar.getValue())) {
+					KNNCall knnCall = new KNNCall();
+					knnCallsBySubj.put(subjVar, knnCall);
+					sp.replaceWith(knnCall.tfc);
 				} else {
 					stmtsBySubj.put(subjVar.getName(), sp);
 				}
 			}
 
-			for (Map.Entry<Var, SearchCall> entry : searchCallsBySubj.entrySet()) {
-				String searchVarName = entry.getKey().getName();
-				SearchCall searchCall = entry.getValue();
-				List<StatementPattern> sps = stmtsBySubj.get(searchVarName);
+			for (Map.Entry<Var, KNNCall> entry : knnCallsBySubj.entrySet()) {
+				String knnVarName = entry.getKey().getName();
+				KNNCall knnCall = entry.getValue();
+				List<StatementPattern> sps = stmtsBySubj.get(knnVarName);
 				if (sps != null) {
 					for (StatementPattern querySP : sps) {
 						IRI queryPred = (IRI) querySP.getPredicateVar().getValue();
 						Var queryObjVar = querySP.getObjectVar();
 						if (HALYARD.QUERY_PROPERTY.equals(queryPred)) {
 							querySP.replaceWith(new SingletonSet());
-							searchCall.params.setQueryVar(queryObjVar);
-						} else if (HALYARD.LIMIT_PROPERTY.equals(queryPred)) {
+							knnCall.params.setQueryVar(queryObjVar);
+						} else if (HALYARD.K_PROPERTY.equals(queryPred)) {
 							querySP.replaceWith(new SingletonSet());
-							searchCall.params.setLimitVar(queryObjVar);
+							knnCall.params.setKVar(queryObjVar);
+						} else if (HALYARD.NUM_CANDIDATES_PROPERTY.equals(queryPred)) {
+							querySP.replaceWith(new SingletonSet());
+							knnCall.params.setNumCandidatesVar(queryObjVar);
 						} else if (HALYARD.MIN_SCORE_PROPERTY.equals(queryPred)) {
 							querySP.replaceWith(new SingletonSet());
-							searchCall.params.setMinScoreVar(queryObjVar);
-						} else if (HALYARD.FUZZINESS_PROPERTY.equals(queryPred)) {
-							querySP.replaceWith(new SingletonSet());
-							searchCall.params.setFuzzinessVar(queryObjVar);
-						} else if (HALYARD.PHRASE_SLOP_PROPERTY.equals(queryPred)) {
-							querySP.replaceWith(new SingletonSet());
-							searchCall.params.setPhraseSlopVar(queryObjVar);
+							knnCall.params.setMinScoreVar(queryObjVar);
 						} else if (HALYARD.MATCHES_PROPERTY.equals(queryPred)) {
 							querySP.replaceWith(new SingletonSet());
 							MatchParams matchParams = new MatchParams();
@@ -130,16 +129,16 @@ public class SearchInterpreter implements QueryOptimizer {
 								}
 							}
 							if (!Algebra.isFree(queryObjVar) && matchParams.isValid()) {
-								searchCall.params.matches.add(matchParams);
+								knnCall.params.matches.add(matchParams);
 							}
 						}
 					}
 				}
 			}
 
-			for (SearchCall searchCall : searchCallsBySubj.values()) {
-				if (!searchCall.initCall()) { // if invalid
-					searchCall.tfc.replaceWith(new EmptySet());
+			for (KNNCall knnCall : knnCallsBySubj.values()) {
+				if (!knnCall.initCall()) { // if invalid
+					knnCall.tfc.replaceWith(new EmptySet());
 				}
 			}
 		}
@@ -158,20 +157,19 @@ public class SearchInterpreter implements QueryOptimizer {
 	}
 
 
-	static final class SearchCall {
+	static final class KNNCall {
 		static final ValueFactory VF = SimpleValueFactory.getInstance();
-		final ExtendedTupleFunctionCall tfc = new ExtendedTupleFunctionCall(HALYARD.SEARCH.stringValue());
-		final SearchParams params = new SearchParams();
+		final ExtendedTupleFunctionCall tfc = new ExtendedTupleFunctionCall(HALYARD.KNN_FUNCTION.stringValue());
+		final KNNParams params = new KNNParams();
 
 		boolean initCall() {
 			if (!params.isValid()) {
 				return false;
 			}
 			tfc.addArg(params.queryVar != null ? params.queryVar.clone() : new ValueConstant(VF.createLiteral("")));
-			tfc.addArg(params.limitVar != null ? params.limitVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_RESULT_SIZE)));
+			tfc.addArg(params.kVar != null ? params.kVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_K)));
+			tfc.addArg(params.numCandidatesVar != null ? params.numCandidatesVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_NUM_CANDIDATES)));
 			tfc.addArg(params.minScoreVar != null ? params.minScoreVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_MIN_SCORE)));
-			tfc.addArg(params.fuzzinessVar != null ? params.fuzzinessVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_FUZZINESS)));
-			tfc.addArg(params.phraseSlopVar != null ? params.phraseSlopVar.clone() : new ValueConstant(VF.createLiteral(SearchClient.DEFAULT_PHRASE_SLOP)));
 			tfc.addArg(new ValueConstant(JavaObjectLiteral.of(params.matches, Object.class)));
 			for (MatchParams matchParams : params.matches) {
 				for (String valueVar : matchParams.valueVars) {
@@ -193,12 +191,11 @@ public class SearchInterpreter implements QueryOptimizer {
 		}
 	}
 
-	static final class SearchParams {
+	static final class KNNParams {
 		Var queryVar;
-		Var limitVar;
+		Var kVar;
+		Var numCandidatesVar;
 		Var minScoreVar;
-		Var fuzzinessVar;
-		Var phraseSlopVar;
 		final List<MatchParams> matches = new ArrayList<>(1);
 		boolean invalid;
 
@@ -210,33 +207,25 @@ public class SearchInterpreter implements QueryOptimizer {
 			}
 		}
 
+		void setKVar(Var var) {
+			if (kVar == null) {
+				kVar = var;
+			} else {
+				invalid = true;
+			}
+		}
+
+		void setNumCandidatesVar(Var var) {
+			if (numCandidatesVar == null) {
+				numCandidatesVar = var;
+			} else {
+				invalid = true;
+			}
+		}
+
 		void setMinScoreVar(Var var) {
 			if (minScoreVar == null) {
 				minScoreVar = var;
-			} else {
-				invalid = true;
-			}
-		}
-
-		void setLimitVar(Var var) {
-			if (limitVar == null) {
-				limitVar = var;
-			} else {
-				invalid = true;
-			}
-		}
-
-		void setFuzzinessVar(Var var) {
-			if (fuzzinessVar == null) {
-				fuzzinessVar = var;
-			} else {
-				invalid = true;
-			}
-		}
-
-		void setPhraseSlopVar(Var var) {
-			if (phraseSlopVar == null) {
-				phraseSlopVar = var;
 			} else {
 				invalid = true;
 			}

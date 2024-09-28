@@ -87,11 +87,10 @@ public abstract class AbstractSearchTest {
 			this.rdfFactory = rdfFactory;
 			indexPath = "/" + indexName;
 			server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
-			server.createContext("/", new HttpHandler() {
+			server.createContext("/", new AbstractHttpHandler() {
 				@Override
 				public void handle(HttpExchange he) throws IOException {
 					String path = he.getRequestURI().getPath();
-					int statusCode;
 					JSONObject response;
 					if ("GET".equalsIgnoreCase(he.getRequestMethod())) {
 						switch (path) {
@@ -101,7 +100,6 @@ public abstract class AbstractSearchTest {
 								version.put("lucene_version", "8.11.1");
 								version.put("minimum_wire_compatibility_version", "6.8.0");
 								version.put("minimum_index_compatibiltiy_version", "6.0.0-beta1");
-								statusCode = HttpURLConnection.HTTP_OK;
 								response = new JSONObject();
 								response.put("name", "localhost");
 								response.put("cluster_name", "halyard-test");
@@ -109,7 +107,6 @@ public abstract class AbstractSearchTest {
 								response.put("version", version);
 								response.put("tagline", "You Know, for Search");
 								response.put("build_flavor", "default");
-								he.getResponseHeaders().set("X-elastic-product", "Elasticsearch");
 								break;
 							case "/_nodes/http":
 								JSONObject nodeInfo = new JSONObject();
@@ -123,40 +120,22 @@ public abstract class AbstractSearchTest {
 								nodeInfo.put("http", httpNode);
 								JSONObject node = new JSONObject();
 								node.put(NODE_ID, nodeInfo);
-								statusCode = HttpURLConnection.HTTP_OK;
 								response = new JSONObject();
 								response.put("nodes", node);
 								break;
 							default:
-								statusCode = HttpURLConnection.HTTP_NOT_FOUND;
 								response = null;
 						}
 					} else {
-						statusCode = HttpURLConnection.HTTP_BAD_REQUEST;
 						response = null;
 					}
 
-					if (statusCode >= 400) {
-						he.sendResponseHeaders(statusCode, 0);
-						try (OutputStreamWriter writer = new OutputStreamWriter(he.getResponseBody(), StandardCharsets.UTF_8)) {
-							writer.write(he.getRequestMethod() + " " + he.getRequestURI());
-						}
-					} else {
-						he.sendResponseHeaders(statusCode, response != null ? 0 : -1);
-						if (response != null) {
-							try (OutputStreamWriter writer = new OutputStreamWriter(he.getResponseBody(), StandardCharsets.UTF_8)) {
-								response.write(writer);
-							}
-						}
-					}
-
-					he.close();
+					sendResponse(he, response);
 				}
 			});
-			server.createContext(indexPath, new HttpHandler() {
+			server.createContext(indexPath, new AbstractHttpHandler() {
 				@Override
 				public void handle(HttpExchange he) throws IOException {
-					int statusCode;
 					String response;
 					if ("POST".equalsIgnoreCase(he.getRequestMethod())) {
 						String requestBody;
@@ -165,33 +144,15 @@ public abstract class AbstractSearchTest {
 						}
 						Literal[] responseValues = requestResponses.get(requestBody);
 						if (responseValues != null) {
-							statusCode = HttpURLConnection.HTTP_OK;
 							response = createResponse(responseValues);
 						} else {
 							throw new AssertionError("Unexpected request: " + requestBody);
 						}
 					} else {
-						statusCode = HttpURLConnection.HTTP_BAD_REQUEST;
 						response = null;
 					}
 
-					if (statusCode >= 400) {
-						he.sendResponseHeaders(statusCode, 0);
-						try (OutputStreamWriter writer = new OutputStreamWriter(he.getResponseBody(), StandardCharsets.UTF_8)) {
-							writer.write(he.getRequestMethod() + " " + he.getRequestURI());
-						}
-					} else {
-						he.getResponseHeaders().set("Content-type", "application/json; charset=UTF-8");
-						he.getResponseHeaders().set("X-Elastic-Product", "Elasticsearch");
-						he.sendResponseHeaders(statusCode, response != null ? 0 : -1);
-						if (response != null) {
-							try (OutputStreamWriter writer = new OutputStreamWriter(he.getResponseBody(), StandardCharsets.UTF_8)) {
-								writer.write(response);
-							}
-						}
-					}
-
-					he.close();
+					sendResponse(he, response);
 				}
 			});
 		}
@@ -249,6 +210,32 @@ public abstract class AbstractSearchTest {
 
 		public void close() {
 			server.stop(0);
+		}
+	}
+
+	static abstract class AbstractHttpHandler implements HttpHandler {
+		protected void sendResponse(HttpExchange he, Object response) throws IOException {
+			if (response != null) {
+				he.getResponseHeaders().set("Content-type", "application/json; charset=UTF-8");
+				he.getResponseHeaders().set("X-Elastic-Product", "Elasticsearch");
+				he.sendResponseHeaders(HttpURLConnection.HTTP_OK, response != null ? 0 : -1);
+				if (response != null) {
+					try (OutputStreamWriter writer = new OutputStreamWriter(he.getResponseBody(), StandardCharsets.UTF_8)) {
+						if (response instanceof JSONObject) {
+							((JSONObject) response).write(writer);
+						} else {
+							writer.write((String) response);
+						}
+					}
+				}
+			} else {
+				System.err.println("Unexpected request: " + he.getRequestMethod() + " " + he.getRequestURI());
+				he.sendResponseHeaders(HttpURLConnection.HTTP_BAD_REQUEST, 0);
+				try (OutputStreamWriter writer = new OutputStreamWriter(he.getResponseBody(), StandardCharsets.UTF_8)) {
+					writer.write(he.getRequestMethod() + " " + he.getRequestURI());
+				}
+			}
+			he.close();
 		}
 	}
 }

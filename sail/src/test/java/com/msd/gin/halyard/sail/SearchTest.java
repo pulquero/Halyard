@@ -97,4 +97,36 @@ public class SearchTest extends AbstractSearchTest {
 			hbaseRepo.shutDown();
 		}
 	}
+
+	@Test
+	public void knnTest() throws Exception {
+		ValueFactory vf = SimpleValueFactory.getInstance();
+		Literal val1 = vf.createLiteral("Whatever Text");
+		Literal val2 = vf.createLiteral("Whatever Text", "en");
+		Literal val3 = vf.createLiteral("Que sea", "es");
+		String expectedRequest = "{\"_source\":{\"includes\":[\"id\",\"iri\",\"label\",\"lang\",\"datatype\"]},\"knn\":[{\"field\":\"vector\",\"query_vector\":[0.5,-7.0],\"k\":5,\"num_candidates\":100}],\"min_score\":0.0}";
+		try (MockElasticServer server = startElasticsearch(expectedRequest, val1, val2)) {
+			IRI whatever = vf.createIRI("http://whatever");
+			Repository hbaseRepo = createRepo("testAdvancedLiteralSearch", server);
+			try (RepositoryConnection conn = hbaseRepo.getConnection()) {
+				conn.add(whatever, whatever, val1);
+				conn.add(whatever, whatever, val2);
+				conn.add(whatever, whatever, val3);
+				TupleQuery q = conn.prepareTupleQuery(
+						"PREFIX halyard: <http://merck.github.io/Halyard/ns#> select * { [] a halyard:KNN; halyard:query '[0.5, -7]'^^halyard:array; halyard:k 5; halyard:minScore 0; halyard:numCandidates 100; halyard:matches [rdf:value ?v; halyard:score ?score; halyard:index ?index ] }");
+				try (TupleQueryResult iter = q.evaluate()) {
+					assertTrue(iter.hasNext());
+					BindingSet bs = iter.next();
+					assertEquals(2.0, ((Literal) bs.getValue("score")).doubleValue(), 0.0);
+					assertEquals(INDEX_NAME, ((Literal) bs.getValue("index")).stringValue());
+					assertTrue(iter.hasNext());
+					bs = iter.next();
+					assertEquals(1.0, ((Literal) bs.getValue("score")).doubleValue(), 0.0);
+					assertEquals(INDEX_NAME, ((Literal) bs.getValue("index")).stringValue());
+					assertFalse(iter.hasNext());
+				}
+			}
+			hbaseRepo.shutDown();
+		}
+	}
 }

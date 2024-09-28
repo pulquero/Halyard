@@ -8,7 +8,6 @@ import com.msd.gin.halyard.model.ObjectLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
-import com.msd.gin.halyard.sail.search.SearchInterpreter.SearchParams;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -59,14 +58,14 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 		double minScore = ((Literal) args[argPos++]).doubleValue();
 		int fuzziness = ((Literal) args[argPos++]).intValue();
 		int phraseSlop = ((Literal) args[argPos++]).intValue();
-		List<SearchInterpreter.SearchParams.MatchParams> matches = ((ObjectLiteral<List<SearchInterpreter.SearchParams.MatchParams>>) args[argPos++]).objectValue();
+		List<MatchParams> matches = ((ObjectLiteral<List<MatchParams>>) args[argPos++]).objectValue();
 		ValueFactory valueFactory = extTripleSource.getValueFactory();
 		StatementIndices indices = extTripleSource.getQueryHelper(StatementIndices.class);
 		RDFFactory rdfFactory = indices.getRDFFactory();
 		SearchClient searchClient = extTripleSource.getQueryHelper(SearchClient.class);
 
 		boolean hasAdditionalFields = false;
-		for (SearchInterpreter.SearchParams.MatchParams matchParams : matches) {
+		for (MatchParams matchParams : matches) {
 			if (!matchParams.fields.isEmpty()) {
 				hasAdditionalFields = true;
 				break;
@@ -75,65 +74,70 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 
 		try {
 			SearchResponse<? extends SearchDocument> searchResults = searchClient.search(query, limit, minScore, fuzziness, phraseSlop, hasAdditionalFields);
-			List<List<Hit<? extends SearchDocument>>> results;
-			final int numMatchValues = matches.size();
-			if (numMatchValues == 1) {
-				results = Lists.transform(searchResults.hits().hits(), doc -> Collections.singletonList(doc));
-			} else {
-				// in case anyone actually does this
-				results = Lists.cartesianProduct(Collections.nCopies(numMatchValues, searchResults.hits().hits()));
-			}
-			return new ConvertingIteration<List<Hit<? extends SearchDocument>>, List<Value>>(new CloseableIteratorIteration<List<Hit<? extends SearchDocument>>>(results.iterator())) {
-				int outputSize = 2;
-				@Override
-				protected List<Value> convert(List<Hit<? extends SearchDocument>> matchValues) throws QueryEvaluationException {
-					List<Value> values = new ArrayList<>(outputSize);
-					for (int i = 0; i < numMatchValues; i++) {
-						Hit<? extends SearchDocument> matchValue = matchValues.get(i);
-						SearchDocument doc = matchValue.source();
-						SearchInterpreter.SearchParams.MatchParams matchParams = matches.get(i);
-						if (!matchParams.valueVars.isEmpty()) {
-							Value value = doc.createValue(valueFactory, rdfFactory);
-							for (int k = 0; k < matchParams.valueVars.size(); k++) {
-								values.add(value);
-							}
-						}
-						if (!matchParams.scoreVars.isEmpty()) {
-							Literal score = valueFactory.createLiteral(matchValue.score());
-							for (int k = 0; k < matchParams.scoreVars.size(); k++) {
-								values.add(score);
-							}
-						}
-						if (!matchParams.indexVars.isEmpty()) {
-							Literal index = valueFactory.createLiteral(matchValue.index());
-							for (int k = 0; k < matchParams.indexVars.size(); k++) {
-								values.add(index);
-							}
-						}
-						for (SearchParams.MatchParams.FieldParams fieldParams : matchParams.fields) {
-							Object v = doc.getAdditionalField(fieldParams.name);
-							Literal l;
-							if (v instanceof List<?>) {
-								l = new ArrayLiteral(((List<?>) v).toArray());
-							} else if (v != null) {
-								l = Values.literal(valueFactory, v, false);
-							} else {
-								l = null;
-							}
-							for (int k = 0; k < fieldParams.valueVars.size(); k++) {
-								values.add(l);
-							}
-						}
-					}
-					outputSize = values.size();
-					return values;
-				}
-			};
+			return transformResults(searchResults, matches, valueFactory, rdfFactory);
 		} catch (ElasticsearchException e) {
 			LOGGER.error(String.format("Query failed: %s", query));
 			throw new QueryEvaluationException(e);
 		} catch (IOException e) {
 			throw new QueryEvaluationException(e);
 		}
+	}
+
+	static CloseableIteration<? extends List<? extends Value>> transformResults(SearchResponse<? extends SearchDocument> searchResults, List<MatchParams> matches, ValueFactory valueFactory, RDFFactory rdfFactory) {
+		List<List<Hit<? extends SearchDocument>>> results;
+		final int numMatchValues = matches.size();
+		if (numMatchValues == 1) {
+			results = Lists.transform(searchResults.hits().hits(), doc -> Collections.singletonList(doc));
+		} else {
+			// in case anyone actually does this
+			results = Lists.cartesianProduct(Collections.nCopies(numMatchValues, searchResults.hits().hits()));
+		}
+		return new ConvertingIteration<List<Hit<? extends SearchDocument>>, List<Value>>(new CloseableIteratorIteration<List<Hit<? extends SearchDocument>>>(results.iterator())) {
+			int outputSize = 2;
+
+			@Override
+			protected List<Value> convert(List<Hit<? extends SearchDocument>> matchValues) throws QueryEvaluationException {
+				List<Value> values = new ArrayList<>(outputSize);
+				for (int i = 0; i < numMatchValues; i++) {
+					Hit<? extends SearchDocument> matchValue = matchValues.get(i);
+					SearchDocument doc = matchValue.source();
+					MatchParams matchParams = matches.get(i);
+					if (!matchParams.valueVars.isEmpty()) {
+						Value value = doc.createValue(valueFactory, rdfFactory);
+						for (int k = 0; k < matchParams.valueVars.size(); k++) {
+							values.add(value);
+						}
+					}
+					if (!matchParams.scoreVars.isEmpty()) {
+						Literal score = valueFactory.createLiteral(matchValue.score());
+						for (int k = 0; k < matchParams.scoreVars.size(); k++) {
+							values.add(score);
+						}
+					}
+					if (!matchParams.indexVars.isEmpty()) {
+						Literal index = valueFactory.createLiteral(matchValue.index());
+						for (int k = 0; k < matchParams.indexVars.size(); k++) {
+							values.add(index);
+						}
+					}
+					for (MatchParams.FieldParams fieldParams : matchParams.fields) {
+						Object v = doc.getAdditionalField(fieldParams.name);
+						Literal l;
+						if (v instanceof List<?>) {
+							l = new ArrayLiteral(((List<?>) v).toArray());
+						} else if (v != null) {
+							l = Values.literal(valueFactory, v, false);
+						} else {
+							l = null;
+						}
+						for (int k = 0; k < fieldParams.valueVars.size(); k++) {
+							values.add(l);
+						}
+					}
+				}
+				outputSize = values.size();
+				return values;
+			}
+		};
 	}
 }

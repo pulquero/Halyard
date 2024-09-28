@@ -88,6 +88,12 @@ public final class HALYARD implements Vocabulary {
     public final static IRI MIN_SCORE_PROPERTY = SVF.createIRI(NAMESPACE, "minScore");
     public final static IRI FUZZINESS_PROPERTY = SVF.createIRI(NAMESPACE, "fuzziness");
     public final static IRI PHRASE_SLOP_PROPERTY = SVF.createIRI(NAMESPACE, "phraseSlop");
+
+    public final static IRI KNN_CLASS = SVF.createIRI(NAMESPACE, "KNN");
+    public final static IRI KNN_FUNCTION = SVF.createIRI(NAMESPACE, "knn");
+    public final static IRI K_PROPERTY = SVF.createIRI(NAMESPACE, "k");
+    public final static IRI NUM_CANDIDATES_PROPERTY = SVF.createIRI(NAMESPACE, "numCandidates");
+
     public final static IRI MATCHES_PROPERTY = SVF.createIRI(NAMESPACE, "matches");
     public final static IRI SCORE_PROPERTY = SVF.createIRI(NAMESPACE, "score");
     public final static IRI INDEX_PROPERTY = SVF.createIRI(NAMESPACE, "index");
