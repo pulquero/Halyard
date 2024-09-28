@@ -145,6 +145,13 @@ http://www.w3.org/2000/01/rdf-schema#Resource
 
 
 
+## http://merck.github.io/Halyard/ns#like
+
+
+
+
+
+
 ## http://merck.github.io/Halyard/ns#phraseTerms
 
 
@@ -181,6 +188,13 @@ Tuple literal constructor function.
 #### Returns
 
 http://merck.github.io/Halyard/ns#tuple
+
+## http://merck.github.io/Halyard/ns#vectorEmbedding
+
+
+
+
+
 
 ## http://merck.github.io/Halyard/ns#wktPoint
 

@@ -401,7 +401,8 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
     public static Model loadFunctionGraph(FunctionRegistry functionRegistry, CustomAggregateFunctionRegistry aggregateFunctionRegistry, ValueFactory vf) {
     	// read-only LinkedHashModel doesn't need synchronising
     	Model model = new LinkedHashModel();
-    	IRI builtinFunctions = vf.createIRI("builtin:Functions");
+    	IRI builtinFunctionsClass = vf.createIRI("builtin:Functions");
+    	IRI implClassPredicate = vf.createIRI(HALYARD.NAMESPACE, "implementationClass");
     	for (org.eclipse.rdf4j.query.algebra.evaluation.function.Function func : functionRegistry.getAll()) {
     		String funcIri = func.getURI();
     		boolean isBuiltin = (funcIri.indexOf(':') == -1);
@@ -410,7 +411,10 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
     		}
     		IRI subj = vf.createIRI(funcIri);
     		model.add(subj, RDF.TYPE, SD.FUNCTION);
-    		model.add(subj, RDFS.SUBCLASSOF, builtinFunctions);
+    		model.add(subj, implClassPredicate, vf.createLiteral(func.getClass().getName()));
+    		if (isBuiltin) {
+    			model.add(subj, RDFS.SUBCLASSOF, builtinFunctionsClass);
+    		}
     	}
     	for (AggregateFunctionFactory func : aggregateFunctionRegistry.getAll()) {
     		String funcIri = func.getIri();
@@ -423,7 +427,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 				model.add(st);
 			}
 		};
-		ClassLoader cl = ClassLoader.getSystemClassLoader();
+		ClassLoader cl = HalyardEvaluationStrategy.class.getClassLoader();
     	cl.resources("schema/functions").forEach(url -> {
     		try {
 	    		try (InputStream infIn = url.openStream()) {

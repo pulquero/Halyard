@@ -142,4 +142,61 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.4.1</version>
+				<executions>
+					<execution>
+						<phase>prepare-package</phase>
+						<configuration>
+							<mainClass>com.msd.gin.halyard.tools.FunctionDoc</mainClass>
+						</configuration>
+						<goals>
+							<goal>java</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>xml-maven-plugin</artifactId>
+				<version>1.1.0</version>
+				<dependencies>
+					<dependency>
+						<groupId>net.sf.saxon</groupId>
+						<artifactId>Saxon-HE</artifactId>
+						<version>${saxon.version}</version>
+					</dependency>
+				</dependencies>
+				<executions>
+					<execution>
+						<phase>prepare-package</phase>
+						<configuration>
+							<transformerFactory>net.sf.saxon.TransformerFactoryImpl</transformerFactory>
+							<transformationSets>
+								<transformationSet>
+									<dir>.</dir>
+									<includes><include>functions.rdf</include></includes>
+									<stylesheet>src/main/resources/com/msd/gin/halyard/tools/functions.xsl</stylesheet>
+									<outputDir>..</outputDir>
+									<fileMappers>
+										<fileMapper implementation="org.codehaus.plexus.components.io.filemappers.FileExtensionMapper">
+											<targetExtension>.md</targetExtension>
+										</fileMapper>
+									</fileMappers>
+								</transformationSet>
+							</transformationSets>
+						</configuration>
+						<goals>
+							<goal>transform</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
 </project>
