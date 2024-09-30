@@ -58,10 +58,8 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
-import org.apache.hadoop.hbase.protobuf.generated.AuthenticationProtos;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.io.NullWritable;
@@ -76,11 +74,6 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype.GEO;
 import org.eclipse.rdf4j.model.base.CoreDatatype.XSD;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.eclipse.rdf4j.rio.RDFFormat;
-import org.eclipse.rdf4j.rio.RDFParser;
-import org.eclipse.rdf4j.rio.Rio;
-import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
-import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.elasticsearch.hadoop.mr.EsOutputFormat;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -272,15 +265,6 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
     		getConf().setBoolean(confProperty(TOOL_NAME, "fields."+field), true);
     	}
 
-        TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
-                NTriplesUtil.class,
-                Rio.class,
-                AbstractRDFHandler.class,
-                RDFFormat.class,
-                RDFParser.class,
-                Table.class,
-                HBaseConfiguration.class,
-                AuthenticationProtos.class);
         if (System.getProperty("exclude.es-hadoop") == null) {
          	TableMapReduceUtil.addDependencyJarsForClasses(getConf(), EsOutputFormat.class);
         }

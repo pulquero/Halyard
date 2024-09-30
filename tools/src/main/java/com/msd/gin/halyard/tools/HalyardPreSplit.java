@@ -50,11 +50,6 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.rio.RDFFormat;
-import org.eclipse.rdf4j.rio.RDFParser;
-import org.eclipse.rdf4j.rio.Rio;
-import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
-import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -270,12 +265,7 @@ public final class HalyardPreSplit extends AbstractHalyardTool {
         });
         configureLong(cmd, 'l', DEFAULT_SPLIT_LIMIT);
         String sourcePaths = getConf().get(SOURCE_PATHS_PROPERTY);
-        TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
-                NTriplesUtil.class,
-                Rio.class,
-                AbstractRDFHandler.class,
-                RDFFormat.class,
-                RDFParser.class);
+        addRioDependencies(getConf());
         HBaseConfiguration.addHbaseResources(getConf());
         Job job = Job.getInstance(getConf(), "HalyardPreSplit -> " + target);
         job.setJarByClass(HalyardPreSplit.class);

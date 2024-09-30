@@ -717,12 +717,7 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
 				tableDesc = hTable.getDescriptor();
 				RegionLocator regionLocator = conn.getRegionLocator(tableDesc.getTableName());
 				HFileOutputFormat2.configureIncrementalLoad(job, tableDesc, regionLocator);
-		        TableMapReduceUtil.addDependencyJarsForClasses(job.getConfiguration(),
-		                NTriplesUtil.class,
-		                Rio.class,
-		                AbstractRDFHandler.class,
-		                RDFFormat.class,
-		                RDFParser.class);
+		        addRioDependencies(job.getConfiguration());
 	        }
             try (Keyspace keyspace = HalyardTableUtils.getKeyspace(getConf(), conn, tableDesc.getTableName(), null, null)) {
             	try (KeyspaceConnection ksConn = keyspace.getConnection()) {

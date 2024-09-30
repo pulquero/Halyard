@@ -43,9 +43,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
-import org.apache.hadoop.hbase.protobuf.generated.AuthenticationProtos;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -64,10 +62,6 @@ import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
-import org.eclipse.rdf4j.rio.RDFFormat;
-import org.eclipse.rdf4j.rio.RDFParser;
-import org.eclipse.rdf4j.rio.Rio;
-import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.elasticsearch.hadoop.mr.EsOutputFormat;
 import org.slf4j.Logger;
@@ -343,15 +337,8 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
             conf.set("es.input.json", "yes");
         }
 
-        TableMapReduceUtil.addDependencyJarsForClasses(conf,
-               NTriplesUtil.class,
-               Rio.class,
-               AbstractRDFHandler.class,
-               RDFFormat.class,
-               RDFParser.class,
-               Table.class,
-               HBaseConfiguration.class,
-               AuthenticationProtos.class);
+        addRioDependencies(conf);
+        addLangModelDependencies(conf);
         if (System.getProperty("exclude.es-hadoop") == null) {
          	TableMapReduceUtil.addDependencyJarsForClasses(conf, EsOutputFormat.class);
         }

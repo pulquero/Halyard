@@ -52,8 +52,6 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.HFileOutputFormat2;
-import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
-import org.apache.hadoop.hbase.protobuf.generated.AuthenticationProtos;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.mapreduce.Job;
@@ -65,10 +63,6 @@ import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.eclipse.rdf4j.rio.RDFFormat;
-import org.eclipse.rdf4j.rio.RDFParser;
-import org.eclipse.rdf4j.rio.Rio;
-import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -234,15 +228,6 @@ public final class HalyardBulkDelete extends AbstractHalyardTool {
         configureBoolean(cmd, "dry-run");
         String snapshotPath = getConf().get(SNAPSHOT_PATH);
 
-        TableMapReduceUtil.addDependencyJarsForClasses(getConf(),
-            NTriplesUtil.class,
-            Rio.class,
-            AbstractRDFHandler.class,
-            RDFFormat.class,
-            RDFParser.class,
-            Table.class,
-            HBaseConfiguration.class,
-            AuthenticationProtos.class);
         HBaseConfiguration.addHbaseResources(getConf());
 
         RDFFactory rdfFactory;

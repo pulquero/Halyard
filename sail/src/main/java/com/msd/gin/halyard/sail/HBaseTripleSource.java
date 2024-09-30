@@ -111,7 +111,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	public final <T> T getQueryHelper(Class<T> qhType) {
 		Object qh = queryHelpers.get(qhType);
 		if (qh == null) {
-			throw new QueryEvaluationException(String.format("%s is not available", qhType.getName()));
+			throw new QueryEvaluationException(String.format("Query helper %s is not registered", qhType.getName()));
 		}
 		return qhType.cast(qh);
 	}

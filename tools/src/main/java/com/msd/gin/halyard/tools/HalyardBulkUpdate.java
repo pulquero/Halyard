@@ -52,8 +52,6 @@ import org.apache.hadoop.hbase.client.RegionLocator;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.HFileOutputFormat2;
-import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
-import org.apache.hadoop.hbase.protobuf.generated.AuthenticationProtos;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
@@ -76,10 +74,6 @@ import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 import org.eclipse.rdf4j.query.parser.ParsedUpdate;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
-import org.eclipse.rdf4j.rio.RDFFormat;
-import org.eclipse.rdf4j.rio.RDFParser;
-import org.eclipse.rdf4j.rio.Rio;
-import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.eclipse.rdf4j.sail.SailException;
 import org.slf4j.Logger;
@@ -353,15 +347,6 @@ public final class HalyardBulkUpdate extends AbstractHalyardTool {
 
     private static List<JsonInfo> run(Configuration conf, String queryFiles, String query, String workdir) throws IOException, InterruptedException, ClassNotFoundException {
     	String source = conf.get(TABLE_NAME_PROPERTY);
-        TableMapReduceUtil.addDependencyJarsForClasses(conf,
-               NTriplesUtil.class,
-               Rio.class,
-               AbstractRDFHandler.class,
-               RDFFormat.class,
-               RDFParser.class,
-               Table.class,
-               HBaseConfiguration.class,
-               AuthenticationProtos.class);
         HBaseConfiguration.addHbaseResources(conf);
         // get bindings from merged configs
         BindingSet bindings = AbstractHalyardTool.getBindings(conf, SimpleValueFactory.getInstance());

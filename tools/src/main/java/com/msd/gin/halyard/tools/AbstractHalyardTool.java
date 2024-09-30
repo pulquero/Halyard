@@ -22,6 +22,7 @@ import com.msd.gin.halyard.common.Keyspace;
 import com.msd.gin.halyard.common.KeyspaceConnection;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.rio.HRDFParser;
 import com.msd.gin.halyard.util.Version;
 
 import java.io.IOException;
@@ -51,6 +52,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.hbase.regionserver.BloomType;
 import org.apache.hadoop.hbase.tool.BulkLoadHFiles;
@@ -64,8 +66,17 @@ import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
+import org.eclipse.rdf4j.rio.nquads.NQuadsParserFactory;
+import org.eclipse.rdf4j.rio.ntriples.NTriplesParserFactory;
+import org.eclipse.rdf4j.rio.rdfjson.RDFJSONParserFactory;
+import org.eclipse.rdf4j.rio.rdfxml.RDFXMLParserFactory;
+import org.eclipse.rdf4j.rio.trig.TriGParserFactory;
+import org.eclipse.rdf4j.rio.trix.TriXParserFactory;
+import org.eclipse.rdf4j.rio.turtle.TurtleParserFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import dev.langchain4j.model.embedding.EmbeddingModel;
 
 /**
  *
@@ -276,11 +287,36 @@ public abstract class AbstractHalyardTool implements Tool {
         return requiredOptions;
     }
 
-    protected static final boolean isDryRun(Configuration conf) {
+    protected static boolean isDryRun(Configuration conf) {
     	return conf.getBoolean(DRY_RUN_PROPERTY, false);
     }
 
-    protected static final void bulkLoad(Job job, TableName tableName, Path workDir) throws IOException {
+    protected static void addRioDependencies(Configuration conf) throws IOException {
+    	TableMapReduceUtil.addDependencyJarsForClasses(conf,
+			TurtleParserFactory.class,
+			TriXParserFactory.class,
+			TriGParserFactory.class,
+			NTriplesParserFactory.class,
+			NQuadsParserFactory.class,
+			RDFXMLParserFactory.class,
+			RDFJSONParserFactory.class,
+			HRDFParser.Factory.class
+    	);
+    }
+
+    protected static void addLangModelDependencies(Configuration conf) throws IOException {
+    	TableMapReduceUtil.addDependencyJarsForClasses(conf,
+			EmbeddingModel.class,
+			dev.langchain4j.model.embedding.onnx.AbstractInProcessEmbeddingModel.class,
+			dev.langchain4j.model.embedding.onnx.allminilml6v2q.AllMiniLmL6V2QuantizedEmbeddingModel.class,
+			ai.onnxruntime.OrtEnvironment.class,
+			dev.langchain4j.model.localai.LocalAiEmbeddingModel.class,
+			dev.ai4j.openai4j.OpenAiClient.class,
+			dev.langchain4j.model.ollama.OllamaEmbeddingModel.class
+    	);
+    }
+
+    protected static void bulkLoad(Job job, TableName tableName, Path workDir) throws IOException {
     	// ensure job configuration is used
     	Configuration conf = job.getConfiguration();
     	if (isDryRun(conf)) {
@@ -292,7 +328,7 @@ public abstract class AbstractHalyardTool implements Tool {
     	}
     }
 
-    protected static final void addBloomFilterConfig(Configuration conf, TableName tableName) {
+    protected static void addBloomFilterConfig(Configuration conf, TableName tableName) {
 		byte[] tableAndFamily = HalyardTableUtils.getTableNameSuffixedWithFamily(tableName.toBytes());
 		Map<byte[], String> bloomTypeMap = createFamilyConfValueMap(conf, "hbase.hfileoutputformat.families.bloomtype");
 		String bloomType = bloomTypeMap.get(tableAndFamily);
