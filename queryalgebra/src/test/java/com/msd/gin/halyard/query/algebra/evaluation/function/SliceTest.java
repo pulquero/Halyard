@@ -1,15 +1,14 @@
 package com.msd.gin.halyard.query.algebra.evaluation.function;
 
-import com.msd.gin.halyard.model.TupleLiteral;
-import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
-import com.msd.gin.halyard.query.algebra.evaluation.function.Slice;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import com.msd.gin.halyard.model.TupleLiteral;
+import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 
 public class SliceTest {
 	@Test

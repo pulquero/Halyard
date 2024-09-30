@@ -7,7 +7,9 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
+import org.eclipse.rdf4j.model.base.CoreDatatype.XSD;
 import org.eclipse.rdf4j.model.util.Values;
+import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.json.JSONArray;
 
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
@@ -43,6 +45,43 @@ public final class ArrayLiteral extends AbstractDataLiteral implements ObjectLit
 			values[i] = arr.get(i);
 		}
 		return values;
+	}
+
+	public static ArrayLiteral createFromValues(Value[] values) {
+		Object[] objs = new Object[values.length];
+		for (int i=0; i<values.length; i++) {
+			objs[i] = fromValue(values[i]);
+		}
+		return new ArrayLiteral(objs);
+	}
+
+	private static Object fromValue(Value v) {
+		if (!v.isLiteral()) {
+			throw new ValueExprEvaluationException(String.format("not a literal: %s", v));
+		}
+		Object o;
+		Literal l = (Literal) v;
+		XSD xsd = l.getCoreDatatype().asXSDDatatypeOrNull();
+		if (xsd != null && xsd.isIntegerDatatype()) {
+			// use exact integer representation if available
+			// NB: floating-point values aren't guaranteed to have an exact representation so coerce them from string instead
+			try {
+				if (xsd == XSD.INT) {
+					o = l.intValue();
+				} else {
+					o = l.longValue();
+				}
+			} catch (NumberFormatException nfe) {
+				o = l.getLabel();
+			}
+		} else if (HALYARD.ARRAY_TYPE.equals(l.getDatatype())) {
+			o = ArrayLiteral.objectArray(l);
+		} else if (HALYARD.MAP_TYPE.equals(l.getDatatype())) {
+			o = MapLiteral.objectMap(l);
+		} else {
+			o = l.getLabel();
+		}
+		return o;
 	}
 
 	private final Object[] values;

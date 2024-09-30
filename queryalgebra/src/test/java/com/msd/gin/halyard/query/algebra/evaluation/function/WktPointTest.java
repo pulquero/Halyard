@@ -1,14 +1,13 @@
 package com.msd.gin.halyard.query.algebra.evaluation.function;
 
-import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
-import com.msd.gin.halyard.query.algebra.evaluation.function.WktPoint;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype.GEO;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 
 public class WktPointTest {
 	@Test

@@ -51,7 +51,7 @@ public class DynamicFunctionRegistryTest {
 	}
 
 	@Test
-	public void testArray() {
+	public void testArray_put() {
 		TripleSource ts = new EmptyTripleSource();
 		ValueFactory vf = ts.getValueFactory();
 		ArrayLiteral result = (ArrayLiteral) new DynamicFunctionRegistry().get("http://www.w3.org/2005/xpath-functions/array#put").get().evaluate(ts,
@@ -59,6 +59,18 @@ public class DynamicFunctionRegistryTest {
 		assertEquals(2, result.objectValue().length);
 		// NB: xsd:ints get coerced to xsd:integers
 		assertEquals(BigInteger.valueOf(5), result.objectValue()[1]);
+	}
+
+	@Test
+	public void testArray_size() {
+		TripleSource ts = new EmptyTripleSource();
+		ValueFactory vf = ts.getValueFactory();
+		ArrayLiteral array = new ArrayLiteral("foo", "bar");
+		// check works for non-specialist Literal type
+		Literal unparsedArray = vf.createLiteral(array.getLabel(), array.getDatatype());
+		Literal result = (Literal) new DynamicFunctionRegistry().get("http://www.w3.org/2005/xpath-functions/array#size").get().evaluate(ts,
+				unparsedArray);
+		assertEquals(2, result.intValue());
 	}
 
 	@Test

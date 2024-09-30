@@ -1,9 +1,5 @@
 package com.msd.gin.halyard.query.algebra.evaluation.function;
 
-import com.msd.gin.halyard.model.ArrayLiteral;
-import com.msd.gin.halyard.model.MapLiteral;
-import com.msd.gin.halyard.model.ObjectLiteral;
-
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
@@ -40,6 +36,11 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.FunctionRegistry;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.Rio;
+
+import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.MapLiteral;
+import com.msd.gin.halyard.model.ObjectLiteral;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import net.sf.saxon.Configuration;
 import net.sf.saxon.expr.Expression;
@@ -138,7 +139,14 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 			if (l instanceof ObjectLiteral) {
 				return ((ObjectLiteral<?>)l).objectValue();
 			} else {
-				return l.getLabel();
+				IRI dt = l.getDatatype();
+				if (HALYARD.ARRAY_TYPE.equals(dt)) {
+					return ArrayLiteral.objectArray(l);
+				} else if (HALYARD.MAP_TYPE.equals(dt)) {
+					return MapLiteral.objectMap(l);
+				} else {
+					return l.getLabel();
+				}
 			}
 		};
 		private final String name;
