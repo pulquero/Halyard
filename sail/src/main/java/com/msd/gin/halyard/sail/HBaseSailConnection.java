@@ -437,7 +437,7 @@ public class HBaseSailConnection extends AbstractSailConnection implements Bindi
 
 		boolean isPartitioned = (forkIndex >= 0);
 		if (isPartitioned) {
-			LOGGER.info("Partition index is {}", forkIndex);
+			LOGGER.debug("Partition index is {}", forkIndex);
 		}
 
 		HBaseTripleSource tripleSource = sail.createTripleSource(keyspaceConn, includeInferred, forkIndex);
