@@ -90,8 +90,17 @@ public final class HBaseRepositoryManager extends RepositoryManager {
 		return repo;
 	}
 
+	private static Configuration createConfiguration(File baseDir) throws MalformedURLException {
+		Configuration conf = HBaseConfiguration.create();
+		File optionalConfig = new File(baseDir, "conf/halyard-site.xml");
+		if (optionalConfig.exists()) {
+			conf.addResource(optionalConfig.toURI().toURL());
+		}
+		return conf;
+	}
+
 	public HBaseRepositoryManager(File baseDir) throws IOException {
-		this(baseDir, HBaseConfiguration.create());
+		this(baseDir, createConfiguration(baseDir));
 	}
 
 	HBaseRepositoryManager(File baseDir, Configuration conf) {
