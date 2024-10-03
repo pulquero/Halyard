@@ -91,6 +91,7 @@ public final class HBaseSailFactory implements SailFactory {
 			if (elasticSettings != null) {
 				elasticSettings.username = hconfig.getElasticUsername();
 				elasticSettings.password = hconfig.getElasticPassword();
+				elasticSettings.isWanOnly = hconfig.isWanOnly();
 				URL elasticKeystoreLocation = hconfig.getElasticKeystoreLocation();
 				if (elasticKeystoreLocation != null) {
 					SSLSettings sslSettings = new SSLSettings();

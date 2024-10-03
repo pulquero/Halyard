@@ -86,6 +86,7 @@ public class HBaseSailFactoryTest {
 		hbsc.setEvaluationTimeout(480);
 		hbsc.setTableName("testtable");
 		hbsc.setElasticIndexURL(new URL("https://whatever/index"));
+		hbsc.setWanOnly(true);
 		hbsc.setElasticKeystoreLocation(new URL("file:/home/keystore"));
 
 		Sail sail = new HBaseSailFactory().getSail(hbsc);
@@ -99,6 +100,7 @@ public class HBaseSailFactoryTest {
 		assertEquals("https", hbs.esSettings.protocol);
         assertEquals("whatever", hbs.esSettings.host);
         assertEquals("index", hbs.esSettings.indexName);
+		assertTrue(hbs.esSettings.isWanOnly);
 		assertEquals("file:/home/keystore", hbs.esSettings.sslSettings.keyStoreLocation.toString());
     }
 
