@@ -17,7 +17,8 @@ import org.eclipse.rdf4j.model.vocabulary.SP;
 import org.eclipse.rdf4j.query.algebra.MathExpr.MathOp;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.BinaryFunction;
-import org.eclipse.rdf4j.query.algebra.evaluation.util.MathUtil;
+
+import com.msd.gin.halyard.strategy.MathOpEvaluator;
 
 public class Add extends BinaryFunction {
 
@@ -28,8 +29,8 @@ public class Add extends BinaryFunction {
 
 	@Override
 	protected Value evaluate(ValueFactory valueFactory, Value arg1, Value arg2) throws ValueExprEvaluationException {
-		if (arg1 instanceof Literal && arg2 instanceof Literal) {
-			return MathUtil.compute((Literal) arg1, (Literal) arg2, MathOp.PLUS);
+		if (arg1.isLiteral() && arg2.isLiteral()) {
+			return new MathOpEvaluator().evaluate((Literal) arg1, (Literal) arg2, MathOp.PLUS, valueFactory);
 		}
 
 		throw new ValueExprEvaluationException("Both arguments must be numeric literals");

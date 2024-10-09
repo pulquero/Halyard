@@ -55,7 +55,7 @@ import com.msd.gin.halyard.strategy.aggregators.ExtendedAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.LongCollector;
 import com.msd.gin.halyard.strategy.aggregators.MaxAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.MinAggregateFunction;
-import com.msd.gin.halyard.strategy.aggregators.NumberCollector;
+import com.msd.gin.halyard.strategy.aggregators.SumCollector;
 import com.msd.gin.halyard.strategy.aggregators.SampleAggregateFunction;
 import com.msd.gin.halyard.strategy.aggregators.SampleCollector;
 import com.msd.gin.halyard.strategy.aggregators.SumAggregateFunction;
@@ -1226,7 +1226,7 @@ final class HalyardTupleExprEvaluation {
     		ValueExpr arg = ((UnaryValueOperator)op).getArg();
     		QueryValueStepEvaluator evaluator;
     		if (arg != null) {
-    			evaluator = new QueryValueStepEvaluator(parentStrategy.precompile(arg, evalContext));
+    			evaluator = new QueryValueStepEvaluator(parentStrategy.precompile(arg, evalContext), tripleSource.getValueFactory());
     		} else {
     			evaluator = null;
     		}
@@ -1461,12 +1461,12 @@ final class HalyardTupleExprEvaluation {
 		} else if (operator instanceof Sum) {
 			return () -> {
 				Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-				return ThreadSafeAggregator.create(new SumAggregateFunction(), distinct, new NumberCollector());
+				return ThreadSafeAggregator.create(new SumAggregateFunction(), distinct, new SumCollector(parentStrategy.getMathOpEvaluator()));
 			};
 		} else if (operator instanceof Avg) {
 			return () -> {
 				Predicate<Value> distinct = isDistinct ? createDistinctValues() : (Predicate<Value>) ALWAYS_TRUE;
-				return ThreadSafeAggregator.create(new AvgAggregateFunction(), distinct, new AvgCollector());
+				return ThreadSafeAggregator.create(new AvgAggregateFunction(), distinct, new AvgCollector(parentStrategy.getMathOpEvaluator()));
 			};
 		} else if (operator instanceof Sample) {
 			return () -> {

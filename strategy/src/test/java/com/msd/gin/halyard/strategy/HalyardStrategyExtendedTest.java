@@ -19,6 +19,7 @@ package com.msd.gin.halyard.strategy;
 import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertTrue;
 
+import com.msd.gin.halyard.model.ArrayLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.model.vocabulary.SCHEMA_ORG;
 
@@ -47,6 +48,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 /**
  * @author Adam Sotona (MSD)
@@ -314,6 +316,21 @@ public class HalyardStrategyExtendedTest {
     public void testConstantIn() {
     	String q = "ASK { FILTER('b' in ('a', 'b', 'c')) }";
         assertTrue(con.prepareBooleanQuery(q).evaluate());
+    }
+
+    @Test
+    public void testVectorMath() {
+    	Literal a = new ArrayLiteral(3, 2.0, 0.5f);
+    	Literal b = new ArrayLiteral(-5.15f, 1, 2.32);
+		String q = "SELECT (?a+?b as ?sum) (?a-?b as ?diff) (3*?a as ?mult) (?b/0.25 as ?div) { BIND("+a+" as ?a) BIND("+b+" as ?b) }";
+		try (TupleQueryResult res = con.prepareTupleQuery(q).evaluate()) {
+		    assertTrue(res.hasNext());
+		    BindingSet bs = res.next();
+		    assertArrayEquals(new Object[] {-2.1500000000000004,3,2.82}, ArrayLiteral.objectArray((Literal)bs.getValue("sum")));
+		    assertArrayEquals(new Object[] {8.15,1,-1.8199999999999998}, ArrayLiteral.objectArray((Literal)bs.getValue("diff")));
+		    assertArrayEquals(new Object[] {9l,6l,1.5}, ArrayLiteral.objectArray((Literal)bs.getValue("mult")));
+		    assertArrayEquals(new Object[] {-20.6,4.0,9.28}, ArrayLiteral.objectArray((Literal)bs.getValue("div")));
+        }
     }
 
     @Test

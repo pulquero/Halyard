@@ -116,6 +116,7 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
      * Evaluates ValueExpr expressions and all implementations of that interface
      */
     private final HalyardValueExprEvaluation valueEval;
+    private final MathOpEvaluator mathOpEval = new MathOpEvaluator();
 
     private final boolean isStrict = false;
 
@@ -216,6 +217,10 @@ public class HalyardEvaluationStrategy implements EvaluationStrategy {
 
 	boolean isStrict() {
 		return isStrict;
+	}
+
+	MathOpEvaluator getMathOpEvaluator() {
+		return mathOpEval;
 	}
 
 	StrategyConfig getConfig() {

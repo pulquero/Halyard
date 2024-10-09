@@ -100,7 +100,6 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.datetime.Now;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryEvaluationContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
-import org.eclipse.rdf4j.query.algebra.evaluation.util.XMLDatatypeMathUtil;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 
 /**
@@ -1061,7 +1060,7 @@ class HalyardValueExprEvaluation {
 	    			Value leftVal = leftValue.get();
 	    			Value rightVal = rightValue.get();
 	    	        if (leftVal.isLiteral() && rightVal.isLiteral()) {
-	    				return ValueOrError.of(() -> XMLDatatypeMathUtil.compute((Literal)leftVal, (Literal)rightVal, node.getOperator(), valueFactory));
+	    				return ValueOrError.of(() -> parentStrategy.getMathOpEvaluator().evaluate((Literal)leftVal, (Literal)rightVal, node.getOperator(), valueFactory));
 	    	        } else {
 	    	        	return ValueOrError.fail("Both arguments must be numeric literals");
 	    	        }

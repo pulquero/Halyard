@@ -6,7 +6,6 @@ import java.util.function.Predicate;
 
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 
@@ -22,23 +21,20 @@ public class AvgAggregateFunction extends ThreadSafeAggregateFunction<AvgCollect
 
 		Value v = evaluationStep.apply(bs);
 		if ( v != null) {
-			if (v.isLiteral()) {
+			try {
+				if (!v.isLiteral()) {
+					throw new ValueExprEvaluationException("not a literal: " + v);
+				}
 				if (distinctPredicate.test(v)) {
 					Literal nextLiteral = (Literal) v;
-					// check if the literal is numeric.
-					CoreDatatype coreDatatype = nextLiteral.getCoreDatatype();
-					if (coreDatatype.isXSDDatatype() && ((CoreDatatype.XSD) coreDatatype).isNumericDatatype()) {
-						col.addValue(nextLiteral);
-					} else {
-						col.setError(new ValueExprEvaluationException("not a number: " + v));
-					}
+					col.addValue(nextLiteral, evaluationStep.getValueFactory());
 					col.incrementCount();
 				}
-			} else {
+			} catch (ValueExprEvaluationException ex) {
 				// we do not actually throw the exception yet, but record it and
 				// stop further processing. The exception will be thrown when
 				// getValue() is invoked.
-				col.setError(new ValueExprEvaluationException("not a number: " + v));
+				col.setError(ex);
 			}
 		}
 	}

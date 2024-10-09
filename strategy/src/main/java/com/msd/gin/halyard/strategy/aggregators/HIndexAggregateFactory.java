@@ -55,7 +55,7 @@ public class HIndexAggregateFactory implements AggregateFunctionFactory {
 					break;
 				}
 			}
-			return (hindex > 0) ? new IntLiteral(hindex, CoreDatatype.XSD.INTEGER) : NumberCollector.ZERO;
+			return (hindex > 0) ? new IntLiteral(hindex, CoreDatatype.XSD.INTEGER) : SumCollector.ZERO;
 		});
 	}
 }
