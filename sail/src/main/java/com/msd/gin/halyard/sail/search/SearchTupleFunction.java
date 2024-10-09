@@ -121,14 +121,22 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 						}
 					}
 					for (MatchParams.FieldParams fieldParams : matchParams.fields) {
-						Object v = doc.getAdditionalField(fieldParams.name);
 						Literal l;
-						if (v instanceof List<?>) {
-							l = new ArrayLiteral(((List<?>) v).toArray());
-						} else if (v != null) {
-							l = Values.literal(valueFactory, v, false);
+						if (SearchDocument.VECTOR_FIELD.equals(fieldParams.name)) {
+							Object[] arr = new Object[doc.vector.length];
+							for (int k = 0; k < doc.vector.length; k++) {
+								arr[k] = doc.vector[k];
+							}
+							l = new ArrayLiteral(arr);
 						} else {
-							l = null;
+							Object v = doc.getAdditionalField(fieldParams.name);
+							if (v instanceof List<?>) {
+								l = new ArrayLiteral(((List<?>) v).toArray());
+							} else if (v != null) {
+								l = Values.literal(valueFactory, v, false);
+							} else {
+								l = null;
+							}
 						}
 						for (int k = 0; k < fieldParams.valueVars.size(); k++) {
 							values.add(l);
