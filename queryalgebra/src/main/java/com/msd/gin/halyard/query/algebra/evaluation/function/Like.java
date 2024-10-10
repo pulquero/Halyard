@@ -1,17 +1,18 @@
-package com.msd.gin.halyard.spin.function.halyard;
+package com.msd.gin.halyard.query.algebra.evaluation.function;
 
 import java.util.Locale;
 
-import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
+import org.kohsuke.MetaInfServices;
 
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
+@MetaInfServices(Function.class)
 public class Like implements Function {
 	@Override
 	public String getURI() {
@@ -27,7 +28,7 @@ public class Like implements Function {
 		Value val = args[0];
         String strVal;
         if (val.isIRI()) {
-            strVal = ((IRI) val).stringValue();
+            strVal = val.stringValue();
         } else if (val.isLiteral()) {
             strVal = ((Literal) val).getLabel();
         } else {
