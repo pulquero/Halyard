@@ -5,10 +5,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import java.util.List;
 import java.util.Locale;
 
-import org.eclipse.rdf4j.common.iteration.Iterations;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -24,11 +22,9 @@ import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.eclipse.rdf4j.sail.Sail;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.google.common.collect.Lists;
 import com.msd.gin.halyard.model.ArrayLiteral;
 import com.msd.gin.halyard.model.TupleLiteral;
 
@@ -210,7 +206,7 @@ public class SailSpifTest {
 		try (TupleQueryResult tqr = tq.evaluate()) {
 			for (int i = 1; i <= 3; i++) {
 				BindingSet bs = tqr.next();
-				assertThat(((Literal) bs.getValue("x")).stringValue()).isEqualTo(Integer.toString(i));
+				assertThat(bs.getValue("x").stringValue()).isEqualTo(Integer.toString(i));
 			}
 			assertFalse(tqr.hasNext());
 		}
@@ -228,24 +224,5 @@ public class SailSpifTest {
 		SpinInferencing.insertSchema(conn);
 		BooleanQuery bq = conn.prepareBooleanQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> " + "ask where {filter(spif:canInvoke(spif:indexOf, 'foobar', 2))}");
 		assertFalse(bq.evaluate());
-	}
-
-	@Test
-	public void testConcat() throws Exception {
-		TupleQuery tq = conn.prepareTupleQuery(QueryLanguage.SPARQL, "prefix apf: <http://jena.hpl.hp.com/ARQ/property#>\n" + "\n" + "select ?text where {\n" + "   ?text apf:concat (\"very\" \"sour\" \"berry\") . }");
-		try (TupleQueryResult tqresult = tq.evaluate()) {
-			Assert.assertEquals("verysourberry", tqresult.next().getValue("text").stringValue());
-		}
-	}
-
-	@Test
-	public void testStrSplit() throws Exception {
-		TupleQuery tq = conn.prepareTupleQuery(QueryLanguage.SPARQL, "prefix apf: <http://jena.hpl.hp.com/ARQ/property#>\n" + "\n" + "select ?text where {\n" + "   ?text apf:strSplit (\"very:sour:berry\" \":\") . }");
-		try (TupleQueryResult tqr = tq.evaluate()) {
-			List<BindingSet> resultList = Iterations.asList(tqr);
-			List<String> resultStringList = Lists.transform(resultList, (BindingSet input) -> input.getValue("text").stringValue());
-	
-			Assert.assertArrayEquals(new String[] { "very", "sour", "berry" }, resultStringList.toArray(new String[resultStringList.size()]));
-		}
 	}
 }

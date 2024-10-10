@@ -10,9 +10,8 @@
  *******************************************************************************/
 package com.msd.gin.halyard.spin.function.apf;
 
+import com.msd.gin.halyard.model.vocabulary.APF;
 import com.msd.gin.halyard.spin.function.spif.Split;
-
-import org.eclipse.rdf4j.model.vocabulary.APF;
 
 public class StrSplit extends Split {
 

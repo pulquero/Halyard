@@ -18,10 +18,10 @@ import org.eclipse.rdf4j.common.iteration.SingletonIteration;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.vocabulary.APF;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.string.Concat;
 
+import com.msd.gin.halyard.model.vocabulary.APF;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
 
 public class ConcatTupleFunction implements InverseMagicProperty {
