@@ -8,6 +8,12 @@ import com.msd.gin.halyard.sail.HBaseSailConnection;
 import java.util.ArrayList;
 import java.util.Optional;
 
+import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Namespace;
+import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.MalformedQueryException;
 import org.eclipse.rdf4j.query.Operation;
@@ -31,6 +37,8 @@ import org.eclipse.rdf4j.repository.sail.SailGraphQuery;
 import org.eclipse.rdf4j.repository.sail.SailQuery;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailTupleQuery;
+import org.eclipse.rdf4j.rio.RDFHandler;
+import org.eclipse.rdf4j.rio.RDFHandlerException;
 import org.eclipse.rdf4j.sail.SailException;
 
 public class HBaseRepositoryConnection extends SailRepositoryConnection {
@@ -203,6 +211,40 @@ public class HBaseRepositoryConnection extends SailRepositoryConnection {
 	static final class ExtSailGraphQuery extends SailGraphQuery {
 		protected ExtSailGraphQuery(ParsedGraphQuery graphQuery, SailRepositoryConnection sailConnection) {
 			super(graphQuery, sailConnection);
+		}
+
+		@Override
+		public void evaluate(RDFHandler handler) throws QueryEvaluationException, RDFHandlerException {
+			TupleExpr tupleExpr = getParsedQuery().getTupleExpr();
+			try {
+				HBaseSailConnection sailCon = (HBaseSailConnection) getConnection().getSailConnection();
+				handler.startRDF();
+				try (CloseableIteration<? extends Namespace> iter = sailCon.getNamespaces()) {
+					while (iter.hasNext()) {
+						Namespace ns = iter.next();
+						handler.handleNamespace(ns.getPrefix(), ns.getName());
+					}
+				}
+				ValueFactory vf = getConnection().getValueFactory();
+				sailCon.evaluate(bs -> {
+					Value subj = bs.getValue("subject");
+					Value pred = bs.getValue("predicate");
+					Value obj = bs.getValue("object");
+					Value ctx = bs.getValue("context");
+					if ((subj instanceof Resource) && (pred instanceof IRI) && (ctx == null || ctx instanceof Resource)) {
+						Statement stmt;
+						if (ctx == null) {
+							stmt = vf.createStatement((Resource) subj, (IRI) pred, obj);
+						} else {
+							stmt = vf.createStatement((Resource) subj, (IRI) pred, obj, (Resource) ctx);
+						}
+						handler.handleStatement(stmt);
+					}
+				}, tupleExpr, getActiveDataset(), getBindings(), getIncludeInferred());
+				handler.endRDF();
+			} catch (SailException e) {
+				throw new QueryEvaluationException(e.getMessage(), e);
+			}
 		}
 	}
 }
