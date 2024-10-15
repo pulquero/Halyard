@@ -111,6 +111,7 @@ public final class HALYARD implements Vocabulary {
 
     public final static IRI SERIALIZE_FUNCTION = SVF.createIRI(NAMESPACE, "serialize");
     public final static IRI VECTOR_EMBEDDING_FUNCTION = SVF.createIRI(NAMESPACE, "vectorEmbedding");
+    public final static IRI COSINE_SIMILARITY_FUNCTION = SVF.createIRI(NAMESPACE, "cosineSimilarity");
 
     public final static IRI DATA_URL_FUNCTION = SVF.createIRI(NAMESPACE, "dataURL");
 
