@@ -25,7 +25,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.TupleLiteral;
 
 /**
@@ -177,7 +177,7 @@ public class SailSpifTest {
 
 	@Test
 	public void testForEachArrayLiteral() throws Exception {
-		String al = NTriplesUtil.toNTriplesString(new ArrayLiteral(2, 3));
+		String al = NTriplesUtil.toNTriplesString(new ObjectArrayLiteral(2, 3));
 		TupleQuery tq = conn.prepareTupleQuery(QueryLanguage.SPARQL, "prefix spif: <http://spinrdf.org/spif#> prefix halyard: <http://merck.github.io/Halyard/ns#> " + "select ?x where {?x spif:foreach (1 "+ al + " 4)}");
 		try (TupleQueryResult tqr = tq.evaluate()) {
 			for (int i = 1; i <= 4; i++) {

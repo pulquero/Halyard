@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.sail.search.function;
 
-import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.util.Locale;
@@ -36,7 +36,7 @@ public class EscapeTerm implements Function {
 		}
 		Literal l = (Literal) args[0];
 		if (HALYARD.ARRAY_TYPE.equals(l.getDatatype())) {
-			Object[] entries = ArrayLiteral.objectArray(l);
+			Object[] entries = ObjectArrayLiteral.objectArray(l);
 			Object[] escaped = new Object[entries.length];
 			for (int i = 0; i < entries.length; i++) {
 				Object o = entries[i];
@@ -45,7 +45,7 @@ public class EscapeTerm implements Function {
 				}
 				escaped[i] = o;
 			}
-			return new ArrayLiteral(escaped);
+			return new ObjectArrayLiteral(escaped);
 		} else {
 			String s = l.getLabel();
 			return valueFactory.createLiteral(escape(s));

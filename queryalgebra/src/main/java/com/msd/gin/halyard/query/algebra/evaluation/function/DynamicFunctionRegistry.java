@@ -37,8 +37,8 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.Rio;
 
-import com.msd.gin.halyard.model.ArrayLiteral;
 import com.msd.gin.halyard.model.MapLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.ObjectLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
@@ -141,7 +141,7 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 			} else {
 				IRI dt = l.getDatatype();
 				if (HALYARD.ARRAY_TYPE.equals(dt)) {
-					return ArrayLiteral.objectArray(l);
+					return ObjectArrayLiteral.objectArray(l);
 				} else if (HALYARD.MAP_TYPE.equals(dt)) {
 					return MapLiteral.objectMap(l);
 				} else {
@@ -222,7 +222,7 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 
 	private static Value toValue(ValueFactory vf, Object v) throws XPathException {
 		if (v instanceof Object[]) {
-			return new ArrayLiteral((Object[]) v);
+			return new ObjectArrayLiteral((Object[]) v);
 		} else if (v instanceof Map<?,?>) {
 			return new MapLiteral((Map<String,Object>)v);
 		} else {

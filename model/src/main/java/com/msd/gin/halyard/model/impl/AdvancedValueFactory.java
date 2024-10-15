@@ -1,18 +1,18 @@
 package com.msd.gin.halyard.model.impl;
 
-import com.msd.gin.halyard.model.ArrayLiteral;
-import com.msd.gin.halyard.model.MapLiteral;
-import com.msd.gin.halyard.model.TupleLiteral;
-import com.msd.gin.halyard.model.WKTLiteral;
-import com.msd.gin.halyard.model.XMLLiteral;
-import com.msd.gin.halyard.model.vocabulary.HALYARD;
-
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.AbstractValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.vocabulary.GEO;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
+
+import com.msd.gin.halyard.model.MapLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
+import com.msd.gin.halyard.model.TupleLiteral;
+import com.msd.gin.halyard.model.WKTLiteral;
+import com.msd.gin.halyard.model.XMLLiteral;
+import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 public final class AdvancedValueFactory extends AbstractValueFactory {
 	private Literal createAdvancedLiteral(String label, IRI datatype, CoreDatatype coreDatatype) {
@@ -24,7 +24,7 @@ public final class AdvancedValueFactory extends AbstractValueFactory {
 			} else if (HALYARD.TUPLE_TYPE.equals(datatype)) {
 				return new TupleLiteral(label);
 			} else if (HALYARD.ARRAY_TYPE.equals(datatype)) {
-				return new ArrayLiteral(label);
+				return new ObjectArrayLiteral(label);
 			} else if (HALYARD.MAP_TYPE.equals(datatype)) {
 				return new MapLiteral(label);
 			}

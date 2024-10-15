@@ -24,7 +24,8 @@ import org.eclipse.rdf4j.model.vocabulary.SPIF;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 
 import com.google.common.collect.Iterators;
-import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.AbstractArrayLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.TupleLiteral;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
 
@@ -43,8 +44,8 @@ public class ForEach implements InverseMagicProperty {
 				Arrays.stream(args).flatMap(v -> {
 					if (TupleLiteral.isTupleLiteral(v)) {
 						return Arrays.stream(TupleLiteral.valueArray((Literal)v, valueFactory));
-					} else if (ArrayLiteral.isArrayLiteral(v)) {
-						return Arrays.stream(ArrayLiteral.toValues(ArrayLiteral.objectArray((Literal)v), valueFactory));
+					} else if (AbstractArrayLiteral.isArrayLiteral(v)) {
+						return Arrays.stream(AbstractArrayLiteral.toValues(ObjectArrayLiteral.objectArray((Literal)v), valueFactory));
 					} else {
 						return Stream.of(v);
 					}

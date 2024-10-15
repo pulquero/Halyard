@@ -22,7 +22,7 @@ import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.SSLSettings;
 import com.msd.gin.halyard.common.StatementIndex;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.TermRole;
 import com.msd.gin.halyard.model.TupleLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -234,7 +235,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
         configureIRI(cmd, 'g', null);
         String source = getConf().get(SOURCE_NAME_PROPERTY);
         String target = getConf().get(INDEX_URL_PROPERTY);
-        URL targetUrl = new URL(target);
+        URL targetUrl = new URI(target).toURL();
         String indexName = targetUrl.getPath().substring(1);
         boolean createIndex = getConf().getBoolean(CREATE_INDEX_PROPERTY, false);
         String snapshotPath = getConf().get(SNAPSHOT_PATH_PROPERTY);
@@ -492,7 +493,7 @@ public final class HalyardElasticIndexer extends AbstractHalyardTool {
 		   	    			return l.getLabel();
 		   				}
 		    		} else if (HALYARD.ARRAY_TYPE.equals(l.getDatatype())) {
-		    			return ArrayLiteral.objectArray(l);
+		    			return ObjectArrayLiteral.objectArray(l);
 		    		} else if (HALYARD.TUPLE_TYPE.equals(l.getDatatype())) {
 		    			Value[] varr = TupleLiteral.valueArray(l, valueFactory);
 		    			Object[] oarr = new Object[varr.length];

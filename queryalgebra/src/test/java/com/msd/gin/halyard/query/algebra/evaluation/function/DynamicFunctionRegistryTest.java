@@ -13,8 +13,8 @@ import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.junit.jupiter.api.Test;
 
-import com.msd.gin.halyard.model.ArrayLiteral;
 import com.msd.gin.halyard.model.MapLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.query.algebra.evaluation.EmptyTripleSource;
 
 public class DynamicFunctionRegistryTest {
@@ -54,8 +54,8 @@ public class DynamicFunctionRegistryTest {
 	public void testArray_put() {
 		TripleSource ts = new EmptyTripleSource();
 		ValueFactory vf = ts.getValueFactory();
-		ArrayLiteral result = (ArrayLiteral) new DynamicFunctionRegistry().get("http://www.w3.org/2005/xpath-functions/array#put").get().evaluate(ts,
-				new ArrayLiteral("foo", "bar"), vf.createLiteral(2), vf.createLiteral(5));
+		ObjectArrayLiteral result = (ObjectArrayLiteral) new DynamicFunctionRegistry().get("http://www.w3.org/2005/xpath-functions/array#put").get().evaluate(ts,
+				new ObjectArrayLiteral("foo", "bar"), vf.createLiteral(2), vf.createLiteral(5));
 		assertEquals(2, result.objectValue().length);
 		// NB: xsd:ints get coerced to xsd:integers
 		assertEquals(BigInteger.valueOf(5), result.objectValue()[1]);
@@ -65,7 +65,7 @@ public class DynamicFunctionRegistryTest {
 	public void testArray_size() {
 		TripleSource ts = new EmptyTripleSource();
 		ValueFactory vf = ts.getValueFactory();
-		ArrayLiteral array = new ArrayLiteral("foo", "bar");
+		ObjectArrayLiteral array = new ObjectArrayLiteral("foo", "bar");
 		// check works for non-specialist Literal type
 		Literal unparsedArray = vf.createLiteral(array.getLabel(), array.getDatatype());
 		Literal result = (Literal) new DynamicFunctionRegistry().get("http://www.w3.org/2005/xpath-functions/array#size").get().evaluate(ts,

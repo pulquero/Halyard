@@ -3,7 +3,8 @@ package com.msd.gin.halyard.sail.search;
 import com.google.common.collect.Lists;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.FloatArrayLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.ObjectLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
@@ -123,15 +124,11 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 					for (MatchParams.FieldParams fieldParams : matchParams.fields) {
 						Literal l;
 						if (SearchDocument.VECTOR_FIELD.equals(fieldParams.name)) {
-							Object[] arr = new Object[doc.vector.length];
-							for (int k = 0; k < doc.vector.length; k++) {
-								arr[k] = doc.vector[k];
-							}
-							l = new ArrayLiteral(arr);
+							l = new FloatArrayLiteral(doc.vector);
 						} else {
 							Object v = doc.getAdditionalField(fieldParams.name);
 							if (v instanceof List<?>) {
-								l = new ArrayLiteral(((List<?>) v).toArray());
+								l = new ObjectArrayLiteral(((List<?>) v).toArray());
 							} else if (v != null) {
 								l = Values.literal(valueFactory, v, false);
 							} else {

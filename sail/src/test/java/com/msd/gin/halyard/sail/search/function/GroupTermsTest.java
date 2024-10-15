@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.sail.search.function;
 
-import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
 
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -32,7 +32,7 @@ public class GroupTermsTest {
 
 	@Test
 	public void testArray() {
-		Literal group = (Literal) new GroupTerms().evaluate(vf, vf.createLiteral("AND"), new ArrayLiteral("foo", "bar"));
+		Literal group = (Literal) new GroupTerms().evaluate(vf, vf.createLiteral("AND"), new ObjectArrayLiteral("foo", "bar"));
 		assertEquals("(foo AND bar)", group.stringValue());
 	}
 }

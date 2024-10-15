@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.sail.model.embedding.function;
 
-import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.FloatArrayLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 
@@ -44,10 +44,6 @@ public class VectorEmbedding implements Function {
 		ExtendedTripleSource extTs = (ExtendedTripleSource) ts;
 		Response<Embedding> resp = extTs.getQueryHelper(EmbeddingModel.class).embed(l.getLabel());
 		float[] vec = resp.content().vector();
-		Object[] arr = new Object[vec.length];
-		for (int i = 0; i < vec.length; i++) {
-			arr[i] = Float.valueOf(vec[i]);
-		}
-		return new ArrayLiteral(arr);
+		return new FloatArrayLiteral(vec);
 	}
 }

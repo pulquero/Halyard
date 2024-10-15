@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.strategy.aggregators;
 
-import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.AbstractArrayLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import java.util.function.Function;
@@ -29,7 +29,7 @@ public final class GroupIntoArraysAggregateFactory implements AggregateFunctionF
 		return new ValuesCollector(values -> {
 			// NB: values.size() is expensive
 			Value[] varr = values.toArray(new Value[0]);
-			return (varr.length > 0) ? ArrayLiteral.createFromValues(varr) : null;
+			return (varr.length > 0) ? AbstractArrayLiteral.createFromValues(varr) : null;
 		});
 	}
 }

@@ -2,7 +2,7 @@ package com.msd.gin.halyard.sail.search;
 
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
-import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.ObjectLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
@@ -46,7 +46,7 @@ public class KNNTupleFunction implements ExtendedTupleFunction {
 			throw new QueryEvaluationException("Invalid query value");
 		}
 		int argPos = 0;
-		Object[] query = ArrayLiteral.objectArray((Literal) args[argPos++]);
+		Object[] query = ObjectArrayLiteral.objectArray((Literal) args[argPos++]);
 		Float[] vec = new Float[query.length];
 		for (int i = 0; i < query.length; i++) {
 			vec[i] = ((Number) query[i]).floatValue();

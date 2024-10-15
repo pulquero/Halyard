@@ -7,7 +7,8 @@ import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.kohsuke.MetaInfServices;
 
-import com.msd.gin.halyard.model.ArrayLiteral;
+import com.msd.gin.halyard.model.AbstractArrayLiteral;
+import com.msd.gin.halyard.model.FloatArrayLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 @MetaInfServices(Function.class)
@@ -20,11 +21,11 @@ public final class CosineSimilarity implements Function {
 
 	@Override
 	public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
-		if (args.length != 2 || !args[0].isLiteral() || !args[1].isLiteral()) {
-			throw new ValueExprEvaluationException(String.format("%s requires 2 literal arguments", getURI()));
+		if (args.length != 2 || !AbstractArrayLiteral.isArrayLiteral(args[0]) || !AbstractArrayLiteral.isArrayLiteral(args[1])) {
+			throw new ValueExprEvaluationException(String.format("%s requires 2 array arguments", getURI()));
 		}
-		Object[] v1 = ArrayLiteral.objectArray((Literal) args[0]);
-		Object[] v2 = ArrayLiteral.objectArray((Literal) args[1]);
+		float[] v1 = FloatArrayLiteral.floatArray((Literal) args[0]);
+		float[] v2 = FloatArrayLiteral.floatArray((Literal) args[1]);
 		if (v1.length != v2.length) {
 			throw new ValueExprEvaluationException("Arrays have incompatible dimensions");
 		}
@@ -32,8 +33,8 @@ public final class CosineSimilarity implements Function {
 		double normSqr1 = 0.0;
 		double normSqr2 = 0.0;
 		for (int i=0; i<v1.length; i++) {
-			double x = ((Number)v1[i]).doubleValue();
-			double y = ((Number)v2[i]).doubleValue();
+			double x = v1[i];
+			double y = v2[i];
 			dot += x*y;
 			normSqr1 += x*x;
 			normSqr2 += y*y;
