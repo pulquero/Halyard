@@ -331,7 +331,7 @@ class HalyardValueExprEvaluation {
 		        if (bvalue != null) {
 		        	parent.push(bvalue);
 		        } else {
-		            parent.handleValueError(String.format("Var %s has no value (%s)", varName, bindings));
+		            parent.handleValueError("Var " + varName + " has no value");
 		        }
 	    	};
         }
