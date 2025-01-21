@@ -46,7 +46,7 @@
 		<saxon.version>11.5</saxon.version>
 		<xmlresolver.version>4.6.4</xmlresolver.version>
 		<langchain4j.version>0.35.0</langchain4j.version>
-		<djl.version>0.28.0</djl.version>
+		<djl.version>0.31.1</djl.version>
 		<slf4j.version>1.7.36</slf4j.version>
 		<logback.version>1.2.12</logback.version>
 		<lz4.version>1.8.0</lz4.version>
@@ -255,7 +255,7 @@
 			<dependency>
 				<groupId>commons-codec</groupId>
 				<artifactId>commons-codec</artifactId>
-				<version>1.15</version>
+				<version>1.17.2</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.commons</groupId>
@@ -264,8 +264,13 @@
 			</dependency>
 			<dependency>
 				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-io</artifactId>
+				<version>2.14.0</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-lang3</artifactId>
-				<version>3.14.0</version>
+				<version>3.17.0</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.hadoop</groupId>
