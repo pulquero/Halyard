@@ -29,8 +29,10 @@ import com.msd.gin.halyard.sail.search.SearchDocument;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -231,9 +233,6 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
 
     		@Override
     		protected void doClose() throws Exception {
-    			Configuration conf = output.getConfiguration();
-    			String indexUrl = conf.get(TARGET_URL);
-    			HalyardElasticIndexer.refreshIndex(new URI(indexUrl).toURL(), conf);
     		}
         }
     }
@@ -324,12 +323,13 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
     	return run(jobConf, null, query);
     }
 
-    private static List<JsonInfo> run(Configuration conf, String queryFiles, String query) throws IOException, InterruptedException, ClassNotFoundException {
+    private static List<JsonInfo> run(Configuration conf, String queryFiles, String query) throws IOException, URISyntaxException, GeneralSecurityException, InterruptedException, ClassNotFoundException {
     	String source = conf.get(SOURCE_TABLE);
     	String target = conf.get(TARGET_URL);
     	boolean isEsExport = HalyardExport.isElasticsearch(target);
+    	URL targetUrl = null;
         if (isEsExport) {
-        	URL targetUrl = new URL(target);
+        	targetUrl = new URI(target).toURL();
             String indexName = targetUrl.getPath().substring(1);
             conf.set("es.nodes", targetUrl.getHost()+":"+targetUrl.getPort());
             conf.set("es.resource", indexName);
@@ -366,6 +366,9 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         }
         TableMapReduceUtil.initCredentials(job);
         if (job.waitForCompletion(true)) {
+            if (isEsExport) {
+				HalyardElasticIndexer.refreshIndex(targetUrl, conf);
+            }
             LOG.info("Bulk Export completed.");
             return Collections.singletonList(JsonInfo.from(job));
         } else {
