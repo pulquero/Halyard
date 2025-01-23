@@ -346,7 +346,9 @@ public final class HalyardBulkExport extends AbstractHalyardTool {
         BindingSet bindings = AbstractHalyardTool.getBindings(conf, SimpleValueFactory.getInstance());
         Job job = Job.getInstance(conf, "HalyardBulkExport " + source + " -> " + target);
         job.setJarByClass(HalyardBulkExport.class);
-        job.setMaxMapAttempts(1);
+        if (!isEsExport) {
+        	job.setMaxMapAttempts(1);
+        }
         job.setMapperClass(BulkExportMapper.class);
         job.setMapOutputKeyClass(NullWritable.class);
         job.setNumReduceTasks(0);
