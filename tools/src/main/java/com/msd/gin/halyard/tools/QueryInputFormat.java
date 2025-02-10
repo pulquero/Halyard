@@ -165,7 +165,7 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
 
             for (int i=0; i<repeatCount; i++) {
             	if (indexFilter == null || indexFilter.test(i)) {
-            		splits.add(new QueryInputSplit(qName, query, i));
+            		splits.add(new QueryInputSplit(qName, query, i, repeatCount));
             	}
             }
         }
@@ -216,15 +216,17 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
 
         private String queryName, query;
         private int repeatIndex;
+        private int repeatCount;
         private float progress;
 
         public QueryInputSplit() {
         }
 
-        public QueryInputSplit(String queryName, String query, int repeatIndex) {
+        public QueryInputSplit(String queryName, String query, int repeatIndex, int repeatCount) {
             this.queryName = queryName;
             this.query = query;
             this.repeatIndex = repeatIndex;
+            this.repeatCount = repeatCount;
         }
 
         public String getQueryName() {
@@ -237,6 +239,10 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
 
         public int getRepeatIndex() {
             return repeatIndex;
+        }
+
+        public int getRepeatCount() {
+            return repeatCount;
         }
 
         public void setProgress(float p) {
@@ -258,6 +264,7 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
             out.writeUTF(queryName);
             out.writeUTF(query);
             out.writeInt(repeatIndex);
+            out.writeInt(repeatCount);
         }
 
         @Override
@@ -265,6 +272,12 @@ final class QueryInputFormat extends InputFormat<NullWritable, Void> {
             queryName = in.readUTF();
             query = in.readUTF();
             repeatIndex = in.readInt();
+            repeatCount = in.readInt();
+        }
+
+        @Override
+        public String toString() {
+        	return "Split index " + repeatIndex + " of " + repeatCount;
         }
     }
 
