@@ -113,7 +113,7 @@ public final class RDFLoadStager implements Callable<Void> {
 		for (Map.Entry<String, List<FileInfo>> entry : filesByExt.entrySet()) {
 			String ext = entry.getKey();
 			List<FileInfo> files = entry.getValue();
-			if (canMerge(ext)) {
+			if (ext != null && canMerge(ext)) {
 				int numPartitions;
 				long totalSize = sizeOf(files);
 				if (totalSize <= MIN_BLOCK_SIZE) {
