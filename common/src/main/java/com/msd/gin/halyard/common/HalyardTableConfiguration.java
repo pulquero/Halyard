@@ -282,30 +282,34 @@ final class HalyardTableConfiguration {
 	}
 
 	private void addIRI(Integer hash, IdentifiableIRI iri) {
-		if (wellKnownIris.putIfAbsent(hash, iri) != null) {
+		IdentifiableIRI existing = wellKnownIris.putIfAbsent(hash, iri);
+		if (existing != null) {
 			throw new AssertionError(String.format("IRI hash collision between %s and %s",
-					wellKnownIris.get(hash), iri));
+					existing, iri));
 		}
 	}
 
 	private void addNamespace(Short hash, String name) {
-		if (wellKnownNamespaces.putIfAbsent(hash, name) != null) {
+		String existing = wellKnownNamespaces.putIfAbsent(hash, name);
+		if (existing != null) {
 			throw new AssertionError(String.format("Namespace hash collision between %s and %s",
-					wellKnownNamespaces.get(hash), name));
+					existing, name));
 		}
 	}
 
 	private void addNamespacePrefix(Namespace ns) {
-		if (wellKnownNamespacePrefixes.put(ns.getPrefix(), ns) != null) {
+		Namespace existing = wellKnownNamespacePrefixes.put(ns.getPrefix(), ns);
+		if (existing != null) {
 			throw new AssertionError(String.format("Namespace prefix collision between %s and %s",
-					wellKnownNamespacePrefixes.get(ns.getPrefix()), ns.getName()));
+					existing.getName(), ns.getName()));
 		}
 	}
 
 	private void addLanguageTag(Short hash, String langTag) {
-		if (wellKnownLangs.putIfAbsent(hash, langTag) != null) {
+		String existing = wellKnownLangs.putIfAbsent(hash, langTag);
+		if (existing != null) {
 			throw new AssertionError(String.format("Language tag hash collision between %s and %s",
-					wellKnownLangs.get(hash), langTag));
+					existing, langTag));
 		}
 	}
 

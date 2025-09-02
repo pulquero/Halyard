@@ -16,7 +16,8 @@ public final class TableConfig {
     static final int VERSION_4_9_1 = 491;
     static final int VERSION_4_9_2 = 492;
     static final int VERSION_4_9_3 = 493;
-    static final int CURRENT_VERSION = VERSION_4_9_3;
+    static final int VERSION_4_9_4 = 494;
+    static final int CURRENT_VERSION = VERSION_4_9_4;
 
     public static final String ID_HASH = "halyard.id.hash";
     public static final String ID_JAVA_HASH = "halyard.id.javaHash";

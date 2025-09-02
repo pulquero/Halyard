@@ -1,7 +1,6 @@
 package com.msd.gin.halyard.model.vocabulary;
 
 import java.lang.reflect.Field;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -74,8 +73,6 @@ public final class WIKIDATA implements Vocabulary {
     public static final Namespace BABELNET_NS = new SimpleNamespace("babel", "http://babelnet.org/rdf/");
     public static final Namespace OS_NS = new IntegerNamespace("os", "http://data.ordnancesurvey.co.uk/id/");
     public static final Namespace ENSEMBL_NS = new SimpleNamespace("ensembl", "http://rdf.ebi.ac.uk/resource/ensembl/");
-    public static final Namespace PUBCHEM_CID_NS = new PrefixedIntegerNamespace("pubchem_cid", "http://rdf.ncbi.nlm.nih.gov/pubchem/compound/", "CID");
-    public static final Namespace PUBCHEM_SID_NS = new PrefixedIntegerNamespace("pubchem_sid", "http://rdf.ncbi.nlm.nih.gov/pubchem/substance/", "SID");
     public static final Namespace PUBMED_NS = new IntegerNamespace("pubmed", "https://pubmed.ncbi.nlm.nih.gov/");
     public static final Namespace MUSICBRAINZ_AREA_NS = new UUIDNamespace("mb_area", "http://musicbrainz.org/area/");
     public static final Namespace MUSICBRAINZ_ARTIST_NS = new UUIDNamespace("mb_artist", "http://musicbrainz.org/artist/");
@@ -310,29 +307,6 @@ public final class WIKIDATA implements Vocabulary {
 		}
 	}
 
-	static final class HashNamespace extends AbstractIRIEncodingNamespace {
-		private static final long serialVersionUID = 2218386262774783440L;
-
-		HashNamespace(String prefix, String ns) {
-			super(prefix, ns);
-		}
-
-		@Override
-		public ByteBuffer writeBytes(String localName, ByteBuffer b) {
-			byte[] hexBytes = ByteUtils.fromHexString(localName);
-			b = ByteUtils.ensureCapacity(b, hexBytes.length);
-			b.put(hexBytes);
-			return b;
-		}
-
-		@Override
-		public String readBytes(ByteBuffer b) {
-			byte[] hexBytes = new byte[b.remaining()];
-			b.get(hexBytes);
-			return ByteUtils.toHexString(hexBytes);
-		}
-	}
-
 	static final class StatementNamespace extends AbstractIRIEncodingNamespace {
 		private static final long serialVersionUID = -3329839557078371520L;
 
@@ -359,45 +333,6 @@ public final class WIKIDATA implements Vocabulary {
 			String id = ByteUtils.readCompressedInteger(b);
 			UUID uuid = new UUID(uuidMost, uuidLeast);
 			return type + id + "-" + uuid.toString();
-		}
-	}
-
-	static final class OrcidNamespace extends AbstractIRIEncodingNamespace {
-		private static final long serialVersionUID = -8193568694174435059L;
-
-		public OrcidNamespace(String prefix, String name) {
-			super(prefix, name);
-		}
-
-		@Override
-		public ByteBuffer writeBytes(String localName, ByteBuffer b) {
-			String numWithChecksum;
-			if (localName.length() == 19) {
-				numWithChecksum = localName.replace("-", "");
-			} else {
-				numWithChecksum = localName;
-			}
-			if (numWithChecksum.length() != 16) {
-				throw new IllegalArgumentException(String.format("Invalid length for ORCID: %s", localName));
-			}
-			int checksumPos = numWithChecksum.length()-1;
-			char checksum = numWithChecksum.charAt(checksumPos);
-			// prefix with 1 to maintain leading zeros
-			BigInteger id = new BigInteger("1"+numWithChecksum.substring(0, checksumPos));
-			byte[] bytes = id.toByteArray();
-			b = ByteUtils.ensureCapacity(b, 1+bytes.length+1);
-			return b.put((byte) bytes.length).put(bytes).put((byte)checksum);
-		}
-
-		@Override
-		public String readBytes(ByteBuffer b) {
-			int len = b.get();
-			byte[] idBytes = new byte[len];
-			b.get(idBytes);
-			char checksum = (char) b.get();
-			BigInteger id = new BigInteger(idBytes);
-			String idStr = id.toString();
-			return idStr.substring(1, 5) + "-" + idStr.substring(5, 9) + "-" + idStr.substring(9, 13) + "-" + idStr.substring(13) + checksum;
 		}
 	}
 }

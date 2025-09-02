@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.model.vocabulary.AbstractIRIEncodingNamespace;
+import com.msd.gin.halyard.model.vocabulary.PUBCHEM;
 import com.msd.gin.halyard.model.vocabulary.WIKIDATA;
 
 import java.nio.ByteBuffer;
@@ -33,8 +34,8 @@ public class NamespaceTest {
 			createData(WIKIDATA.WDS_NS, "Q78246295-047c20cf-4fd2-8173-f044-c04d3ec21f45"),
 			createData(WIKIDATA.ORCID_NS, "0123-4567-8923-456X"),
 			createData(WIKIDATA.OS_NS, "4000000074547913"),
-			createData(WIKIDATA.PUBCHEM_CID_NS, "CID220848"),
-			createData(WIKIDATA.PUBCHEM_SID_NS, "SID220848"),
+			createData(PUBCHEM.COMPOUND_NS, "CID220848"),
+			createData(PUBCHEM.SUBSTANCE_NS, "SID220848"),
 			createData(WIKIDATA.MUSICBRAINZ_ARTIST_NS, "78b00a09-a941-413c-a917-691111608daa")
 		);
     }
