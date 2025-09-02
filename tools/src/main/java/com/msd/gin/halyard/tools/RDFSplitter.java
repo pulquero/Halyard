@@ -85,7 +85,7 @@ public final class RDFSplitter implements RDFHandler, Callable<Long> {
 		new RDFSplitter(inputFile, inFormat, inCompression, files, bnodeFile, numThreads).call();
 	}
 
-	static String getCompression(String ext) {
+	private static String getCompression(String ext) {
 		if (ext.endsWith(".gz")) {
 			return CompressorStreamFactory.GZIP;
 		} else if (ext.endsWith(".bz2")) {
@@ -95,7 +95,7 @@ public final class RDFSplitter implements RDFHandler, Callable<Long> {
 		}
 	}
 
-	private static InputStream decompress(String compression, InputStream in) throws IOException {
+	static InputStream decompress(String compression, InputStream in) throws IOException {
 		if (CompressorStreamFactory.GZIP.equals(compression)) {
 			return new GZIPInputStream(in);
 		} else if (CompressorStreamFactory.BZIP2.equals(compression)) {
@@ -105,7 +105,7 @@ public final class RDFSplitter implements RDFHandler, Callable<Long> {
 		}
 	}
 
-	private static OutputStream compress(String compression, OutputStream out) throws IOException, CompressorException {
+	static OutputStream compress(String compression, OutputStream out) throws IOException, CompressorException {
 		if (CompressorStreamFactory.GZIP.equals(compression)) {
 			return new GZIPOutputStream(out, BUFFER_SIZE);
 		} else if (CompressorStreamFactory.BZIP2.equals(compression)) {
