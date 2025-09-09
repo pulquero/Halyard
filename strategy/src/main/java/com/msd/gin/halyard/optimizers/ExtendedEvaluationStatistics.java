@@ -354,9 +354,10 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
         	for (int i=1; i<n; i++) {
         		sp = node.getArg(i);
         		meetJoinRight(sp, newBoundVars);
-        		rightCard += cardinality;
+                newBoundVars.addAll(sp.getBindingNames());
+        		rightCard *= cardinality;
         	}
-        	card *= rightCard/n; // account for cheaper cost
+        	card *= Math.pow(rightCard, 1.0/n); // account for cheaper cost
 
             cardinality = card;
             updateMap(node);
@@ -374,9 +375,9 @@ public class ExtendedEvaluationStatistics extends EvaluationStatistics {
         	for (int i=1; i<n; i++) {
         		sp = node.getArg(i);
         		meetJoinRight(sp, newBoundVars);
-        		rightCard += cardinality;
+        		rightCard *= cardinality;
         	}
-        	card *= rightCard/n; // account for cheaper cost
+        	card *= Math.pow(rightCard, 1.0/n); // account for cheaper cost
 
             cardinality = card * COMPLETENESS_FACTOR;
             updateMap(node);
