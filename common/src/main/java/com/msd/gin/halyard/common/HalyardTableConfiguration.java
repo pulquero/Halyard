@@ -30,9 +30,14 @@ import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.impl.SimpleNamespace;
 import org.eclipse.rdf4j.model.util.Vocabularies;
 import org.eclipse.rdf4j.model.vocabulary.DC;
+import org.eclipse.rdf4j.model.vocabulary.DCAT;
 import org.eclipse.rdf4j.model.vocabulary.DCTERMS;
+import org.eclipse.rdf4j.model.vocabulary.DOAP;
+import org.eclipse.rdf4j.model.vocabulary.EARL;
 import org.eclipse.rdf4j.model.vocabulary.FOAF;
 import org.eclipse.rdf4j.model.vocabulary.GEO;
+import org.eclipse.rdf4j.model.vocabulary.LOCN;
+import org.eclipse.rdf4j.model.vocabulary.ODRL2;
 import org.eclipse.rdf4j.model.vocabulary.ORG;
 import org.eclipse.rdf4j.model.vocabulary.OWL;
 import org.eclipse.rdf4j.model.vocabulary.PROV;
@@ -42,6 +47,7 @@ import org.eclipse.rdf4j.model.vocabulary.ROV;
 import org.eclipse.rdf4j.model.vocabulary.SD;
 import org.eclipse.rdf4j.model.vocabulary.SKOS;
 import org.eclipse.rdf4j.model.vocabulary.SKOSXL;
+import org.eclipse.rdf4j.model.vocabulary.TIME;
 import org.eclipse.rdf4j.model.vocabulary.VOID;
 import org.eclipse.rdf4j.model.vocabulary.WGS84;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
@@ -71,9 +77,10 @@ final class HalyardTableConfiguration {
 		List<Class<?>> vocabs = new ArrayList<>(25);
 
 		LOGGER.info("Loading default vocabularies...");
-		Class<?>[] defaultVocabClasses = { RDF.class, RDFS.class, XSD.class, SD.class, VOID.class, FOAF.class,
-				OWL.class, DC.class, DCTERMS.class, SKOS.class, SKOSXL.class, ORG.class, GEO.class,
-				WGS84.class, PROV.class, ROV.class };
+		Class<?>[] defaultVocabClasses = { RDF.class, RDFS.class, XSD.class, SD.class, VOID.class,
+				OWL.class, DC.class, DCTERMS.class, SKOS.class, SKOSXL.class, GEO.class, WGS84.class,
+				DCAT.class, DOAP.class, EARL.class, FOAF.class, LOCN.class, ODRL2.class, ORG.class,
+				PROV.class, ROV.class, TIME.class };
 		for (Class<?> vocabClass : defaultVocabClasses) {
 			LOGGER.debug("Loading vocabulary {}", vocabClass.getName());
 			vocabs.add(vocabClass);

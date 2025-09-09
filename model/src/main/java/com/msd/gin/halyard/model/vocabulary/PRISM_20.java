@@ -5,7 +5,7 @@ import org.eclipse.rdf4j.model.impl.SimpleNamespace;
 import org.kohsuke.MetaInfServices;
 
 @MetaInfServices(Vocabulary.class)
-public final class PRISM implements Vocabulary {
+public final class PRISM_20 implements Vocabulary {
 	public static final String NAMESPACE = "http://prismstandard.org/namespaces/basic/2.0/";
-	public static final Namespace NS = new SimpleNamespace("prism", NAMESPACE);
+	public static final Namespace NS = new SimpleNamespace("prism_20", NAMESPACE);
 }

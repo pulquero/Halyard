@@ -25,7 +25,6 @@ public final class CHEMBL implements Vocabulary {
     public static final Namespace CLO_NS = new SimpleNamespace("clo", "http://purl.obolibrary.org/obo/");
     public static final Namespace EFO_NS = new SimpleNamespace("efo", "http://www.ebi.ac.uk/efo/");
     public static final Namespace PUBCHEM_NS = new SimpleNamespace("pubchem_c", "http://pubchem.ncbi.nlm.nih.gov/compound/");
-    public static final Namespace SEMSCI_NS = new SimpleNamespace("semsci", "http://semanticscience.org/resource/");
 
     public static final IRI ATC_CLASSIFICATION = SVF.createIRI(NAMESPACE, "atcClassification");
     public static final IRI HAS_ACTIVITY = SVF.createIRI(NAMESPACE, "hasActivity");

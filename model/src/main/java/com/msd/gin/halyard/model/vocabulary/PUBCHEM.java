@@ -46,6 +46,8 @@ public final class PUBCHEM implements Vocabulary {
     public static final IRI SYNONYM_CLASS = SVF.createIRI(NAMESPACE, "Synonym");
     public static final IRI TAXONOMY_CLASS = SVF.createIRI(NAMESPACE, "Taxonomy");
 
+    public static final IRI DISCUSSES_AS_DERIVED_BY_TEXT_MINING = SVF.createIRI(NAMESPACE, "discussesAsDerivedByTextMining");
+
 
     static final class MD5Namespace extends AbstractIRIEncodingNamespace {
     	private static final long serialVersionUID = -4991612855175764488L;
