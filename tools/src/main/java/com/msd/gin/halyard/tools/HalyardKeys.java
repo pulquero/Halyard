@@ -232,6 +232,7 @@ public final class HalyardKeys extends AbstractHalyardTool {
         job.setNumReduceTasks(1);
 		job.setReducerClass(StatsReducer.class);
 		job.setOutputFormatClass(NullOutputFormat.class);
+		job.setSpeculativeExecution(false);
 		try {
 			if (job.waitForCompletion(true)) {
 				LOG.info("Key stats completed.");

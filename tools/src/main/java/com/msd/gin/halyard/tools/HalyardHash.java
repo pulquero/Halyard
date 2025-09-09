@@ -191,6 +191,7 @@ public final class HalyardHash extends AbstractHalyardTool {
 		job.setCombinerClass(HashCombiner.class);
 		job.setReducerClass(HashReducer.class);
 		job.setOutputFormatClass(NullOutputFormat.class);
+		job.setSpeculativeExecution(false);
 		if (job.waitForCompletion(true)) {
 			long idCollisions = job.getCounters().findCounter(Counters.ID_COLLISIONS).getValue();
 			LOG.info("Hashing completed ({} collisions).", idCollisions);
