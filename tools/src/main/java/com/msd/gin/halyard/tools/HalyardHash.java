@@ -1,14 +1,17 @@
 package com.msd.gin.halyard.tools;
 
 import com.msd.gin.halyard.common.ByteUtils;
+import com.msd.gin.halyard.common.CachingValueFactory;
 import com.msd.gin.halyard.common.IdValueFactory;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.ValueIO;
 import com.msd.gin.halyard.tools.HalyardBulkLoad.RioFileInputFormat;
+import com.msd.gin.halyard.util.LRUCache;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.text.MessageFormat;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.SplittableRandom;
@@ -42,9 +45,14 @@ public final class HalyardHash extends AbstractHalyardTool {
     private static final String TOOL_NAME = "hash";
 
 	private static final String DECIMATION_FACTOR_PROPERTY = confProperty(TOOL_NAME, "decimation-factor");
-	
+	private static final String VALUE_DEDUP_CACHE_SIZE_PROPERTY = confProperty(TOOL_NAME, "value-dedup-cache.size");
+	private static final String VALUE_CACHE_SIZE_PROPERTY = confProperty(TOOL_NAME, "value-cache.size");
+
 	private static final int DEFAULT_DECIMATION_FACTOR = 1;
-    private static final long STATUS_UPDATE_INTERVAL = 10000L;
+	private static final long STATUS_UPDATE_INTERVAL = 10000L;
+
+	private static final int DEFAULT_VALUE_DEDUP_CACHE_SIZE = 3000;
+	private static final int DEFAULT_VALUE_CACHE_SIZE = 32;
 
 	enum Counters {
 		ID_COLLISIONS
@@ -64,6 +72,7 @@ public final class HalyardHash extends AbstractHalyardTool {
 		private final ImmutableBytesWritable outputKey = new ImmutableBytesWritable();
 		private final ImmutableBytesWritable outputValue = new ImmutableBytesWritable();
 		private final SplittableRandom random = new SplittableRandom();
+		private Set<Value> valueDedup;
 		private ByteBuffer kbb;
 		private ByteBuffer vbb;
 		private int decimationFactor;
@@ -73,6 +82,7 @@ public final class HalyardHash extends AbstractHalyardTool {
 		@Override
 		protected void setup(Context context) throws IOException {
 			Configuration conf = context.getConfiguration();
+			valueDedup = Collections.newSetFromMap(new LRUCache<>(conf.getInt(VALUE_DEDUP_CACHE_SIZE_PROPERTY, DEFAULT_VALUE_DEDUP_CACHE_SIZE)));
 			decimationFactor = conf.getInt(DECIMATION_FACTOR_PROPERTY, DEFAULT_DECIMATION_FACTOR);
 			rdfFactory = RDFFactory.create(conf);
 			kbb = ByteBuffer.allocate(rdfFactory.getIdSize());
@@ -95,6 +105,11 @@ public final class HalyardHash extends AbstractHalyardTool {
 		}
 
 		private void report(Context output, Value v) throws IOException, InterruptedException {
+			// best effort value deduplication
+			if (!valueDedup.add(v)) {
+				return;
+			}
+
 			kbb.clear();
 			kbb = rdfFactory.id(v).writeTo(kbb);
 			kbb.flip();
@@ -117,7 +132,8 @@ public final class HalyardHash extends AbstractHalyardTool {
 		protected void setup(Context context) throws IOException {
 			Configuration conf = context.getConfiguration();
 			rdfFactory = RDFFactory.create(conf);
-			vf = new IdValueFactory(rdfFactory);
+			ValueFactory idValueFactory = new IdValueFactory(rdfFactory);
+			vf = new CachingValueFactory(idValueFactory, conf.getInt(VALUE_CACHE_SIZE_PROPERTY, DEFAULT_VALUE_CACHE_SIZE));
 		}
 
 		@Override
