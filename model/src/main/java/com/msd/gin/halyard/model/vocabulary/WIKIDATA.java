@@ -104,6 +104,7 @@ public final class WIKIDATA implements Vocabulary {
     public static final IRI GENE = SVF.createIRI(WD_NAMESPACE, "Q7187");
     public static final IRI METRE = SVF.createIRI(WD_NAMESPACE, "Q11573");
     public static final IRI TAXON = SVF.createIRI(WD_NAMESPACE, "Q16521");
+    public static final IRI CAS_REGISTRY_NUMBER = SVF.createIRI(WD_NAMESPACE, "Q102507");
     public static final IRI PUBMED_CENTRAL = SVF.createIRI(WD_NAMESPACE, "Q229883");
     public static final IRI TITLE = SVF.createIRI(WD_NAMESPACE, "Q783521");
     public static final IRI WIKIMEDIA_CATEGORY = SVF.createIRI(WD_NAMESPACE, "Q4167836");
@@ -114,6 +115,8 @@ public final class WIKIDATA implements Vocabulary {
     public static final IRI FEMALE = SVF.createIRI(WD_NAMESPACE, "Q6581072");
     public static final IRI SCHOLARLY_ARTICLE = SVF.createIRI(WD_NAMESPACE, "Q13442814");
     public static final IRI FREEBASE = SVF.createIRI(WD_NAMESPACE, "Q15241312");
+    public static final IRI WAYBACK_MACHINE = SVF.createIRI(WD_NAMESPACE, "Q648266");
+    public static final IRI SEMOPENALEX = SVF.createIRI(WD_NAMESPACE, "Q136023607");
 
     public static final IRI WIKIMEDIA_COMMONS = SVF.createIRI("https://commons.wikimedia.org/");
     public static final IRI WIKIMEDIA_SPECIES = SVF.createIRI("https://species.wikimedia.org/");
@@ -141,6 +144,7 @@ public final class WIKIDATA implements Vocabulary {
         public static final String IMPORTED_FROM_WIKIMEDIA_PROJECT = "P143";
         public static final String FOLLOWS = "P155";
         public static final String FOLLOWED_BY= "P156";
+        public static final String ISNI = "P213";
         public static final String VIAF_ID = "P214";
         public static final String GND_ID = "P227";
         public static final String STATED_IN = "P248";
@@ -148,6 +152,7 @@ public final class WIKIDATA implements Vocabulary {
         public static final String SUBCLASS_OF = "P279";
         public static final String POSTAL_CODE = "P281";
         public static final String PAGES = "P304";
+        public static final String IMDB_ID = "P345";
         public static final String ENTREZ_GENE_ID = "P351";
         public static final String UNIPROT_PROTEIN_ID = "P352";
         public static final String DOI = "P356";
@@ -167,6 +172,7 @@ public final class WIKIDATA implements Vocabulary {
         public static final String START_TIME = "P580";
         public static final String END_TIME = "P582";
         public static final String POINT_IN_TIME = "P585";
+        public static final String CHEMBL_ID = "P592";
         public static final String COORDINATE_LOCATION = "P625";
         public static final String OF = "P642";
         public static final String FREEBASE_ID = "P646";
@@ -199,12 +205,14 @@ public final class WIKIDATA implements Vocabulary {
         public static final String NATIVE_LABEL = "P1705";
         public static final String NAMED_AS = "P1810";
         public static final String SHORT_NAME = "P1813";
+        public static final String WIKIDATA_PROPERTY_EXAMPLE = "P1855";
         public static final String LENGTH = "P2043";
         public static final String AREA = "P2046";
         public static final String DURATION = "P2047";
         public static final String HEIGHT = "P2048";
         public static final String WIDTH = "P2049";
         public static final String AUTHOR_NAME_STRING = "P2093";
+        public static final String PUBCHEM_SUBSTANCE_ID = "P2153";
         public static final String PARALLAX = "P2214";
         public static final String PROPER_MOTION = "P2215";
         public static final String RADIAL_VELOCITY = "P2216";
@@ -213,6 +221,8 @@ public final class WIKIDATA implements Vocabulary {
         public static final String CITES_WORK = "P2860";
         public static final String EXACT_MATCH = "P2888";
         public static final String SIMBAD_ID = "P3083";
+        public static final String SEMANTIC_SCHOLAR_PAPER_ID = "P4011";
+        public static final String GOOGLE_SCHOLAR_PAPER_ID = "P4028";
         public static final String WIKIMEDIA_IMPORT_URL = "P4656";
         public static final String INTERLINGUAL_INDEX_ID = "P5063";
         public static final String CARNEGIE_HALL_ID = "P5229";
@@ -221,6 +231,9 @@ public final class WIKIDATA implements Vocabulary {
         public static final String DECLINATION = "P6258";
         public static final String EPOCH = "P6259";
         public static final String STREET_ADDRESS = "P6375";
+        public static final String OPENALEX_ID = "P10283";
+        public static final String OPENSTREETMAP_NODE_ID = "P11693";
+        public static final String GAIA_ID = "P13228";
     }
 
 	public static Collection<Namespace> getNamespaces() {

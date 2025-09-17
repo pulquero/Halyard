@@ -15,10 +15,10 @@ public final class CHEMBL implements Vocabulary {
     public static final String NAMESPACE = "http://rdf.ebi.ac.uk/terms/chembl#";
 
     public static final Namespace NS = new SimpleNamespace(PREFIX, NAMESPACE);
-    public static final Namespace ACTIVITY_NS = new SimpleNamespace("ch_act", "http://rdf.ebi.ac.uk/resource/chembl/activity/");
-    public static final Namespace ASSAY_NS = new SimpleNamespace("ch_assay", "http://rdf.ebi.ac.uk/resource/chembl/assay/");
-    public static final Namespace DOCUMENT_NS = new SimpleNamespace("ch_doc", "http://rdf.ebi.ac.uk/resource/chembl/document/");
-    public static final Namespace MOLECULE_NS = new SimpleNamespace("ch_mole", "http://rdf.ebi.ac.uk/resource/chembl/molecule/");
+    public static final Namespace ACTIVITY_NS = new PrefixedIntegerNamespace("ch_act", "http://rdf.ebi.ac.uk/resource/chembl/activity/", "CHEMBL_ACT_");
+    public static final Namespace ASSAY_NS = new PrefixedIntegerNamespace("ch_assay", "http://rdf.ebi.ac.uk/resource/chembl/assay/", "CHEMBL");
+    public static final Namespace DOCUMENT_NS = new PrefixedIntegerNamespace("ch_doc", "http://rdf.ebi.ac.uk/resource/chembl/document/", "CHEMBL");
+    public static final Namespace MOLECULE_NS = new PrefixedIntegerNamespace("ch_mole", "http://rdf.ebi.ac.uk/resource/chembl/molecule/", "CHEMBL");
     public static final Namespace BAO_NS = new SimpleNamespace("bao", "http://www.bioassayontology.org/bao#");
     public static final Namespace BIBO_NS = new SimpleNamespace("bibo", "http://purl.org/ontology/bibo/");
     public static final Namespace OPS_NS = new SimpleNamespace("ops", "http://www.openphacts.org/units/");

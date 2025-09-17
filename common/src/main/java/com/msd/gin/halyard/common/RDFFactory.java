@@ -122,6 +122,9 @@ public final class RDFFactory {
 	private RDFFactory(HalyardTableConfiguration halyardConfig) {
 		this.halyardConfig = halyardConfig;
 		version = halyardConfig.getInt(TableConfig.TABLE_VERSION);
+		if (version < TableConfig.VERSION_4_9_6) {
+			throw new RuntimeException("Old table format - please reload your data");
+		}
 		if (version < TableConfig.VERSION_4_6_1) {
 			throw new RuntimeException("Old table format - please reload your data");
 		}
