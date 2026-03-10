@@ -3,12 +3,17 @@ package com.msd.gin.halyard.common;
 import com.google.common.collect.Sets;
 import com.ibm.icu.text.UnicodeCompressor;
 import com.ibm.icu.text.UnicodeDecompressor;
+import com.msd.gin.halyard.model.AbstractArrayLiteral;
+import com.msd.gin.halyard.model.DoubleArrayLiteral;
+import com.msd.gin.halyard.model.FloatArrayLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.ValueType;
 import com.msd.gin.halyard.model.WKTLiteral;
+import com.msd.gin.halyard.model.Wrapper;
 import com.msd.gin.halyard.model.XMLLiteral;
+import com.msd.gin.halyard.model.vocabulary.HalyardDatatype;
 import com.msd.gin.halyard.model.vocabulary.IRIEncodingNamespace;
 
-import java.io.ByteArrayOutputStream;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -41,8 +46,6 @@ import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
-import org.eclipse.rdf4j.model.vocabulary.GEO;
-import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.locationtech.jts.io.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -655,7 +658,7 @@ public class ValueIO {
 						return new WKTLiteral(wkbBytes);
 					case HeaderBytes.UNCOMPRESSED_STRING_TYPE:
 						// invalid xml
-						return vf.createLiteral(readUncompressedString(b), GEO.WKT_LITERAL);
+						return vf.createLiteral(readUncompressedString(b), CoreDatatype.GEO.WKT_LITERAL);
 					default:
 						throw new AssertionError(String.format("Unrecognized WKT type: %d", wktType));
 				}
@@ -666,9 +669,7 @@ public class ValueIO {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
 				try {
-					ByteArrayOutputStream out = new ByteArrayOutputStream(1024);
-					XMLLiteral.writeInfoset(l.getLabel(), out);
-					byte[] xb = out.toByteArray();
+					byte[] xb = XMLLiteral.writeInfoset(l);
 					b = ByteUtils.ensureCapacity(b, 2 + xb.length);
 					b.put(HeaderBytes.XML_TYPE);
 					b.put(HeaderBytes.XML_TYPE); // mark xml as valid
@@ -693,9 +694,131 @@ public class ValueIO {
 						return new XMLLiteral(fiBytes);
 					case HeaderBytes.COMPRESSED_STRING_TYPE:
 						// invalid xml
-						return vf.createLiteral(readCompressedString(b), RDF.XMLLITERAL);
+						return vf.createLiteral(readCompressedString(b), CoreDatatype.RDF.XMLLITERAL);
 					default:
 						throw new AssertionError(String.format("Unrecognized XML type: %d", xmlType));
+				}
+			}
+		});
+
+		addByteWriter(HalyardDatatype.ARRAY, new ByteWriter() {
+			@Override
+			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
+				l = Wrapper.unwrap(l);
+				AbstractArrayLiteral<?> arrl = AbstractArrayLiteral.asArrayLiteral(l);
+				int size = arrl.length();
+				Object[] arr = arrl.elements();
+
+				int componentType;
+				Class<?> arrType = arrl.componentType();
+				if (arrType == Double.class) {
+					componentType = HeaderBytes.DOUBLE_TYPE;
+				} else if (arrType == Float.class) {
+					componentType = HeaderBytes.FLOAT_TYPE;
+				} else if (arrType == Long.class) {
+					componentType = HeaderBytes.LONG_TYPE;
+				} else if (arrType == Integer.class) {
+					componentType = HeaderBytes.INT_TYPE;
+				} else if (arrType == String.class) {
+					componentType = HeaderBytes.UNCOMPRESSED_STRING_TYPE;
+				} else {
+					componentType = HeaderBytes.ARRAY_TYPE;
+				}
+
+				b = ByteUtils.ensureCapacity(b, 2 + Integer.BYTES);
+				b.put(HeaderBytes.ARRAY_TYPE).put((byte) componentType).putInt(size);
+				switch (componentType) {
+					case HeaderBytes.ARRAY_TYPE:
+						// mixed
+						ByteBuffer sb = writeUncompressedString(l.getLabel());
+						b = ByteUtils.ensureCapacity(b, sb.remaining());
+						b.put(sb);
+						return b;
+					case HeaderBytes.UNCOMPRESSED_STRING_TYPE:
+						ByteBuffer[] bbarr = new ByteBuffer[size];
+						int bytesWritten = 0;
+						for (int i=0; i<size; i++) {
+							ByteBuffer bb = writeUncompressedString((String) arr[i]);
+							bbarr[i] = bb;
+							bytesWritten += bb.remaining();
+						}
+						b = ByteUtils.ensureCapacity(b, bytesWritten);
+						for (int i=0; i<size; i++) {
+							b.put(bbarr[i]);
+						}
+						return b;
+					case HeaderBytes.LONG_TYPE:
+						b = ByteUtils.ensureCapacity(b, size * Long.BYTES);
+						for (int i=0; i<size; i++) {
+							b.putLong((Long) arr[i]);
+						}
+						return b;
+					case HeaderBytes.INT_TYPE:
+						b = ByteUtils.ensureCapacity(b, size * Integer.BYTES);
+						for (int i=0; i<size; i++) {
+							b.putInt((Integer) arr[i]);
+						}
+						return b;
+					case HeaderBytes.FLOAT_TYPE:
+						b = ByteUtils.ensureCapacity(b, size * Float.BYTES);
+						float[] farr = FloatArrayLiteral.floatArray(l);
+						for (int i=0; i<size; i++) {
+							b.putFloat(farr[i]);
+						}
+						return b;
+					case HeaderBytes.DOUBLE_TYPE:
+						b = ByteUtils.ensureCapacity(b, size * Double.BYTES);
+						double[] darr = DoubleArrayLiteral.doubleArray(l);
+						for (int i=0; i<size; i++) {
+							b.putDouble(darr[i]);
+						}
+						return b;
+					default:
+						throw new AssertionError(String.format("Unrecognized array type: %d", componentType));
+				}
+			}
+		});
+		addByteReader(HeaderBytes.ARRAY_TYPE, new ByteReader(HalyardDatatype.ARRAY) {
+			@Override
+			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+				int componentType = b.get();
+				int size = b.getInt();
+				switch (componentType) {
+					case HeaderBytes.ARRAY_TYPE:
+						// mixed
+						return AbstractArrayLiteral.create(readUncompressedString(b));
+					case HeaderBytes.UNCOMPRESSED_STRING_TYPE:
+						Object[] oarr = new Object[size];
+						for (int i=0; i<size; i++) {
+							oarr[i] = readUncompressedString(b);
+						}
+						return new ObjectArrayLiteral(oarr, String.class);
+					case HeaderBytes.INT_TYPE:
+						Object[] iarr = new Object[size];
+						for (int i=0; i<size; i++) {
+							iarr[i] = b.getInt();
+						}
+						return new ObjectArrayLiteral(iarr, Integer.class);
+					case HeaderBytes.LONG_TYPE:
+						Object[] larr = new Object[size];
+						for (int i=0; i<size; i++) {
+							larr[i] = b.getLong();
+						}
+						return new ObjectArrayLiteral(larr, Long.class);
+					case HeaderBytes.FLOAT_TYPE:
+						float[] farr = new float[size];
+						for (int i=0; i<size; i++) {
+							farr[i] = b.getFloat();
+						}
+						return new FloatArrayLiteral(farr);
+					case HeaderBytes.DOUBLE_TYPE:
+						double[] darr = new double[size];
+						for (int i=0; i<size; i++) {
+							darr[i] = b.getDouble();
+						}
+						return new DoubleArrayLiteral(darr);
+					default:
+						throw new AssertionError(String.format("Unrecognized array type: %d", componentType));
 				}
 			}
 		});

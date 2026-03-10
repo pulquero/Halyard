@@ -6,13 +6,23 @@ import java.util.Set;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.json.JSONObject;
 
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HalyardDatatype;
 
 public final class MapLiteral extends AbstractDataLiteral implements ObjectLiteral<Map<String,Object>> {
 	private static final long serialVersionUID = -8130963762756953874L;
+
+	public static boolean isMapLiteral(Value v) {
+		return v != null && v.isLiteral() && isMapLiteral((Literal)v);
+	}
+
+	public static boolean isMapLiteral(Literal l) {
+		return (l.getCoreDatatype() == HalyardDatatype.MAP) || HALYARD.MAP_TYPE.equals(l.getDatatype());
+	}
 
 	public static Map<String,Object> objectMap(Literal l) {
 		if (l instanceof MapLiteral) {
@@ -52,12 +62,12 @@ public final class MapLiteral extends AbstractDataLiteral implements ObjectLiter
 
 	@Override
 	public IRI getDatatype() {
-		return HALYARD.MAP_TYPE;
+		return HalyardDatatype.MAP.getIri();
 	}
 
 	@Override
 	public CoreDatatype getCoreDatatype() {
-		return CoreDatatype.NONE;
+		return HalyardDatatype.MAP;
 	}
 
 	@Override

@@ -1,5 +1,7 @@
 package com.msd.gin.halyard.common;
 
+import com.msd.gin.halyard.model.Wrapper;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.DateTimeException;
@@ -13,7 +15,7 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 
-public final class IdentifiableLiteral extends IdentifiableValue implements Literal {
+public final class IdentifiableLiteral extends IdentifiableValue implements Literal, Wrapper<Literal> {
 	private static String normalize(String l, CoreDatatype dt) {
 		CoreDatatype.XSD xsd = dt.asXSDDatatypeOrNull();
 		if (xsd != null) {
@@ -53,87 +55,87 @@ public final class IdentifiableLiteral extends IdentifiableValue implements Lite
 		super(MATERIALIZED_VALUE_FACTORY.createLiteral(label, lang));
 	}
 
-	private Literal getLiteral() {
+	public Literal unwrap() {
 		return (Literal) getValue();
 	}
 
 	@Override
 	public String getLabel() {
-		return getLiteral().getLabel();
+		return unwrap().getLabel();
 	}
 
 	@Override
 	public Optional<String> getLanguage() {
-		return getLiteral().getLanguage();
+		return unwrap().getLanguage();
 	}
 
 	@Override
 	public CoreDatatype getCoreDatatype() {
-		return getLiteral().getCoreDatatype();
+		return unwrap().getCoreDatatype();
 	}
 
 	@Override
 	public IRI getDatatype() {
-		return getLiteral().getDatatype();
+		return unwrap().getDatatype();
 	}
 
 	@Override
 	public byte byteValue() {
-		return getLiteral().byteValue();
+		return unwrap().byteValue();
 	}
 
 	@Override
 	public short shortValue() {
-		return getLiteral().shortValue();
+		return unwrap().shortValue();
 	}
 
 	@Override
 	public int intValue() {
-		return getLiteral().intValue();
+		return unwrap().intValue();
 	}
 
 	@Override
 	public long longValue() {
-		return getLiteral().longValue();
+		return unwrap().longValue();
 	}
 
 	@Override
 	public BigInteger integerValue() {
-		return getLiteral().integerValue();
+		return unwrap().integerValue();
 	}
 
 	@Override
 	public BigDecimal decimalValue() {
-		return getLiteral().decimalValue();
+		return unwrap().decimalValue();
 	}
 
 	@Override
 	public float floatValue() {
-		return getLiteral().floatValue();
+		return unwrap().floatValue();
 	}
 
 	@Override
 	public double doubleValue() {
-		return getLiteral().doubleValue();
+		return unwrap().doubleValue();
 	}
 
 	@Override
 	public boolean booleanValue() {
-		return getLiteral().booleanValue();
+		return unwrap().booleanValue();
 	}
 
 	@Override
 	public XMLGregorianCalendar calendarValue() {
-		return getLiteral().calendarValue();
+		return unwrap().calendarValue();
 	}
 
 	@Override
 	public TemporalAccessor temporalAccessorValue() throws DateTimeException {
-		return getLiteral().temporalAccessorValue();
+		return unwrap().temporalAccessorValue();
 	}
 
 	@Override
 	public TemporalAmount temporalAmountValue() throws DateTimeException {
-		return getLiteral().temporalAmountValue();
+		return unwrap().temporalAmountValue();
 	}
 }

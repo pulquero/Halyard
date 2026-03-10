@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.strategy;
 
 import com.msd.gin.halyard.model.FloatArrayLiteral;
+import com.msd.gin.halyard.model.ObjectArrayLiteral;
 
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -19,10 +20,24 @@ public class MathOpEvaluatorTest {
 	}
 
 	@Test
+	public void testAdd_objectVector() {
+		ValueFactory vf = SimpleValueFactory.getInstance();
+		Literal r = new MathOpEvaluator().evaluate(new ObjectArrayLiteral(7, -1.2f), new ObjectArrayLiteral(1, 0.5f), MathOp.PLUS, vf);
+		assertArrayEquals(new Object[] {8, -0.70000005f}, ObjectArrayLiteral.objectArray(r));
+	}
+
+	@Test
 	public void testSubtract_floatVector() {
 		ValueFactory vf = SimpleValueFactory.getInstance();
 		Literal r = new MathOpEvaluator().evaluate(new FloatArrayLiteral(0.7f, -1.2f), new FloatArrayLiteral(0.1f,0.5f), MathOp.MINUS, vf);
 		assertArrayEquals(new float[] {0.59999996f, -1.7f}, FloatArrayLiteral.floatArray(r));
+	}
+
+	@Test
+	public void testSubtract_objectVector() {
+		ValueFactory vf = SimpleValueFactory.getInstance();
+		Literal r = new MathOpEvaluator().evaluate(new ObjectArrayLiteral(7, -1.2f), new ObjectArrayLiteral(1, 0.5f), MathOp.MINUS, vf);
+		assertArrayEquals(new Object[] {6, -1.7f}, ObjectArrayLiteral.objectArray(r));
 	}
 
 	@Test

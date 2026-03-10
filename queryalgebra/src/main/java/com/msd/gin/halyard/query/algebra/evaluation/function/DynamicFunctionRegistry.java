@@ -37,10 +37,10 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.Rio;
 
+import com.msd.gin.halyard.model.AbstractArrayLiteral;
 import com.msd.gin.halyard.model.MapLiteral;
 import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.ObjectLiteral;
-import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import net.sf.saxon.Configuration;
 import net.sf.saxon.expr.Expression;
@@ -139,10 +139,9 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 			if (l instanceof ObjectLiteral) {
 				return ((ObjectLiteral<?>)l).objectValue();
 			} else {
-				IRI dt = l.getDatatype();
-				if (HALYARD.ARRAY_TYPE.equals(dt)) {
+				if (AbstractArrayLiteral.isArrayLiteral(l)) {
 					return ObjectArrayLiteral.objectArray(l);
-				} else if (HALYARD.MAP_TYPE.equals(dt)) {
+				} else if (MapLiteral.isMapLiteral(l)) {
 					return MapLiteral.objectMap(l);
 				} else {
 					return l.getLabel();

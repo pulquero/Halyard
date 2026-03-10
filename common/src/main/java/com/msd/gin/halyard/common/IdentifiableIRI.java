@@ -20,18 +20,18 @@ public final class IdentifiableIRI extends IdentifiableValue implements IRI {
 		));
 	}
 
-	private IRI getIRI() {
+	private IRI unwrap() {
 		return (IRI) getValue();
 	}
 
 	@Override
 	public String getNamespace() {
-		return getIRI().getNamespace();
+		return unwrap().getNamespace();
 	}
 
 	@Override
 	public String getLocalName() {
-		return getIRI().getLocalName();
+		return unwrap().getLocalName();
 	}
 
 	public boolean isWellKnown() {

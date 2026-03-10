@@ -13,9 +13,9 @@ package com.msd.gin.halyard.spin.function;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.util.Literals;
 import org.eclipse.rdf4j.model.vocabulary.FN;
-import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 
@@ -75,7 +75,7 @@ public class Concat implements Function {
 		Literal result;
 
 		if (useDatatype) {
-			result = valueFactory.createLiteral(concatBuilder.toString(), XSD.STRING);
+			result = valueFactory.createLiteral(concatBuilder.toString(), CoreDatatype.XSD.STRING);
 		} else if (useLanguageTag) {
 			result = valueFactory.createLiteral(concatBuilder.toString(), languageTag);
 		} else {

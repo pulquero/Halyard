@@ -1,4 +1,4 @@
-package com.msd.gin.halyard.common;
+package com.msd.gin.halyard.model;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -13,12 +13,17 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 
-public abstract class LiteralWrapper implements Literal {
+public abstract class LiteralWrapper implements Literal, Wrapper<Literal> {
 	private static final long serialVersionUID = -3751940963092784186L;
 	protected final Literal literal;
 
 	protected LiteralWrapper(Literal literal) {
 		this.literal = literal;
+	}
+
+	@Override
+	public final Literal unwrap() {
+		return literal;
 	}
 
 	@Override

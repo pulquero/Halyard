@@ -5,7 +5,6 @@ import java.util.Arrays;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
-import org.eclipse.rdf4j.model.vocabulary.GEO;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.io.ParseException;
@@ -47,6 +46,7 @@ public class WKTLiteral extends AbstractDataLiteral implements ObjectLiteral<Geo
 	}
 
 	public static byte[] writeWKB(Literal l) throws ParseException {
+		l = Wrapper.unwrap(l);
 		if (l instanceof WKTLiteral) {
 			return ((WKTLiteral)l).wkbBytes;
 		} else {
@@ -91,7 +91,7 @@ public class WKTLiteral extends AbstractDataLiteral implements ObjectLiteral<Geo
 
 	@Override
 	public IRI getDatatype() {
-		return GEO.WKT_LITERAL;
+		return CoreDatatype.GEO.WKT_LITERAL.getIri();
 	}
 
 	@Override

@@ -1,5 +1,6 @@
 package com.msd.gin.halyard.sail.search.function;
 
+import com.msd.gin.halyard.model.AbstractArrayLiteral;
 import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
@@ -35,7 +36,7 @@ public class EscapeTerm implements Function {
 			throw new QueryEvaluationException(String.format("Non-literal value: %s", args[0]));
 		}
 		Literal l = (Literal) args[0];
-		if (HALYARD.ARRAY_TYPE.equals(l.getDatatype())) {
+		if (AbstractArrayLiteral.isArrayLiteral(l)) {
 			Object[] entries = ObjectArrayLiteral.objectArray(l);
 			Object[] escaped = new Object[entries.length];
 			for (int i = 0; i < entries.length; i++) {

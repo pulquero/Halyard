@@ -37,4 +37,5 @@ final class HeaderBytes {
 	static final byte DATETIME_TYPE = 'T';
 	static final byte WKT_LITERAL_TYPE = 'W';
 	static final byte XML_TYPE = 'x';
+	static final byte ARRAY_TYPE = '[';
 }

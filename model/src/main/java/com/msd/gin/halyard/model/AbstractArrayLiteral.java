@@ -10,14 +10,29 @@ import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.base.CoreDatatype.XSD;
 import org.eclipse.rdf4j.model.util.Values;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
+import org.json.JSONArray;
+import org.json.JSONException;
 
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HalyardDatatype;
 
 public abstract class AbstractArrayLiteral<T> extends AbstractDataLiteral implements ObjectLiteral<T> {
 	private static final long serialVersionUID = -6423024672894102212L;
 
 	public static boolean isArrayLiteral(Value v) {
-		return v != null && v.isLiteral() && HALYARD.ARRAY_TYPE.equals(((Literal)v).getDatatype());
+		return v != null && v.isLiteral() && isArrayLiteral((Literal)v);
+	}
+
+	public static boolean isArrayLiteral(Literal l) {
+		return (l.getCoreDatatype() == HalyardDatatype.ARRAY) || HALYARD.ARRAY_TYPE.equals(l.getDatatype());
+	}
+
+	public static AbstractArrayLiteral<?> asArrayLiteral(Literal l) {
+		if (l instanceof AbstractArrayLiteral<?>) {
+			return (AbstractArrayLiteral<?>) l;
+		} else {
+			return create(l.getLabel());
+		}
 	}
 
 	public static Value[] toValues(Object[] oarr, ValueFactory vf) {
@@ -28,11 +43,74 @@ public abstract class AbstractArrayLiteral<T> extends AbstractDataLiteral implem
 		return varr;
 	}
 
+	public static AbstractArrayLiteral<?> create(String s) {
+		Object[] values;
+		Class<?> componentType;
+		try {
+			JSONArray jsonArr = new JSONArray(s);
+			int len = jsonArr.length();
+			values = new Object[len];
+			if (len == 0) {
+				componentType = Object.class;
+			} else {
+				Object value = jsonArr.get(0);
+				values[0] = value;
+				componentType = value.getClass();
+				for (int i=1; i<len; i++) {
+					value = jsonArr.get(i);
+					values[i] = value;
+					Class<?> nextType = value.getClass();
+					if (nextType != componentType) {
+						componentType = Object.class;
+					}
+				}
+			}
+		} catch (JSONException e) {
+			throw new IllegalArgumentException(e);
+		}
+
+		if (componentType == Double.class) {
+			double[] darr = new double[values.length];
+			float[] farr = new float[values.length];
+			componentType = Float.class;
+			for (int i=0; i<values.length; i++) {
+				double v = (Double) values[i];
+				float x = (float) v;
+				darr[i] = v;
+				farr[i] = x;
+				if (Math.abs(v - x) > Math.ulp(v)) {
+					componentType = Double.class;
+				}
+			}
+			if (componentType == Float.class) {
+				return new FloatArrayLiteral(farr);
+			} else {
+				return new DoubleArrayLiteral(darr);
+			}
+		} else {
+			return new ObjectArrayLiteral(values, componentType);
+		}
+	}
+
 	public static AbstractArrayLiteral<?> createFromValues(Value[] values) {
 		AbstractArrayLiteral<?> arrLiteral = null;
 		if (values.length > 0) {
 			Literal l = asLiteral(values[0]);
-			if (l.getCoreDatatype().asXSDDatatypeOrNull() == XSD.FLOAT) {
+			if (l.getCoreDatatype().asXSDDatatypeOrNull() == XSD.DOUBLE) {
+				double[] darr = new double[values.length];
+				darr[0] = l.doubleValue();
+				for (int i=1; i<values.length; i++) {
+					l = asLiteral(values[i]);
+					if (l.getCoreDatatype().asXSDDatatypeOrNull() != XSD.DOUBLE) {
+						darr = null;
+						break;
+					}
+					darr[i] = l.doubleValue();
+				}
+				if (darr != null) {
+					arrLiteral = new DoubleArrayLiteral(darr);
+				}
+			} else if (l.getCoreDatatype().asXSDDatatypeOrNull() == XSD.FLOAT) {
 				float[] farr = new float[values.length];
 				farr[0] = l.floatValue();
 				for (int i=1; i<values.length; i++) {
@@ -49,10 +127,18 @@ public abstract class AbstractArrayLiteral<T> extends AbstractDataLiteral implem
 			}
 			if (arrLiteral == null) {
 				Object[] objs = new Object[values.length];
-				for (int i=0; i<values.length; i++) {
-					objs[i] = fromValue(values[i]);
+				Object obj = fromValue(values[0]);
+				objs[0] = obj;
+				Class<?> componentType = obj.getClass();
+				for (int i=1; i<values.length; i++) {
+					obj = fromValue(values[i]);
+					objs[i] = obj;
+					Class<?> nextType = obj.getClass();
+					if (nextType != componentType) {
+						componentType = Object.class;
+					}
 				}
-				arrLiteral = new ObjectArrayLiteral(objs);
+				arrLiteral = new ObjectArrayLiteral(objs, componentType);
 			}
 		} else {
 			arrLiteral = new ObjectArrayLiteral();
@@ -68,7 +154,8 @@ public abstract class AbstractArrayLiteral<T> extends AbstractDataLiteral implem
 			try {
 				switch (xsd) {
 					case SHORT:
-						o = l.shortValue();
+						// upcast to int
+						o = l.intValue();
 						break;
 					case INT:
 						o = l.intValue();
@@ -107,13 +194,15 @@ public abstract class AbstractArrayLiteral<T> extends AbstractDataLiteral implem
 
 	@Override
 	public final IRI getDatatype() {
-		return HALYARD.ARRAY_TYPE;
+		return HalyardDatatype.ARRAY.getIri();
 	}
 
 	@Override
 	public final CoreDatatype getCoreDatatype() {
-		return CoreDatatype.NONE;
+		return HalyardDatatype.ARRAY;
 	}
+
+	public abstract Class<?> componentType();
 
 	public abstract Object[] elements();
 

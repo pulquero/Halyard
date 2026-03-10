@@ -2,6 +2,7 @@ package com.msd.gin.halyard.sail.search;
 
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.model.AbstractArrayLiteral;
 import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.ObjectLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
@@ -42,7 +43,7 @@ public class KNNTupleFunction implements ExtendedTupleFunction {
 			throw new QueryEvaluationException("Missing arguments");
 		}
 
-		if (!args[0].isLiteral() || !HALYARD.ARRAY_TYPE.equals(((Literal) args[0]).getDatatype())) {
+		if (!args[0].isLiteral() || !AbstractArrayLiteral.isArrayLiteral((Literal) args[0])) {
 			throw new QueryEvaluationException("Invalid query value");
 		}
 		int argPos = 0;

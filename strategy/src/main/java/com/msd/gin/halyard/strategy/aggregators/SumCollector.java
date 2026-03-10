@@ -1,5 +1,6 @@
 package com.msd.gin.halyard.strategy.aggregators;
 
+import com.msd.gin.halyard.model.AbstractArrayLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.strategy.MathOpEvaluator;
 
@@ -31,8 +32,7 @@ public class SumCollector implements ExtendedAggregateCollector {
 			if (total != null) {
 				return mathOpEval.evaluate(total, next, MathOp.PLUS, vf);
 			} else {
-				IRI dt = l.getDatatype();
-				if (HALYARD.ARRAY_TYPE.equals(dt)) {
+				if (AbstractArrayLiteral.isArrayLiteral(l)) {
 					return next;
 				} else {
 					// as per SPARQL spec: https://www.w3.org/TR/sparql11-query/#defn_aggSum

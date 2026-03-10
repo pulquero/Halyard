@@ -1,12 +1,12 @@
 package com.msd.gin.halyard.strategy;
 
+import com.msd.gin.halyard.model.AbstractArrayLiteral;
+import com.msd.gin.halyard.model.DoubleArrayLiteral;
 import com.msd.gin.halyard.model.FloatArrayLiteral;
 import com.msd.gin.halyard.model.ObjectArrayLiteral;
-import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
@@ -20,40 +20,43 @@ public class MathOpEvaluator {
 		try {
 			return XMLDatatypeMathUtil.compute(a, b, op, vf);
 		} catch (ValueExprEvaluationException ex) {
-			IRI adt = a.getDatatype();
-			IRI bdt = b.getDatatype();
-			boolean aisvec = HALYARD.ARRAY_TYPE.equals(adt);
-			boolean bisvec = HALYARD.ARRAY_TYPE.equals(bdt);
-			if (aisvec) {
-				if (bisvec) {
-					return operationBetweenVectors(a, b, op, vf);
-				} else if (op == MathOp.DIVIDE) {
-					CoreDatatype.XSD bcdt = b.getCoreDatatype().asXSDDatatypeOrNull();
-					if (bcdt != null && bcdt.isNumericDatatype()) {
-						return operationVectorDivideScalar(a, b, op, vf);
-					}
+			AbstractArrayLiteral<?> avec = AbstractArrayLiteral.isArrayLiteral(a) ? AbstractArrayLiteral.asArrayLiteral(a) : null;
+			AbstractArrayLiteral<?> bvec = AbstractArrayLiteral.isArrayLiteral(b) ? AbstractArrayLiteral.asArrayLiteral(b) : null;
+			if (avec != null && bvec != null) {
+				return operationBetweenVectors(avec, bvec, op, vf);
+			} else if (avec != null && op == MathOp.DIVIDE) {
+				CoreDatatype.XSD bcdt = b.getCoreDatatype().asXSDDatatypeOrNull();
+				if (bcdt != null && bcdt.isNumericDatatype()) {
+					return operationVectorDivideScalar(avec, b, op, vf);
 				}
-			} else if (bisvec) {
-				if (aisvec) {
-					return operationBetweenVectors(a, b, op, vf);
-				} else if (op == MathOp.MULTIPLY) {
-					CoreDatatype.XSD acdt = a.getCoreDatatype().asXSDDatatypeOrNull();
-					if (acdt != null && acdt.isNumericDatatype()) {
-						return operationScalarMultiplyVector(a, b, op, vf);
-					}
+			} else if (bvec != null) {
+				CoreDatatype.XSD acdt = a.getCoreDatatype().asXSDDatatypeOrNull();
+				if (acdt != null && acdt.isNumericDatatype()) {
+					return operationScalarMultiplyVector(a, bvec, op, vf);
 				}
 			}
 			throw ex;
 		}
 	}
 
-	private static Literal operationBetweenVectors(Literal a, Literal b, MathOp op, ValueFactory vf) {
-		if ((a instanceof FloatArrayLiteral) && (b instanceof FloatArrayLiteral)) {
-			float[] aarr = ((FloatArrayLiteral) a).objectValue();
-			float[] barr = ((FloatArrayLiteral) b).objectValue();
-			if (aarr.length != barr.length) {
-				throw new ValueExprEvaluationException("Arrays have incompatible dimensions");
+	private static AbstractArrayLiteral<?> operationBetweenVectors(AbstractArrayLiteral<?> a, AbstractArrayLiteral<?> b, MathOp op, ValueFactory vf) {
+		if (a.length() != b.length()) {
+			throw new ValueExprEvaluationException("Arrays have incompatible dimensions");
+		}
+		if ((a.componentType() == Double.class) || (b.componentType() == Double.class)) {
+			double[] aarr = DoubleArrayLiteral.doubleArray(a);
+			double[] barr = DoubleArrayLiteral.doubleArray(b);
+			switch (op) {
+				case PLUS:
+					return new DoubleArrayLiteral(add(aarr, barr));
+				case MINUS:
+					return new DoubleArrayLiteral(subtract(aarr, barr));
+				default:
+					throw new AssertionError("Unsupported operator: " + op);
 			}
+		} else if ((a.componentType() == Float.class) || (b.componentType() == Float.class)) {
+			float[] aarr = FloatArrayLiteral.floatArray(a);
+			float[] barr = FloatArrayLiteral.floatArray(b);
 			switch (op) {
 				case PLUS:
 					return new FloatArrayLiteral(add(aarr, barr));
@@ -65,9 +68,6 @@ public class MathOpEvaluator {
 		} else {
 			Object[] aarr = ObjectArrayLiteral.objectArray(a);
 			Object[] barr = ObjectArrayLiteral.objectArray(b);
-			if (aarr.length != barr.length) {
-				throw new ValueExprEvaluationException("Arrays have incompatible dimensions");
-			}
 			try {
 				switch (op) {
 					case PLUS:
@@ -81,6 +81,22 @@ public class MathOpEvaluator {
 				throw new ValueExprEvaluationException(ex);
 			}
 		}
+	}
+
+	private static double[] add(double[] a, double[] b) {
+		double[] y = new double[a.length];
+		for (int i=0; i<a.length; i++) {
+			y[i] = a[i] + b[i];
+		}
+		return y;
+	}
+
+	private static double[] subtract(double[] a, double[] b) {
+		double[] y = new double[a.length];
+		for (int i=0; i<a.length; i++) {
+			y[i] = a[i] - b[i];
+		}
+		return y;
 	}
 
 	private static float[] add(float[] a, float[] b) {
@@ -131,11 +147,19 @@ public class MathOpEvaluator {
 		return y;
 	}
 
-	private static Literal operationScalarMultiplyVector(Literal scalar, Literal vec, MathOp op, ValueFactory vf) {
+	private static AbstractArrayLiteral<?> operationScalarMultiplyVector(Literal scalar, AbstractArrayLiteral<?> vec, MathOp op, ValueFactory vf) {
 		CoreDatatype.XSD sdt = scalar.getCoreDatatype().asXSDDatatype().get();
-		if ((sdt == CoreDatatype.XSD.FLOAT) && (vec instanceof FloatArrayLiteral)) {
+		if ((vec.componentType() == Double.class) || (sdt == CoreDatatype.XSD.DOUBLE)) {
+			double[] v = DoubleArrayLiteral.doubleArray(vec);
+			double s = scalar.doubleValue();
+			double[] y = new double[v.length];
+			for (int i=0; i<v.length; i++) {
+				y[i] = s * v[i];
+			}
+			return new DoubleArrayLiteral(y);
+		} else if ((vec.componentType() == Float.class) || (sdt == CoreDatatype.XSD.FLOAT)) {
+			float[] v = FloatArrayLiteral.floatArray(vec);
 			float s = scalar.floatValue();
-			float[] v = ((FloatArrayLiteral) vec).objectValue();
 			float[] y = new float[v.length];
 			for (int i=0; i<v.length; i++) {
 				y[i] = s * v[i];
@@ -163,10 +187,18 @@ public class MathOpEvaluator {
 		}
 	}
 
-	private static Literal operationVectorDivideScalar(Literal vec, Literal scalar, MathOp op, ValueFactory vf) {
+	private static AbstractArrayLiteral<?> operationVectorDivideScalar(AbstractArrayLiteral<?> vec, Literal scalar, MathOp op, ValueFactory vf) {
 		CoreDatatype.XSD sdt = scalar.getCoreDatatype().asXSDDatatype().get();
-		if ((vec instanceof FloatArrayLiteral) && (sdt == CoreDatatype.XSD.FLOAT)) {
-			float[] v = ((FloatArrayLiteral) vec).objectValue();
+		if ((vec.componentType() == Double.class) || (sdt == CoreDatatype.XSD.DOUBLE)) {
+			double[] v = DoubleArrayLiteral.doubleArray(vec);
+			double s = scalar.doubleValue();
+			double[] y = new double[v.length];
+			for (int i=0; i<v.length; i++) {
+				y[i] = v[i] / s;
+			}
+			return new DoubleArrayLiteral(y);
+		} else if ((vec.componentType() == Float.class) || (sdt == CoreDatatype.XSD.FLOAT)) {
+			float[] v = FloatArrayLiteral.floatArray(vec);
 			float s = scalar.floatValue();
 			float[] y = new float[v.length];
 			for (int i=0; i<v.length; i++) {

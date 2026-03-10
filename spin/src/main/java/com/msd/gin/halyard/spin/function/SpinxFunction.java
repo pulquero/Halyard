@@ -24,7 +24,6 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 
@@ -92,7 +91,7 @@ public class SpinxFunction implements TransientFunction {
 	}
 
 	@Override
-	public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
+	public Value evaluate(ValueFactory vf, Value... args) throws ValueExprEvaluationException {
 
 		Bindings bindings = scriptEngine.createBindings();
 		Bindings existingBindings = scriptEngine.getContext().getBindings(ScriptContext.ENGINE_SCOPE);
@@ -133,7 +132,6 @@ public class SpinxFunction implements TransientFunction {
 			throw new ValueExprEvaluationException(e);
 		}
 
-		ValueFactory vf = SimpleValueFactory.getInstance();
 		return (returnType != null) ? vf.createLiteral(result.toString(), returnType) : vf.createIRI(result.toString());
 	}
 

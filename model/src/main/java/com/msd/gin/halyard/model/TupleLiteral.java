@@ -15,12 +15,17 @@ import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HalyardDatatype;
 
 public final class TupleLiteral extends AbstractDataLiteral implements ObjectLiteral<Value[]> {
 	private static final long serialVersionUID = 1465080710600525119L;
 
 	public static boolean isTupleLiteral(Value v) {
-		return v != null && v.isLiteral() && HALYARD.TUPLE_TYPE.equals(((Literal)v).getDatatype());
+		return v != null && v.isLiteral() && isTupleLiteral((Literal)v);
+	}
+
+	public static boolean isTupleLiteral(Literal l) {
+		return (l.getCoreDatatype() == HalyardDatatype.TUPLE) || HALYARD.TUPLE_TYPE.equals(l.getDatatype());
 	}
 
 	public static TupleLiteral asTupleLiteral(Value v) {
@@ -36,7 +41,7 @@ public final class TupleLiteral extends AbstractDataLiteral implements ObjectLit
 	}
 
 	private static Value[] parse(CharSequence s) {
-		return parse(s, SimpleValueFactory.getInstance());
+		return parse(s, AdvancedValueFactory.getInstance());
 	}
 
 	private static Value[] parse(CharSequence s, ValueFactory vf) {
@@ -125,12 +130,12 @@ public final class TupleLiteral extends AbstractDataLiteral implements ObjectLit
 
 	@Override
 	public IRI getDatatype() {
-		return HALYARD.TUPLE_TYPE;
+		return HalyardDatatype.TUPLE.getIri();
 	}
 
 	@Override
 	public CoreDatatype getCoreDatatype() {
-		return CoreDatatype.NONE;
+		return HalyardDatatype.TUPLE;
 	}
 
 	@Override

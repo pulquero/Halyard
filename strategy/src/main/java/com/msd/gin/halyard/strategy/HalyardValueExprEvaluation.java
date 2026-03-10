@@ -19,7 +19,7 @@ package com.msd.gin.halyard.strategy;
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.msd.gin.halyard.common.JavaObjectLiteral;
+import com.msd.gin.halyard.model.JavaObjectLiteral;
 import com.msd.gin.halyard.query.BindingSetPipe;
 import com.msd.gin.halyard.query.BindingSetPipeQueryEvaluationStep;
 import com.msd.gin.halyard.query.ValuePipe;

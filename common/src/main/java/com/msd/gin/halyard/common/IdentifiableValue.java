@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.common;
 
-import com.msd.gin.halyard.model.impl.AdvancedValueFactory;
+import com.msd.gin.halyard.model.AdvancedValueFactory;
 
 import java.io.ObjectStreamException;
 import java.nio.ByteBuffer;
@@ -13,7 +13,7 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 
 public abstract class IdentifiableValue implements Value, Cloneable {
-	protected static final ValueFactory MATERIALIZED_VALUE_FACTORY = new AdvancedValueFactory();
+	protected static final ValueFactory MATERIALIZED_VALUE_FACTORY = AdvancedValueFactory.getInstance();
 
 	private IdSer cachedIV;
 	private Value materializedValue;

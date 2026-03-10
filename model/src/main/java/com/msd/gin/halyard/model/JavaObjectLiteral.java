@@ -1,7 +1,4 @@
-package com.msd.gin.halyard.common;
-
-import com.msd.gin.halyard.model.AbstractDataLiteral;
-import com.msd.gin.halyard.model.ObjectLiteral;
+package com.msd.gin.halyard.model;
 
 import java.util.Objects;
 

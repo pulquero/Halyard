@@ -14,22 +14,22 @@ public final class IdentifiableTriple extends IdentifiableValue implements Tripl
 		super(MATERIALIZED_VALUE_FACTORY.createTriple(subject, predicate, object));
 	}
 
-	private Triple getTriple() {
+	private Triple unwrap() {
 		return (Triple) getValue();
 	}
 
 	@Override
 	public Resource getSubject() {
-		return getTriple().getSubject();
+		return unwrap().getSubject();
 	}
 
 	@Override
 	public IRI getPredicate() {
-		return getTriple().getPredicate();
+		return unwrap().getPredicate();
 	}
 
 	@Override
 	public Value getObject() {
-		return getTriple().getObject();
+		return unwrap().getObject();
 	}
 }

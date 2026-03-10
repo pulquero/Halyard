@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.common;
 
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HalyardDatatype;
 import com.msd.gin.halyard.model.vocabulary.SEMOPENALEX;
 import com.msd.gin.halyard.model.vocabulary.WIKIDATA;
 
@@ -21,8 +22,8 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.eclipse.rdf4j.model.vocabulary.GEO;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.junit.Test;
@@ -65,26 +66,27 @@ public class RDFFactoryTest {
 			new Object[] {vf.createLiteral(BigInteger.valueOf(96)), HeaderBytes.SHORT_COMPRESSED_BIG_INT_TYPE},
 			new Object[] {vf.createLiteral(BigInteger.valueOf(Integer.MIN_VALUE)), HeaderBytes.INT_COMPRESSED_BIG_INT_TYPE},
 			new Object[] {vf.createLiteral(BigInteger.valueOf(Long.MAX_VALUE)), HeaderBytes.LONG_COMPRESSED_BIG_INT_TYPE},
-			new Object[] {vf.createLiteral(String.valueOf(Long.MAX_VALUE)+String.valueOf(Long.MAX_VALUE), XSD.INTEGER), HeaderBytes.BIG_INT_TYPE},
+			new Object[] {vf.createLiteral(String.valueOf(Long.MAX_VALUE)+String.valueOf(Long.MAX_VALUE), CoreDatatype.XSD.INTEGER), HeaderBytes.BIG_INT_TYPE},
 			new Object[] {vf.createLiteral(BigDecimal.valueOf(856.03)), HeaderBytes.BIG_FLOAT_TYPE},
-			new Object[] {vf.createLiteral("z", XSD.INT), HeaderBytes.DATATYPE_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("z", CoreDatatype.XSD.INT), HeaderBytes.DATATYPE_LITERAL_TYPE},
 			new Object[] {vf.createIRI(RDF.NAMESPACE), HeaderBytes.NAMESPACE_HASH_TYPE},
 			new Object[] {vf.createLiteral("xyz", vf.createIRI(RDF.NAMESPACE)), HeaderBytes.DATATYPE_LITERAL_TYPE},
 			new Object[] {vf.createLiteral(new Date(946684800000l)), HeaderBytes.DATETIME_TYPE},  // "2000-01-01T00:00:00Z"^^xsd:dateTime
 			new Object[] {vf.createLiteral(LocalDateTime.of(1990, 6, 20, 0, 0, 0, 20005000)), HeaderBytes.DATETIME_TYPE},
-			new Object[] {vf.createLiteral("13:03:22", XSD.TIME), HeaderBytes.TIME_TYPE},
+			new Object[] {vf.createLiteral("13:03:22", CoreDatatype.XSD.TIME), HeaderBytes.TIME_TYPE},
 			new Object[] {vf.createLiteral(LocalTime.of(13, 3, 22, 40030000)), HeaderBytes.TIME_TYPE},
-			new Object[] {vf.createLiteral("1980-02-14", XSD.DATE), HeaderBytes.DATE_TYPE},
-			new Object[] {vf.createLiteral("2022-09-09+03:00", XSD.DATE), HeaderBytes.DATE_TYPE},
+			new Object[] {vf.createLiteral("1980-02-14", CoreDatatype.XSD.DATE), HeaderBytes.DATE_TYPE},
+			new Object[] {vf.createLiteral("2022-09-09+03:00", CoreDatatype.XSD.DATE), HeaderBytes.DATE_TYPE},
 			new Object[] {vf.createLiteral("foo", vf.createIRI("urn:bar:1")), HeaderBytes.DATATYPE_LITERAL_TYPE},
 			new Object[] {vf.createLiteral("foo", "en-GB"), HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE},
 			new Object[] {vf.createLiteral("bar", "zx-XY"), HeaderBytes.LANGUAGE_LITERAL_TYPE},
 			new Object[] {vf.createLiteral("漫画", "ja"), HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE},
-			new Object[] {vf.createLiteral("POINT (139.81 35.6972)", GEO.WKT_LITERAL), HeaderBytes.WKT_LITERAL_TYPE},
-			new Object[] {vf.createLiteral("invalid still works (139.81 35.6972)", GEO.WKT_LITERAL), HeaderBytes.WKT_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("POINT (139.81 35.6972)", CoreDatatype.GEO.WKT_LITERAL), HeaderBytes.WKT_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("invalid still works (139.81 35.6972)", CoreDatatype.GEO.WKT_LITERAL), HeaderBytes.WKT_LITERAL_TYPE},
 			new Object[] {vf.createLiteral("<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\">bar</test>", RDF.XMLLITERAL), HeaderBytes.XML_TYPE},
-			new Object[] {vf.createLiteral("<invalid xml still works", RDF.XMLLITERAL), HeaderBytes.XML_TYPE},
-			new Object[] {vf.createLiteral("0000-06-20T00:00:00Z", XSD.DATETIME), HeaderBytes.DATATYPE_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("<invalid xml still works", CoreDatatype.RDF.XMLLITERAL), HeaderBytes.XML_TYPE},
+			new Object[] {vf.createLiteral("0000-06-20T00:00:00Z", CoreDatatype.XSD.DATETIME), HeaderBytes.DATATYPE_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("[true,\"test\",5]", HalyardDatatype.ARRAY), HeaderBytes.ARRAY_TYPE},
 			new Object[] {vf.createLiteral(longString("The cat slept on the mat.")), HeaderBytes.COMPRESSED_STRING_TYPE},
 			new Object[] {vf.createLiteral(longString("¿Dónde está el gato?"), "es"), HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE},
 			new Object[] {vf.createIRI(HALYARD.VALUE_ID_NS.getName(), "eRg5UlsxjZuh-4meqlYQe3-J8X8"), HeaderBytes.ENCODED_IRI_TYPE},

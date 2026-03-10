@@ -33,10 +33,10 @@ import java.util.Iterator;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.vocabulary.OWL;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
-import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFHandlerException;
 import org.eclipse.rdf4j.rio.RDFParseException;
@@ -272,7 +272,7 @@ public final class JSONParser extends AbstractRDFParser {
             if (index != null) {
                 IRI indexIRI = valueFactory.createIRI(baseURI + predicatePath + ":index");
                 if (generateData) {
-                    handleStatement(createStatement(pkIRI, indexIRI, valueFactory.createLiteral(index.toString(), XSD.INTEGER)));
+                    handleStatement(createStatement(pkIRI, indexIRI, valueFactory.createLiteral(index.toString(), CoreDatatype.XSD.INTEGER)));
                 }
                 if (generateOntology) {
                     handleStatement(createStatement(indexIRI, RDF.TYPE, OWL.DATATYPEPROPERTY));

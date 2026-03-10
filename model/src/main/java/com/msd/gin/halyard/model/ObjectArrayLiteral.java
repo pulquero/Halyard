@@ -7,13 +7,15 @@ public final class ObjectArrayLiteral extends AbstractArrayLiteral<Object[]> {
 	private static final long serialVersionUID = 6409948385114916596L;
 
 	private final Object[] values;
-
-	public ObjectArrayLiteral(String s) {
-		this.values = parse(s);
-	}
+	private final Class<?> componentType;
 
 	public ObjectArrayLiteral(Object... values) {
+		this(values, Object.class);
+	}
+
+	public ObjectArrayLiteral(Object[] values, Class<?> componentType) {
 		this.values = values;
+		this.componentType = componentType;
 	}
 
 	@Override
@@ -31,6 +33,11 @@ public final class ObjectArrayLiteral extends AbstractArrayLiteral<Object[]> {
 	}
 
 	@Override
+	public Class<?> componentType() {
+		return componentType;
+	}
+
+	@Override
 	public Object[] elements() {
 		return values;
 	}
@@ -41,20 +48,6 @@ public final class ObjectArrayLiteral extends AbstractArrayLiteral<Object[]> {
 	}
 
 	public static Object[] objectArray(Literal l) {
-		if (l instanceof AbstractArrayLiteral) {
-			return ((AbstractArrayLiteral<?>)l).elements();
-		} else {
-			return parse(l.getLabel());
-		}
-	}
-
-	private static Object[] parse(CharSequence s) {
-		JSONArray arr = new JSONArray(s.toString());
-		int len = arr.length();
-		Object[] values = new Object[len];
-		for (int i=0; i<len; i++) {
-			values[i] = arr.get(i);
-		}
-		return values;
+		return AbstractArrayLiteral.asArrayLiteral(l).elements();
 	}
 }

@@ -25,12 +25,12 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.AFN;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.SP;
-import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.And;
@@ -1050,11 +1050,11 @@ public class SpinRenderer {
 			node.getArg().visit(this);
 			if (node.hasLimit()) {
 				handler.handleStatement(valueFactory.createStatement(subject, SP.LIMIT_PROPERTY,
-						valueFactory.createLiteral(Long.toString(node.getLimit()), XSD.INTEGER)));
+						valueFactory.createLiteral(Long.toString(node.getLimit()), CoreDatatype.XSD.INTEGER)));
 			}
 			if (node.hasOffset()) {
 				handler.handleStatement(valueFactory.createStatement(subject, SP.OFFSET_PROPERTY,
-						valueFactory.createLiteral(Long.toString(node.getOffset()), XSD.INTEGER)));
+						valueFactory.createLiteral(Long.toString(node.getOffset()), CoreDatatype.XSD.INTEGER)));
 			}
 		}
 

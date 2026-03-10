@@ -1,5 +1,6 @@
 package com.msd.gin.halyard.sail.search.function;
 
+import com.msd.gin.halyard.model.AbstractArrayLiteral;
 import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 
@@ -47,7 +48,7 @@ public class GroupTerms implements Function {
 				throw new QueryEvaluationException("Invalid value");
 			}
 			Literal l = (Literal) arg;
-			if (HALYARD.ARRAY_TYPE.equals(l.getDatatype())) {
+			if (AbstractArrayLiteral.isArrayLiteral(l)) {
 				Object[] entries = ObjectArrayLiteral.objectArray(l);
 				for (Object entry : entries) {
 					String s = entry.toString();

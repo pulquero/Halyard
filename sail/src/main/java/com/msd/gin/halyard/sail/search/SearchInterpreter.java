@@ -2,7 +2,7 @@ package com.msd.gin.halyard.sail.search;
 
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
-import com.msd.gin.halyard.common.JavaObjectLiteral;
+import com.msd.gin.halyard.model.JavaObjectLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.Algebra;
 import com.msd.gin.halyard.query.algebra.BGPCollector;

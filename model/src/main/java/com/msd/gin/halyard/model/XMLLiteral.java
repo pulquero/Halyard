@@ -18,8 +18,8 @@ import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
-import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.jvnet.fastinfoset.FastInfosetException;
 import org.jvnet.fastinfoset.FastInfosetResult;
 import org.jvnet.fastinfoset.FastInfosetSource;
@@ -50,6 +50,21 @@ public class XMLLiteral extends AbstractDataLiteral implements ObjectLiteral<Doc
         }
     };
 
+	public static byte[] writeInfoset(Literal l) throws TransformerException {
+		l = Wrapper.unwrap(l);
+		if (l instanceof XMLLiteral) {
+			return ((XMLLiteral)l).fiBytes;
+		} else {
+			return writeInfoset(l.getLabel());
+		}
+	}
+
+	public static byte[] writeInfoset(String xml) throws TransformerException {
+		ByteArrayOutputStream out = new ByteArrayOutputStream(1024);
+		writeInfoset(xml, out);
+		return out.toByteArray();
+	}
+
 	public static void writeInfoset(String xml, OutputStream out) throws TransformerException {
 		TRANSFORMER_FACTORY.get().newTransformer().transform(new StreamSource(new StringReader(xml)), new FastInfosetResult(out));
 	}
@@ -60,9 +75,7 @@ public class XMLLiteral extends AbstractDataLiteral implements ObjectLiteral<Doc
 
 	public XMLLiteral(String xml) {
 		try {
-			ByteArrayOutputStream out = new ByteArrayOutputStream(1024);
-			writeInfoset(xml, out);
-			this.fiBytes = out.toByteArray();
+			this.fiBytes = writeInfoset(xml);
 		} catch (TransformerException e) {
 			throw new IllegalArgumentException(e);
 		}
@@ -86,7 +99,7 @@ public class XMLLiteral extends AbstractDataLiteral implements ObjectLiteral<Doc
 
 	@Override
 	public IRI getDatatype() {
-		return RDF.XMLLITERAL;
+		return CoreDatatype.RDF.XMLLITERAL.getIri();
 	}
 
 	@Override

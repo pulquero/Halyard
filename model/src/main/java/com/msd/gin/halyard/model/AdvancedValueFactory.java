@@ -1,4 +1,4 @@
-package com.msd.gin.halyard.model.impl;
+package com.msd.gin.halyard.model;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -7,25 +7,27 @@ import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.vocabulary.GEO;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 
-import com.msd.gin.halyard.model.MapLiteral;
-import com.msd.gin.halyard.model.ObjectArrayLiteral;
-import com.msd.gin.halyard.model.TupleLiteral;
-import com.msd.gin.halyard.model.WKTLiteral;
-import com.msd.gin.halyard.model.XMLLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
+import com.msd.gin.halyard.model.vocabulary.HalyardDatatype;
 
 public final class AdvancedValueFactory extends AbstractValueFactory {
+	private static final AdvancedValueFactory INSTANCE = new AdvancedValueFactory();
+
+	public static AdvancedValueFactory getInstance() {
+		return INSTANCE;
+	}
+
 	private Literal createAdvancedLiteral(String label, IRI datatype, CoreDatatype coreDatatype) {
 		try {
 			if (coreDatatype == CoreDatatype.GEO.WKT_LITERAL || GEO.WKT_LITERAL.equals(datatype)) {
 				return new WKTLiteral(label);
 			} else if (coreDatatype == CoreDatatype.RDF.XMLLITERAL || RDF.XMLLITERAL.equals(datatype)) {
 				return new XMLLiteral(label);
-			} else if (HALYARD.TUPLE_TYPE.equals(datatype)) {
+			} else if (coreDatatype == HalyardDatatype.TUPLE || HALYARD.TUPLE_TYPE.equals(datatype)) {
 				return new TupleLiteral(label);
-			} else if (HALYARD.ARRAY_TYPE.equals(datatype)) {
-				return new ObjectArrayLiteral(label);
-			} else if (HALYARD.MAP_TYPE.equals(datatype)) {
+			} else if (coreDatatype == HalyardDatatype.ARRAY || HALYARD.ARRAY_TYPE.equals(datatype)) {
+				return AbstractArrayLiteral.create(label);
+			} else if (coreDatatype == HalyardDatatype.MAP || HALYARD.MAP_TYPE.equals(datatype)) {
 				return new MapLiteral(label);
 			}
 		} catch (IllegalArgumentException e) {
