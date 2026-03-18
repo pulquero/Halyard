@@ -32,7 +32,7 @@ public final class MapLiteral extends AbstractDataLiteral implements ObjectLiter
 		}
 	}
 
-	private static Map<String,Object> parse(CharSequence s) {
+	private static Map<String,Object> parse(String s) {
 		JSONObject obj = new JSONObject(s);
 		Map<String,Object> map = new HashMap<>(obj.length()+1);
 		for (String k : (Set<String>) obj.keySet()) {
