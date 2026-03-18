@@ -65,6 +65,7 @@ public class HBaseSearchTripleSource extends HBaseTripleSource {
 
 	@Override
 	protected void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
+		super.optimize(tupleExpr, dataset, bindings);
 		new SearchInterpreter().optimize(tupleExpr, dataset, bindings);
 		new WithinDistanceInterpreter().optimize(tupleExpr, dataset, bindings);
 		new KNNInterpreter().optimize(tupleExpr, dataset, bindings);

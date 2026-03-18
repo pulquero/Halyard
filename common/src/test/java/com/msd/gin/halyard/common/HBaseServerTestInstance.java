@@ -47,52 +47,73 @@ public final class HBaseServerTestInstance {
 
     public static synchronized Configuration getInstanceConfig() throws Exception {
         if (conf == null) {
-            File zooRoot = File.createTempFile("hbase-zookeeper", "");
-            zooRoot.delete();
-            zookeeper = new ZooKeeperServer(zooRoot, zooRoot, 2000);
-            ServerCnxnFactory factory = ServerCnxnFactory.createFactory(new InetSocketAddress("localhost", 0), 5000);
-            factory.startup(zookeeper);
+            zookeeper = startZooKeeper();
 
-            YarnConfiguration yconf = new YarnConfiguration();
-            String argLine = System.getProperty("argLine");
-            if (argLine != null) {
-                yconf.set("yarn.app.mapreduce.am.command-opts", argLine.replace("jacoco.exec", "jacocoMR.exec"));
-            }
-            yconf.setBoolean(MRConfig.MAPREDUCE_MINICLUSTER_CONTROL_RESOURCE_MONITORING, false);
-            yconf.setClass(YarnConfiguration.RM_SCHEDULER, FifoScheduler.class, ResourceScheduler.class);
-            miniCluster = new MiniMRYarnCluster("testCluster");
-            miniCluster.init(yconf);
-            String resourceManagerLink = yconf.get(YarnConfiguration.RM_ADDRESS);
-            yconf.setBoolean(MRJobConfig.JOB_UBERTASK_ENABLE, true);
-            miniCluster.start();
-            miniCluster.waitForNodeManagersToConnect(10000);
-            // following condition set in MiniYarnCluster:273
-            while (resourceManagerLink.endsWith(":0")) {
-                Thread.sleep(100);
-                resourceManagerLink = yconf.get(YarnConfiguration.RM_ADDRESS);
-            }
+            miniCluster = startYarn();
+            Configuration yarnConf = miniCluster.getConfig();
 
-            File hbaseRoot = File.createTempFile("hbase-root", "");
-            hbaseRoot.delete();
-            conf = HBaseConfiguration.create(miniCluster.getConfig());
-            conf.set(HConstants.HBASE_DIR, hbaseRoot.toURI().toURL().toString());
-            conf.setInt(HConstants.ZOOKEEPER_CLIENT_PORT, factory.getLocalPort());
-            conf.set("hbase.master.hostname", "localhost");
-            conf.set("hbase.regionserver.hostname", "localhost");
-            conf.setInt("hbase.master.port", HBASE_PORT);
-            conf.setInt("hbase.master.info.port", -1);
-            conf.setInt("hbase.regionserver.port", REGIONSERVER_PORT);
-            conf.setInt("hbase.regionserver.info.port", -1);
-            conf.setBoolean("hbase.procedure.store.wal.use.hsync", false);
-            conf.setBoolean("hbase.unsafe.stream.capability.enforce", false);
-            conf.set("hbase.fs.tmp.dir", new File(System.getProperty("java.io.tmpdir")).toURI().toURL().toString());
-            cluster = new LocalHBaseCluster(conf);
-            cluster.startup();
+            cluster = startHBase(zookeeper, yarnConf);
+
+            conf = cluster.getConfiguration();
         }
         return new Configuration(conf);
     }
 
-	public static synchronized void shutdown() throws IOException {
+    private static ZooKeeperServer startZooKeeper() throws Exception {
+        File zooRoot = File.createTempFile("hbase-zookeeper", "");
+        zooRoot.delete();
+        ZooKeeperServer zookeeper = new ZooKeeperServer(zooRoot, zooRoot, 2000);
+        ServerCnxnFactory factory = ServerCnxnFactory.createFactory(new InetSocketAddress("localhost", 0), 5000);
+        factory.startup(zookeeper);
+        return zookeeper;
+    }
+
+    private static MiniMRYarnCluster startYarn() throws Exception {
+        YarnConfiguration yconf = new YarnConfiguration();
+        String argLine = System.getProperty("argLine");
+        if (argLine != null) {
+            yconf.set("yarn.app.mapreduce.am.command-opts", argLine.replace("jacoco.exec", "jacocoMR.exec"));
+        }
+        yconf.setBoolean(MRConfig.MAPREDUCE_MINICLUSTER_CONTROL_RESOURCE_MONITORING, false);
+        yconf.setClass(YarnConfiguration.RM_SCHEDULER, FifoScheduler.class, ResourceScheduler.class);
+        MiniMRYarnCluster miniCluster = new MiniMRYarnCluster("testCluster");
+        miniCluster.init(yconf);
+        String resourceManagerLink = yconf.get(YarnConfiguration.RM_ADDRESS);
+        yconf.setBoolean(MRJobConfig.JOB_UBERTASK_ENABLE, true);
+        miniCluster.start();
+        miniCluster.waitForNodeManagersToConnect(10000);
+        // following condition set in MiniYarnCluster:273
+        while (resourceManagerLink.endsWith(":0")) {
+            Thread.sleep(100);
+            resourceManagerLink = yconf.get(YarnConfiguration.RM_ADDRESS);
+        }
+        return miniCluster;
+    }
+
+    private static LocalHBaseCluster startHBase(ZooKeeperServer zookeeper, Configuration extraConf) throws Exception {
+        File hbaseRoot = File.createTempFile("hbase-root", "");
+        hbaseRoot.delete();
+        Configuration conf = HBaseConfiguration.create();
+        if (extraConf != null) {
+        	HBaseConfiguration.merge(conf, extraConf);
+        }
+        conf.set(HConstants.HBASE_DIR, hbaseRoot.toURI().toURL().toString());
+        conf.setInt(HConstants.ZOOKEEPER_CLIENT_PORT, zookeeper.getClientPort());
+        conf.set("hbase.master.hostname", "localhost");
+        conf.set("hbase.regionserver.hostname", "localhost");
+        conf.setInt("hbase.master.port", HBASE_PORT);
+        conf.setInt("hbase.master.info.port", -1);
+        conf.setInt("hbase.regionserver.port", REGIONSERVER_PORT);
+        conf.setInt("hbase.regionserver.info.port", -1);
+        conf.setBoolean("hbase.procedure.store.wal.use.hsync", false);
+        conf.setBoolean("hbase.unsafe.stream.capability.enforce", false);
+        conf.set("hbase.fs.tmp.dir", new File(System.getProperty("java.io.tmpdir")).toURI().toURL().toString());
+        LocalHBaseCluster cluster = new LocalHBaseCluster(conf);
+        cluster.startup();
+        return cluster;
+    }
+
+    public static synchronized void shutdown() throws IOException {
 		if (conf != null) {
 			try {
 				cluster.shutdown();

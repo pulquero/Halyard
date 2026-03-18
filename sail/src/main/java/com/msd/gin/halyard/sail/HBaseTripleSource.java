@@ -33,6 +33,7 @@ import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.PartitionableTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.PartitionedIndex;
 import com.msd.gin.halyard.query.algebra.evaluation.QueryPreparer;
+import com.msd.gin.halyard.sail.http.HttpRequestInterpreter;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -127,7 +128,7 @@ public class HBaseTripleSource implements ExtendedTripleSource, RDFStarTripleSou
 	}
 
 	protected void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-		// no extra interpreters
+		new HttpRequestInterpreter().optimize(tupleExpr, dataset, bindings);
 	}
 
 	static final class QueryContexts {

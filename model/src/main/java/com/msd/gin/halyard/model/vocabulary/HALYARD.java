@@ -104,6 +104,8 @@ public final class HALYARD implements Vocabulary {
     public final static IRI GROUP_TERMS_FUNCTION = SVF.createIRI(NAMESPACE, "groupTerms");
     public final static IRI PHRASE_TERMS_FUNCTION = SVF.createIRI(NAMESPACE, "phraseTerms");
 
+    public final static IRI HTTP_REQUEST_FUNCTION = SVF.createIRI(NAMESPACE, "httpRequest");
+
     public final static IRI WKT_POINT_FUNCTION = SVF.createIRI(NAMESPACE, "wktPoint");
 
     public final static IRI DATASET_IRI_FUNCTION = SVF.createIRI(NAMESPACE, "datasetIRI");
