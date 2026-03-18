@@ -38,4 +38,5 @@ final class HeaderBytes {
 	static final byte WKT_LITERAL_TYPE = 'W';
 	static final byte XML_TYPE = 'x';
 	static final byte ARRAY_TYPE = '[';
+	static final byte BASE64_BINARY_TYPE = '6';
 }

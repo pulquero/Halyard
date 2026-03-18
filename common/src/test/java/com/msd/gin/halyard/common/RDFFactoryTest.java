@@ -86,6 +86,7 @@ public class RDFFactoryTest {
 			new Object[] {vf.createLiteral("<?xml version=\"1.0\" encoding=\"UTF-8\"?><test attr=\"foo\">bar</test>", RDF.XMLLITERAL), HeaderBytes.XML_TYPE},
 			new Object[] {vf.createLiteral("<invalid xml still works", CoreDatatype.RDF.XMLLITERAL), HeaderBytes.XML_TYPE},
 			new Object[] {vf.createLiteral("0000-06-20T00:00:00Z", CoreDatatype.XSD.DATETIME), HeaderBytes.DATATYPE_LITERAL_TYPE},
+			new Object[] {vf.createLiteral("Zm9vYmFy", CoreDatatype.XSD.BASE64BINARY), HeaderBytes.BASE64_BINARY_TYPE},
 			new Object[] {vf.createLiteral("[true,\"test\",5]", HalyardDatatype.ARRAY), HeaderBytes.ARRAY_TYPE},
 			new Object[] {vf.createLiteral(longString("The cat slept on the mat.")), HeaderBytes.COMPRESSED_STRING_TYPE},
 			new Object[] {vf.createLiteral(longString("¿Dónde está el gato?"), "es"), HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE},

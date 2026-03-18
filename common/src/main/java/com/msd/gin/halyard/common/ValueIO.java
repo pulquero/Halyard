@@ -628,6 +628,23 @@ public class ValueIO {
 			}
 		});
 
+		addByteWriter(CoreDatatype.XSD.BASE64BINARY, new ByteWriter() {
+			@Override
+			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
+				byte[] binary = ByteUtils.decode(l.getLabel());
+				b = ByteUtils.ensureCapacity(b, binary.length);
+				return b.put(HeaderBytes.BASE64_BINARY_TYPE).put(binary);
+			}
+		});
+		addByteReader(HeaderBytes.BASE64_BINARY_TYPE, new ByteReader(CoreDatatype.XSD.BASE64BINARY) {
+			@Override
+			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+				byte[] binary = new byte[b.remaining()];
+				b.get(binary);
+				return vf.createLiteral(ByteUtils.encode(binary), CoreDatatype.XSD.BASE64BINARY);
+			}
+		});
+
 		addByteWriter(CoreDatatype.GEO.WKT_LITERAL, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
