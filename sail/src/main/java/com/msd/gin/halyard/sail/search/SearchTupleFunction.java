@@ -3,8 +3,8 @@ package com.msd.gin.halyard.sail.search;
 import com.google.common.collect.Lists;
 import com.msd.gin.halyard.common.RDFFactory;
 import com.msd.gin.halyard.common.StatementIndices;
+import com.msd.gin.halyard.model.AbstractArrayLiteral;
 import com.msd.gin.halyard.model.FloatArrayLiteral;
-import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.ObjectLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
@@ -54,7 +54,8 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 			throw new QueryEvaluationException("Invalid query value");
 		}
 		int argPos = 0;
-		String query = ((Literal) args[argPos++]).getLabel();
+		Literal queryArg = (Literal) args[argPos++];
+		String query = queryArg.getLabel();
 		int limit = ((Literal) args[argPos++]).intValue();
 		double minScore = ((Literal) args[argPos++]).doubleValue();
 		int fuzziness = ((Literal) args[argPos++]).intValue();
@@ -77,7 +78,7 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 			SearchResponse<? extends SearchDocument> searchResults = searchClient.search(query, limit, minScore, fuzziness, phraseSlop, hasAdditionalFields);
 			return transformResults(searchResults, matches, valueFactory, rdfFactory);
 		} catch (ElasticsearchException e) {
-			LOGGER.error(String.format("Query failed: %s", query));
+			LOGGER.error(String.format("Query failed: %s", queryArg));
 			throw new QueryEvaluationException(e);
 		} catch (IOException e) {
 			throw new QueryEvaluationException(e);
@@ -128,7 +129,7 @@ public class SearchTupleFunction implements ExtendedTupleFunction {
 						} else {
 							Object v = doc.getAdditionalField(fieldParams.name);
 							if (v instanceof List<?>) {
-								l = new ObjectArrayLiteral(((List<?>) v).toArray());
+								l = AbstractArrayLiteral.createFromArray(((List<?>) v).toArray());
 							} else if (v != null) {
 								l = Values.literal(valueFactory, v, false);
 							} else {

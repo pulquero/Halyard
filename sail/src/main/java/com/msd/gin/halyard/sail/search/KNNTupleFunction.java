@@ -47,10 +47,11 @@ public class KNNTupleFunction implements ExtendedTupleFunction {
 			throw new QueryEvaluationException("Invalid query value");
 		}
 		int argPos = 0;
-		Object[] query = ObjectArrayLiteral.objectArray((Literal) args[argPos++]);
-		Float[] vec = new Float[query.length];
-		for (int i = 0; i < query.length; i++) {
-			vec[i] = ((Number) query[i]).floatValue();
+		Literal queryArg = (Literal) args[argPos++];
+		Object[] queryArr = ObjectArrayLiteral.objectArray(queryArg);
+		Float[] vec = new Float[queryArr.length];
+		for (int i = 0; i < queryArr.length; i++) {
+			vec[i] = ((Number) queryArr[i]).floatValue();
 		}
 		int k = ((Literal) args[argPos++]).intValue();
 		int numCandidates = ((Literal) args[argPos++]).intValue();
@@ -73,7 +74,7 @@ public class KNNTupleFunction implements ExtendedTupleFunction {
 			SearchResponse<? extends SearchDocument> searchResults = searchClient.knn(vec, k, numCandidates, minScore, hasAdditionalFields);
 			return SearchTupleFunction.transformResults(searchResults, matches, valueFactory, rdfFactory);
 		} catch (ElasticsearchException e) {
-			LOGGER.error(String.format("Query failed: %s", (Object) query));
+			LOGGER.error(String.format("Query failed: %s", queryArg));
 			throw new QueryEvaluationException(e);
 		} catch (IOException e) {
 			throw new QueryEvaluationException(e);

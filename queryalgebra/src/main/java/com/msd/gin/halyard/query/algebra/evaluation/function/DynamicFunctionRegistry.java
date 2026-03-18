@@ -221,7 +221,7 @@ public class DynamicFunctionRegistry extends FunctionRegistry {
 
 	private static Value toValue(ValueFactory vf, Object v) throws XPathException {
 		if (v instanceof Object[]) {
-			return new ObjectArrayLiteral((Object[]) v);
+			return AbstractArrayLiteral.createFromArray((Object[]) v);
 		} else if (v instanceof Map<?,?>) {
 			return new MapLiteral((Map<String,Object>)v);
 		} else {

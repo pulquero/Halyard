@@ -69,12 +69,35 @@ public abstract class AbstractArrayLiteral<T> extends AbstractDataLiteral implem
 			throw new IllegalArgumentException(e);
 		}
 
+		return createFromArray(values, componentType);
+	}
+
+	public static AbstractArrayLiteral<?> createFromArray(Object[] arr) {
+		Class<?> componentType;
+		int len = arr.length;
+		if (len == 0) {
+			componentType = Object.class;
+		} else {
+			componentType = arr[0].getClass();
+			for (int i=1; i<len; i++) {
+				Class<?> nextType = arr[i].getClass();
+				if (nextType != componentType) {
+					componentType = Object.class;
+					break;
+				}
+			}
+		}
+
+		return createFromArray(arr, componentType);
+	}
+
+	private static AbstractArrayLiteral<?> createFromArray(Object[] arr, Class<?> componentType) {
 		if (componentType == Double.class) {
-			double[] darr = new double[values.length];
-			float[] farr = new float[values.length];
+			double[] darr = new double[arr.length];
+			float[] farr = new float[arr.length];
 			componentType = Float.class;
-			for (int i=0; i<values.length; i++) {
-				double v = (Double) values[i];
+			for (int i=0; i<arr.length; i++) {
+				double v = (Double) arr[i];
 				float x = (float) v;
 				darr[i] = v;
 				farr[i] = x;
@@ -88,7 +111,7 @@ public abstract class AbstractArrayLiteral<T> extends AbstractDataLiteral implem
 				return new DoubleArrayLiteral(darr);
 			}
 		} else {
-			return new ObjectArrayLiteral(values, componentType);
+			return new ObjectArrayLiteral(arr, componentType);
 		}
 	}
 

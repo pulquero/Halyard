@@ -71,9 +71,9 @@ public class MathOpEvaluator {
 			try {
 				switch (op) {
 					case PLUS:
-						return new ObjectArrayLiteral(add(aarr, barr));
+						return AbstractArrayLiteral.createFromArray(add(aarr, barr));
 					case MINUS:
-						return new ObjectArrayLiteral(subtract(aarr, barr));
+						return AbstractArrayLiteral.createFromArray(subtract(aarr, barr));
 					default:
 						throw new AssertionError("Unsupported operator: " + op);
 				}
@@ -183,7 +183,7 @@ public class MathOpEvaluator {
 			} catch (ClassCastException ex) {
 				throw new ValueExprEvaluationException(ex);
 			}
-			return new ObjectArrayLiteral(y);
+			return AbstractArrayLiteral.createFromArray(y);
 		}
 	}
 
@@ -223,7 +223,7 @@ public class MathOpEvaluator {
 			} catch (ClassCastException ex) {
 				throw new ValueExprEvaluationException(ex);
 			}
-			return new ObjectArrayLiteral(y);
+			return AbstractArrayLiteral.createFromArray(y);
 		}
 	}
 }
