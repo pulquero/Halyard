@@ -4,6 +4,7 @@ import com.google.common.collect.Sets;
 import com.ibm.icu.text.UnicodeCompressor;
 import com.ibm.icu.text.UnicodeDecompressor;
 import com.msd.gin.halyard.model.AbstractArrayLiteral;
+import com.msd.gin.halyard.model.Base64Literal;
 import com.msd.gin.halyard.model.DoubleArrayLiteral;
 import com.msd.gin.halyard.model.FloatArrayLiteral;
 import com.msd.gin.halyard.model.ObjectArrayLiteral;
@@ -631,7 +632,7 @@ public class ValueIO {
 		addByteWriter(CoreDatatype.XSD.BASE64BINARY, new ByteWriter() {
 			@Override
 			public ByteBuffer writeBytes(Literal l, ByteBuffer b) {
-				byte[] binary = ByteUtils.decode(l.getLabel());
+				byte[] binary = Base64Literal.byteArray(l);
 				b = ByteUtils.ensureCapacity(b, binary.length);
 				return b.put(HeaderBytes.BASE64_BINARY_TYPE).put(binary);
 			}
@@ -641,7 +642,7 @@ public class ValueIO {
 			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
 				byte[] binary = new byte[b.remaining()];
 				b.get(binary);
-				return vf.createLiteral(ByteUtils.encode(binary), CoreDatatype.XSD.BASE64BINARY);
+				return new Base64Literal(binary);
 			}
 		});
 

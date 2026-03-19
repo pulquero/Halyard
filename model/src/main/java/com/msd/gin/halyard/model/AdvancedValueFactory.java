@@ -6,6 +6,7 @@ import org.eclipse.rdf4j.model.base.AbstractValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.vocabulary.GEO;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.model.vocabulary.XSD;
 
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.model.vocabulary.HalyardDatatype;
@@ -29,6 +30,8 @@ public final class AdvancedValueFactory extends AbstractValueFactory {
 				return AbstractArrayLiteral.create(label);
 			} else if (coreDatatype == HalyardDatatype.MAP || HALYARD.MAP_TYPE.equals(datatype)) {
 				return new MapLiteral(label);
+			} else if (coreDatatype == CoreDatatype.XSD.BASE64BINARY || XSD.BASE64BINARY.equals(datatype)) {
+				return new Base64Literal(label);
 			}
 		} catch (IllegalArgumentException e) {
 			// catch any illegal values and fallback
