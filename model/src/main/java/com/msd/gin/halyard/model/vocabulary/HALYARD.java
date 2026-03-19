@@ -138,6 +138,8 @@ public final class HALYARD implements Vocabulary {
 
 	public final static IRI XPATH_PROPERTY = SVF.createIRI(NAMESPACE, "xpath");
 
+	public final static IRI JSON_PATH_PROPERTY = SVF.createIRI(NAMESPACE, "jsonPath");
+
 	public final static IRI NON_STRING_TYPE = SVF.createIRI(NAMESPACE, "nonString");
 
 	public final static IRI ANY_NUMERIC_TYPE = SVF.createIRI(NAMESPACE, "anyNumeric");

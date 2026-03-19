@@ -50,6 +50,15 @@ public class XMLLiteral extends AbstractDataLiteral implements ObjectLiteral<Doc
         }
     };
 
+	public static Document asDocument(Literal l) throws ParserConfigurationException, SAXException, IOException {
+		if (l instanceof XMLLiteral) {
+			return ((XMLLiteral) l).objectValue();
+		} else {
+			String xml = l.getLabel();
+			return parseXml(xml);
+		}
+	}
+
 	public static byte[] writeInfoset(Literal l) throws TransformerException {
 		l = Wrapper.unwrap(l);
 		if (l instanceof XMLLiteral) {

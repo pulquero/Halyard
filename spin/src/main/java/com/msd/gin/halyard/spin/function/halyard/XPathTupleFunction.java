@@ -65,15 +65,9 @@ public class XPathTupleFunction implements TupleFunction, InverseMagicProperty {
 			returnType = XPathConstants.STRING;
 		}
 
-		String query = ((Literal) args[0]).stringValue();
+		String query = args[0].stringValue();
 		try {
-			Document doc;
-			if (args[1] instanceof XMLLiteral) {
-				doc = ((XMLLiteral) args[1]).objectValue();
-			} else {
-				String xml = ((Literal) args[1]).getLabel();
-				doc = XMLLiteral.parseXml(xml);
-			}
+			Document doc = XMLLiteral.asDocument((Literal) args[1]);
 			XPathExpression xpe = XPATH_CACHE.get(query);
 			Object result = xpe.evaluate(doc, returnType);
 			LSSerializer serializer;
@@ -90,7 +84,7 @@ public class XPathTupleFunction implements TupleFunction, InverseMagicProperty {
 				return new SingletonIteration<>(Collections.singletonList(vf.createLiteral(s)));
 			} else if (result instanceof NodeList) {
 				NodeList nl = (NodeList) result;
-				return new CloseableIteration<List<? extends Value>>() {
+				return new CloseableIteration<>() {
 					int pos = 0;
 
 					@Override
@@ -125,7 +119,7 @@ public class XPathTupleFunction implements TupleFunction, InverseMagicProperty {
 
 	private static String serializeNode(Node n, LSSerializer serializer) {
 		if (n instanceof Attr) {
-			return ((Attr) n).getNodeValue();
+			return n.getNodeValue();
 		} else {
 			return serializer.writeToString(n);
 		}

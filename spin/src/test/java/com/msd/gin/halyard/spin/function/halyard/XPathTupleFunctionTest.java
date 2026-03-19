@@ -1,7 +1,8 @@
 package com.msd.gin.halyard.spin.function.halyard;
 
-import com.msd.gin.halyard.model.XMLLiteral;
-import com.msd.gin.halyard.spin.function.halyard.XPathTupleFunction;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
@@ -12,10 +13,9 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import com.msd.gin.halyard.model.XMLLiteral;
 
 public class XPathTupleFunctionTest {
 	@Test

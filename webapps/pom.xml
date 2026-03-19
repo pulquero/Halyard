@@ -122,6 +122,11 @@
 									<artifactId>icu4j</artifactId>
 									<version>${icu4j.version}</version>
 								</artifactItem>
+								<artifactItem>
+									<groupId>com.jayway.jsonpath</groupId>
+									<artifactId>json-path</artifactId>
+									<version>${jsonpath.version}</version>
+								</artifactItem>
 
 								<!-- lang chain -->
 								<artifactItem>
