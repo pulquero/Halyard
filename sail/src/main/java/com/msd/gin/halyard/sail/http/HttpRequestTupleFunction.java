@@ -1,6 +1,7 @@
 package com.msd.gin.halyard.sail.http;
 
-import com.msd.gin.halyard.common.ByteUtils;
+import com.google.common.base.Strings;
+import com.msd.gin.halyard.model.Base64Literal;
 import com.msd.gin.halyard.model.MapLiteral;
 import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.XMLLiteral;
@@ -9,6 +10,8 @@ import com.msd.gin.halyard.query.algebra.evaluation.ExtendedTripleSource;
 import com.msd.gin.halyard.query.algebra.evaluation.function.ExtendedTupleFunction;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -16,9 +19,11 @@ import java.util.Map;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
+import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -31,6 +36,7 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype.XSD;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
@@ -75,17 +81,38 @@ public class HttpRequestTupleFunction implements ExtendedTupleFunction {
 		} else {
 			headers = new Object[0];
 		}
+		Literal requestBody;
+		if (args.length > 3 && !RDF.NIL.equals(args[3])) {
+			requestBody = (Literal) args[3];
+		} else {
+			requestBody = null;
+		}
 
 		RequestBuilder requestBuilder = RequestBuilder.create(method.getLocalName()).setUri(uri);
 		for (Object headerObj : headers) {
 			Header header = toHeader(headerObj);
 			requestBuilder.addHeader(header);
 		}
+		if (requestBody != null) {
+			HttpEntity entity;
+			if (XSD.BASE64BINARY.equals(requestBody.getCoreDatatype())) {
+				entity = new ByteArrayEntity(Base64Literal.byteArray(requestBody));
+			} else {
+				ByteBuffer bb = StandardCharsets.UTF_8.encode(requestBody.stringValue());
+				byte[] content = new byte[bb.remaining()];
+				bb.get(content);
+				entity = new ByteArrayEntity(content);
+			}
+			requestBuilder.setEntity(entity);
+		}
 		HttpUriRequest request = requestBuilder.build();
 		try (final CloseableHttpClient httpClient = HttpClients.createDefault()) {
 			try (final CloseableHttpResponse resp = httpClient.execute(request)) {
-				int sc = resp.getStatusLine().getStatusCode();
+				StatusLine sl = resp.getStatusLine();
+				int sc = sl.getStatusCode();
+				String reason = sl.getReasonPhrase();
 				Literal scLiteral = vf.createLiteral(sc);
+				Literal reasonLiteral = vf.createLiteral(Strings.nullToEmpty(reason));
 				HttpEntity entity = resp.getEntity();
 				ContentType contentType = ContentType.get(entity);
 				if (contentType == null) {
@@ -100,10 +127,9 @@ public class HttpRequestTupleFunction implements ExtendedTupleFunction {
 				} else if (mimeType.startsWith("text/")) {
 					respLiteral = vf.createLiteral(EntityUtils.toString(entity));
 				} else {
-					byte[] b = EntityUtils.toByteArray(entity);
-					respLiteral = vf.createLiteral(ByteUtils.encode(b), XSD.BASE64BINARY);
+					respLiteral = new Base64Literal(EntityUtils.toByteArray(entity));
 				}
-				return new SingletonIteration<List<? extends Value>>(Arrays.asList(scLiteral, respLiteral));
+				return new SingletonIteration<List<? extends Value>>(Arrays.asList(scLiteral, reasonLiteral, respLiteral));
 			}
 		} catch (IOException ioe) {
 			throw new QueryEvaluationException(ioe);

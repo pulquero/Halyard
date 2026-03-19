@@ -26,6 +26,7 @@ public final class HTTP {
 	public static final IRI RESP_PROPERTY = iri("resp");
 	public static final IRI RESPONSE_CLASS = iri("Response");
 	public static final IRI STATUS_CODE_VALUE_PROPERTY = iri("statusCodeValue");
+	public static final IRI REASON_PHRASE_PROPERTY = iri("reasonPhrase");
 	public static final IRI BODY_PROPERTY = iri("body");
 
 	public static final class METHOD {

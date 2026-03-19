@@ -9,12 +9,14 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -52,7 +54,7 @@ public class HttpRequestTest {
 			try (RepositoryConnection conn = hbaseRepo.getConnection()) {
 				TupleQuery q = conn.prepareTupleQuery(
 						"PREFIX halyard: <http://merck.github.io/Halyard/ns#> PREFIX http: <http://www.w3.org/2011/http#> select * { [] a http:Request; http:absoluteURI '" + server.getUrl()
-								+ "'; http:resp [http:statusCodeValue ?sc; http:body ?body ] }");
+								+ "'; http:resp [http:statusCodeValue ?sc; http:reasonPhrase ?reason; http:body ?body ] }");
 				try (TupleQueryResult iter = q.evaluate()) {
 					assertTrue(iter.hasNext());
 					BindingSet bs = iter.next();
@@ -73,12 +75,40 @@ public class HttpRequestTest {
 			Repository hbaseRepo = createRepo("testSimpleRequest");
 			try (RepositoryConnection conn = hbaseRepo.getConnection()) {
 				TupleQuery q = conn.prepareTupleQuery("PREFIX halyard: <http://merck.github.io/Halyard/ns#> PREFIX http: <http://www.w3.org/2011/http#> select * { [] a http:Request; http:absoluteURI '" + server.getUrl()
-						+ "'; http:headers ([http:fieldName 'User-agent'; http:fieldValue '" + userAgent + "']); http:resp [http:statusCodeValue ?sc; http:body ?body ] }");
+						+ "'; http:headers ([http:fieldName 'User-agent'; http:fieldValue '" + userAgent + "']); http:resp [http:statusCodeValue ?sc; http:reasonPhrase ?reason; http:body ?body ] }");
 				try (TupleQueryResult iter = q.evaluate()) {
 					assertTrue(iter.hasNext());
 					BindingSet bs = iter.next();
 					assertNotNull(server.requestHeaders);
 					assertEquals(userAgent, server.requestHeaders.get("User-agent").get(0));
+					assertEquals(200, ((Literal) bs.getValue("sc")).intValue());
+					Literal actualBody = (Literal) bs.getValue("body");
+					assertEquals(expectedBody, actualBody.stringValue());
+					assertEquals(HALYARD.MAP_TYPE, actualBody.getDatatype());
+					assertFalse(iter.hasNext());
+				}
+			}
+			hbaseRepo.shutDown();
+		}
+	}
+
+	@Test
+	public void postRequestTest() throws Exception {
+		String contentType = "text/plain";
+		String requestBody = "foobar";
+		String expectedBody = "{\"msg\":\"Hi!\"}";
+		try (MockHttpServer server = startHttpServer("application/json", toBytes(expectedBody))) {
+			Repository hbaseRepo = createRepo("testSimpleRequest");
+			try (RepositoryConnection conn = hbaseRepo.getConnection()) {
+				TupleQuery q = conn.prepareTupleQuery("PREFIX halyard: <http://merck.github.io/Halyard/ns#> PREFIX http: <http://www.w3.org/2011/http#> select * { [] a http:Request; http:absoluteURI '" + server.getUrl()
+						+ "'; http:headers ([http:fieldName 'Content-type'; http:fieldValue '" + contentType + "']); http:body '" + requestBody + "'; http:resp [http:statusCodeValue ?sc; http:reasonPhrase ?reason; http:body ?body ] }");
+				try (TupleQueryResult iter = q.evaluate()) {
+					assertTrue(iter.hasNext());
+					BindingSet bs = iter.next();
+					assertNotNull(server.requestHeaders);
+					assertEquals(contentType, server.requestHeaders.get("Content-type").get(0));
+					assertNotNull(server.requestBody);
+					assertEquals(requestBody, server.requestBody);
 					assertEquals(200, ((Literal) bs.getValue("sc")).intValue());
 					Literal actualBody = (Literal) bs.getValue("body");
 					assertEquals(expectedBody, actualBody.stringValue());
@@ -106,6 +136,7 @@ public class HttpRequestTest {
 	static class MockHttpServer implements AutoCloseable {
 		final HttpServer server;
 		Headers requestHeaders;
+		String requestBody;
 
 		MockHttpServer(String contentType, byte[] response) throws IOException {
 			server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
@@ -113,6 +144,9 @@ public class HttpRequestTest {
 				@Override
 				public void handle(HttpExchange he) throws IOException {
 					requestHeaders = he.getRequestHeaders();
+					try (InputStream in = he.getRequestBody()) {
+						requestBody = IOUtils.toString(in, StandardCharsets.UTF_8);
+					}
 					he.getResponseHeaders().add("Content-type", contentType);
 					he.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
 					try (OutputStream out = he.getResponseBody()) {

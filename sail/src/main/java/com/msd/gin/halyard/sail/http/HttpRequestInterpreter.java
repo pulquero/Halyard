@@ -72,6 +72,9 @@ public class HttpRequestInterpreter implements QueryOptimizer {
 						} else if (HTTP.METHOD_NAME_PROPERTY.equals(httpPred)) {
 							httpSP.replaceWith(new SingletonSet());
 							httpCall.params.setMethod(httpObjVar);
+						} else if (HTTP.BODY_PROPERTY.equals(httpPred)) {
+							httpSP.replaceWith(new SingletonSet());
+							httpCall.params.setRequestBody(httpObjVar);
 						} else if (HTTP.RESP_PROPERTY.equals(httpPred)) {
 							httpSP.replaceWith(new SingletonSet());
 							List<StatementPattern> respSPs = stmtsBySubj.get(httpObjVar.getName());
@@ -84,6 +87,9 @@ public class HttpRequestInterpreter implements QueryOptimizer {
 								} else if (HTTP.STATUS_CODE_VALUE_PROPERTY.equals(respPred)) {
 									respSP.replaceWith(new SingletonSet());
 									httpCall.params.setStatusCodeVarName(respObj.getName());
+								} else if (HTTP.REASON_PHRASE_PROPERTY.equals(respPred)) {
+									respSP.replaceWith(new SingletonSet());
+									httpCall.params.setReasonVarName(respObj.getName());
 								}
 							}
 						} else if (HTTP.HEADERS_PROPERTY.equals(httpPred)) {
@@ -157,10 +163,15 @@ public class HttpRequestInterpreter implements QueryOptimizer {
 		final HttpParams params = new HttpParams();
 
 		boolean initCall() {
+			if (params.statusCodeVarName == null || params.reasonVarName == null || params.responseBodyVarName == null) {
+				return false;
+			}
 			tfc.addArg(params.absoluteURIVar.clone());
 			tfc.addArg(params.methodVar != null ? params.methodVar.clone() : new ValueConstant(VF.createLiteral("GET")));
 			tfc.addArg(new ValueConstant(new ObjectArrayLiteral(params.headers.toArray(), Pair.class)));
+			tfc.addArg(params.requestBodyVar != null ? params.requestBodyVar.clone() : new ValueConstant(RDF.NIL));
 			tfc.addResultVar(new Var(params.statusCodeVarName));
+			tfc.addResultVar(new Var(params.reasonVarName));
 			tfc.addResultVar(new Var(params.responseBodyVarName));
 			return true;
 		}
@@ -169,9 +180,11 @@ public class HttpRequestInterpreter implements QueryOptimizer {
 	static final class HttpParams {
 		Var absoluteURIVar;
 		Var methodVar;
+		Var requestBodyVar;
 		List<Pair<String, String>> headers = new ArrayList<>();
 		String responseBodyVarName;
 		String statusCodeVarName;
+		String reasonVarName;
 
 		void setAbsoluteURI(Var var) {
 			absoluteURIVar = var;
@@ -179,6 +192,10 @@ public class HttpRequestInterpreter implements QueryOptimizer {
 
 		void setMethod(Var var) {
 			methodVar = var;
+		}
+
+		void setRequestBody(Var var) {
+			requestBodyVar = var;
 		}
 
 		void addHeader(String name, String value) {
@@ -191,6 +208,10 @@ public class HttpRequestInterpreter implements QueryOptimizer {
 
 		void setStatusCodeVarName(String var) {
 			statusCodeVarName = var;
+		}
+
+		void setReasonVarName(String var) {
+			reasonVarName = var;
 		}
 	}
 }
