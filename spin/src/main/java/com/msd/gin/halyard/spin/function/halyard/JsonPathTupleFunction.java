@@ -16,11 +16,15 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.TupleFunction;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
+import com.msd.gin.halyard.model.JsonOrgJsonValueFactory;
+import com.msd.gin.halyard.model.JsonValueFactory;
 import com.msd.gin.halyard.model.MapLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.spin.function.InverseMagicProperty;
 
 public class JsonPathTupleFunction implements TupleFunction, InverseMagicProperty {
+	private static final Configuration CONFIGURATION = Configuration.defaultConfiguration().addOptions(Option.DEFAULT_PATH_LEAF_TO_NULL, Option.ALWAYS_RETURN_LIST);
+
 	@Override
 	public String getURI() {
 		return HALYARD.JSON_PATH_PROPERTY.stringValue();
@@ -41,14 +45,14 @@ public class JsonPathTupleFunction implements TupleFunction, InverseMagicPropert
 
 		String path = args[0].stringValue();
 		String json = args[1].stringValue();
-		Configuration conf = Configuration.defaultConfiguration().addOptions(Option.DEFAULT_PATH_LEAF_TO_NULL, Option.ALWAYS_RETURN_LIST);
 
+		JsonValueFactory jsonvf = new JsonOrgJsonValueFactory(vf);
 		try {
-			List<Object> result = JsonPath.using(conf).parse(json).read(path);
+			List<Object> result = JsonPath.using(CONFIGURATION).parse(json).read(path);
 			return new ConvertingIteration<>(new CloseableIteratorIteration<>(result.iterator())) {
 				@Override
 				protected List<? extends Value> convert(Object s) {
-					return Collections.singletonList(vf.createLiteral(result.toString()));
+					return Collections.singletonList(jsonvf.createJsonLiteral(result.toString()));
 				}
 			};
 		} catch (Exception e) {

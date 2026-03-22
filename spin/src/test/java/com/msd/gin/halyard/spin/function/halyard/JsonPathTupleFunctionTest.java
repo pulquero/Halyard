@@ -13,14 +13,16 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.junit.Test;
 
-import com.msd.gin.halyard.model.MapLiteral;
+import com.msd.gin.halyard.model.JsonOrgJsonValueFactory;
+import com.msd.gin.halyard.model.JsonValueFactory;
 
 public class JsonPathTupleFunctionTest {
 	@Test
 	public void testSimplePath() {
 		ValueFactory vf = SimpleValueFactory.getInstance();
+		JsonValueFactory jsonvf = new JsonOrgJsonValueFactory(vf);
 		String json = "{\"foo\":\"bar\"}";
-		Literal l = new MapLiteral(json);
+		Literal l = jsonvf.createJsonLiteral(json);
 		String jsonPath = "$.foo";
 		CloseableIteration<? extends List<? extends Value>> iter = new JsonPathTupleFunction().evaluate(vf, vf.createLiteral(jsonPath), l);
 		assertTrue(iter.hasNext());

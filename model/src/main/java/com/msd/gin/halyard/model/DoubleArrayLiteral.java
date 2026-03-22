@@ -1,7 +1,7 @@
 package com.msd.gin.halyard.model;
 
 import org.eclipse.rdf4j.model.Literal;
-import org.json.JSONArray;
+import org.json.JSONStringer;
 
 public final class DoubleArrayLiteral extends AbstractArrayLiteral<double[]> {
 	private static final long serialVersionUID = -8105005334950424983L;
@@ -14,11 +14,13 @@ public final class DoubleArrayLiteral extends AbstractArrayLiteral<double[]> {
 
 	@Override
 	public String getLabel() {
-		JSONArray arr = new JSONArray();
+		JSONStringer writer = new JSONStringer();
+		writer.array();
 		for (double o : this.values) {
-			arr.put(o);
+			writer.value(o);
 		}
-		return arr.toString(0);
+		writer.endArray();
+		return writer.toString();
 	}
 
 	@Override

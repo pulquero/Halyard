@@ -2,7 +2,7 @@ package com.msd.gin.halyard.sail.http;
 
 import com.google.common.base.Strings;
 import com.msd.gin.halyard.model.Base64Literal;
-import com.msd.gin.halyard.model.MapLiteral;
+import com.msd.gin.halyard.model.JsonOrgJsonValueFactory;
 import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.XMLLiteral;
 import com.msd.gin.halyard.model.vocabulary.HALYARD;
@@ -121,7 +121,7 @@ public class HttpRequestTupleFunction implements ExtendedTupleFunction {
 				String mimeType = contentType.getMimeType();
 				Literal respLiteral;
 				if (ContentType.APPLICATION_JSON.getMimeType().equals(mimeType)) {
-					respLiteral = new MapLiteral(EntityUtils.toString(entity));
+					respLiteral = new JsonOrgJsonValueFactory(vf).createJsonLiteral(EntityUtils.toString(entity));
 				} else if (mimeType.endsWith("+xml") || ContentType.APPLICATION_XML.getMimeType().equals(mimeType) || ContentType.TEXT_XML.getMimeType().equals(mimeType)) {
 					respLiteral = new XMLLiteral(EntityUtils.toString(entity));
 				} else if (mimeType.startsWith("text/")) {

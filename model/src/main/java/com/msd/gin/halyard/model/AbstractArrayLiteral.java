@@ -98,10 +98,10 @@ public abstract class AbstractArrayLiteral<T> extends AbstractDataLiteral implem
 			componentType = Float.class;
 			for (int i=0; i<arr.length; i++) {
 				double v = (Double) arr[i];
-				float x = (float) v;
+				float vf = (float) v;
 				darr[i] = v;
-				farr[i] = x;
-				if (Math.abs(v - x) > Math.ulp(v)) {
+				farr[i] = vf;
+				if (Math.abs(v - vf) > Math.ulp(v)) {
 					componentType = Double.class;
 				}
 			}
