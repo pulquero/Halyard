@@ -9,6 +9,8 @@ import java.util.Map;
 import org.kohsuke.MetaInfServices;
 
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.embedding.onnx.OnnxEmbeddingModel;
+import dev.langchain4j.model.embedding.onnx.PoolingMode;
 
 @MetaInfServices(QueryHelperProvider.class)
 public class EmbeddingModelQueryHelperProvider implements QueryHelperProvider<EmbeddingModel> {
@@ -42,6 +44,11 @@ public class EmbeddingModelQueryHelperProvider implements QueryHelperProvider<Em
 				}
 			}
 			return (EmbeddingModel) buildMethod.invoke(builder);
+		} else if ("dev.langchain4j.model.embedding.onnx.OnnxEmbeddingModel".equals(modelClassName)) {
+			String pathToModel = config.get("pathToModel");
+			String pathToTokenizer = config.get("pathToTokenizer");
+			String poolingMode = config.get("poolingMode");
+			return new OnnxEmbeddingModel(pathToModel, pathToTokenizer, PoolingMode.valueOf(poolingMode));
 		} else {
 			return (EmbeddingModel) modelClass.getConstructor().newInstance();
 		}
