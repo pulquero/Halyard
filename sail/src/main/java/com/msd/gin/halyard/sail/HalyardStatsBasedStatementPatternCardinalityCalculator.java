@@ -328,16 +328,19 @@ public final class HalyardStatsBasedStatementPatternCardinalityCalculator extend
 	 * How many triples are there with two roles known?
 	 */
 	private double subsetTriples(IRI graph, IRI partition1Type, Value partition1, IRI distinct1Type, IRI partition2Type, Value partition2, IRI distinct2Type, long totalTriples, long defaultCardinality) {
-		if (partition1 != null) {
-			return getPartitionedCardinality(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
-		} else if (partition2 != null) {
+		double bound1 = subsetTriples(graph, partition1Type, partition1, totalTriples, defaultCardinality);
+		double bound2 = subsetTriples(graph, partition2Type, partition2, totalTriples, defaultCardinality);
+		double upperBound = Math.min(bound1, bound2);
+		if (partition1 != null && partition2 == null) {
+			double estimate = getPartitionedCardinality(graph, partition1Type, partition1, distinct1Type, totalTriples, defaultCardinality);
+			return Math.min(estimate, upperBound);
+		} else if (partition1 == null && partition2 != null) {
 			// the number of distinct values associated to partition2 is a rough indication of the cardinality of partition1
-			return getDistinctCount(graph, partition2Type, partition2, distinct2Type, defaultCardinality);
+			double estimate = getDistinctCount(graph, partition2Type, partition2, distinct2Type, defaultCardinality);
+			return Math.min(estimate, upperBound);
 		} else {
 			// geometric mean of 1 and best upper bound
-			double bound1 = subsetTriples(graph, partition1Type, null, totalTriples, defaultCardinality);
-			double bound2 = subsetTriples(graph, partition2Type, null, totalTriples, defaultCardinality);
-			return Math.sqrt(Math.min(bound1, bound2));
+			return Math.sqrt(upperBound);
 		}
 	}
 

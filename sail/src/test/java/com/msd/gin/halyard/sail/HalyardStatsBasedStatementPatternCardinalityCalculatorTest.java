@@ -80,7 +80,7 @@ public class HalyardStatsBasedStatementPatternCardinalityCalculatorTest {
 		double card = calc.getStatementCardinality(new Var("s", subj), new Var("p", pred), new Var("o"), null, Collections.emptySet());
 		assertThat(card).isLessThan(TRIPLES_WITH_SUBJ);
 		assertThat(card).isLessThan(TRIPLES_WITH_PRED);
-		assertEquals(3.0, card);
+		assertEquals(2.0, card);
 	}
 
 	@Test
