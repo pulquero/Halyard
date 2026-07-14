@@ -377,24 +377,21 @@ public final class RDFLoadStager implements Callable<Void> {
 			int extPos = findExtDot(filename);
 			if (extPos != -1) {
 				int dotPos = filename.lastIndexOf('.');
-				String part1, part2;
 				if (dotPos > extPos) {
-					part1 = filename.substring(extPos, dotPos);
-					part2 = filename.substring(dotPos);
-				} else {
-					part1 = filename.substring(extPos);
-					part2 = null;
-				}
-				if (part2 == null) {
-					if (COMPRESSION_FORMATS.containsKey(part1)) {
-						return new FileExtension(null, part1);
+					String part1 = filename.substring(extPos, dotPos);
+					String part2 = filename.substring(dotPos);
+					if (COMPRESSION_FORMATS.containsKey(part2)) {
+						return new FileExtension(part1, part2);
 					} else {
-						return new FileExtension(part1, null);
+						return new FileExtension(part2, null);
 					}
-				} else if (COMPRESSION_FORMATS.containsKey(part2)) {
-					return new FileExtension(part1, part2);
 				} else {
-					throw new IllegalArgumentException(String.format("File has unsupported extension: %s", filename));
+					String ext = filename.substring(extPos);
+					if (COMPRESSION_FORMATS.containsKey(ext)) {
+						return new FileExtension(null, ext);
+					} else {
+						return new FileExtension(ext, null);
+					}
 				}
 			} else {
 				return new FileExtension(null, null);

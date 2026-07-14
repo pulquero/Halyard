@@ -30,4 +30,12 @@ public class RDFLoadStagerTest {
 		assertEquals(".txt", ext.type);
 		assertNull(ext.compression);
 	}
+
+	@Test
+	public void fileExtension_dotInName() throws Exception {
+		String filename = "version1.2.txt";
+		FileExtension ext = FileExtension.getExtension(filename);
+		assertEquals(".txt", ext.type);
+		assertNull(ext.compression);
+	}
 }
