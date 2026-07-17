@@ -1,59 +1,96 @@
 package com.msd.gin.halyard.model;
 
+import java.math.BigInteger;
+
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.base.AbstractValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
-import org.eclipse.rdf4j.model.vocabulary.GEO;
-import org.eclipse.rdf4j.model.vocabulary.RDF;
-import org.eclipse.rdf4j.model.vocabulary.XSD;
 
-import com.msd.gin.halyard.model.vocabulary.HALYARD;
 import com.msd.gin.halyard.model.vocabulary.HalyardDatatype;
 
-public final class AdvancedValueFactory extends AbstractValueFactory {
+public final class AdvancedValueFactory extends AbstractValueFactory implements ExtendedValueFactory {
 	private static final AdvancedValueFactory INSTANCE = new AdvancedValueFactory();
 
 	public static AdvancedValueFactory getInstance() {
 		return INSTANCE;
 	}
 
-	private Literal createAdvancedLiteral(String label, IRI datatype, CoreDatatype coreDatatype) {
+	private CoreDatatype getCoreDatatype(IRI datatype) {
+		CoreDatatype cdt = CoreDatatype.from(datatype);
+		if (cdt == CoreDatatype.NONE) {
+			cdt = HalyardDatatype.from(datatype);
+		}
+		return cdt;
+	}
+
+	private Literal createAdvancedLiteral(String label, CoreDatatype coreDatatype) {
 		try {
-			if (coreDatatype == CoreDatatype.GEO.WKT_LITERAL || GEO.WKT_LITERAL.equals(datatype)) {
+			if (coreDatatype == CoreDatatype.GEO.WKT_LITERAL) {
 				return new WKTLiteral(label);
-			} else if (coreDatatype == CoreDatatype.RDF.XMLLITERAL || RDF.XMLLITERAL.equals(datatype)) {
+			} else if (coreDatatype == CoreDatatype.RDF.XMLLITERAL) {
 				return new XMLLiteral(label);
-			} else if (coreDatatype == HalyardDatatype.TUPLE || HALYARD.TUPLE_TYPE.equals(datatype)) {
+			} else if (coreDatatype == HalyardDatatype.TUPLE) {
 				return new TupleLiteral(label);
-			} else if (coreDatatype == HalyardDatatype.ARRAY || HALYARD.ARRAY_TYPE.equals(datatype)) {
+			} else if (coreDatatype == HalyardDatatype.ARRAY) {
 				return AbstractArrayLiteral.create(label);
-			} else if (coreDatatype == HalyardDatatype.MAP || HALYARD.MAP_TYPE.equals(datatype)) {
+			} else if (coreDatatype == HalyardDatatype.MAP) {
 				return new MapLiteral(label);
-			} else if (coreDatatype == CoreDatatype.XSD.BASE64BINARY || XSD.BASE64BINARY.equals(datatype)) {
+			} else if (coreDatatype == CoreDatatype.XSD.BASE64BINARY) {
 				return new Base64Literal(label);
 			}
 		} catch (IllegalArgumentException e) {
 			// catch any illegal values and fallback
 		}
-		return null;
+		return super.createLiteral(label, coreDatatype);
 	}
 
 	@Override
 	public Literal createLiteral(String label, IRI datatype) {
-		Literal l = createAdvancedLiteral(label, datatype, null);
-		return (l != null) ? l : super.createLiteral(label, datatype);
+		CoreDatatype cdt = getCoreDatatype(datatype);
+		if (cdt != CoreDatatype.NONE) {
+			return createAdvancedLiteral(label, cdt);
+		} else {
+			return super.createLiteral(label, datatype);
+		}
 	}
 
 	@Override
 	public Literal createLiteral(String label, CoreDatatype coreDatatype) {
-		Literal l = createAdvancedLiteral(label, null, coreDatatype);
-		return (l != null) ? l : super.createLiteral(label, coreDatatype);
+		return createAdvancedLiteral(label, coreDatatype);
 	}
 
 	@Override
 	public Literal createLiteral(String label, IRI datatype, CoreDatatype coreDatatype) {
-		Literal l = createAdvancedLiteral(label, datatype, coreDatatype);
-		return (l != null) ? l : super.createLiteral(label, datatype, coreDatatype);
+		if (coreDatatype != CoreDatatype.NONE) {
+			return createAdvancedLiteral(label, coreDatatype);
+		} else {
+			return super.createLiteral(label, datatype, coreDatatype);
+		}
+	}
+
+	@Override
+	public Literal createLiteral(byte value) {
+		return IntLiteral.createByte(value);
+	}
+
+	@Override
+	public Literal createLiteral(short value) {
+		return IntLiteral.createShort(value);
+	}
+
+	@Override
+	public Literal createLiteral(int value) {
+		return IntLiteral.createInt(value);
+	}
+
+	@Override
+	public Literal createLiteral(BigInteger value) {
+		double u = value.doubleValue();
+		if (u >= Integer.MIN_VALUE && u <= Integer.MAX_VALUE) {
+			return IntLiteral.createInteger(value.intValueExact());
+		} else {
+			return super.createLiteral(value);
+		}
 	}
 }

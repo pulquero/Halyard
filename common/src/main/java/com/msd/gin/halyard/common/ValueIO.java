@@ -6,7 +6,9 @@ import com.ibm.icu.text.UnicodeDecompressor;
 import com.msd.gin.halyard.model.AbstractArrayLiteral;
 import com.msd.gin.halyard.model.Base64Literal;
 import com.msd.gin.halyard.model.DoubleArrayLiteral;
+import com.msd.gin.halyard.model.ExtendedValueFactory;
 import com.msd.gin.halyard.model.FloatArrayLiteral;
+import com.msd.gin.halyard.model.IntLiteral;
 import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.ValueType;
 import com.msd.gin.halyard.model.WKTLiteral;
@@ -31,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.xml.datatype.DatatypeConfigurationException;
@@ -79,7 +82,7 @@ public class ValueIO {
 		ByteReader(CoreDatatype dt) {
 			this.datatype = dt;
 		}
-		abstract Literal readBytes(ByteBuffer b, ValueFactory vf);
+		abstract Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper);
 	}
 
 	static final DatatypeFactory DATATYPE_FACTORY;
@@ -358,13 +361,13 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.FALSE_TYPE, new ByteReader(CoreDatatype.XSD.BOOLEAN) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				return vf.createLiteral(false);
 			}
 		});
 		addByteReader(HeaderBytes.TRUE_TYPE, new ByteReader(CoreDatatype.XSD.BOOLEAN) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				return vf.createLiteral(true);
 			}
 		});
@@ -378,8 +381,8 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.BYTE_TYPE, new ByteReader(CoreDatatype.XSD.BYTE) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
-				return vf.createLiteral(b.get());
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
+				return implMapper.apply(IntLiteral.createByte(b.get()));
 			}
 		});
 
@@ -392,8 +395,8 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.SHORT_TYPE, new ByteReader(CoreDatatype.XSD.SHORT) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
-				return vf.createLiteral(b.getShort());
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
+				return implMapper.apply(IntLiteral.createShort(b.getShort()));
 			}
 		});
 
@@ -406,8 +409,8 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.INT_TYPE, new ByteReader(CoreDatatype.XSD.INT) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
-				return vf.createLiteral(b.getInt());
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
+				return implMapper.apply(IntLiteral.createInt(b.getInt()));
 			}
 		});
 
@@ -420,7 +423,7 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.LONG_TYPE, new ByteReader(CoreDatatype.XSD.LONG) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				return vf.createLiteral(b.getLong());
 			}
 		});
@@ -434,7 +437,7 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.FLOAT_TYPE, new ByteReader(CoreDatatype.XSD.FLOAT) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				return vf.createLiteral(b.getFloat());
 			}
 		});
@@ -448,7 +451,7 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.DOUBLE_TYPE, new ByteReader(CoreDatatype.XSD.DOUBLE) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				return vf.createLiteral(b.getDouble());
 			}
 		});
@@ -470,7 +473,7 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.BIG_INT_TYPE, new ByteReader(CoreDatatype.XSD.INTEGER) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				byte[] bytes = new byte[b.remaining()];
 				b.get(bytes);
 				return vf.createLiteral(new BigInteger(bytes));
@@ -478,29 +481,21 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.INT_COMPRESSED_BIG_INT_TYPE, new ByteReader(CoreDatatype.XSD.INTEGER) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				int v = b.getInt();
-				if (vf instanceof IdValueFactory) {
-					return ((IdValueFactory)vf).createLiteral(v, CoreDatatype.XSD.INTEGER);
-				} else {
-					return vf.createLiteral(BigInteger.valueOf(v));
-				}
+				return implMapper.apply(IntLiteral.createInteger(v));
 			}
 		});
 		addByteReader(HeaderBytes.SHORT_COMPRESSED_BIG_INT_TYPE, new ByteReader(CoreDatatype.XSD.INTEGER) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				int v = b.getShort();
-				if (vf instanceof IdValueFactory) {
-					return ((IdValueFactory)vf).createLiteral(v, CoreDatatype.XSD.INTEGER);
-				} else {
-					return vf.createLiteral(BigInteger.valueOf(v));
-				}
+				return implMapper.apply(IntLiteral.createInteger(v));
 			}
 		});
 		addByteReader(HeaderBytes.LONG_COMPRESSED_BIG_INT_TYPE, new ByteReader(CoreDatatype.XSD.INTEGER) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				long v = b.getLong();
 				return vf.createLiteral(BigInteger.valueOf(v));
 			}
@@ -518,7 +513,7 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.BIG_FLOAT_TYPE, new ByteReader(CoreDatatype.XSD.DECIMAL) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				int scale = b.getInt();
 				byte[] bytes = new byte[b.remaining()];
 				b.get(bytes);
@@ -534,13 +529,13 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.COMPRESSED_STRING_TYPE, new ByteReader(CoreDatatype.XSD.STRING) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				return vf.createLiteral(readCompressedString(b));
 			}
 		});
 		addByteReader(HeaderBytes.UNCOMPRESSED_STRING_TYPE, new ByteReader(CoreDatatype.XSD.STRING) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				return vf.createLiteral(readUncompressedString(b));
 			}
 		});
@@ -555,7 +550,7 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.LANGUAGE_HASH_LITERAL_TYPE, new ByteReader(CoreDatatype.RDF.LANGSTRING) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				b.mark();
 				short langHash = b.getShort(); // 16-bit hash
 				String label = readString(b);
@@ -569,7 +564,7 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.LANGUAGE_LITERAL_TYPE, new ByteReader(CoreDatatype.RDF.LANGSTRING) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				int originalLimit = b.limit();
 				int langSize = b.get();
 				b.limit(b.position()+langSize);
@@ -588,7 +583,7 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.TIME_TYPE, new ByteReader(CoreDatatype.XSD.TIME) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				XMLGregorianCalendar cal = readCalendar(b);
 				cal.setYear(null);
 				cal.setMonth(DatatypeConstants.FIELD_UNDEFINED);
@@ -605,7 +600,7 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.DATE_TYPE, new ByteReader(CoreDatatype.XSD.DATE) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				XMLGregorianCalendar cal = readCalendar(b);
 				cal.setHour(DatatypeConstants.FIELD_UNDEFINED);
 				cal.setMinute(DatatypeConstants.FIELD_UNDEFINED);
@@ -623,7 +618,7 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.DATETIME_TYPE, new ByteReader(CoreDatatype.XSD.DATETIME) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				XMLGregorianCalendar cal = readCalendar(b);
 				return vf.createLiteral(cal);
 			}
@@ -639,10 +634,10 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.BASE64_BINARY_TYPE, new ByteReader(CoreDatatype.XSD.BASE64BINARY) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				byte[] binary = new byte[b.remaining()];
 				b.get(binary);
-				return new Base64Literal(binary);
+				return implMapper.apply(new Base64Literal(binary));
 			}
 		});
 
@@ -666,14 +661,14 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.WKT_LITERAL_TYPE, new ByteReader(CoreDatatype.GEO.WKT_LITERAL) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				int wktType = b.get();
 				switch (wktType) {
 					case HeaderBytes.WKT_LITERAL_TYPE:
 						// valid wkt
 						byte[] wkbBytes = new byte[b.remaining()];
 						b.get(wkbBytes);
-						return new WKTLiteral(wkbBytes);
+						return implMapper.apply(new WKTLiteral(wkbBytes));
 					case HeaderBytes.UNCOMPRESSED_STRING_TYPE:
 						// invalid xml
 						return vf.createLiteral(readUncompressedString(b), CoreDatatype.GEO.WKT_LITERAL);
@@ -702,14 +697,14 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.XML_TYPE, new ByteReader(CoreDatatype.RDF.XMLLITERAL) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				int xmlType = b.get();
 				switch (xmlType) {
 					case HeaderBytes.XML_TYPE:
 						// valid xml
 						byte[] fiBytes = new byte[b.remaining()];
 						b.get(fiBytes);
-						return new XMLLiteral(fiBytes);
+						return implMapper.apply(new XMLLiteral(fiBytes));
 					case HeaderBytes.COMPRESSED_STRING_TYPE:
 						// invalid xml
 						return vf.createLiteral(readCompressedString(b), CoreDatatype.RDF.XMLLITERAL);
@@ -798,46 +793,54 @@ public class ValueIO {
 		});
 		addByteReader(HeaderBytes.ARRAY_TYPE, new ByteReader(HalyardDatatype.ARRAY) {
 			@Override
-			public Literal readBytes(ByteBuffer b, ValueFactory vf) {
+			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
+				Literal l;
 				int componentType = b.get();
 				int size = b.getInt();
 				switch (componentType) {
 					case HeaderBytes.ARRAY_TYPE:
-						// mixed
-						return AbstractArrayLiteral.create(readUncompressedString(b));
+						// mixed component types
+						l = AbstractArrayLiteral.create(readUncompressedString(b));
+						break;
 					case HeaderBytes.UNCOMPRESSED_STRING_TYPE:
 						Object[] oarr = new Object[size];
 						for (int i=0; i<size; i++) {
 							oarr[i] = readUncompressedString(b);
 						}
-						return new ObjectArrayLiteral(oarr, String.class);
+						l = new ObjectArrayLiteral(oarr, String.class);
+						break;
 					case HeaderBytes.INT_TYPE:
 						Object[] iarr = new Object[size];
 						for (int i=0; i<size; i++) {
 							iarr[i] = b.getInt();
 						}
-						return new ObjectArrayLiteral(iarr, Integer.class);
+						l = new ObjectArrayLiteral(iarr, Integer.class);
+						break;
 					case HeaderBytes.LONG_TYPE:
 						Object[] larr = new Object[size];
 						for (int i=0; i<size; i++) {
 							larr[i] = b.getLong();
 						}
-						return new ObjectArrayLiteral(larr, Long.class);
+						l = new ObjectArrayLiteral(larr, Long.class);
+						break;
 					case HeaderBytes.FLOAT_TYPE:
 						float[] farr = new float[size];
 						for (int i=0; i<size; i++) {
 							farr[i] = b.getFloat();
 						}
-						return new FloatArrayLiteral(farr);
+						l = new FloatArrayLiteral(farr);
+						break;
 					case HeaderBytes.DOUBLE_TYPE:
 						double[] darr = new double[size];
 						for (int i=0; i<size; i++) {
 							darr[i] = b.getDouble();
 						}
-						return new DoubleArrayLiteral(darr);
+						l = new DoubleArrayLiteral(darr);
+						break;
 					default:
 						throw new AssertionError(String.format("Unrecognized array type: %d", componentType));
 				}
+				return implMapper.apply(l);
 			}
 		});
 	}
@@ -1280,7 +1283,13 @@ public class ValueIO {
 					if (reader == null) {
 						throw new AssertionError(String.format("Unexpected type: %s", type));
 					}
-					Literal val = reader.readBytes(b, vf);
+					Function<Literal,Literal> implMapper;
+					if (vf instanceof ExtendedValueFactory) {
+						implMapper = ((ExtendedValueFactory)vf)::createLiteral;
+					} else {
+						implMapper = Function.identity();
+					}
+					Literal val = reader.readBytes(b, vf, implMapper);
 					assert val.getCoreDatatype() == reader.datatype;
 					return val;
 			}

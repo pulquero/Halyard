@@ -1,6 +1,6 @@
 package com.msd.gin.halyard.common;
 
-import com.msd.gin.halyard.model.IntLiteral;
+import com.msd.gin.halyard.model.ExtendedValueFactory;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -26,7 +26,7 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.base.CoreDatatype;
 
 @ThreadSafe
-public class IdValueFactory implements ValueFactory, Serializable {
+public class IdValueFactory implements ExtendedValueFactory, Serializable {
 	private static final long serialVersionUID = 5500427177071598798L;
 	private static final ValueFactory DELEGATE_VALUE_FACTORY = IdentifiableValue.MATERIALIZED_VALUE_FACTORY;
 
@@ -78,6 +78,11 @@ public class IdValueFactory implements ValueFactory, Serializable {
 	}
 
 	@Override
+	public Literal createLiteral(Literal l) {
+		return new IdentifiableLiteral(l);
+	}
+
+	@Override
 	public Literal createLiteral(String value) {
 		return new IdentifiableLiteral(value);
 	}
@@ -124,10 +129,6 @@ public class IdValueFactory implements ValueFactory, Serializable {
 	@Override
 	public Literal createLiteral(int value) {
 		return new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(value));
-	}
-
-	public Literal createLiteral(int value, CoreDatatype coreDatatype) {
-		return new IdentifiableLiteral(new IntLiteral(value, coreDatatype));
 	}
 
 	@Override

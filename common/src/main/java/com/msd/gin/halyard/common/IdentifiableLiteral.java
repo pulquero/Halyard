@@ -55,6 +55,7 @@ public final class IdentifiableLiteral extends IdentifiableValue implements Lite
 		super(MATERIALIZED_VALUE_FACTORY.createLiteral(label, lang));
 	}
 
+	@Override
 	public Literal unwrap() {
 		return (Literal) getValue();
 	}
