@@ -131,7 +131,7 @@ public final class RDFLoadStager implements Callable<Void> {
 			FileExtension mergeExt = entry.getKey();
 			FileExtension outputExt = (compressionExt != null) ? new FileExtension(mergeExt.type, compressionExt) : mergeExt;
 			List<FileInfo> files = entry.getValue();
-			if (canMerge(mergeExt)) {
+			if (files.size() > 1 && canMerge(mergeExt)) {
 				int numPartitions;
 				long totalSize = sizeOf(files);
 				if (totalSize <= MIN_BLOCK_SIZE) {
