@@ -28,6 +28,8 @@ import com.msd.gin.halyard.rio.TriGStarParser;
 import com.msd.gin.halyard.util.LRUCache;
 
 import java.io.Closeable;
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.MessageFormat;
@@ -41,6 +43,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.MissingOptionException;
@@ -59,7 +62,6 @@ import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.HFileOutputFormat2;
-import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.compress.CodecPool;
 import org.apache.hadoop.io.compress.CompressionCodec;
@@ -91,10 +93,11 @@ import org.eclipse.rdf4j.rio.RDFParserRegistry;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
-import org.eclipse.rdf4j.rio.helpers.NTriplesUtil;
 import org.eclipse.rdf4j.rio.ntriples.NTriplesParserSettings;
+import org.eclipse.rdf4j.rio.trig.TriGParser;
 import org.eclipse.rdf4j.rio.trix.TriXParser;
 import org.eclipse.rdf4j.rio.turtle.TurtleParser;
+import org.eclipse.rdf4j.rio.turtlestar.TurtleStarParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -199,39 +202,166 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
             }
             @Override
             public RDFParser getParser() {
-                return new TurtleParser(){
-                    @Override
-                    protected IRI parseURI() throws IOException, RDFParseException {
-                        try {
-                            return super.parseURI();
-                        } catch (RuntimeException e) {
-                            if (getParserConfig().get(NTriplesParserSettings.FAIL_ON_INVALID_LINES)) {
-                                throw e;
-                            } else {
-                                reportError(e, NTriplesParserSettings.FAIL_ON_INVALID_LINES);
-                                return null;
-                            }
-                        }
-                    }
-                    @Override
-                    protected Literal createLiteral(String label, String lang, IRI datatype, long lineNo, long columnNo) throws RDFParseException {
-                        try {
-                            return super.createLiteral(label, lang, datatype, lineNo, columnNo);
-                        } catch (RuntimeException e) {
-                            if (getParserConfig().get(NTriplesParserSettings.FAIL_ON_INVALID_LINES)) {
-                                throw e;
-                            } else {
-                                reportError(e, NTriplesParserSettings.FAIL_ON_INVALID_LINES);
-                                return super.createLiteral(label, (String) null, (IRI) null, lineNo, columnNo);
-                            }
-                        }
-                    }
-                };
+                return new RobustTurtleParser();
+            }
+        });
+        replaceParser(RDFFormat.TURTLESTAR, new RDFParserFactory() {
+            @Override
+            public RDFFormat getRDFFormat() {
+                return RDFFormat.TURTLESTAR;
+            }
+            @Override
+            public RDFParser getParser() {
+                return new RobustTurtleStarParser();
+            }
+        });
+        replaceParser(RDFFormat.TRIG, new RDFParserFactory() {
+            @Override
+            public RDFFormat getRDFFormat() {
+                return RDFFormat.TRIG;
+            }
+            @Override
+            public RDFParser getParser() {
+                return new RobustTriGParser();
             }
         });
         // this is a workaround for https://github.com/eclipse/rdf4j/issues/3664
-        replaceParser(RDFFormat.TRIGSTAR, new TriGStarParser.Factory());
+        replaceParser(RDFFormat.TRIGSTAR, new RDFParserFactory() {
+            @Override
+            public RDFFormat getRDFFormat() {
+                return RDFFormat.TRIGSTAR;
+            }
+            @Override
+            public RDFParser getParser() {
+                return new RobustTriGStarParser();
+            }
+        });
     }
+
+    static final class RobustTurtleParser extends TurtleParser {
+    	/**
+    	 * Improved resistance to invalid URIs.
+    	 */
+        @Override
+        protected IRI parseURI() throws IOException, RDFParseException {
+            try {
+                return super.parseURI();
+            } catch (RuntimeException e) {
+                if (getParserConfig().get(NTriplesParserSettings.FAIL_ON_INVALID_LINES)) {
+                    throw e;
+                } else {
+                    reportError(e, NTriplesParserSettings.FAIL_ON_INVALID_LINES);
+                    return null;
+                }
+            }
+        }
+    	/**
+    	 * Improved resistance to invalid literals.
+    	 */
+        @Override
+        protected Literal createLiteral(String label, String lang, IRI datatype, long lineNo, long columnNo) throws RDFParseException {
+            try {
+                return super.createLiteral(label, lang, datatype, lineNo, columnNo);
+            } catch (RuntimeException e) {
+                if (getParserConfig().get(NTriplesParserSettings.FAIL_ON_INVALID_LINES)) {
+                    throw e;
+                } else {
+                    reportError(e, NTriplesParserSettings.FAIL_ON_INVALID_LINES);
+                    return super.createLiteral(label, (String) null, (IRI) null, lineNo, columnNo);
+                }
+            }
+        }
+    }
+
+    static final class RobustTurtleStarParser extends TurtleStarParser {
+    	/**
+    	 * Improved resistance to invalid URIs.
+    	 */
+        @Override
+        protected IRI parseURI() throws IOException, RDFParseException {
+            try {
+                return super.parseURI();
+            } catch (RuntimeException e) {
+                if (getParserConfig().get(NTriplesParserSettings.FAIL_ON_INVALID_LINES)) {
+                    throw e;
+                } else {
+                    reportError(e, NTriplesParserSettings.FAIL_ON_INVALID_LINES);
+                    return null;
+                }
+            }
+        }
+    	/**
+    	 * Improved resistance to invalid literals.
+    	 */
+        @Override
+        protected Literal createLiteral(String label, String lang, IRI datatype, long lineNo, long columnNo) throws RDFParseException {
+            try {
+                return super.createLiteral(label, lang, datatype, lineNo, columnNo);
+            } catch (RuntimeException e) {
+                if (getParserConfig().get(NTriplesParserSettings.FAIL_ON_INVALID_LINES)) {
+                    throw e;
+                } else {
+                    reportError(e, NTriplesParserSettings.FAIL_ON_INVALID_LINES);
+                    return super.createLiteral(label, (String) null, (IRI) null, lineNo, columnNo);
+                }
+            }
+        }
+    }
+
+    static final class RobustTriGParser extends TriGParser {
+    	/**
+    	 * Improved resistance to invalid URIs.
+    	 */
+        @Override
+        protected IRI parseURI() throws IOException, RDFParseException {
+            try {
+                return super.parseURI();
+            } catch (RuntimeException e) {
+                if (getParserConfig().get(NTriplesParserSettings.FAIL_ON_INVALID_LINES)) {
+                    throw e;
+                } else {
+                    reportError(e, NTriplesParserSettings.FAIL_ON_INVALID_LINES);
+                    return null;
+                }
+            }
+        }
+    	/**
+    	 * Improved resistance to invalid literals.
+    	 */
+        @Override
+        protected Literal createLiteral(String label, String lang, IRI datatype, long lineNo, long columnNo) throws RDFParseException {
+            try {
+                return super.createLiteral(label, lang, datatype, lineNo, columnNo);
+            } catch (RuntimeException e) {
+                if (getParserConfig().get(NTriplesParserSettings.FAIL_ON_INVALID_LINES)) {
+                    throw e;
+                } else {
+                    reportError(e, NTriplesParserSettings.FAIL_ON_INVALID_LINES);
+                    return super.createLiteral(label, (String) null, (IRI) null, lineNo, columnNo);
+                }
+            }
+        }
+    }
+
+    static final class RobustTriGStarParser extends TriGStarParser {
+    	/**
+    	 * Improved resistance to invalid literals.
+    	 */
+        @Override
+        protected Literal createLiteral(String label, String lang, IRI datatype, long lineNo, long columnNo) throws RDFParseException {
+            try {
+                return super.createLiteral(label, lang, datatype, lineNo, columnNo);
+            } catch (RuntimeException e) {
+                if (getParserConfig().get(NTriplesParserSettings.FAIL_ON_INVALID_LINES)) {
+                    throw e;
+                } else {
+                    reportError(e, NTriplesParserSettings.FAIL_ON_INVALID_LINES);
+                    return super.createLiteral(label, (String) null, (IRI) null, lineNo, columnNo);
+                }
+            }
+        }
+    }
+
 
     /**
      * Mapper class transforming each parsed Statement into set of HBase KeyValues
@@ -318,23 +448,23 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
             List<InputSplit> splits = super.getSplits(job);
             long maxSize = MAX_SINGLE_FILE_MULTIPLIER * job.getConfiguration().getLong(FileInputFormat.SPLIT_MAXSIZE, 0);
             if (maxSize > 0) {
-                List<InputSplit> newSplits = new ArrayList<>();
-                for (InputSplit spl : splits) {
-                    CombineFileSplit cfs = (CombineFileSplit)spl;
-                    for (int i=0; i<cfs.getNumPaths(); i++) {
-                        long length = cfs.getLength();
-                        if (length > maxSize) {
-                            int replicas = (int)Math.ceil((double)length / (double)maxSize);
-                            Path path = cfs.getPath(i);
-                            for (int r=1; r<replicas; r++) {
-                                newSplits.add(new CombineFileSplit(new Path[]{path}, new long[]{r}, new long[]{length}, cfs.getLocations()));
-                            }
+            	List<InputSplit> newSplits = new ArrayList<>(splits.size());
+            	for (InputSplit split : splits) {
+                    CombineFileSplit cfs = (CombineFileSplit) split;
+                    long length = cfs.getLength();
+                    if (cfs.getLength() > maxSize) {
+                        int replicas = (int)Math.ceil((double)length / (double)maxSize);
+                        for (int r=0; r<replicas; r++) {
+                        	newSplits.add(new PartialCombineFileSplit(cfs, r, replicas));
                         }
+                    } else {
+                    	newSplits.add(cfs);
                     }
                 }
-                splits.addAll(newSplits);
+            	return newSplits;
+            } else {
+            	return splits;
             }
-            return splits;
         }
 
         @Override
@@ -412,6 +542,43 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
         }
     }
 
+    static final class PartialCombineFileSplit extends CombineFileSplit {
+    	private int replica;
+    	private int numReplicas;
+
+    	/** Default constructor for serialization */
+    	public PartialCombineFileSplit() {}
+    	public PartialCombineFileSplit(CombineFileSplit old, int replica, int numReplicas) throws IOException {
+			super(old);
+			this.replica = replica;
+			this.numReplicas = numReplicas;
+		}
+
+    	public Predicate<Statement> getStatementFilter() {
+    		return stmt -> Math.floorMod(stmt.hashCode(), numReplicas) == replica;
+    	}
+
+    	@Override
+    	public void readFields(DataInput in) throws IOException {
+    		super.readFields(in);
+    		replica = in.readInt();
+    		numReplicas = in.readInt();
+    	}
+
+    	@Override
+    	public void write(DataOutput out) throws IOException {
+    		super.write(out);
+    		out.writeInt(replica);
+    		out.writeInt(numReplicas);
+    	}
+
+    	@Override
+    	public String toString() {
+    		return super.toString()+" Replica "+(replica+1)+" of "+numReplicas;
+    	}
+    }
+
+
     private static final ValueFactory VF = SimpleValueFactory.getInstance();
     private static final IRI NOP = VF.createIRI(":");
     private static final Statement END_STATEMENT = VF.createStatement(NOP, NOP, NOP);
@@ -430,27 +597,21 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
         private final IdValueFactory idValueFactory;
         private final CachingValueFactory valueFactory;
         private final TaskAttemptContext context;
-        private final Path paths[];
-        private final long[] sizes, offsets;
-        private final long size;
+        private final CombineFileSplit split;
         private final boolean allowInvalidIris, skipInvalidLines, verifyDataTypeValues;
         private final String defaultRdfContextPattern;
         private final boolean overrideRdfContext;
-        private final long maxSize;
         private volatile String baseUri;
+        private volatile Predicate<Statement> statementFilter;
         private volatile Exception ex;
         private long finishedSize = 0L;
-        private int offset, count;
         private boolean namespaceContextStatementWritten;
 
         private InputStream inStream;
 
         public ParserPump(CombineFileSplit split, TaskAttemptContext context) throws IOException {
+            this.split = split;
             this.context = context;
-            this.paths = split.getPaths();
-            this.sizes = split.getLengths();
-            this.offsets = split.getStartOffsets();
-            this.size = split.getLength();
             Configuration conf = context.getConfiguration();
             this.queue = new LinkedBlockingQueue<>(conf.getInt(PARSER_QUEUE_SIZE_PROPERTY, DEFAULT_PARSER_QUEUE_SIZE));
             this.idValueFactory = new IdValueFactory(RDFFactory.create(conf));
@@ -460,7 +621,6 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
             this.verifyDataTypeValues = conf.getBoolean(VERIFY_DATATYPE_VALUES_PROPERTY, false);
             this.overrideRdfContext = conf.getBoolean(OVERRIDE_CONTEXT_PROPERTY, false);
             this.defaultRdfContextPattern = conf.get(DEFAULT_CONTEXT_PROPERTY);
-            this.maxSize = MAX_SINGLE_FILE_MULTIPLIER * conf.getLong(FileInputFormat.SPLIT_MAXSIZE, 0);
         }
 
         public Statement getNext() throws IOException, InterruptedException {
@@ -482,9 +642,9 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
         public synchronized float getProgress() {
             try {
                 long seekPos = (inStream instanceof Seekable) ? ((Seekable)inStream).getPos() : 0L;
-                return (float)(finishedSize + seekPos) / (float)size;
+                return (float)(finishedSize + seekPos) / (float)split.getLength();
             } catch (IOException e) {
-                return (float)finishedSize / (float)size;
+                return (float)finishedSize / (float)split.getLength();
             }
         }
 
@@ -493,7 +653,7 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
             setParsers();
             try {
                 Configuration conf = context.getConfiguration();
-                for (int i=0; i<paths.length; i++) {
+                for (int i=0; i<split.getNumPaths(); i++) {
                     synchronized (this) {
                         if (inStream instanceof Seekable) {
                         	try {
@@ -504,13 +664,17 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
                         }
                     }
                     close();
-                    Path file = paths[i];
+                    Path file = split.getPath(i);
                     final String localBaseUri = file.toString();
                     RDFFormat rdfFormat = Rio.getParserFormatForFileName(localBaseUri).orElse(null);
                     if (rdfFormat != null) {
                         this.baseUri = localBaseUri;
-	                    this.offset = (int) offsets[i];
-	                    this.count = (maxSize > 0 && sizes[i] > maxSize) ? (int) Math.ceil((double)sizes[i] / (double)maxSize) : 1;
+                        if (split instanceof PartialCombineFileSplit) {
+                        	PartialCombineFileSplit pcfs = (PartialCombineFileSplit) split;
+                    		statementFilter = pcfs.getStatementFilter();
+                        } else {
+                        	statementFilter = null;
+                        }
 	                    context.setStatus("Parsing " + localBaseUri);
 		                try {
 		                    FileSystem fs = file.getFileSystem(conf);
@@ -572,7 +736,7 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
 
         @Override
         public void handleStatement(Statement st) {
-            if (count == 1 || Math.floorMod(st.hashCode(), count) == offset) {
+            if (statementFilter == null || statementFilter.test(st)) {
             	if (!queue.offer(st)) {
             		context.getCounter(Counters.PARSE_QUEUE_FULL_COUNT).increment(1);
 	            	try {
