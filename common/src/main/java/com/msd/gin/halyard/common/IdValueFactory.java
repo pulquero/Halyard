@@ -9,6 +9,7 @@ import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalAmount;
 import java.util.Date;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -31,11 +32,24 @@ public class IdValueFactory implements ValueFactory, Serializable {
 
 	private final Literal TRUE;
 	private final Literal FALSE;
+	private final Supplier<String> bnodeIdGenerator;
 	private transient RDFFactory rdfFactory;
 
+	private static final class SecureBNodeIdGenerator implements Supplier<String> {
+		@Override
+		public String get() {
+			return UUID.randomUUID().toString();
+		}
+	}
+
 	public IdValueFactory(@Nullable RDFFactory rdfFactory) {
+		this(rdfFactory, new SecureBNodeIdGenerator());
+	}
+
+	public IdValueFactory(@Nullable RDFFactory rdfFactory, Supplier<String> bnodeIdGenerator) {
 		this.TRUE = new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(true));
 		this.FALSE = new IdentifiableLiteral(DELEGATE_VALUE_FACTORY.createLiteral(false));
+		this.bnodeIdGenerator = bnodeIdGenerator;
 		this.rdfFactory = rdfFactory;
 	}
 
@@ -53,10 +67,10 @@ public class IdValueFactory implements ValueFactory, Serializable {
 		return new IdentifiableIRI(namespace, localName);
 	}
 
-	@Override
-	public BNode createBNode() {
-		return new IdentifiableBNode(UUID.randomUUID().toString());
-	}
+    @Override
+    public BNode createBNode() {
+        return new IdentifiableBNode(bnodeIdGenerator.get());
+    }
 
 	@Override
 	public BNode createBNode(String nodeID) {

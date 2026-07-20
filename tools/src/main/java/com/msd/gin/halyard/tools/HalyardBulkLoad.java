@@ -38,12 +38,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.MissingOptionException;
@@ -69,6 +71,7 @@ import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.JobContext;
+import org.apache.hadoop.mapreduce.JobID;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
@@ -596,6 +599,7 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
         private final BlockingQueue<Statement> queue;
         private final IdValueFactory idValueFactory;
         private final CachingValueFactory valueFactory;
+        private final BNodeIdGenerator bnodeIdGenerator;
         private final TaskAttemptContext context;
         private final CombineFileSplit split;
         private final boolean allowInvalidIris, skipInvalidLines, verifyDataTypeValues;
@@ -609,12 +613,33 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
 
         private InputStream inStream;
 
+        private static final class BNodeIdGenerator implements Supplier<String> {
+        	final int jobHash;
+        	long lsb;
+        	long counter;
+
+        	BNodeIdGenerator(JobID jobId) {
+        		this.jobHash = jobId.hashCode();
+        	}
+
+        	void setFile(Path file) {
+        		lsb = (file.hashCode() << 32) + jobHash;
+        	}
+
+        	@Override
+        	public String get() {
+        		return new UUID(counter++, lsb).toString();
+        	}
+        }
+
         public ParserPump(CombineFileSplit split, TaskAttemptContext context) throws IOException {
             this.split = split;
             this.context = context;
             Configuration conf = context.getConfiguration();
             this.queue = new LinkedBlockingQueue<>(conf.getInt(PARSER_QUEUE_SIZE_PROPERTY, DEFAULT_PARSER_QUEUE_SIZE));
-            this.idValueFactory = new IdValueFactory(RDFFactory.create(conf));
+            // ensure any generated bnode IDs are deterministic across Mapper jobs
+            this.bnodeIdGenerator = new BNodeIdGenerator(context.getJobID());
+            this.idValueFactory = new IdValueFactory(RDFFactory.create(conf), bnodeIdGenerator);
             this.valueFactory = new CachingValueFactory(idValueFactory, conf.getInt(VALUE_CACHE_SIZE_PROPERTY, DEFAULT_VALUE_CACHE_SIZE));
             this.allowInvalidIris = conf.getBoolean(ALLOW_INVALID_IRIS_PROPERTY, false);
             this.skipInvalidLines = conf.getBoolean(SKIP_INVALID_LINES_PROPERTY, false);
@@ -712,6 +737,7 @@ public class HalyardBulkLoad extends AbstractHalyardTool {
 		                        }
 		                        valueFactory.setDefaultContext(defaultRdfContext, overrideRdfContext);
 		                    }
+		                    bnodeIdGenerator.setFile(file);
 		                    parser.setValueFactory(valueFactory);
 		                    parser.parse(localStream, localBaseUri);
 		                } catch (Exception e) {
