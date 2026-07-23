@@ -85,10 +85,17 @@ public final class AdvancedValueFactory extends AbstractValueFactory implements 
 	}
 
 	@Override
+	public Literal createLiteral(long value) {
+		return LongLiteral.createLong(value);
+	}
+
+	@Override
 	public Literal createLiteral(BigInteger value) {
 		double u = value.doubleValue();
 		if (u >= Integer.MIN_VALUE && u <= Integer.MAX_VALUE) {
 			return IntLiteral.createInteger(value.intValueExact());
+		} else if (u >= Long.MIN_VALUE && u <= Long.MAX_VALUE) {
+				return LongLiteral.createInteger(value.longValueExact());
 		} else {
 			return super.createLiteral(value);
 		}

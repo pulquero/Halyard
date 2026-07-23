@@ -9,6 +9,7 @@ import com.msd.gin.halyard.model.DoubleArrayLiteral;
 import com.msd.gin.halyard.model.ExtendedValueFactory;
 import com.msd.gin.halyard.model.FloatArrayLiteral;
 import com.msd.gin.halyard.model.IntLiteral;
+import com.msd.gin.halyard.model.LongLiteral;
 import com.msd.gin.halyard.model.ObjectArrayLiteral;
 import com.msd.gin.halyard.model.ValueType;
 import com.msd.gin.halyard.model.WKTLiteral;
@@ -424,7 +425,7 @@ public class ValueIO {
 		addByteReader(HeaderBytes.LONG_TYPE, new ByteReader(CoreDatatype.XSD.LONG) {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
-				return vf.createLiteral(b.getLong());
+				return implMapper.apply(LongLiteral.createLong(b.getLong()));
 			}
 		});
 
@@ -497,7 +498,7 @@ public class ValueIO {
 			@Override
 			public Literal readBytes(ByteBuffer b, ValueFactory vf, Function<Literal,Literal> implMapper) {
 				long v = b.getLong();
-				return vf.createLiteral(BigInteger.valueOf(v));
+				return implMapper.apply(LongLiteral.createInteger(v));
 			}
 		});
 
