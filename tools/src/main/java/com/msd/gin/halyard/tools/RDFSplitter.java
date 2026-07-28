@@ -67,8 +67,10 @@ public final class RDFSplitter implements RDFHandler, Callable<Long> {
 
 		RDFFile[] files = new RDFFile[numParts];
 		if (numParts > 1) {
+			int width = Integer.toString(numParts).length();
+			String nameFormat = "%s_%0"+width+"d%s";
 			for (int i=0; i<files.length; i++) {
-				String outName = outBaseName + "_" + Integer.toString(i+1) + outExt;
+				String outName = String.format(nameFormat, outBaseName, i+1, outExt);
 				files[i] = new RDFFile(outFormat, outCompression, outputDir.resolve(outName));
 			}
 		} else {
